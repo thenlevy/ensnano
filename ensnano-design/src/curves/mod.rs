@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ultraviolet::{DMat3, DVec3};
+use ultraviolet::{DMat3, DVec3, Vec3};
 const EPSILON: f64 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
 use super::{Helix, Parameters};
@@ -25,8 +25,9 @@ mod bezier;
 mod sphere_like_spiral;
 mod torus;
 mod twist;
+use super::GridData;
 use super::GridDescriptor;
-pub use bezier::{CubicBezierConstructor, PiecewiseBezier};
+pub use bezier::{BezierEnd, CubicBezierConstructor, PiecewiseBezier};
 pub use sphere_like_spiral::SphereLikeSpiral;
 use std::collections::HashMap;
 pub use torus::Torus;
@@ -238,35 +239,126 @@ pub enum CurveDescriptor {
     TwistedTorus(TwistedTorusDescriptor),
     PiecewiseBezier {
         points: Vec<(usize, isize, isize)>,
-        #[serde(skip, default)]
-        instanciated_descriptor: Option<InstanciatedPiecewiseBezierDescriptor>,
+        tengents: Vec<Vec3>,
     },
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct InstanciatedCurveDescriptor {
+    pub source: Arc<CurveDescriptor>,
+    pub instance: InsanciatedCurveDescriptor_,
+}
+
+pub(super) trait GridPositionProvider {
+    fn position(&self, g_id: usize, x: isize, y: isize) -> Vec3;
+    fn source(&self) -> Arc<Vec<GridDescriptor>>;
+}
+
+impl InstanciatedCurveDescriptor {
+    pub fn instanciate(desc: Arc<CurveDescriptor>, grid_reader: &dyn GridPositionProvider) -> Self {
+        let instance = match desc.as_ref() {
+            CurveDescriptor::Bezier(b) => InsanciatedCurveDescriptor_::Bezier(b.clone()),
+            CurveDescriptor::SphereLikeSpiral(s) => {
+                InsanciatedCurveDescriptor_::SphereLikeSpiral(s.clone())
+            }
+            CurveDescriptor::Twist(t) => InsanciatedCurveDescriptor_::Twist(t.clone()),
+            CurveDescriptor::Torus(t) => InsanciatedCurveDescriptor_::Torus(t.clone()),
+            CurveDescriptor::TwistedTorus(t) => {
+                InsanciatedCurveDescriptor_::TwistedTorus(t.clone())
+            }
+            CurveDescriptor::PiecewiseBezier { points, tengents } => {
+                let instanciated = InstanciatedPiecewiseBezierDescriptor::instanciate(
+                    &points,
+                    &tengents,
+                    grid_reader,
+                );
+                InsanciatedCurveDescriptor_::PiecewiseBezier(instanciated)
+            }
+        };
+        Self {
+            source: desc.clone(),
+            instance,
+        }
+    }
+
+    fn is_up_to_date(&self, desc: &Arc<CurveDescriptor>, grids: &Arc<Vec<GridDescriptor>>) -> bool {
+        if Arc::ptr_eq(&self.source, desc) {
+            if let InsanciatedCurveDescriptor_::PiecewiseBezier(instanciated_descriptor) =
+                &self.instance
+            {
+                Arc::ptr_eq(&instanciated_descriptor.grids, grids)
+            } else {
+                true
+            }
+        } else {
+            false
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+enum InsanciatedCurveDescriptor_ {
+    Bezier(CubicBezierConstructor),
+    SphereLikeSpiral(SphereLikeSpiral),
+    Twist(Twist),
+    Torus(Torus),
+    TwistedTorus(TwistedTorusDescriptor),
+    PiecewiseBezier(InstanciatedPiecewiseBezierDescriptor),
 }
 
 #[derive(Clone, Debug)]
 pub struct InstanciatedPiecewiseBezierDescriptor {
     desc: PiecewiseBezier,
-    grids: Arc<GridDescriptor>,
+    grids: Arc<Vec<GridDescriptor>>,
 }
 
-impl CurveDescriptor {
-    fn into_curve(self, parameters: &Parameters, cache: &mut CurveCache) -> Curve {
+impl InstanciatedPiecewiseBezierDescriptor {
+    fn instanciate(
+        points: &[(usize, isize, isize)],
+        tengents: &[Vec3],
+        grid_reader: &dyn GridPositionProvider,
+    ) -> Self {
+        let bezier_ends = points
+            .iter()
+            .zip(tengents)
+            .map(|(p, t)| {
+                let position = grid_reader.position(p.0, p.1, p.2);
+                BezierEnd {
+                    position,
+                    vector: *t,
+                }
+            })
+            .collect();
+        let desc = PiecewiseBezier(bezier_ends);
+        Self {
+            desc,
+            grids: grid_reader.source(),
+        }
+    }
+}
+
+impl InsanciatedCurveDescriptor_ {
+    fn into_curve(self, parameters: &Parameters, cache: &mut CurveCache) -> Arc<Curve> {
         match self {
-            Self::Bezier(constructor) => Curve::new(constructor.into_bezier(), parameters),
-            Self::SphereLikeSpiral(spiral) => Curve::new(spiral, parameters),
-            Self::Twist(twist) => Curve::new(twist, parameters),
-            Self::Torus(torus) => Curve::new(torus, parameters),
+            Self::Bezier(constructor) => {
+                Arc::new(Curve::new(constructor.into_bezier(), parameters))
+            }
+            Self::SphereLikeSpiral(spiral) => Arc::new(Curve::new(spiral, parameters)),
+            Self::Twist(twist) => Arc::new(Curve::new(twist, parameters)),
+            Self::Torus(torus) => Arc::new(Curve::new(torus, parameters)),
             Self::TwistedTorus(ref desc) => {
                 if let Some(curve) = cache.0.get(desc) {
-                    Curve::clone(curve)
+                    curve.clone()
                 } else {
-                    let ret = Curve::new(TwistedTorus::new(desc.clone()), parameters);
+                    let ret = Arc::new(Curve::new(TwistedTorus::new(desc.clone()), parameters));
                     println!("Number of nucleotides {}", ret.nb_points());
                     cache.0.insert(desc.clone(), ret.clone());
                     ret
                 }
             }
-            Self::PiecewiseBezier { .. } => todo!(),
+            Self::PiecewiseBezier(instanciated_descriptor) => {
+                Arc::new(Curve::new(instanciated_descriptor.desc.clone(), parameters))
+            }
         }
     }
 
@@ -280,12 +372,12 @@ impl CurveDescriptor {
 }
 
 #[derive(Default, Clone)]
-pub struct CurveCache(HashMap<TwistedTorusDescriptor, Curve>);
+pub struct CurveCache(HashMap<TwistedTorusDescriptor, Arc<Curve>>);
 
 #[derive(Clone)]
 pub(super) struct InstanciatedCurve {
-    source: Arc<CurveDescriptor>,
-    pub(super) curve: Arc<Curve>,
+    pub source: Arc<InstanciatedCurveDescriptor>,
+    pub curve: Arc<Curve>,
 }
 
 impl std::fmt::Debug for InstanciatedCurve {
@@ -303,28 +395,24 @@ impl AsRef<Curve> for InstanciatedCurve {
 }
 
 impl Helix {
-    pub(super) fn need_curve_update(&self) -> bool {
-        let up_to_date = self.curve.as_ref().map(|source| Arc::as_ptr(source))
-            == self
-                .instanciated_curve
-                .as_ref()
-                .map(|target| Arc::as_ptr(&target.source));
-        !up_to_date
+    fn need_curve_descriptor_update(&self, grid_data: &Arc<Vec<GridDescriptor>>) -> bool {
+        if let Some(current_desc) = self.curve.as_ref() {
+            self.instanciated_descriptor
+                .filter(|desc| desc.is_up_to_date(current_desc, grid_data))
+                .is_some()
+        } else {
+            self.instanciated_descriptor.is_none()
+        }
     }
 
-    pub fn update_curve(&mut self, parameters: &Parameters, cached_curve: &mut CurveCache) {
-        if self.need_curve_update() {
-            if let Some(construtor) = self.curve.as_ref() {
-                let curve = Arc::new(
-                    CurveDescriptor::clone(construtor).into_curve(parameters, cached_curve),
-                );
-                self.instanciated_curve = Some(InstanciatedCurve {
-                    source: construtor.clone(),
-                    curve,
-                });
-            } else {
-                self.instanciated_curve = None;
-            }
+    pub(super) fn need_curve_update(&self, grid_data: &Arc<Vec<GridDescriptor>>) -> bool {
+        self.need_curve_descriptor_update(grid_data) || {
+            let up_to_date = self.curve.as_ref().map(|source| Arc::as_ptr(source))
+                == self
+                    .instanciated_descriptor
+                    .as_ref()
+                    .map(|target| Arc::as_ptr(&target.source));
+            !up_to_date
         }
     }
 }

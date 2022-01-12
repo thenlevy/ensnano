@@ -559,11 +559,11 @@ pub enum Edge {
 }
 
 /// A view of the design's grids, with pre-computed maps.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct GridData {
     // We borrow the grids and helices from the source that was used to build the view. This ensure
     // that the data used to build this view are not modified during the view's lifetime.
-    source_grids: Arc<Vec<GridDescriptor>>,
+    pub(super) source_grids: Arc<Vec<GridDescriptor>>,
     source_helices: Helices,
     pub grids: Vec<Grid>,
     pub helix_to_pos: HashMap<usize, GridPosition>,
@@ -986,5 +986,34 @@ impl<'a> HelicesTranslator<'a> {
             self.grid_data.reattach_helix(*h_id, true, helices)?;
         }
         Ok(())
+    }
+}
+
+impl GridData {
+    fn update_instanciated_curve_descriptor(&self, helix: &mut Helix) {
+        if let Some(curve) = helix.curve.as_ref() {
+            helix.instanciated_descriptor = Some(InstanciatedCurveDescriptor::instanciate(curve))
+        } else {
+            helix.instanciated_descriptor = None;
+        }
+    }
+
+    fn update_curve(
+        &mut self,
+        parameters: &Parameters,
+        cached_curve: &mut CurveCache,
+        grid_data: Arc<Vec<GridDescriptor>>,
+    ) {
+        if self.need_curve_update() {
+            if let Some(construtor) = self.curve.as_ref() {
+                let curve = CurveDescriptor::clone(construtor).into_curve(parameters, cached_curve);
+                self.instanciated_curve = Some(InstanciatedCurve {
+                    source: construtor.clone(),
+                    curve,
+                });
+            } else {
+                self.instanciated_curve = None;
+            }
+        }
     }
 }

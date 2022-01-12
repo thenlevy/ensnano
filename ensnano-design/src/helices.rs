@@ -29,7 +29,7 @@ use std::sync::Arc;
 use ultraviolet::{DVec3, Isometry2, Mat4, Rotor3, Vec3};
 
 /// A structure maping helices identifier to `Helix` objects
-#[derive(Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Helices(pub(super) Arc<BTreeMap<usize, Arc<Helix>>>);
 
 impl Helices {
@@ -195,6 +195,9 @@ pub struct Helix {
     pub curve: Option<Arc<CurveDescriptor>>,
 
     #[serde(default, skip)]
+    pub(super) instanciated_descriptor: Option<InstanciatedCurveDescriptor>,
+
+    #[serde(default, skip)]
     pub(super) instanciated_curve: Option<InstanciatedCurve>,
 
     #[serde(default, skip_serializing_if = "f32_is_zero")]
@@ -244,6 +247,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
@@ -320,6 +324,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
@@ -339,6 +344,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
@@ -363,6 +369,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
@@ -381,6 +388,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: Some(Arc::new(CurveDescriptor::SphereLikeSpiral(constructor))),
             instanciated_curve: None,
+            instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
@@ -414,6 +422,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: Some(Arc::new(CurveDescriptor::Bezier(constructor))),
             instanciated_curve: None,
+            instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
@@ -499,6 +508,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
@@ -587,7 +597,9 @@ impl Helix {
     }
 
     pub fn get_bezier_controls(&self) -> Option<CubicBezierConstructor> {
-        self.curve.as_ref().and_then(|c| c.get_bezier_controls())
+        self.instanciated_descriptor
+            .as_ref()
+            .and_then(|c| c.instance.get_bezier_controls())
     }
 
     pub fn get_curve_range(&self) -> Option<std::ops::RangeInclusive<isize>> {
