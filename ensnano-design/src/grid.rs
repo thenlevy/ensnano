@@ -618,6 +618,7 @@ impl GridData {
         };
         ret.reposition_all_helices();
         ret.update_all_curves(Arc::make_mut(&mut design.cached_curve));
+        ret.update_support_helices();
         design.helices = ret.source_helices.clone();
         ret
     }
@@ -1044,6 +1045,18 @@ impl GridData {
                 curve,
                 source: desc.clone(),
             })
+        }
+    }
+
+    fn update_support_helices(&mut self) {
+        let old_rolls: Vec<f32> = self.source_helices.values().map(|h| h.roll).collect();
+        let mut helices_mut = self.source_helices.make_mut();
+        for h in helices_mut.values_mut() {
+            if let Some(mother_id) = h.support_helix {
+                if let Some(mother_roll) = old_rolls.get(mother_id) {
+                    h.roll = *mother_roll;
+                }
+            }
         }
     }
 }

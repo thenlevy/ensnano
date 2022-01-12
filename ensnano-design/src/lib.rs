@@ -399,18 +399,6 @@ impl Design {
         self.saved_camera = saving_information.camera;
     }
 
-    pub fn update_support_helices(&mut self) {
-        let parameters = self.parameters.unwrap_or_default();
-        let old_helices = self.helices.clone();
-        mutate_all_helices(self, |h| {
-            if let Some(mother_id) = h.support_helix {
-                if let Some(mother) = old_helices.get(&mother_id) {
-                    h.roll = mother.roll;
-                }
-            }
-        })
-    }
-
     pub fn get_nucl_position(&self, nucl: Nucl) -> Option<Vec3> {
         let helix = self.helices.get(&nucl.helix)?;
         Some(helix.space_pos(

@@ -342,7 +342,6 @@ impl DesignContent {
         let mut suggestion_maker = XoverSuggestions::default();
         let mut virtual_nucl_map = HashMap::default();
         xover_ids.agree_on_next_id(&mut new_junctions);
-        design.update_support_helices();
         let rainbow_strand = design.scaffold_id.filter(|_| design.rainbow_scaffold);
         let grid_manager = design.get_updated_grid_data().clone();
 
