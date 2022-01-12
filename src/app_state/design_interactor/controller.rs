@@ -2048,10 +2048,6 @@ impl Controller {
             dumy_end_helix.position,
             end_axis,
         );
-        helix.update_curve(
-            &design.parameters.unwrap_or(Parameters::DEFAULT),
-            &mut Default::default(),
-        );
         let length = helix.nb_bezier_nucls();
         let helix_id = new_helices.push_helix(helix);
         drop(new_helices);

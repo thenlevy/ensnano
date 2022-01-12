@@ -119,6 +119,14 @@ impl<'a> HelicesMut<'a> {
         })
     }
 
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut Helix> {
+        self.new_map.values_mut().map(|arc| {
+            let new_helix = Helix::clone(arc.as_ref());
+            *arc = Arc::new(new_helix);
+            Arc::make_mut(arc)
+        })
+    }
+
     pub fn insert(&mut self, id: usize, helix: Helix) {
         self.new_map.insert(id, Arc::new(helix));
     }
@@ -195,7 +203,7 @@ pub struct Helix {
     pub curve: Option<Arc<CurveDescriptor>>,
 
     #[serde(default, skip)]
-    pub(super) instanciated_descriptor: Option<InstanciatedCurveDescriptor>,
+    pub(super) instanciated_descriptor: Option<Arc<InstanciatedCurveDescriptor>>,
 
     #[serde(default, skip)]
     pub(super) instanciated_curve: Option<InstanciatedCurve>,
@@ -599,7 +607,7 @@ impl Helix {
     pub fn get_bezier_controls(&self) -> Option<CubicBezierConstructor> {
         self.instanciated_descriptor
             .as_ref()
-            .and_then(|c| c.instance.get_bezier_controls())
+            .and_then(|c| c.get_bezier_controls())
     }
 
     pub fn get_curve_range(&self) -> Option<std::ops::RangeInclusive<isize>> {

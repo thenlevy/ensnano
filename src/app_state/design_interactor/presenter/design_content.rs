@@ -321,7 +321,6 @@ impl DesignContent {
         suggestion_parameters: &SuggestionParameters,
         curve_cache: &mut CurveCache,
     ) -> (Self, Design, JunctionsIds) {
-        design.update_curves(curve_cache);
         let groups = design.groups.clone();
         let mut object_type = HashMap::default();
         let mut space_position = HashMap::default();
@@ -343,7 +342,6 @@ impl DesignContent {
         let mut suggestion_maker = XoverSuggestions::default();
         let mut virtual_nucl_map = HashMap::default();
         xover_ids.agree_on_next_id(&mut new_junctions);
-        design.update_curves(curve_cache);
         design.update_support_helices();
         let rainbow_strand = design.scaffold_id.filter(|_| design.rainbow_scaffold);
         let grid_manager = design.get_updated_grid_data().clone();

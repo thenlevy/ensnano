@@ -246,7 +246,7 @@ pub enum CurveDescriptor {
 #[derive(Clone, Debug)]
 pub(super) struct InstanciatedCurveDescriptor {
     pub source: Arc<CurveDescriptor>,
-    pub instance: InsanciatedCurveDescriptor_,
+    instance: InsanciatedCurveDescriptor_,
 }
 
 pub(super) trait GridPositionProvider {
@@ -294,6 +294,14 @@ impl InstanciatedCurveDescriptor {
             false
         }
     }
+
+    pub fn make_curve(&self, parameters: &Parameters, cached_curve: &mut CurveCache) -> Arc<Curve> {
+        InsanciatedCurveDescriptor_::clone(&self.instance).into_curve(parameters, cached_curve)
+    }
+
+    pub fn get_bezier_controls(&self) -> Option<CubicBezierConstructor> {
+        self.instance.get_bezier_controls()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -338,7 +346,7 @@ impl InstanciatedPiecewiseBezierDescriptor {
 }
 
 impl InsanciatedCurveDescriptor_ {
-    fn into_curve(self, parameters: &Parameters, cache: &mut CurveCache) -> Arc<Curve> {
+    pub fn into_curve(self, parameters: &Parameters, cache: &mut CurveCache) -> Arc<Curve> {
         match self {
             Self::Bezier(constructor) => {
                 Arc::new(Curve::new(constructor.into_bezier(), parameters))
@@ -395,11 +403,15 @@ impl AsRef<Curve> for InstanciatedCurve {
 }
 
 impl Helix {
-    fn need_curve_descriptor_update(&self, grid_data: &Arc<Vec<GridDescriptor>>) -> bool {
+    pub(super) fn need_curve_descriptor_update(
+        &self,
+        grid_data: &Arc<Vec<GridDescriptor>>,
+    ) -> bool {
         if let Some(current_desc) = self.curve.as_ref() {
             self.instanciated_descriptor
+                .as_ref()
                 .filter(|desc| desc.is_up_to_date(current_desc, grid_data))
-                .is_some()
+                .is_none()
         } else {
             self.instanciated_descriptor.is_none()
         }

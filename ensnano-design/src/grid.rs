@@ -20,9 +20,11 @@ use crate::CurveDescriptor;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use super::{
+    curves,
     design_operations::{ErrOperation, MIN_HELICES_TO_MAKE_GRID},
     mutate_in_arc, Axis, Design, Helices, HelicesMut, Helix, HelixCollection, Parameters,
 };
+use curves::{CurveCache, GridPositionProvider, InstanciatedCurve, InstanciatedCurveDescriptor};
 mod hyperboloid;
 pub use hyperboloid::*;
 use std::sync::Arc;
@@ -615,6 +617,7 @@ impl GridData {
             small_spheres: design.small_spheres.clone(),
         };
         ret.reposition_all_helices();
+        ret.update_all_curves(Arc::make_mut(&mut design.cached_curve));
         design.helices = ret.source_helices.clone();
         ret
     }
@@ -662,6 +665,21 @@ impl GridData {
                     h.curve = Some(curve)
                 }
             }
+        }
+    }
+
+    fn update_all_curves(&mut self, cached_curve: &mut CurveCache) {
+        let need_update = self
+            .source_helices
+            .values()
+            .any(|h| h.need_curve_update(&self.source_grids));
+
+        if need_update {
+            let mut new_helices = self.source_helices.clone();
+            for h in new_helices.make_mut().values_mut() {
+                self.update_curve(h, cached_curve);
+            }
+            self.source_helices = new_helices;
         }
     }
 
@@ -989,31 +1007,43 @@ impl<'a> HelicesTranslator<'a> {
     }
 }
 
+impl GridPositionProvider for GridData {
+    fn position(&self, g_id: usize, x: isize, y: isize) -> Vec3 {
+        if let Some(grid) = self.grids.get(g_id) {
+            grid.position_helix(x, y)
+        } else {
+            log::error!("Attempt to get position on unexisting grid. This is a bug");
+            Vec3::zero()
+        }
+    }
+
+    fn source(&self) -> Arc<Vec<GridDescriptor>> {
+        self.source_grids.clone()
+    }
+}
+
 impl GridData {
     fn update_instanciated_curve_descriptor(&self, helix: &mut Helix) {
-        if let Some(curve) = helix.curve.as_ref() {
-            helix.instanciated_descriptor = Some(InstanciatedCurveDescriptor::instanciate(curve))
+        if let Some(curve) = helix.curve.clone() {
+            helix.instanciated_descriptor = Some(Arc::new(
+                InstanciatedCurveDescriptor::instanciate(curve, self),
+            ))
         } else {
             helix.instanciated_descriptor = None;
         }
     }
 
-    fn update_curve(
-        &mut self,
-        parameters: &Parameters,
-        cached_curve: &mut CurveCache,
-        grid_data: Arc<Vec<GridDescriptor>>,
-    ) {
-        if self.need_curve_update() {
-            if let Some(construtor) = self.curve.as_ref() {
-                let curve = CurveDescriptor::clone(construtor).into_curve(parameters, cached_curve);
-                self.instanciated_curve = Some(InstanciatedCurve {
-                    source: construtor.clone(),
-                    curve,
-                });
-            } else {
-                self.instanciated_curve = None;
-            }
+    fn update_curve(&self, helix: &mut Helix, cached_curve: &mut CurveCache) {
+        if helix.need_curve_descriptor_update(&self.source_grids) {
+            self.update_instanciated_curve_descriptor(helix)
+        }
+
+        if let Some(desc) = helix.instanciated_descriptor.as_ref() {
+            let curve = desc.make_curve(&self.parameters, cached_curve);
+            helix.instanciated_curve = Some(InstanciatedCurve {
+                curve,
+                source: desc.clone(),
+            })
         }
     }
 }
