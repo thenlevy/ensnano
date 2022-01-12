@@ -1034,7 +1034,7 @@ impl GridData {
         }
     }
 
-    fn update_curve(&self, helix: &mut Helix, cached_curve: &mut CurveCache) {
+    pub(super) fn update_curve(&self, helix: &mut Helix, cached_curve: &mut CurveCache) {
         if helix.need_curve_descriptor_update(&self.source_grids) {
             self.update_instanciated_curve_descriptor(helix)
         }

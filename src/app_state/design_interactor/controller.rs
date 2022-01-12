@@ -2021,33 +2021,10 @@ impl Controller {
         end: GridPosition,
     ) -> Result<Design, ErrOperation> {
         let grid_manager = design.get_updated_grid_data();
-        let grid_start = grid_manager
-            .grids
-            .get(start.grid)
-            .ok_or(ErrOperation::GridDoesNotExist(start.grid))?;
-        let grid_end = grid_manager
-            .grids
-            .get(end.grid)
-            .ok_or(ErrOperation::GridDoesNotExist(end.grid))?;
-        let dumy_start_helix = Helix::new_on_grid(&grid_start, start.x, start.y, start.grid);
-        let start_axis = dumy_start_helix
-            .get_axis(&grid_manager.parameters)
-            .direction()
-            .unwrap_or(Vec3::zero());
-        let dumy_end_helix = Helix::new_on_grid(&grid_end, end.x, end.y, end.grid);
-        let end_axis = dumy_end_helix
-            .get_axis(&grid_manager.parameters)
-            .direction()
-            .unwrap_or(Vec3::zero());
         drop(grid_manager);
+        let helix = Helix::new_bezier_two_points(&grid_manager, start, end)?;
         let mut new_helices = design.helices.make_mut();
 
-        let mut helix = Helix::new_bezier_two_points(
-            dumy_start_helix.position,
-            start_axis,
-            dumy_end_helix.position,
-            end_axis,
-        );
         let length = helix.nb_bezier_nucls();
         let helix_id = new_helices.push_helix(helix);
         drop(new_helices);

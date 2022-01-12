@@ -184,7 +184,7 @@ pub struct PiecewiseBezier(pub Vec<BezierEnd>);
 
 impl PiecewiseBezier {
     fn t_to_i(&self, t: f64) -> usize {
-        (t.floor() as usize).min(self.0.len() - 1) // for t = self.t_max() we take i = self.t_max() - 1
+        (t.floor() as usize).min(self.0.len() - 2) // for t = self.t_max() - 1 we take i = self.t_max() - 2
     }
 
     fn ith_cubic_bezier(&self, i: usize) -> CubicBezier {

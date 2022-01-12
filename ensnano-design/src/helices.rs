@@ -16,10 +16,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::design_operations::ErrOperation;
+
 use super::curves::*;
 use super::{
     codenano,
-    grid::{Grid, GridPosition},
+    grid::{Grid, GridData, GridPosition},
     scadnano::*,
     utils::*,
     Nucl, Parameters,
@@ -404,23 +406,51 @@ impl Helix {
     }
 
     pub fn new_bezier_two_points(
-        start: Vec3,
-        mut start_axis: Vec3,
-        end: Vec3,
-        mut end_axis: Vec3,
-    ) -> Self {
+        grid_manager: &GridData,
+        grid_pos_start: GridPosition,
+        grid_pos_end: GridPosition,
+    ) -> Result<Self, ErrOperation> {
+        let grid_start = grid_manager
+            .grids
+            .get(grid_pos_start.grid)
+            .ok_or(ErrOperation::GridDoesNotExist(grid_pos_start.grid))?;
+        let grid_end = grid_manager
+            .grids
+            .get(grid_pos_end.grid)
+            .ok_or(ErrOperation::GridDoesNotExist(grid_pos_end.grid))?;
+        let dumy_start_helix = Helix::new_on_grid(
+            &grid_start,
+            grid_pos_start.x,
+            grid_pos_start.y,
+            grid_pos_start.grid,
+        );
+        let mut start_axis = dumy_start_helix
+            .get_axis(&grid_manager.parameters)
+            .direction()
+            .unwrap_or(Vec3::zero());
+        let dumy_end_helix =
+            Helix::new_on_grid(&grid_end, grid_pos_end.x, grid_pos_end.y, grid_pos_end.grid);
+        let mut end_axis = dumy_end_helix
+            .get_axis(&grid_manager.parameters)
+            .direction()
+            .unwrap_or(Vec3::zero());
         start_axis.normalize();
         end_axis.normalize();
+        let start = dumy_start_helix.position;
+        let end = dumy_end_helix.position;
         let middle = (end - start) / 2.;
-        let proj_start = start + middle.dot(start_axis) * start_axis;
-        let proj_end = end - middle.dot(end_axis) * end_axis;
-        let constructor = CubicBezierConstructor {
-            start,
-            end,
-            control1: proj_start,
-            control2: proj_end,
+        let vec_start = middle.dot(start_axis) * start_axis;
+        // Do not negate it, it corresponds to the tengeant of the piece that will leave at that
+        // point
+        let vec_end = middle.dot(end_axis) * end_axis;
+        let constructor = CurveDescriptor::PiecewiseBezier {
+            points: vec![
+                (grid_pos_start.grid, grid_pos_start.x, grid_pos_start.y),
+                (grid_pos_end.grid, grid_pos_end.x, grid_pos_end.y),
+            ],
+            tengents: vec![vec_start, vec_end],
         };
-        Self {
+        let mut ret = Self {
             position: start,
             orientation: Rotor3::identity(),
             isometry2d: None,
@@ -428,13 +458,17 @@ impl Helix {
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
-            curve: Some(Arc::new(CurveDescriptor::Bezier(constructor))),
+            curve: Some(Arc::new(constructor)),
             instanciated_curve: None,
             instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
-        }
+        };
+        // we can use a fake cache because we don't need it for bezier curves.
+        let mut fake_cache = Default::default();
+        grid_manager.update_curve(&mut ret, &mut fake_cache);
+        Ok(ret)
     }
 
     pub fn nb_bezier_nucls(&self) -> usize {
