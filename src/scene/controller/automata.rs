@@ -130,12 +130,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         .borrow()
                         .grid_intersection(mouse_x as f32, mouse_y as f32)
                     {
-                        Some(SceneElement::GridCircle(
-                            d_id,
-                            intersection.grid_id,
-                            intersection.x,
-                            intersection.y,
-                        ))
+                        Some(SceneElement::GridCircle(d_id, intersection.grid_position()))
                     } else {
                         element
                     };
@@ -178,7 +173,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 let element = pixel_reader.set_selected_id(position);
                 log::info!("Clicked on {:?}", element);
                 match element {
-                    Some(SceneElement::GridCircle(d_id, g_id, x, y)) => {
+                    Some(SceneElement::GridCircle(d_id, grid_position)) => {
                         if let ActionMode::BuildHelix {
                             position: position_helix,
                             length,
@@ -188,9 +183,9 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                 new_state: Some(Box::new(BuildingHelix {
                                     position_helix,
                                     length_helix: length,
-                                    x_helix: x,
-                                    y_helix: y,
-                                    grid_id: g_id,
+                                    x_helix: grid_position.x,
+                                    y_helix: grid_position.y,
+                                    grid_id: grid_position.grid,
                                     design_id: d_id,
                                     clicked_position: position,
                                 })),
@@ -223,11 +218,11 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         } = app_state.get_action_mode().0
                         {
                             if let Some(intersection) = grid_intersection {
-                                if let Some(helix) = controller.data.borrow().get_grid_helix(
-                                    intersection.grid_id,
-                                    intersection.x,
-                                    intersection.y,
-                                ) {
+                                if let Some(helix) = controller
+                                    .data
+                                    .borrow()
+                                    .get_grid_helix(intersection.grid_position())
+                                {
                                     Transition {
                                         new_state: Some(Box::new(TranslatingHelix {
                                             grid_id: intersection.grid_id,
@@ -270,15 +265,12 @@ impl<S: AppState> ControllerState<S> for NormalState {
                             if let Some(intersection) = grid_intersection.as_ref() {
                                 clicked_element = Some(SceneElement::GridCircle(
                                     d_id,
-                                    intersection.grid_id,
-                                    intersection.x,
-                                    intersection.y,
+                                    intersection.grid_position(),
                                 ));
-                                helix = controller.data.borrow().get_grid_helix(
-                                    intersection.grid_id,
-                                    intersection.x,
-                                    intersection.y,
-                                );
+                                helix = controller
+                                    .data
+                                    .borrow()
+                                    .get_grid_helix(intersection.grid_position());
                             } else {
                                 clicked_element = element;
                                 helix = None;
@@ -527,12 +519,7 @@ impl<S: AppState> ControllerState<S> for SettingPivot {
                             .borrow()
                             .specific_grid_intersection(mouse_x as f32, mouse_y as f32, g_id)
                         {
-                            Some(SceneElement::GridCircle(
-                                d_id,
-                                intersection.grid_id,
-                                intersection.x,
-                                intersection.y,
-                            ))
+                            Some(SceneElement::GridCircle(d_id, intersection.grid_position()))
                         } else {
                             Some(SceneElement::Grid(d_id, g_id))
                         }

@@ -19,6 +19,7 @@ use std::rc::Rc;
 
 use super::{Device, DrawArea, DrawType, Queue, ViewPtr};
 use crate::utils;
+use ensnano_design::grid::GridPosition;
 use ensnano_interactor::{phantom_helix_decoder, BezierControlPoint, PhantomElement};
 use futures::executor;
 use iced_wgpu::wgpu;
@@ -237,7 +238,7 @@ pub enum SceneElement {
     WidgetElement(u32),
     PhantomElement(PhantomElement),
     Grid(u32, usize),
-    GridCircle(u32, usize, isize, isize),
+    GridCircle(u32, GridPosition),
     BezierControl {
         helix_id: usize,
         bezier_control: BezierControlPoint,
@@ -251,7 +252,7 @@ impl SceneElement {
             SceneElement::WidgetElement(_) => None,
             SceneElement::PhantomElement(p) => Some(p.design_id),
             SceneElement::Grid(d, _) => Some(*d),
-            SceneElement::GridCircle(d, _, _, _) => Some(*d),
+            SceneElement::GridCircle(d, _) => Some(*d),
             SceneElement::BezierControl { .. } => None,
         }
     }

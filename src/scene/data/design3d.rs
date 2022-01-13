@@ -23,6 +23,7 @@ use super::super::GridInstance;
 use super::{LetterInstance, SceneElement};
 use crate::consts::*;
 use crate::utils::instance::Instance;
+use ensnano_design::grid::GridPosition;
 use ensnano_design::{grid::HelixGridPosition, Nucl};
 use ensnano_interactor::{
     phantom_helix_encoder_bound, phantom_helix_encoder_nucl, BezierControlPoint, ObjectType,
@@ -459,8 +460,8 @@ impl<R: DesignReader> Design3D<R> {
                 self.get_phantom_element_position(phantom, referential, false)
             }
             SceneElement::Grid(_, g_id) => self.design.get_grid_position(*g_id),
-            SceneElement::GridCircle(_, g_id, x, y) => {
-                self.design.get_grid_latice_position(*g_id, *x, *y)
+            SceneElement::GridCircle(_, position) => {
+                self.design.get_grid_latice_position(*position)
             }
             _ => None,
         }
@@ -481,7 +482,7 @@ impl<R: DesignReader> Design3D<R> {
             SceneElement::WidgetElement(_)
             | SceneElement::Grid(_, _)
             | SceneElement::BezierControl { .. }
-            | SceneElement::GridCircle(_, _, _, _) => None,
+            | SceneElement::GridCircle(_, _) => None,
         }
     }
 
@@ -753,8 +754,8 @@ impl<R: DesignReader> Design3D<R> {
             .unwrap_or(Vec::new())
     }
 
-    pub fn get_helix_grid(&self, g_id: usize, x: isize, y: isize) -> Option<u32> {
-        self.design.get_helix_id_at_grid_coord(g_id, x, y)
+    pub fn get_helix_grid(&self, position: GridPosition) -> Option<u32> {
+        self.design.get_helix_id_at_grid_coord(position)
     }
 
     pub fn get_persistent_phantom_helices(&self) -> HashSet<u32> {
@@ -998,7 +999,7 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     ) -> Option<Vec3>;
     fn get_object_type(&self, id: u32) -> Option<ObjectType>;
     fn get_grid_position(&self, g_id: usize) -> Option<Vec3>;
-    fn get_grid_latice_position(&self, g_id: usize, x: isize, y: isize) -> Option<Vec3>;
+    fn get_grid_latice_position(&self, position: GridPosition) -> Option<Vec3>;
     fn get_element_position(&self, e_id: u32, referential: Referential) -> Option<Vec3>;
     fn get_element_axis_position(&self, id: u32, referential: Referential) -> Option<Vec3>;
     fn get_color(&self, e_id: u32) -> Option<u32>;
@@ -1018,7 +1019,7 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>>;
     fn get_used_coordinates_on_grid(&self, g_id: usize) -> Option<Vec<(isize, isize)>>;
     fn get_helices_grid_key_coord(&self, g_id: usize) -> Option<Vec<((isize, isize), usize)>>;
-    fn get_helix_id_at_grid_coord(&self, g_id: usize, x: isize, y: isize) -> Option<u32>;
+    fn get_helix_id_at_grid_coord(&self, position: GridPosition) -> Option<u32>;
     fn get_persistent_phantom_helices_id(&self) -> HashSet<u32>;
     fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3>;
     fn get_helix_grid_position(&self, h_id: u32) -> Option<HelixGridPosition>;

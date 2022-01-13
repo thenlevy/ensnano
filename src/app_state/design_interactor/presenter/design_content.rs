@@ -20,7 +20,7 @@ use super::*;
 use crate::scene::GridInstance;
 use ahash::RandomState;
 use ensnano_design::elements::DnaElement;
-use ensnano_design::grid::HelixGridPosition;
+use ensnano_design::grid::{GridPosition, HelixGridPosition};
 use ensnano_design::*;
 use ensnano_interactor::ObjectType;
 use std::borrow::Cow;
@@ -92,17 +92,18 @@ impl DesignContent {
         self.grid_manager.helix_to_pos.get(&h_id).cloned()
     }
 
-    pub(super) fn get_grid_latice_position(&self, g_id: usize, x: isize, y: isize) -> Option<Vec3> {
-        let grid = self.grid_manager.grids.get(g_id)?;
-        Some(grid.position_helix(x, y))
+    pub(super) fn get_grid_latice_position(&self, position: GridPosition) -> Option<Vec3> {
+        let grid = self.grid_manager.grids.get(position.grid)?;
+        Some(grid.position_helix(position.x, position.y))
     }
 
+    /// Return a list of pairs ((x, y), h_id) of all the used helices on the grid g_id
     pub(super) fn get_helices_grid_key_coord(&self, g_id: usize) -> Vec<((isize, isize), usize)> {
         self.grid_manager
             .pos_to_helix
             .iter()
-            .filter(|t| t.0 .0 == g_id)
-            .map(|t| ((t.0 .1, t.0 .2), *t.1))
+            .filter(|t| t.0.grid == g_id)
+            .map(|t| ((t.0.x, t.0.y), *t.1))
             .collect()
     }
 
@@ -110,25 +111,20 @@ impl DesignContent {
         self.grid_manager
             .pos_to_helix
             .iter()
-            .filter(|t| t.0 .0 == g_id)
-            .map(|t| (t.0 .1, t.0 .2))
+            .filter(|t| t.0.grid == g_id)
+            .map(|t| (t.0.x, t.0.y))
             .collect()
     }
 
-    pub(super) fn get_helix_id_at_grid_coord(
-        &self,
-        g_id: usize,
-        x: isize,
-        y: isize,
-    ) -> Option<usize> {
-        self.grid_manager.pos_to_helix(g_id, x, y)
+    pub(super) fn get_helix_id_at_grid_coord(&self, position: GridPosition) -> Option<usize> {
+        self.grid_manager.pos_to_helix(position)
     }
 
     pub(super) fn get_persistent_phantom_helices_id(&self) -> HashSet<u32> {
         self.grid_manager
             .pos_to_helix
             .iter()
-            .filter(|(k, _)| !self.grid_manager.no_phantoms.contains(&k.0))
+            .filter(|(k, _)| !self.grid_manager.no_phantoms.contains(&k.grid))
             .map(|(_, v)| *v as u32)
             .collect()
     }

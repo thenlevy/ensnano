@@ -530,6 +530,16 @@ pub struct HelixGridPosition {
     pub roll: f32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Hash, Eq)]
+pub struct GridPosition {
+    /// Identifier of the grid
+    pub grid: usize,
+    /// x coordinate on the grid
+    pub x: isize,
+    /// y coordinate on the grid
+    pub y: isize,
+}
+
 impl HelixGridPosition {
     pub fn with_roll(self, roll: Option<f32>) -> Self {
         if let Some(roll) = roll {
@@ -546,6 +556,14 @@ impl HelixGridPosition {
             y,
             roll: 0f32,
             axis_pos: 0,
+        }
+    }
+
+    pub fn light(&self) -> GridPosition {
+        GridPosition {
+            grid: self.grid,
+            x: self.x,
+            y: self.y,
         }
     }
 }
@@ -573,7 +591,7 @@ pub struct GridData {
     source_helices: Helices,
     pub grids: Vec<Grid>,
     pub helix_to_pos: HashMap<usize, HelixGridPosition>,
-    pub pos_to_helix: HashMap<(usize, isize, isize), usize>,
+    pub pos_to_helix: HashMap<GridPosition, usize>,
     pub parameters: Parameters,
     pub no_phantoms: HashSet<usize>,
     pub small_spheres: HashSet<usize>,
@@ -603,10 +621,7 @@ impl GridData {
         for (h_id, h) in design.helices.iter() {
             if let Some(grid_position) = h.grid_position {
                 helix_to_pos.insert(*h_id, grid_position);
-                pos_to_helix.insert(
-                    (grid_position.grid, grid_position.x, grid_position.y),
-                    *h_id,
-                );
+                pos_to_helix.insert(grid_position.light(), *h_id);
             }
         }
 
@@ -630,8 +645,8 @@ impl GridData {
     #[allow(dead_code)]
     pub fn get_empty_grids_id(&self) -> HashSet<usize> {
         let mut ret: HashSet<usize> = (0..self.grids.len()).collect();
-        for (n, _, _) in self.pos_to_helix.keys() {
-            ret.remove(n);
+        for position in self.pos_to_helix.keys() {
+            ret.remove(&position.grid);
         }
         ret
     }
@@ -642,10 +657,7 @@ impl GridData {
         for (h_id, h) in helices_mut.iter_mut() {
             if let Some(grid_position) = h.grid_position {
                 self.helix_to_pos.insert(*h_id, grid_position);
-                self.pos_to_helix.insert(
-                    (grid_position.grid, grid_position.x, grid_position.y),
-                    *h_id,
-                );
+                self.pos_to_helix.insert(grid_position.light(), *h_id);
                 let grid = &self.grids[grid_position.grid];
 
                 h.position = grid.position_helix(grid_position.x, grid_position.y);
@@ -712,11 +724,7 @@ impl GridData {
                         .find_helix_position(h, old_grid_position.grid)
                         .map(|g| g.with_roll(old_roll));
                     if let Some(new_grid_position) = candidate_position {
-                        if let Some(helix) = self.pos_to_helix.get(&(
-                            new_grid_position.grid,
-                            new_grid_position.x,
-                            new_grid_position.y,
-                        )) {
+                        if let Some(helix) = self.pos_to_helix.get(&new_grid_position.light()) {
                             log::info!(
                                 "{} collides with {}. Authorized collisions are {:?}",
                                 h_id,
@@ -866,8 +874,8 @@ impl GridData {
         })
     }
 
-    pub fn pos_to_helix(&self, grid: usize, x: isize, y: isize) -> Option<usize> {
-        self.pos_to_helix.get(&(grid, x, y)).cloned()
+    pub fn pos_to_helix(&self, position: GridPosition) -> Option<usize> {
+        self.pos_to_helix.get(&position).cloned()
     }
 
     pub fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
@@ -875,7 +883,7 @@ impl GridData {
             Some(
                 self.pos_to_helix
                     .iter()
-                    .filter(|(pos, _)| pos.0 == g_id)
+                    .filter(|(pos, _)| pos.grid == g_id)
                     .map(|(_, h)| h)
                     .cloned()
                     .collect(),

@@ -21,7 +21,7 @@ use ultraviolet::{Mat4, Vec2, Vec3};
 use wgpu::{include_spirv, Device, RenderPass};
 
 use super::{grid_disc::GridDisc, instances_drawer::*, LetterInstance};
-use ensnano_design::grid::{Grid, GridDivision, GridType};
+use ensnano_design::grid::{Grid, GridDivision, GridPosition, GridType};
 
 mod texture;
 
@@ -328,6 +328,16 @@ pub struct GridIntersection {
     pub grid_id: usize,
     pub x: isize,
     pub y: isize,
+}
+
+impl GridIntersection {
+    pub fn grid_position(&self) -> GridPosition {
+        GridPosition {
+            grid: self.grid_id,
+            x: self.x,
+            y: self.y,
+        }
+    }
 }
 
 #[repr(C)]

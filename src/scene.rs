@@ -27,7 +27,7 @@ use ultraviolet::{Mat4, Rotor3, Vec3};
 use crate::scene::camera::FiniteVec3;
 use crate::utils;
 use crate::{DrawArea, PhySize, WindowEvent};
-use ensnano_design::{group_attributes::GroupPivot, Nucl};
+use ensnano_design::{grid::GridPosition, group_attributes::GroupPivot, Nucl};
 use ensnano_interactor::{
     application::{AppId, Application, Camera3D, Notification},
     operation::*,
@@ -376,7 +376,17 @@ impl<S: AppState> Scene<S> {
                     } else {
                         // This is the first point of the bezier curve, select the corresponding
                         // disc to highlight it.
-                        self.select(Some(SceneElement::GridCircle(0, grid_id, x, y)), app_state)
+                        self.select(
+                            Some(SceneElement::GridCircle(
+                                0,
+                                GridPosition {
+                                    grid: grid_id,
+                                    x,
+                                    y,
+                                },
+                            )),
+                            app_state,
+                        )
                     }
                 } else {
                     // build regular grid helix

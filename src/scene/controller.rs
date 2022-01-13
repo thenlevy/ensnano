@@ -22,7 +22,7 @@ use super::{
 };
 use crate::consts::*;
 use crate::{PhySize, PhysicalPosition, WindowEvent};
-use ensnano_design::grid::HelixGridPosition;
+use ensnano_design::grid::{GridPosition, HelixGridPosition};
 use ensnano_design::Nucl;
 use ensnano_interactor::DesignReader;
 use ensnano_interactor::Selection;
@@ -462,7 +462,7 @@ pub(super) trait Data {
         dest: &Option<SceneElement>,
     ) -> Option<(Nucl, Nucl, usize)>;
     fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl>;
-    fn get_grid_helix(&self, grid_id: usize, x: isize, y: isize) -> Option<u32>;
+    fn get_grid_helix(&self, position: GridPosition) -> Option<u32>;
     fn notify_rotating_pivot(&mut self);
     fn stop_rotating_pivot(&mut self);
     fn update_handle_colors(&mut self, colors: HandleColors);

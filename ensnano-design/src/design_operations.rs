@@ -50,7 +50,10 @@ pub fn attach_helix_to_grid(
     y: isize,
 ) -> Result<(), ErrOperation> {
     let grid_manager = design.get_updated_grid_data();
-    if matches!(grid_manager.pos_to_helix(grid, x, y), Some(h_id) if h_id != helix) {
+    if matches!(grid_manager.pos_to_helix(GridPosition{
+        grid, x, y
+    }), Some(h_id) if h_id != helix)
+    {
         Err(ErrOperation::GridPositionAlreadyUsed)
     } else {
         drop(grid_manager);

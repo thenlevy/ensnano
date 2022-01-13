@@ -18,7 +18,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use crate::scene::GridInstance;
-use ensnano_design::{grid::HelixGridPosition, Nucl};
+use ensnano_design::{
+    grid::{GridPosition, HelixGridPosition},
+    Nucl,
+};
 use ensnano_interactor::{ObjectType, Referential};
 use std::collections::HashSet;
 use ultraviolet::{Mat4, Rotor3, Vec3};
@@ -181,8 +184,8 @@ impl Reader3D for DesignReader {
         )
     }
 
-    fn get_grid_latice_position(&self, g_id: usize, x: isize, y: isize) -> Option<Vec3> {
-        self.presenter.content.get_grid_latice_position(g_id, x, y)
+    fn get_grid_latice_position(&self, position: GridPosition) -> Option<Vec3> {
+        self.presenter.content.get_grid_latice_position(position)
     }
 
     fn get_nucl_with_id_relaxed(&self, e_id: u32) -> Option<Nucl> {
@@ -231,10 +234,10 @@ impl Reader3D for DesignReader {
         Some(self.presenter.content.get_helices_grid_key_coord(g_id))
     }
 
-    fn get_helix_id_at_grid_coord(&self, g_id: usize, x: isize, y: isize) -> Option<u32> {
+    fn get_helix_id_at_grid_coord(&self, position: GridPosition) -> Option<u32> {
         self.presenter
             .content
-            .get_helix_id_at_grid_coord(g_id, x, y)
+            .get_helix_id_at_grid_coord(position)
             .map(|h_id| h_id as u32)
     }
 
