@@ -445,7 +445,10 @@ impl Helix {
         let vec_end = middle.dot(end_axis) * end_axis;
         let constructor = CurveDescriptor::PiecewiseBezier {
             points: vec![grid_pos_start.light(), grid_pos_end.light()],
-            tengents: vec![vec_start, vec_end],
+            tengents: vec![
+                vec_start.rotated_by(grid_start.orientation.reversed()),
+                vec_end.rotated_by(grid_end.orientation.reversed()),
+            ],
         };
         let mut ret = Self {
             position: start,

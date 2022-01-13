@@ -16,7 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ultraviolet::{DMat3, DVec3, Vec3};
+use ultraviolet::Rotor2;
+use ultraviolet::{DMat3, DVec3, Rotor3, Vec3};
 const EPSILON: f64 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
 use crate::grid::GridPosition;
@@ -253,6 +254,7 @@ pub(super) struct InstanciatedCurveDescriptor {
 
 pub(super) trait GridPositionProvider {
     fn position(&self, position: GridPosition) -> Vec3;
+    fn orientation(&self, grid: usize) -> Rotor3;
     fn source(&self) -> Arc<Vec<GridDescriptor>>;
 }
 
@@ -335,7 +337,7 @@ impl InstanciatedPiecewiseBezierDescriptor {
                 let position = grid_reader.position(*p);
                 BezierEnd {
                     position,
-                    vector: *t,
+                    vector: t.rotated_by(grid_reader.orientation(p.grid)),
                 }
             })
             .collect();

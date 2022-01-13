@@ -1037,6 +1037,15 @@ impl GridPositionProvider for GridData {
     fn source(&self) -> Arc<Vec<GridDescriptor>> {
         self.source_grids.clone()
     }
+
+    fn orientation(&self, grid: usize) -> Rotor3 {
+        if let Some(grid) = self.grids.get(grid) {
+            grid.orientation
+        } else {
+            log::error!("Attempt to get orientation of unexisting grid. This is a bug");
+            Rotor3::identity()
+        }
+    }
 }
 
 impl GridData {
