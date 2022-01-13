@@ -20,7 +20,7 @@ use super::*;
 use crate::scene::GridInstance;
 use ahash::RandomState;
 use ensnano_design::elements::DnaElement;
-use ensnano_design::grid::GridPosition;
+use ensnano_design::grid::HelixGridPosition;
 use ensnano_design::*;
 use ensnano_interactor::ObjectType;
 use std::borrow::Cow;
@@ -88,7 +88,7 @@ impl DesignContent {
         }
     }
 
-    pub(super) fn get_helix_grid_position(&self, h_id: usize) -> Option<GridPosition> {
+    pub(super) fn get_helix_grid_position(&self, h_id: usize) -> Option<HelixGridPosition> {
         self.grid_manager.helix_to_pos.get(&h_id).cloned()
     }
 

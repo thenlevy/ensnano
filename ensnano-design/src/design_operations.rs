@@ -67,7 +67,7 @@ pub fn attach_helix_to_grid(
             .grid_position
             .map(|pos| pos.roll)
             .unwrap_or_default();
-        helix_ref.grid_position = Some(GridPosition {
+        helix_ref.grid_position = Some(HelixGridPosition {
             grid,
             x,
             y,

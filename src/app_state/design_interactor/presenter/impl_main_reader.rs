@@ -114,7 +114,7 @@ fn warn_scaffold_seq_mismatch(scaffold_length: usize, sequence_length: usize) ->
     )
 }
 
-use ensnano_design::grid::GridPosition;
+use ensnano_design::grid::HelixGridPosition;
 use ensnano_interactor::DesignReader as MainReader;
 
 impl MainReader for DesignReader {
@@ -126,7 +126,7 @@ impl MainReader for DesignReader {
         self.presenter.junctions_ids.get_element(id)
     }
 
-    fn get_grid_position_of_helix(&self, h_id: usize) -> Option<GridPosition> {
+    fn get_grid_position_of_helix(&self, h_id: usize) -> Option<HelixGridPosition> {
         self.presenter
             .current_design
             .helices

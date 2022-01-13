@@ -332,7 +332,11 @@ impl Grid {
         )
     }
 
-    pub fn find_helix_position(&self, helix: &super::Helix, g_id: usize) -> Option<GridPosition> {
+    pub fn find_helix_position(
+        &self,
+        helix: &super::Helix,
+        g_id: usize,
+    ) -> Option<HelixGridPosition> {
         if let super::Axis::Line { origin, direction } = helix.get_axis(&self.parameters) {
             let (x, y) = self.interpolate_helix(origin, direction)?;
             let intersection = self.position_helix(x, y);
@@ -355,7 +359,7 @@ impl Grid {
             };
             let roll = (roll + std::f32::consts::PI).rem_euclid(2. * std::f32::consts::PI)
                 - std::f32::consts::PI;
-            Some(GridPosition {
+            Some(HelixGridPosition {
                 grid: g_id,
                 x,
                 y,
@@ -513,7 +517,7 @@ impl GridDivision for HoneyComb {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq)]
-pub struct GridPosition {
+pub struct HelixGridPosition {
     /// Identifier of the grid
     pub grid: usize,
     /// x coordinate on the grid
@@ -526,7 +530,7 @@ pub struct GridPosition {
     pub roll: f32,
 }
 
-impl GridPosition {
+impl HelixGridPosition {
     pub fn with_roll(self, roll: Option<f32>) -> Self {
         if let Some(roll) = roll {
             Self { roll, ..self }
@@ -568,7 +572,7 @@ pub struct GridData {
     pub(super) source_grids: Arc<Vec<GridDescriptor>>,
     source_helices: Helices,
     pub grids: Vec<Grid>,
-    pub helix_to_pos: HashMap<usize, GridPosition>,
+    pub helix_to_pos: HashMap<usize, HelixGridPosition>,
     pub pos_to_helix: HashMap<(usize, isize, isize), usize>,
     pub parameters: Parameters,
     pub no_phantoms: HashSet<usize>,
@@ -744,7 +748,7 @@ impl GridData {
         Ok(())
     }
 
-    fn attach_to(&self, helix: &Helix, g_id: usize) -> Option<GridPosition> {
+    fn attach_to(&self, helix: &Helix, g_id: usize) -> Option<HelixGridPosition> {
         let mut ret = None;
         if let Some(g) = self.grids.get(g_id) {
             ret = g.find_helix_position(helix, g_id)
@@ -833,7 +837,7 @@ impl GridData {
 
     /// Retrun the edge between two grid position. Return None if the position are not in the same
     /// grid.
-    pub fn get_edge(&self, pos1: &GridPosition, pos2: &GridPosition) -> Option<Edge> {
+    pub fn get_edge(&self, pos1: &HelixGridPosition, pos2: &HelixGridPosition) -> Option<Edge> {
         if pos1.grid == pos2.grid {
             self.grids.get(pos1.grid).map(|g| {
                 g.grid_type
@@ -844,12 +848,16 @@ impl GridData {
         }
     }
 
-    pub fn translate_by_edge(&self, pos1: &GridPosition, edge: &Edge) -> Option<GridPosition> {
+    pub fn translate_by_edge(
+        &self,
+        pos1: &HelixGridPosition,
+        edge: &Edge,
+    ) -> Option<HelixGridPosition> {
         let position = self
             .grids
             .get(pos1.grid)
             .and_then(|g| g.grid_type.translate_by_edge(pos1.x, pos1.y, *edge))?;
-        Some(GridPosition {
+        Some(HelixGridPosition {
             grid: pos1.grid,
             x: position.0,
             y: position.1,

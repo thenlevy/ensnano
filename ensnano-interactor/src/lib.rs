@@ -21,7 +21,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
-    grid::{GridDescriptor, GridPosition, Hyperboloid},
+    grid::{GridDescriptor, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
     Nucl,
 };
@@ -93,13 +93,13 @@ pub enum DesignOperation {
     Translation(DesignTranslation),
     /// Add an helix on a grid
     AddGridHelix {
-        position: GridPosition,
+        position: HelixGridPosition,
         start: isize,
         length: usize,
     },
     AddTwoPointsBezier {
-        start: GridPosition,
-        end: GridPosition,
+        start: HelixGridPosition,
+        end: HelixGridPosition,
     },
     RmHelices {
         h_ids: Vec<usize>,

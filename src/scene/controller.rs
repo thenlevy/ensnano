@@ -22,7 +22,7 @@ use super::{
 };
 use crate::consts::*;
 use crate::{PhySize, PhysicalPosition, WindowEvent};
-use ensnano_design::grid::GridPosition;
+use ensnano_design::grid::HelixGridPosition;
 use ensnano_design::Nucl;
 use ensnano_interactor::DesignReader;
 use ensnano_interactor::Selection;
@@ -68,7 +68,7 @@ pub struct Controller<S: AppState> {
     state: State<S>,
     stereography: Option<Stereography>,
     /// The origin of the two points bezier curve being created.
-    bezier_curve_origin: Option<GridPosition>,
+    bezier_curve_origin: Option<HelixGridPosition>,
 }
 
 pub enum Consequence {
@@ -430,8 +430,8 @@ impl<S: AppState> Controller<S> {
     /// is returned.
     pub fn add_bezier_point(
         &mut self,
-        point: GridPosition,
-    ) -> Option<(GridPosition, GridPosition)> {
+        point: HelixGridPosition,
+    ) -> Option<(HelixGridPosition, HelixGridPosition)> {
         if let Some(position) = self.bezier_curve_origin.take() {
             Some((position, point))
         } else {

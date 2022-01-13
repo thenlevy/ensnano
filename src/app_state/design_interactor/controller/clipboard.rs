@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::{
-    AddressPointer, Controller, ControllerState, Design, Domain, ErrOperation, GridPosition,
+    AddressPointer, Controller, ControllerState, Design, Domain, ErrOperation, HelixGridPosition,
     HelixInterval, Nucl, Strand,
 };
 use ensnano_design::{
@@ -90,7 +90,7 @@ struct StrandTemplate {
 /// The starting point of a template. Used to determine weither a nucleotide is a correct starting
 /// point for a copy of the strand.
 struct TemplateOrigin {
-    helix: GridPosition,
+    helix: HelixGridPosition,
     start: isize,
     forward: bool,
 }
@@ -344,7 +344,7 @@ impl Controller {
     ) -> Result<Vec<Domain>, ErrOperation> {
         let mut ret = Vec::with_capacity(template.domains.len());
         let mut edge_iter = template.edges.iter();
-        let mut previous_position: Option<GridPosition> = None;
+        let mut previous_position: Option<HelixGridPosition> = None;
         let mut edge_opt = None;
         let shift = if template.origin.forward {
             start_nucl.position - template.origin.start

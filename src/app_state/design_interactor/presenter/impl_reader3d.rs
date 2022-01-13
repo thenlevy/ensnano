@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use crate::scene::GridInstance;
-use ensnano_design::{grid::GridPosition, Nucl};
+use ensnano_design::{grid::HelixGridPosition, Nucl};
 use ensnano_interactor::{ObjectType, Referential};
 use std::collections::HashSet;
 use ultraviolet::{Mat4, Rotor3, Vec3};
@@ -168,7 +168,7 @@ impl Reader3D for DesignReader {
             .cloned()
     }
 
-    fn get_helix_grid_position(&self, h_id: u32) -> Option<GridPosition> {
+    fn get_helix_grid_position(&self, h_id: u32) -> Option<HelixGridPosition> {
         self.presenter
             .content
             .get_helix_grid_position(h_id as usize)

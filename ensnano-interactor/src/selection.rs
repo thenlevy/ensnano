@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use ensnano_design::grid::GridPosition;
+use ensnano_design::grid::HelixGridPosition;
 use ensnano_design::{CubicBezierConstructor, Nucl, Strand};
 use std::collections::BTreeSet;
 
@@ -43,7 +43,7 @@ pub enum Selection {
 pub enum CenterOfSelection {
     Nucleotide(u32, Nucl),
     Bound(u32, Nucl, Nucl),
-    GridPosition {
+    HelixGridPosition {
         design: u32,
         grid_id: usize,
         x: isize,
@@ -621,7 +621,7 @@ impl PhantomElement {
 }
 
 pub trait DesignReader {
-    fn get_grid_position_of_helix(&self, h_id: usize) -> Option<GridPosition>;
+    fn get_grid_position_of_helix(&self, h_id: usize) -> Option<HelixGridPosition>;
     fn get_xover_id(&self, pair: &(Nucl, Nucl)) -> Option<usize>;
     fn get_xover_with_id(&self, id: usize) -> Option<(Nucl, Nucl)>;
     fn get_strand_with_id(&self, id: usize) -> Option<&Strand>;

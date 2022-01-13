@@ -1,4 +1,4 @@
-use ensnano_design::grid::GridPosition;
+use ensnano_design::grid::HelixGridPosition;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -368,7 +368,7 @@ impl<S: AppState> Scene<S> {
                 y,
             } => {
                 if self.controller.is_building_bezier_curve() {
-                    let point = GridPosition::from_grid_id_x_y(grid_id, x, y);
+                    let point = HelixGridPosition::from_grid_id_x_y(grid_id, x, y);
                     if let Some((start, end)) = self.controller.add_bezier_point(point) {
                         self.requests.lock().unwrap().apply_design_operation(
                             DesignOperation::AddTwoPointsBezier { start, end },

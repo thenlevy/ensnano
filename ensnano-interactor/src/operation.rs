@@ -560,7 +560,7 @@ impl Operation for GridHelixCreation {
 
     fn effect(&self) -> DesignOperation {
         DesignOperation::AddGridHelix {
-            position: ensnano_design::grid::GridPosition {
+            position: ensnano_design::grid::HelixGridPosition {
                 grid: self.grid_id,
                 x: self.x,
                 y: self.y,

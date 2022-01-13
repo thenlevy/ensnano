@@ -20,7 +20,7 @@ use super::SimulationUpdate;
 use crate::app_state::AddressPointer;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
-    grid::{Edge, GridDescriptor, GridPosition, GridTypeDescr, Hyperboloid},
+    grid::{Edge, GridDescriptor, GridTypeDescr, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
     mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix,
     HelixCollection, Nucl, Parameters, Strand, Strands, UpToDateDesign, VirtualNucl,
@@ -508,7 +508,7 @@ impl Controller {
                     }
                 })
             }
-            h.grid_position = Some(GridPosition {
+            h.grid_position = Some(HelixGridPosition {
                 grid: grid_id,
                 x: i as isize,
                 y: 0,
@@ -1372,7 +1372,7 @@ pub enum ErrOperation {
     StrandDoesNotExist(usize),
     HelixDoesNotExists(usize),
     HelixHasNoGridPosition(usize),
-    CouldNotMakeEdge(GridPosition, GridPosition),
+    CouldNotMakeEdge(HelixGridPosition, HelixGridPosition),
     MergingSameStrand,
     XoverOnSameHelix,
     NuclDoesNotExist(Nucl),
@@ -1982,7 +1982,7 @@ impl Controller {
     fn add_grid_helix(
         &mut self,
         mut design: Design,
-        position: GridPosition,
+        position: HelixGridPosition,
         start: isize,
         length: usize,
     ) -> Result<Design, ErrOperation> {
@@ -2017,8 +2017,8 @@ impl Controller {
     fn add_two_points_bezier(
         &mut self,
         mut design: Design,
-        start: GridPosition,
-        end: GridPosition,
+        start: HelixGridPosition,
+        end: HelixGridPosition,
     ) -> Result<Design, ErrOperation> {
         let grid_manager = design.get_updated_grid_data();
         drop(grid_manager);

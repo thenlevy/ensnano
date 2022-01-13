@@ -399,7 +399,7 @@ mod tests {
     use super::controller::CopyOperation;
     use super::*;
     use crate::scene::DesignReader as Reader3d;
-    use ensnano_design::grid::GridPosition;
+    use ensnano_design::grid::HelixGridPosition;
     use ensnano_design::HelixCollection;
     use ensnano_design::{grid::GridDescriptor, DomainJunction, Nucl, Strand};
     use ensnano_interactor::operation::GridHelixCreation;
@@ -631,7 +631,7 @@ mod tests {
         app_state.update();
         app_state
             .apply_design_op(DesignOperation::AddGridHelix {
-                position: GridPosition::from_grid_id_x_y(0, 0, 0),
+                position: HelixGridPosition::from_grid_id_x_y(0, 0, 0),
                 start: 0,
                 length: 0,
             })

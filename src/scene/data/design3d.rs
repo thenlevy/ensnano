@@ -23,7 +23,7 @@ use super::super::GridInstance;
 use super::{LetterInstance, SceneElement};
 use crate::consts::*;
 use crate::utils::instance::Instance;
-use ensnano_design::{grid::GridPosition, Nucl};
+use ensnano_design::{grid::HelixGridPosition, Nucl};
 use ensnano_interactor::{
     phantom_helix_encoder_bound, phantom_helix_encoder_nucl, BezierControlPoint, ObjectType,
     PhantomElement, Referential, PHANTOM_RANGE,
@@ -773,7 +773,7 @@ impl<R: DesignReader> Design3D<R> {
         self.design.get_nucl_with_id_relaxed(e_id)
     }
 
-    pub fn get_helix_grid_position(&self, h_id: u32) -> Option<GridPosition> {
+    pub fn get_helix_grid_position(&self, h_id: u32) -> Option<HelixGridPosition> {
         self.design.get_helix_grid_position(h_id)
     }
 
@@ -1021,7 +1021,7 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_helix_id_at_grid_coord(&self, g_id: usize, x: isize, y: isize) -> Option<u32>;
     fn get_persistent_phantom_helices_id(&self) -> HashSet<u32>;
     fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3>;
-    fn get_helix_grid_position(&self, h_id: u32) -> Option<GridPosition>;
+    fn get_helix_grid_position(&self, h_id: u32) -> Option<HelixGridPosition>;
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)>;

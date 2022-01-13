@@ -163,13 +163,13 @@ nb_turn: f32 %*/
 
 #[derive(Clone, Copy, Debug)]
 pub enum ValueKind {
-    GridPosition,
+    HelixGridPosition,
     GridOrientation,
 }
 
 #[derive(Debug, Clone)]
 pub enum InstanciatedValue {
-    GridPosition(Vec3),
+    HelixGridPosition(Vec3),
     GridOrientation(Rotor3),
     GridNbTurn(f32),
 }
@@ -180,7 +180,7 @@ pub enum GridPositionBuilder {
 
 impl GridPositionBuilder {
     pub fn new_cartesian(position: Vec3) -> Self {
-        Self::Cartesian(Vec3Builder::new(ValueKind::GridPosition, position))
+        Self::Cartesian(Vec3Builder::new(ValueKind::HelixGridPosition, position))
     }
 
     fn view<'a, Message: BuilderMessage>(&'a mut self) -> Element<'a, Message, Renderer> {
@@ -197,7 +197,9 @@ impl GridPositionBuilder {
 
     fn submit_value(&mut self) -> Option<InstanciatedValue> {
         match self {
-            Self::Cartesian(builder) => builder.submit_value().map(InstanciatedValue::GridPosition),
+            Self::Cartesian(builder) => builder
+                .submit_value()
+                .map(InstanciatedValue::HelixGridPosition),
         }
     }
 
@@ -316,14 +318,14 @@ impl<S: AppState> Builder<S> for GridBuilder {
 
     fn update_str_value(&mut self, value_kind: ValueKind, n: usize, value_str: String) {
         match value_kind {
-            ValueKind::GridPosition => self.position_builder.update_str_value(n, value_str),
+            ValueKind::HelixGridPosition => self.position_builder.update_str_value(n, value_str),
             ValueKind::GridOrientation => self.orientation_builder.update_str_value(n, value_str),
         }
     }
 
     fn submit_value(&mut self, value_kind: ValueKind) -> Option<InstanciatedValue> {
         match value_kind {
-            ValueKind::GridPosition => self.position_builder.submit_value(),
+            ValueKind::HelixGridPosition => self.position_builder.submit_value(),
             ValueKind::GridOrientation => self.orientation_builder.submit_value(),
         }
     }

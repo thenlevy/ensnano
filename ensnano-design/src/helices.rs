@@ -21,7 +21,7 @@ use crate::design_operations::ErrOperation;
 use super::curves::*;
 use super::{
     codenano,
-    grid::{Grid, GridData, GridPosition},
+    grid::{Grid, GridData, HelixGridPosition},
     scadnano::*,
     utils::*,
     Nucl, Parameters,
@@ -190,7 +190,7 @@ pub struct Helix {
     /// The position of the helix on a grid. If this is None, it means that helix is not bound to
     /// any grid.
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub grid_position: Option<GridPosition>,
+    pub grid_position: Option<HelixGridPosition>,
 
     /// Representation of the helix in 2d
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -321,7 +321,7 @@ impl Helix {
         Ok(Self {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
-            grid_position: Some(GridPosition {
+            grid_position: Some(HelixGridPosition {
                 grid: *grid_id,
                 x,
                 y,
@@ -367,7 +367,7 @@ impl Helix {
             position,
             orientation: grid.orientation,
             isometry2d: None,
-            grid_position: Some(GridPosition {
+            grid_position: Some(HelixGridPosition {
                 grid: g_id,
                 x,
                 y,
@@ -407,8 +407,8 @@ impl Helix {
 
     pub fn new_bezier_two_points(
         grid_manager: &GridData,
-        grid_pos_start: GridPosition,
-        grid_pos_end: GridPosition,
+        grid_pos_start: HelixGridPosition,
+        grid_pos_end: HelixGridPosition,
     ) -> Result<Self, ErrOperation> {
         let grid_start = grid_manager
             .grids

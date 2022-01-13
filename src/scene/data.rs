@@ -1613,7 +1613,7 @@ impl<R: DesignReader> Data<R> {
                 .get(d_id as usize)
                 .and_then(|d| d.get_identifier_nucl(&n1))
                 .map(|id| SceneElement::DesignElement(d_id, id)),
-            CenterOfSelection::GridPosition {
+            CenterOfSelection::HelixGridPosition {
                 design,
                 grid_id,
                 x,
@@ -1681,14 +1681,14 @@ impl<R: DesignReader> Data<R> {
                     Some(CenterOfSelection::Nucleotide(pe.design_id, pe.to_nucl()))
                 }
             }
-            SceneElement::Grid(design, grid_id) => Some(CenterOfSelection::GridPosition {
+            SceneElement::Grid(design, grid_id) => Some(CenterOfSelection::HelixGridPosition {
                 design,
                 grid_id,
                 x: 0,
                 y: 0,
             }),
             SceneElement::GridCircle(design, grid_id, x, y) => {
-                Some(CenterOfSelection::GridPosition {
+                Some(CenterOfSelection::HelixGridPosition {
                     design,
                     grid_id,
                     x,
