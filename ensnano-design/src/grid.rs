@@ -1025,9 +1025,9 @@ impl<'a> HelicesTranslator<'a> {
 }
 
 impl GridPositionProvider for GridData {
-    fn position(&self, g_id: usize, x: isize, y: isize) -> Vec3 {
-        if let Some(grid) = self.grids.get(g_id) {
-            grid.position_helix(x, y)
+    fn position(&self, position: GridPosition) -> Vec3 {
+        if let Some(grid) = self.grids.get(position.grid) {
+            grid.position_helix(position.x, position.y)
         } else {
             log::error!("Attempt to get position on unexisting grid. This is a bug");
             Vec3::zero()

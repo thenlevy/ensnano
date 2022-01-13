@@ -19,6 +19,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use ultraviolet::{DMat3, DVec3, Vec3};
 const EPSILON: f64 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
+use crate::grid::GridPosition;
+
 use super::{Helix, Parameters};
 use std::sync::Arc;
 mod bezier;
@@ -238,7 +240,7 @@ pub enum CurveDescriptor {
     Torus(Torus),
     TwistedTorus(TwistedTorusDescriptor),
     PiecewiseBezier {
-        points: Vec<(usize, isize, isize)>,
+        points: Vec<GridPosition>,
         tengents: Vec<Vec3>,
     },
 }
@@ -250,7 +252,7 @@ pub(super) struct InstanciatedCurveDescriptor {
 }
 
 pub(super) trait GridPositionProvider {
-    fn position(&self, g_id: usize, x: isize, y: isize) -> Vec3;
+    fn position(&self, position: GridPosition) -> Vec3;
     fn source(&self) -> Arc<Vec<GridDescriptor>>;
 }
 
@@ -322,7 +324,7 @@ pub struct InstanciatedPiecewiseBezierDescriptor {
 
 impl InstanciatedPiecewiseBezierDescriptor {
     fn instanciate(
-        points: &[(usize, isize, isize)],
+        points: &[GridPosition],
         tengents: &[Vec3],
         grid_reader: &dyn GridPositionProvider,
     ) -> Self {
@@ -330,7 +332,7 @@ impl InstanciatedPiecewiseBezierDescriptor {
             .iter()
             .zip(tengents)
             .map(|(p, t)| {
-                let position = grid_reader.position(p.0, p.1, p.2);
+                let position = grid_reader.position(*p);
                 BezierEnd {
                     position,
                     vector: *t,
