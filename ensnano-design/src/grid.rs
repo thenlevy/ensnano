@@ -17,12 +17,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::CurveDescriptor;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use super::{
     curves,
     design_operations::{ErrOperation, MIN_HELICES_TO_MAKE_GRID},
-    mutate_in_arc, Axis, Design, Helices, HelicesMut, Helix, HelixCollection, Parameters,
+    Axis, Design, Helices, Helix, HelixCollection, Parameters,
 };
 use curves::{CurveCache, GridPositionProvider, InstanciatedCurve, InstanciatedCurveDescriptor};
 mod hyperboloid;
@@ -582,6 +582,14 @@ pub enum Edge {
     Circle(isize),
 }
 
+#[derive(Clone, Debug)]
+struct BezierPoint {
+    /// The helix to which the point belong
+    helix_id: usize,
+    /// The position of the point in the list of BezierEnds,
+    n: usize,
+}
+
 /// A view of the design's grids, with pre-computed maps.
 #[derive(Clone, Default, Debug)]
 pub struct GridData {
@@ -590,8 +598,9 @@ pub struct GridData {
     pub(super) source_grids: Arc<Vec<GridDescriptor>>,
     source_helices: Helices,
     pub grids: Vec<Grid>,
-    pub helix_to_pos: HashMap<usize, HelixGridPosition>,
-    pub pos_to_helix: HashMap<GridPosition, usize>,
+    helix_to_pos: HashMap<usize, HelixGridPosition>,
+    pos_to_helix: HashMap<GridPosition, usize>,
+    pos_to_bezier_point: HashMap<GridPosition, BezierPoint>,
     pub parameters: Parameters,
     pub no_phantoms: HashSet<usize>,
     pub small_spheres: HashSet<usize>,
@@ -611,6 +620,7 @@ impl GridData {
         let mut grids = Vec::new();
         let mut helix_to_pos = HashMap::new();
         let mut pos_to_helix = HashMap::new();
+        let mut pos_to_bezier_point = HashMap::new();
         let parameters = design.parameters.unwrap_or_default();
         let source_grids = design.grids.clone();
         for desc in source_grids.iter() {
@@ -623,6 +633,11 @@ impl GridData {
                 helix_to_pos.insert(*h_id, grid_position);
                 pos_to_helix.insert(grid_position.light(), *h_id);
             }
+            if let Some(curve) = h.curve.as_ref() {
+                for (n, position) in curve.grid_positions_involved().iter().enumerate() {
+                    pos_to_bezier_point.insert(*position, BezierPoint { n, helix_id: *h_id });
+                }
+            }
         }
 
         let mut ret = Self {
@@ -630,6 +645,7 @@ impl GridData {
             source_helices,
             grids,
             helix_to_pos,
+            pos_to_bezier_point,
             pos_to_helix,
             parameters: design.parameters.unwrap_or_default(),
             no_phantoms: design.no_phantoms.clone(),
@@ -646,6 +662,9 @@ impl GridData {
     pub fn get_empty_grids_id(&self) -> HashSet<usize> {
         let mut ret: HashSet<usize> = (0..self.grids.len()).collect();
         for position in self.pos_to_helix.keys() {
+            ret.remove(&position.grid);
+        }
+        for position in self.pos_to_bezier_point.keys() {
             ret.remove(&position.grid);
         }
         ret
@@ -875,7 +894,10 @@ impl GridData {
     }
 
     pub fn pos_to_helix(&self, position: GridPosition) -> Option<usize> {
-        self.pos_to_helix.get(&position).cloned()
+        self.pos_to_helix
+            .get(&position)
+            .cloned()
+            .or(self.pos_to_bezier_point.get(&position).map(|p| p.helix_id))
     }
 
     pub fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
@@ -891,6 +913,56 @@ impl GridData {
         } else {
             None
         }
+    }
+
+    pub fn get_used_coordinates_on_grid(&self, g_id: usize) -> Vec<(isize, isize)> {
+        let filter = |pos: &&GridPosition| pos.grid == g_id;
+        let map = |pos: &GridPosition| (pos.x, pos.y);
+        self.pos_to_helix
+            .keys()
+            .filter(filter)
+            .map(map)
+            .chain(self.pos_to_bezier_point.keys().filter(filter).map(map))
+            .collect()
+    }
+
+    pub fn get_persistent_phantom_helices_id(&self) -> HashSet<u32> {
+        self.pos_to_helix
+            .iter()
+            .filter(|(k, _)| !self.no_phantoms.contains(&k.grid))
+            .map(|(_, v)| *v as u32)
+            .chain(
+                self.pos_to_bezier_point
+                    .iter()
+                    .filter(|(k, _)| !self.no_phantoms.contains(&k.grid))
+                    .map(|(_, p)| p.helix_id as u32),
+            )
+            .collect()
+    }
+
+    pub fn get_helix_grid_position(&self, h_id: usize) -> Option<HelixGridPosition> {
+        self.helix_to_pos.get(&h_id).cloned()
+    }
+
+    /// Return a list of pairs ((x, y), h_id) of all the used helices on the grid g_id
+    pub fn get_helices_grid_key_coord(&self, g_id: usize) -> Vec<((isize, isize), usize)> {
+        self.pos_to_helix
+            .iter()
+            .filter(|t| t.0.grid == g_id)
+            .map(|t| ((t.0.x, t.0.y), *t.1))
+            .chain(
+                self.pos_to_bezier_point
+                    .iter()
+                    .filter(|t| t.0.grid == g_id)
+                    .map(|t| ((t.0.x, t.0.y), t.1.helix_id)),
+            )
+            .collect()
+    }
+
+    pub fn get_all_used_grid_positions(&self) -> impl Iterator<Item = &GridPosition> {
+        self.pos_to_helix
+            .keys()
+            .chain(self.pos_to_bezier_point.keys())
     }
 }
 

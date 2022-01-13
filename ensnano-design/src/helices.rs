@@ -454,7 +454,7 @@ impl Helix {
             position: start,
             orientation: Rotor3::identity(),
             isometry2d: None,
-            grid_position: Some(grid_pos_start),
+            grid_position: None,
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,

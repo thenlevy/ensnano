@@ -89,7 +89,7 @@ impl DesignContent {
     }
 
     pub(super) fn get_helix_grid_position(&self, h_id: usize) -> Option<HelixGridPosition> {
-        self.grid_manager.helix_to_pos.get(&h_id).cloned()
+        self.grid_manager.get_helix_grid_position(h_id)
     }
 
     pub(super) fn get_grid_latice_position(&self, position: GridPosition) -> Option<Vec3> {
@@ -99,21 +99,11 @@ impl DesignContent {
 
     /// Return a list of pairs ((x, y), h_id) of all the used helices on the grid g_id
     pub(super) fn get_helices_grid_key_coord(&self, g_id: usize) -> Vec<((isize, isize), usize)> {
-        self.grid_manager
-            .pos_to_helix
-            .iter()
-            .filter(|t| t.0.grid == g_id)
-            .map(|t| ((t.0.x, t.0.y), *t.1))
-            .collect()
+        self.grid_manager.get_helices_grid_key_coord(g_id)
     }
 
     pub(super) fn get_used_coordinates_on_grid(&self, g_id: usize) -> Vec<(isize, isize)> {
-        self.grid_manager
-            .pos_to_helix
-            .iter()
-            .filter(|t| t.0.grid == g_id)
-            .map(|t| (t.0.x, t.0.y))
-            .collect()
+        self.grid_manager.get_used_coordinates_on_grid(g_id)
     }
 
     pub(super) fn get_helix_id_at_grid_coord(&self, position: GridPosition) -> Option<usize> {
@@ -121,12 +111,7 @@ impl DesignContent {
     }
 
     pub(super) fn get_persistent_phantom_helices_id(&self) -> HashSet<u32> {
-        self.grid_manager
-            .pos_to_helix
-            .iter()
-            .filter(|(k, _)| !self.grid_manager.no_phantoms.contains(&k.grid))
-            .map(|(_, v)| *v as u32)
-            .collect()
+        self.grid_manager.get_persistent_phantom_helices_id()
     }
 
     pub(super) fn grid_has_small_spheres(&self, g_id: usize) -> bool {
@@ -702,7 +687,7 @@ impl GridInstancesMaker for GridData {
             };
             ret.push(grid);
         }
-        for grid_position in self.helix_to_pos.values() {
+        for grid_position in self.get_all_used_grid_positions() {
             let grid = grid_position.grid;
             ret[grid].min_x = ret[grid].min_x.min(grid_position.x as i32 - 2);
             ret[grid].max_x = ret[grid].max_x.max(grid_position.x as i32 + 2);

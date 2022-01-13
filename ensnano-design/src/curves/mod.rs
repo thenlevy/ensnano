@@ -16,7 +16,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ultraviolet::Rotor2;
 use ultraviolet::{DMat3, DVec3, Rotor3, Vec3};
 const EPSILON: f64 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
@@ -28,7 +27,6 @@ mod bezier;
 mod sphere_like_spiral;
 mod torus;
 mod twist;
-use super::GridData;
 use super::GridDescriptor;
 pub use bezier::{BezierEnd, CubicBezierConstructor, PiecewiseBezier};
 pub use sphere_like_spiral::SphereLikeSpiral;
@@ -191,6 +189,7 @@ impl Curve {
         self.positions.get(n).cloned()
     }
 
+    #[allow(dead_code)]
     pub fn curvature(&self, n: usize) -> Option<f64> {
         self.curvature.get(n).cloned()
     }
@@ -234,6 +233,7 @@ fn perpendicular_basis(point: DVec3) -> DMat3 {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// A descriptor of the curve that can be serialized
 pub enum CurveDescriptor {
     Bezier(CubicBezierConstructor),
     SphereLikeSpiral(SphereLikeSpiral),
@@ -246,7 +246,19 @@ pub enum CurveDescriptor {
     },
 }
 
+impl CurveDescriptor {
+    pub fn grid_positions_involved(&self) -> &[GridPosition] {
+        if let Self::PiecewiseBezier { points, .. } = self {
+            points.as_slice()
+        } else {
+            &[]
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
+/// A descriptor of the the cruve where all reference to design element have been resolved.
+/// For example, GridPosition are replaced by their actual position in space.
 pub(super) struct InstanciatedCurveDescriptor {
     pub source: Arc<CurveDescriptor>,
     instance: InsanciatedCurveDescriptor_,
