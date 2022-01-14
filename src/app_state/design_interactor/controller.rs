@@ -20,7 +20,10 @@ use super::SimulationUpdate;
 use crate::app_state::AddressPointer;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
-    grid::{Edge, GridDescriptor, GridObject, GridTypeDescr, HelixGridPosition, Hyperboloid},
+    grid::{
+        Edge, GridDescriptor, GridObject, GridPosition, GridTypeDescr, HelixGridPosition,
+        Hyperboloid,
+    },
     group_attributes::GroupPivot,
     mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix,
     HelixCollection, Nucl, Parameters, Strand, Strands, UpToDateDesign, VirtualNucl,
@@ -1391,6 +1394,7 @@ pub enum ErrOperation {
     CameraDoesNotExist(CameraId),
     GridIsNotHyperboloid(usize),
     DesignOperationError(ensnano_design::design_operations::ErrOperation),
+    NotPiecewiseBezier(usize),
 }
 
 impl From<ensnano_design::design_operations::ErrOperation> for ErrOperation {
@@ -2017,7 +2021,22 @@ impl Controller {
         start: HelixGridPosition,
         end: HelixGridPosition,
     ) -> Result<Design, ErrOperation> {
+        log::info!("Add {:?} {:?}", start, end);
         let grid_manager = design.get_updated_grid_data();
+        if let Some(obj) = grid_manager.pos_to_object(start.light()) {
+            if grid_manager.pos_to_object(end.light()).is_some() {
+                return Err(ErrOperation::GridPositionAlreadyUsed);
+            }
+            let (_, tengent) = grid_manager
+                .get_tengents_between_two_points(start.light(), end.light())
+                .ok_or(ErrOperation::GridDoesNotExist(end.grid))?;
+            return self.add_bezier_point(design, obj, end.light(), tengent, true);
+        } else if let Some(obj) = grid_manager.pos_to_object(end.light()) {
+            let (tengent, _) = grid_manager
+                .get_tengents_between_two_points(start.light(), end.light())
+                .ok_or(ErrOperation::GridDoesNotExist(end.grid))?;
+            return self.add_bezier_point(design, obj, start.light(), tengent, false);
+        }
         drop(grid_manager);
         let helix = Helix::new_bezier_two_points(&grid_manager, start, end)?;
         let mut new_helices = design.helices.make_mut();
@@ -2036,6 +2055,40 @@ impl Controller {
             }
         }
         Ok(design)
+    }
+
+    fn add_bezier_point(
+        &self,
+        mut design: Design,
+        object: GridObject,
+        point: GridPosition,
+        tengent: Vec3,
+        append: bool,
+    ) -> Result<Design, ErrOperation> {
+        match object {
+            GridObject::BezierPoint { helix_id, n } => {
+                let mut helices_mut = design.helices.make_mut();
+                let helix_ref = helices_mut
+                    .get_mut(&helix_id)
+                    .ok_or(ErrOperation::HelixDoesNotExists(helix_id))?;
+                let desc: Option<&mut CurveDescriptor> =
+                    if let Some(desc) = helix_ref.curve.as_mut() {
+                        Some(Arc::make_mut(desc))
+                    } else {
+                        None
+                    };
+                if let Some(CurveDescriptor::PiecewiseBezier { points, tengents }) = desc {
+                    let insertion_point = if append { n + 1 } else { n };
+                    points.insert(insertion_point, point);
+                    tengents.insert(insertion_point, tengent);
+                    drop(helices_mut);
+                    Ok(design)
+                } else {
+                    Err(ErrOperation::NotPiecewiseBezier(helix_id))
+                }
+            }
+            GridObject::Helix(_) => Err(ErrOperation::GridPositionAlreadyUsed),
+        }
     }
 
     /// Merge two strands with identifier prime5 and prime3. The resulting strand will have

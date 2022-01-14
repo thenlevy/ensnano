@@ -223,6 +223,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                     .data
                                     .borrow()
                                     .get_grid_object(intersection.grid_position())
+                                    .filter(|_| !controller.current_modifiers.shift())
                                 {
                                     Transition {
                                         new_state: Some(Box::new(TranslatingGridObject {

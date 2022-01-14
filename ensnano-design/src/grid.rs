@@ -975,6 +975,38 @@ impl GridData {
     pub fn get_all_used_grid_positions(&self) -> impl Iterator<Item = &GridPosition> {
         self.pos_to_object.keys()
     }
+
+    pub fn get_tengents_between_two_points(
+        &self,
+        start: GridPosition,
+        end: GridPosition,
+    ) -> Option<(Vec3, Vec3)> {
+        let grid_start = self.grids.get(start.grid)?;
+        let grid_end = self.grids.get(end.grid)?;
+        let dumy_start_helix = Helix::new_on_grid(&grid_start, start.x, start.y, start.grid);
+        let mut start_axis = dumy_start_helix
+            .get_axis(&self.parameters)
+            .direction()
+            .unwrap_or(Vec3::zero());
+        let dumy_end_helix = Helix::new_on_grid(&grid_end, end.x, end.y, end.grid);
+        let mut end_axis = dumy_end_helix
+            .get_axis(&self.parameters)
+            .direction()
+            .unwrap_or(Vec3::zero());
+        start_axis.normalize();
+        end_axis.normalize();
+        let start = dumy_start_helix.position;
+        let end = dumy_end_helix.position;
+        let middle = (end - start) / 2.;
+        let vec_start = middle.dot(start_axis) * start_axis;
+        // Do not negate it, it corresponds to the tengeant of the piece that will leave at that
+        // point
+        let vec_end = middle.dot(end_axis) * end_axis;
+        Some((
+            vec_start.rotated_by(grid_start.orientation.reversed()),
+            vec_end.rotated_by(grid_end.orientation.reversed()),
+        ))
+    }
 }
 
 trait GridApprox {
@@ -1153,6 +1185,14 @@ impl GridData {
                 curve,
                 source: desc.clone(),
             })
+        }
+    }
+
+    pub fn pos_to_space(&self, position: GridPosition) -> Option<Vec3> {
+        if let Some(grid) = self.grids.get(position.grid) {
+            Some(grid.position_helix(position.x, position.y))
+        } else {
+            None
         }
     }
 

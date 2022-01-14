@@ -410,48 +410,18 @@ impl Helix {
         grid_pos_start: HelixGridPosition,
         grid_pos_end: HelixGridPosition,
     ) -> Result<Self, ErrOperation> {
-        let grid_start = grid_manager
-            .grids
-            .get(grid_pos_start.grid)
+        let position = grid_manager
+            .pos_to_space(grid_pos_start.light())
             .ok_or(ErrOperation::GridDoesNotExist(grid_pos_start.grid))?;
-        let grid_end = grid_manager
-            .grids
-            .get(grid_pos_end.grid)
+        let (vec_start, vec_end) = grid_manager
+            .get_tengents_between_two_points(grid_pos_start.light(), grid_pos_end.light())
             .ok_or(ErrOperation::GridDoesNotExist(grid_pos_end.grid))?;
-        let dumy_start_helix = Helix::new_on_grid(
-            &grid_start,
-            grid_pos_start.x,
-            grid_pos_start.y,
-            grid_pos_start.grid,
-        );
-        let mut start_axis = dumy_start_helix
-            .get_axis(&grid_manager.parameters)
-            .direction()
-            .unwrap_or(Vec3::zero());
-        let dumy_end_helix =
-            Helix::new_on_grid(&grid_end, grid_pos_end.x, grid_pos_end.y, grid_pos_end.grid);
-        let mut end_axis = dumy_end_helix
-            .get_axis(&grid_manager.parameters)
-            .direction()
-            .unwrap_or(Vec3::zero());
-        start_axis.normalize();
-        end_axis.normalize();
-        let start = dumy_start_helix.position;
-        let end = dumy_end_helix.position;
-        let middle = (end - start) / 2.;
-        let vec_start = middle.dot(start_axis) * start_axis;
-        // Do not negate it, it corresponds to the tengeant of the piece that will leave at that
-        // point
-        let vec_end = middle.dot(end_axis) * end_axis;
         let constructor = CurveDescriptor::PiecewiseBezier {
             points: vec![grid_pos_start.light(), grid_pos_end.light()],
-            tengents: vec![
-                vec_start.rotated_by(grid_start.orientation.reversed()),
-                vec_end.rotated_by(grid_end.orientation.reversed()),
-            ],
+            tengents: vec![vec_start, vec_end],
         };
         let mut ret = Self {
-            position: start,
+            position,
             orientation: Rotor3::identity(),
             isometry2d: None,
             grid_position: None,
