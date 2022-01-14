@@ -21,7 +21,7 @@ use super::{
     HelixInterval, Nucl, Strand,
 };
 use ensnano_design::{
-    grid::{Edge, GridData},
+    grid::{Edge, GridData, GridObject},
     Helices, HelixCollection, MutStrandAndData, Parameters, Strands, UpToDateDesign,
 };
 use ultraviolet::Vec3;
@@ -365,7 +365,8 @@ impl Controller {
                             .translate_by_edge(pos1, edge)
                             .ok_or(ErrOperation::CannotPasteHere)?;
                         let helix = grid_manager
-                            .pos_to_helix(pos2.light())
+                            .pos_to_object(pos2.light())
+                            .map(|obj| obj.helix())
                             .ok_or(ErrOperation::CannotPasteHere)?;
                         ret.push(Domain::HelixDomain(HelixInterval {
                             helix,
@@ -387,7 +388,8 @@ impl Controller {
                             return Err(ErrOperation::CannotPasteHere);
                         }
                         let helix = grid_manager
-                            .pos_to_helix(pos2.light())
+                            .pos_to_object(pos2.light())
+                            .map(|obj| obj.helix())
                             .ok_or(ErrOperation::CannotPasteHere)?;
 
                         ret.push(Domain::HelixDomain(HelixInterval {
@@ -417,7 +419,8 @@ impl Controller {
         let pos1 = helices.get(&nucl1.helix).and_then(|h| h.grid_position)?;
         let h2 = grid_manager
             .translate_by_edge(&pos1, edge)
-            .and_then(|pos2| grid_manager.pos_to_helix(pos2.light()))?;
+            .and_then(|pos2| grid_manager.pos_to_object(pos2.light()))
+            .map(|obj| obj.helix())?;
         Some(Nucl {
             helix: h2,
             position: nucl1.position + shift,

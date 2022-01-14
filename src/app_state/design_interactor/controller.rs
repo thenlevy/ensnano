@@ -1987,7 +1987,7 @@ impl Controller {
         length: usize,
     ) -> Result<Design, ErrOperation> {
         let grid_manager = design.get_updated_grid_data();
-        if grid_manager.pos_to_helix(position.light()).is_some() {
+        if grid_manager.pos_to_object(position.light()).is_some() {
             return Err(ErrOperation::GridPositionAlreadyUsed);
         }
         let grid = grid_manager

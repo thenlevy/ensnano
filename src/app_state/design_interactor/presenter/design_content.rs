@@ -107,7 +107,9 @@ impl DesignContent {
     }
 
     pub(super) fn get_helix_id_at_grid_coord(&self, position: GridPosition) -> Option<usize> {
-        self.grid_manager.pos_to_helix(position)
+        self.grid_manager
+            .pos_to_object(position)
+            .map(|obj| obj.helix())
     }
 
     pub(super) fn get_persistent_phantom_helices_id(&self) -> HashSet<u32> {
