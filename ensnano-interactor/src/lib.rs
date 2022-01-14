@@ -21,7 +21,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
-    grid::{GridDescriptor, HelixGridPosition, Hyperboloid},
+    grid::{GridDescriptor, GridObject, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
     Nucl,
 };
@@ -207,8 +207,8 @@ pub enum DesignOperation {
     FlipAnchors {
         nucls: Vec<Nucl>,
     },
-    AttachHelix {
-        helix: usize,
+    AttachObject {
+        object: GridObject,
         grid: usize,
         x: isize,
         y: isize,

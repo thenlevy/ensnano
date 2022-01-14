@@ -16,6 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
+use ensnano_design::grid::GridObject;
 use ensnano_interactor::ActionMode;
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -218,19 +219,19 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         } = app_state.get_action_mode().0
                         {
                             if let Some(intersection) = grid_intersection {
-                                if let Some(helix) = controller
+                                if let Some(object) = controller
                                     .data
                                     .borrow()
-                                    .get_grid_helix(intersection.grid_position())
+                                    .get_grid_object(intersection.grid_position())
                                 {
                                     Transition {
-                                        new_state: Some(Box::new(TranslatingHelix {
+                                        new_state: Some(Box::new(TranslatingGridObject {
                                             grid_id: intersection.grid_id,
-                                            helix_id: helix as usize,
+                                            object: object.clone(),
                                             x: intersection.x,
                                             y: intersection.y,
                                         })),
-                                        consequences: Consequence::HelixSelected(helix as usize),
+                                        consequences: Consequence::HelixSelected(object.helix()),
                                     }
                                 } else {
                                     Transition {
@@ -261,31 +262,31 @@ impl<S: AppState> ControllerState<S> for NormalState {
                             }
                         } else {
                             let clicked_element;
-                            let helix;
+                            let object;
                             if let Some(intersection) = grid_intersection.as_ref() {
                                 clicked_element = Some(SceneElement::GridCircle(
                                     d_id,
                                     intersection.grid_position(),
                                 ));
-                                helix = controller
+                                object = controller
                                     .data
                                     .borrow()
-                                    .get_grid_helix(intersection.grid_position());
+                                    .get_grid_object(intersection.grid_position());
                             } else {
                                 clicked_element = element;
-                                helix = None;
+                                object = None;
                             };
-                            if let Some(h_id) = helix {
+                            if let Some(obj) = object {
                                 // if helix is Some, intersection is also Some
                                 let intersection = grid_intersection.unwrap();
                                 Transition {
-                                    new_state: Some(Box::new(TranslatingHelix {
+                                    new_state: Some(Box::new(TranslatingGridObject {
                                         grid_id: intersection.grid_id,
-                                        helix_id: h_id as usize,
+                                        object: obj.clone(),
                                         x: intersection.x,
                                         y: intersection.y,
                                     })),
-                                    consequences: Consequence::HelixSelected(h_id as usize),
+                                    consequences: Consequence::HelixSelected(obj.helix()),
                                 }
                             } else {
                                 Transition {
@@ -823,18 +824,18 @@ impl<S: AppState> ControllerState<S> for TranslatingWidget {
     }
 }
 
-struct TranslatingHelix {
-    helix_id: usize,
+struct TranslatingGridObject {
+    object: GridObject,
     grid_id: usize,
     x: isize,
     y: isize,
 }
 
-impl<S: AppState> ControllerState<S> for TranslatingHelix {
+impl<S: AppState> ControllerState<S> for TranslatingGridObject {
     fn display(&self) -> Cow<'static, str> {
         format!(
-            "Translating helix {} on grid {}",
-            self.helix_id, self.grid_id
+            "Translating object {:?} on grid {}",
+            self.object, self.grid_id
         )
         .into()
     }
@@ -869,8 +870,8 @@ impl<S: AppState> ControllerState<S> for TranslatingHelix {
                     if intersection.x != self.x || intersection.y != self.y {
                         self.x = intersection.x;
                         self.y = intersection.y;
-                        Transition::consequence(Consequence::HelixTranslated {
-                            helix: self.helix_id,
+                        Transition::consequence(Consequence::ObjectTranslated {
+                            object: self.object.clone(),
                             grid: self.grid_id,
                             x: intersection.x,
                             y: intersection.y,

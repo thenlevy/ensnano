@@ -23,7 +23,7 @@ use super::super::GridInstance;
 use super::{LetterInstance, SceneElement};
 use crate::consts::*;
 use crate::utils::instance::Instance;
-use ensnano_design::grid::GridPosition;
+use ensnano_design::grid::{GridObject, GridPosition};
 use ensnano_design::{grid::HelixGridPosition, Nucl};
 use ensnano_interactor::{
     phantom_helix_encoder_bound, phantom_helix_encoder_nucl, BezierControlPoint, ObjectType,
@@ -758,6 +758,10 @@ impl<R: DesignReader> Design3D<R> {
         self.design.get_helix_id_at_grid_coord(position)
     }
 
+    pub fn get_grid_object(&self, position: GridPosition) -> Option<GridObject> {
+        self.design.get_grid_object(position)
+    }
+
     pub fn get_persistent_phantom_helices(&self) -> HashSet<u32> {
         self.design.get_persistent_phantom_helices_id()
     }
@@ -1030,4 +1034,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_curve_range(&self, h_id: usize) -> Option<std::ops::RangeInclusive<isize>>;
     fn get_checked_xovers_ids(&self, checked: bool) -> Vec<u32>;
     fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize>;
+    fn get_grid_object(&self, position: GridPosition) -> Option<GridObject>;
 }

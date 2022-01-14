@@ -20,7 +20,7 @@ use super::*;
 use crate::scene::GridInstance;
 use ahash::RandomState;
 use ensnano_design::elements::DnaElement;
-use ensnano_design::grid::{GridPosition, HelixGridPosition};
+use ensnano_design::grid::{GridObject, GridPosition, HelixGridPosition};
 use ensnano_design::*;
 use ensnano_interactor::ObjectType;
 use std::borrow::Cow;
@@ -157,6 +157,10 @@ impl DesignContent {
             }
         }
         None
+    }
+
+    pub(super) fn get_grid_object(&self, position: GridPosition) -> Option<GridObject> {
+        self.grid_manager.pos_to_object(position)
     }
 
     pub(super) fn get_staples(&self, design: &Design) -> Vec<Staple> {

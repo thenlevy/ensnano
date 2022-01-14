@@ -20,7 +20,7 @@ use super::SimulationUpdate;
 use crate::app_state::AddressPointer;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
-    grid::{Edge, GridDescriptor, GridTypeDescr, HelixGridPosition, Hyperboloid},
+    grid::{Edge, GridDescriptor, GridObject, GridTypeDescr, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
     mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix,
     HelixCollection, Nucl, Parameters, Strand, Strands, UpToDateDesign, VirtualNucl,
@@ -213,8 +213,8 @@ impl Controller {
             DesignOperation::RmGrid(_) => Err(ErrOperation::NotImplemented), // TODO
             DesignOperation::ChangeSequence { .. } => Err(ErrOperation::NotImplemented), // TODO
             DesignOperation::CleanDesign => Err(ErrOperation::NotImplemented), // TODO
-            DesignOperation::AttachHelix { helix, grid, x, y } => {
-                self.apply(|c, d| c.attach_helix(d, helix, grid, x, y), design)
+            DesignOperation::AttachObject { object, grid, x, y } => {
+                self.apply(|c, d| c.attach_object(d, object, grid, x, y), design)
             }
             DesignOperation::SetOrganizerTree(tree) => Ok(self.ok_apply(
                 |_, mut d| {
@@ -1160,16 +1160,16 @@ impl Controller {
         Ok(design)
     }
 
-    fn attach_helix(
+    fn attach_object(
         &mut self,
         mut design: Design,
-        helix: usize,
+        object: GridObject,
         grid: usize,
         x: isize,
         y: isize,
     ) -> Result<Design, ErrOperation> {
         self.update_state_and_design(&mut design);
-        ensnano_design::design_operations::attach_helix_to_grid(&mut design, helix, grid, x, y)?;
+        ensnano_design::design_operations::attach_object_to_grid(&mut design, object, grid, x, y)?;
         Ok(design)
     }
 

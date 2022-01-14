@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 use crate::scene::GridInstance;
 use ensnano_design::{
-    grid::{GridPosition, HelixGridPosition},
+    grid::{GridObject, GridPosition, HelixGridPosition},
     Nucl,
 };
 use ensnano_interactor::{ObjectType, Referential};
@@ -338,6 +338,10 @@ impl Reader3D for DesignReader {
 
     fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize> {
         self.presenter.get_id_of_xover_involving_nucl(nucl)
+    }
+
+    fn get_grid_object(&self, position: GridPosition) -> Option<GridObject> {
+        self.presenter.content.get_grid_object(position)
     }
 }
 

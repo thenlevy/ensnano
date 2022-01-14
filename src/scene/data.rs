@@ -30,6 +30,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
+use ensnano_design::grid::GridObject;
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
@@ -1823,8 +1824,10 @@ impl<R: DesignReader> ControllerData for Data<R> {
         self.can_start_builder(element)
     }
 
-    fn get_grid_helix(&self, position: GridPosition) -> Option<u32> {
-        self.designs.get(0).and_then(|d| d.get_helix_grid(position))
+    fn get_grid_object(&self, position: GridPosition) -> Option<GridObject> {
+        self.designs
+            .get(0)
+            .and_then(|d| d.get_grid_object(position))
     }
 
     fn notify_rotating_pivot(&mut self) {

@@ -253,12 +253,12 @@ impl<S: AppState> Scene<S> {
                     }
                 }
             }
-            Consequence::HelixTranslated { helix, grid, x, y } => {
-                log::info!("Moving helix {} to grid {} ({} {})", helix, grid, x, y);
+            Consequence::ObjectTranslated { object, grid, x, y } => {
+                log::info!("Moving helix {:?} to grid {} ({} {})", object, grid, x, y);
                 self.requests
                     .lock()
                     .unwrap()
-                    .apply_design_operation(DesignOperation::AttachHelix { helix, grid, x, y });
+                    .apply_design_operation(DesignOperation::AttachObject { object, grid, x, y });
             }
             Consequence::MovementEnded => {
                 self.requests.lock().unwrap().suspend_op();

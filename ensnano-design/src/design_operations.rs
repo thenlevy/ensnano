@@ -19,7 +19,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! The functions that apply thes operations take a mutable reference to the design that they are
 //! modifying and may return an `ErrOperation` if the opperation could not be applied.
 
-use super::{grid::*, Design, Helix};
+use super::{grid::*, CurveDescriptor, Design, Helix};
+use std::sync::Arc;
 use ultraviolet::{Rotor3, Vec3};
 
 /// An error that occured when trying to apply an operation.
@@ -30,6 +31,8 @@ pub enum ErrOperation {
     HelixDoesNotExists(usize),
     GridDoesNotExist(usize),
     HelixCollisionDuringTranslation,
+    NotEnoughBezierPoints,
+    HelixIsNotPiecewiseBezier,
 }
 
 /// The minimum number of helices requiered to infer a grid
@@ -42,9 +45,9 @@ pub fn make_grid_from_helices(design: &mut Design, helices: &[usize]) -> Result<
 }
 
 /// Attach an helix to a grid. The target grid position must be empty
-pub fn attach_helix_to_grid(
+pub fn attach_object_to_grid(
     design: &mut Design,
-    helix: usize,
+    object: GridObject,
     grid: usize,
     x: isize,
     y: isize,
@@ -52,31 +55,50 @@ pub fn attach_helix_to_grid(
     let grid_manager = design.get_updated_grid_data();
     if matches!(grid_manager.pos_to_object(GridPosition{
         grid, x, y
-    }), Some(obj) if obj.helix() != helix)
+    }), Some(obj) if obj != object)
     {
         Err(ErrOperation::GridPositionAlreadyUsed)
     } else {
         drop(grid_manager);
         let mut helices_mut = design.helices.make_mut();
         let helix_ref = helices_mut
-            .get_mut(&helix)
-            .ok_or(ErrOperation::HelixDoesNotExists(helix))?;
+            .get_mut(&object.helix())
+            .ok_or(ErrOperation::HelixDoesNotExists(object.helix()))?;
         // take previous axis position if there were one
-        let axis_pos = helix_ref
-            .grid_position
-            .map(|pos| pos.axis_pos)
-            .unwrap_or_default();
-        let roll = helix_ref
-            .grid_position
-            .map(|pos| pos.roll)
-            .unwrap_or_default();
-        helix_ref.grid_position = Some(HelixGridPosition {
-            grid,
-            x,
-            y,
-            axis_pos,
-            roll,
-        });
+        match object {
+            GridObject::Helix(_) => {
+                let axis_pos = helix_ref
+                    .grid_position
+                    .map(|pos| pos.axis_pos)
+                    .unwrap_or_default();
+                let roll = helix_ref
+                    .grid_position
+                    .map(|pos| pos.roll)
+                    .unwrap_or_default();
+                helix_ref.grid_position = Some(HelixGridPosition {
+                    grid,
+                    x,
+                    y,
+                    axis_pos,
+                    roll,
+                });
+            }
+            GridObject::BezierPoint { n, .. } => {
+                let desc: Option<&mut CurveDescriptor> =
+                    if let Some(desc) = helix_ref.curve.as_mut() {
+                        Some(Arc::make_mut(desc))
+                    } else {
+                        None
+                    };
+                if let Some(CurveDescriptor::PiecewiseBezier { points, .. }) = desc {
+                    if let Some(point) = points.get_mut(n) {
+                        *point = GridPosition { grid, x, y };
+                    } else {
+                        return Err(ErrOperation::NotEnoughBezierPoints);
+                    }
+                }
+            }
+        }
         Ok(())
     }
 }
