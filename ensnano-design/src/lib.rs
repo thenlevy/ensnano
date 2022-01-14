@@ -46,7 +46,7 @@ mod helices;
 pub use helices::*;
 
 mod curves;
-pub use curves::{CubicBezierConstructor, CurveCache, CurveDescriptor};
+pub use curves::{BezierControlPoint, CubicBezierConstructor, CurveCache, CurveDescriptor};
 pub mod design_operations;
 pub mod utils;
 

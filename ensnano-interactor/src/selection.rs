@@ -16,6 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use ensnano_design::grid::HelixGridPosition;
+pub use ensnano_design::BezierControlPoint;
 use ensnano_design::{CubicBezierConstructor, Nucl, Strand};
 use std::collections::BTreeSet;
 
@@ -53,37 +54,6 @@ pub enum CenterOfSelection {
         helix_id: usize,
         bezier_control: BezierControlPoint,
     },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BezierControlPoint {
-    Start,
-    End,
-    Control1,
-    Control2,
-}
-
-impl BezierControlPoint {
-    pub fn get_point(&self, constructor: &CubicBezierConstructor) -> ultraviolet::Vec3 {
-        match self {
-            Self::Start => constructor.start,
-            Self::End => constructor.end,
-            Self::Control1 => constructor.control1,
-            Self::Control2 => constructor.control2,
-        }
-    }
-
-    pub fn get_point_mut<'a>(
-        &self,
-        constructor: &'a mut CubicBezierConstructor,
-    ) -> &'a mut ultraviolet::Vec3 {
-        match self {
-            Self::Start => &mut constructor.start,
-            Self::End => &mut constructor.end,
-            Self::Control1 => &mut constructor.control1,
-            Self::Control2 => &mut constructor.control2,
-        }
-    }
 }
 
 impl Selection {

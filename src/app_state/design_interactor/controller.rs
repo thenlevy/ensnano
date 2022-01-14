@@ -1116,7 +1116,7 @@ impl Controller {
                 self.translate_group_pivot(design, translation.translation, group_id)
             }
             IsometryTarget::ControlPoint(control_points) => {
-                Ok(self.translate_control_points(design, control_points, translation.translation))
+                self.translate_control_points(design, control_points, translation.translation)
             }
         }?;
 
@@ -1237,20 +1237,23 @@ impl Controller {
         mut design: Design,
         control_points: Vec<(usize, BezierControlPoint)>,
         translation: Vec3,
-    ) -> Design {
+    ) -> Result<Design, ErrOperation> {
         self.update_state_and_design(&mut design);
+        let grid_data = design.get_updated_grid_data();
+        let translations: Vec<_> = control_points
+            .iter()
+            .cloned()
+            .map(|cp| grid_data.translate_bezier_point(cp, translation))
+            .collect();
         let mut new_helices = design.helices.make_mut();
-        for (h_id, control) in control_points.iter() {
+        for ((h_id, control), translation) in control_points.iter().zip(translations.iter()) {
+            let translation = translation.ok_or(ErrOperation::BadSelection)?;
             if let Some(helix) = new_helices.get_mut(&h_id) {
-                if let Some(mut contructor) = helix.get_bezier_controls() {
-                    let point = control.get_point_mut(&mut contructor);
-                    *point += translation;
-                    helix.curve = Some(Arc::new(CurveDescriptor::Bezier(contructor)));
-                }
+                helix.translate_bezier_point(*control, translation)?;
             }
         }
         drop(new_helices);
-        design
+        Ok(design)
     }
 
     fn rotate_helices_3d(

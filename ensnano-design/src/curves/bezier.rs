@@ -19,6 +19,15 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use crate::utils::vec_to_dvec;
 use ultraviolet::{DVec3, Vec3};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BezierControlPoint {
+    Start,
+    End,
+    Control1,
+    Control2,
+    PiecewiseBezier(usize),
+}
+
 pub struct CubicBezier {
     polynomial: CubicBezierPolynom,
 }

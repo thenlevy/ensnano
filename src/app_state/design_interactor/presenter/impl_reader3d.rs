@@ -20,9 +20,9 @@ use super::*;
 use crate::scene::GridInstance;
 use ensnano_design::{
     grid::{GridObject, GridPosition, HelixGridPosition},
-    Nucl,
+    CurveDescriptor, Nucl,
 };
-use ensnano_interactor::{ObjectType, Referential};
+use ensnano_interactor::{BezierControlPoint, ObjectType, Referential};
 use std::collections::HashSet;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
@@ -312,12 +312,26 @@ impl Reader3D for DesignReader {
         }
     }
 
-    fn get_bezier_controll(&self, h_id: usize) -> Option<ensnano_design::CubicBezierConstructor> {
-        self.presenter
-            .current_design
-            .helices
-            .get(&h_id)
-            .and_then(|h| h.get_bezier_controls())
+    fn get_position_of_bezier_control(
+        &self,
+        helix: usize,
+        control: BezierControlPoint,
+    ) -> Option<Vec3> {
+        let helix = self.presenter.current_design.helices.get(&helix)?;
+        if let BezierControlPoint::PiecewiseBezier(n) = control {
+            let points = helix.piecewise_bezier_points()?;
+            points.get(n).cloned()
+        } else {
+            let points = helix.cubic_bezier_points()?;
+            match control {
+                BezierControlPoint::Start => points.get(0),
+                BezierControlPoint::Control1 => points.get(1),
+                BezierControlPoint::Control2 => points.get(2),
+                BezierControlPoint::End => points.get(3),
+                PiecewiseBezier => None,
+            }
+            .cloned()
+        }
     }
 
     fn get_curve_range(&self, h_id: usize) -> Option<std::ops::RangeInclusive<isize>> {
@@ -342,6 +356,23 @@ impl Reader3D for DesignReader {
 
     fn get_grid_object(&self, position: GridPosition) -> Option<GridObject> {
         self.presenter.content.get_grid_object(position)
+    }
+
+    fn get_cubic_bezier_controls(
+        &self,
+        helix: usize,
+    ) -> Option<ensnano_design::CubicBezierConstructor> {
+        let helix = self.presenter.current_design.helices.get(&helix)?;
+        if let Some(CurveDescriptor::Bezier(constructor)) = helix.curve.as_ref().map(Arc::as_ref) {
+            Some(constructor.clone())
+        } else {
+            None
+        }
+    }
+
+    fn get_piecewise_bezier_controls(&self, helix: usize) -> Option<Vec<Vec3>> {
+        let helix = self.presenter.current_design.helices.get(&helix)?;
+        helix.piecewise_bezier_points()
     }
 }
 

@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::design_operations::ErrOperation;
+use crate::grid::GridAwareTranslation;
 
 use super::curves::*;
 use super::{
@@ -402,6 +403,56 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+        }
+    }
+
+    pub fn piecewise_bezier_points(&self) -> Option<Vec<Vec3>> {
+        if let Some(CurveDescriptor::PiecewiseBezier { .. }) = self.curve.as_ref().map(Arc::as_ref)
+        {
+            Some(self.bezier_points())
+        } else {
+            None
+        }
+    }
+
+    pub fn cubic_bezier_points(&self) -> Option<Vec<Vec3>> {
+        if let Some(CurveDescriptor::Bezier(_)) = self.curve.as_ref().map(Arc::as_ref) {
+            Some(self.bezier_points())
+        } else {
+            None
+        }
+    }
+
+    pub fn translate_bezier_point(
+        &mut self,
+        bezier_point: BezierControlPoint,
+        translation: GridAwareTranslation,
+    ) -> Result<(), ErrOperation> {
+        let point = match bezier_point {
+            BezierControlPoint::PiecewiseBezier(n) => {
+                if let Some(CurveDescriptor::PiecewiseBezier { tengents, .. }) =
+                    self.curve.as_mut().map(Arc::make_mut)
+                {
+                    tengents.get_mut(n / 2)
+                } else {
+                    None
+                }
+            }
+            _ => {
+                log::error!("Translation of cubic bezier point not implemented");
+                None
+            }
+        }
+        .ok_or(ErrOperation::NotEnoughBezierPoints)?;
+        *point += translation.0;
+        Ok(())
+    }
+
+    fn bezier_points(&self) -> Vec<Vec3> {
+        if let Some(desc) = self.instanciated_descriptor.as_ref() {
+            desc.bezier_points()
+        } else {
+            vec![]
         }
     }
 

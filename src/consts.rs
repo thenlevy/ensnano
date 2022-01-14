@@ -60,6 +60,9 @@ pub fn widget_id_to_bezier(id: u32) -> Option<(usize, BezierControlPoint)> {
         BEZIER_END_WIDGET_ID => Some(BezierControlPoint::End),
         BEZIER_CONTROL1_WIDGET_ID => Some(BezierControlPoint::Control1),
         BEZIER_CONTROL2_WIDGET_ID => Some(BezierControlPoint::Control2),
+        n if n > BEZIER_END_WIDGET_ID => Some(BezierControlPoint::PiecewiseBezier(
+            (n - 1 - BEZIER_END_WIDGET_ID) as usize,
+        )),
         _ => None,
     };
     Some((id >> 8) as usize).zip(control)
@@ -71,6 +74,7 @@ pub const fn bezier_control_color(control_point: BezierControlPoint) -> u32 {
         BezierControlPoint::Control1 => BEZIER_CONTROL1_COLOR,
         BezierControlPoint::Control2 => BEZIER_CONTROL2_COLOR,
         BezierControlPoint::End => BEZIER_END_COLOR,
+        BezierControlPoint::PiecewiseBezier(_) => PIECEWISE_BEZIER_COLOR,
     }
 }
 
@@ -80,6 +84,7 @@ pub const fn bezier_control_id(control_point: BezierControlPoint) -> u32 {
         BezierControlPoint::Control1 => BEZIER_CONTROL1_WIDGET_ID,
         BezierControlPoint::Control2 => BEZIER_CONTROL2_WIDGET_ID,
         BezierControlPoint::End => BEZIER_END_WIDGET_ID,
+        BezierControlPoint::PiecewiseBezier(n) => n as u32 + BEZIER_END_WIDGET_ID + 1,
     }
 }
 
@@ -185,5 +190,6 @@ pub const SEC_BETWEEN_BACKUPS: u64 = 60;
 pub const SEC_PER_YEAR: u64 = 31_536_000;
 pub const DEFAULT_STEREOGRAPHIC_ZOOM: f32 = 3.0;
 pub const STEREOGRAPHIC_ZOOM_STEP: f32 = 1.1;
+pub const PIECEWISE_BEZIER_COLOR: u32 = 0xFF_66_CD_AA; // Medium Aquamarine
 
 pub const UPDATE_VISIBILITY_SIEVE_LABEL: &'static str = "Update visibility sieve";

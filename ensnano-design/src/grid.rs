@@ -22,7 +22,7 @@ use std::collections::{HashMap, HashSet};
 use super::{
     curves,
     design_operations::{ErrOperation, MIN_HELICES_TO_MAKE_GRID},
-    Axis, Design, Helices, Helix, HelixCollection, Parameters,
+    Axis, BezierControlPoint, Design, Helices, Helix, HelixCollection, Parameters,
 };
 use curves::{CurveCache, GridPositionProvider, InstanciatedCurve, InstanciatedCurveDescriptor};
 mod hyperboloid;
@@ -1207,4 +1207,38 @@ impl GridData {
             }
         }
     }
+
+    pub fn translate_bezier_point(
+        &self,
+        control_point: (usize, BezierControlPoint),
+        translation: Vec3,
+    ) -> Option<GridAwareTranslation> {
+        let helix = self.source_helices.get(&control_point.0)?;
+        match control_point.1 {
+            BezierControlPoint::PiecewiseBezier(n) => {
+                let grid_id = if let Some(CurveDescriptor::PiecewiseBezier { points, .. }) =
+                    helix.curve.as_ref().map(Arc::as_ref)
+                {
+                    points.get(n / 2)
+                } else {
+                    None
+                }?
+                .grid;
+                let grid = self.grids.get(grid_id)?;
+                let ret = if n % 2 == 0 {
+                    (-translation).rotated_by(grid.orientation.reversed())
+                } else {
+                    translation.rotated_by(grid.orientation.reversed())
+                };
+                Some(GridAwareTranslation(ret))
+            }
+            BezierControlPoint::Start
+            | BezierControlPoint::Control1
+            | BezierControlPoint::Control2
+            | BezierControlPoint::End => Some(GridAwareTranslation(translation)),
+        }
+    }
 }
+
+#[derive(Clone, Copy)]
+pub struct GridAwareTranslation(pub Vec3);

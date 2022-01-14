@@ -24,6 +24,7 @@ use super::{LetterInstance, SceneElement};
 use crate::consts::*;
 use crate::utils::instance::Instance;
 use ensnano_design::grid::{GridObject, GridPosition};
+use ensnano_design::CubicBezierConstructor;
 use ensnano_design::{grid::HelixGridPosition, Nucl};
 use ensnano_interactor::{
     phantom_helix_encoder_bound, phantom_helix_encoder_nucl, BezierControlPoint, ObjectType,
@@ -839,7 +840,7 @@ impl<R: DesignReader> Design3D<R> {
     pub fn get_bezier_elements(&self, h_id: usize) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
         let mut spheres = Vec::new();
         let mut tubes = Vec::new();
-        if let Some(constructor) = self.design.get_bezier_controll(h_id) {
+        if let Some(constructor) = self.design.get_cubic_bezier_controls(h_id) {
             log::info!("got control");
             spheres.push(make_bezier_controll(
                 constructor.start,
@@ -873,14 +874,30 @@ impl<R: DesignReader> Design3D<R> {
             tubes.push(make_bezier_squelton(constructor.control2, constructor.end));
 
             (spheres, tubes)
+        } else if let Some(controls) = self.design.get_piecewise_bezier_controls(h_id) {
+            let mut iter = controls.into_iter().enumerate();
+            while let Some(((n1, c1), (n2, c2))) = iter.next().zip(iter.next()) {
+                spheres.push(make_bezier_controll(
+                    c1,
+                    h_id as u32,
+                    BezierControlPoint::PiecewiseBezier(n1),
+                ));
+                spheres.push(make_bezier_controll(
+                    c2,
+                    h_id as u32,
+                    BezierControlPoint::PiecewiseBezier(n2),
+                ));
+                tubes.push(make_bezier_squelton(c1, c2));
+            }
+            (spheres, tubes)
         } else {
             (vec![], vec![])
         }
     }
 
     pub fn get_control_point(&self, helix_id: usize, control: BezierControlPoint) -> Option<Vec3> {
-        let constructor = self.design.get_bezier_controll(helix_id)?;
-        Some(control.get_point(&constructor))
+        self.design
+            .get_position_of_bezier_control(helix_id, control)
     }
 }
 
@@ -1030,9 +1047,15 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)>;
-    fn get_bezier_controll(&self, h_id: usize) -> Option<ensnano_design::CubicBezierConstructor>;
     fn get_curve_range(&self, h_id: usize) -> Option<std::ops::RangeInclusive<isize>>;
     fn get_checked_xovers_ids(&self, checked: bool) -> Vec<u32>;
     fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize>;
     fn get_grid_object(&self, position: GridPosition) -> Option<GridObject>;
+    fn get_position_of_bezier_control(
+        &self,
+        helix: usize,
+        control: BezierControlPoint,
+    ) -> Option<Vec3>;
+    fn get_cubic_bezier_controls(&self, helix: usize) -> Option<CubicBezierConstructor>;
+    fn get_piecewise_bezier_controls(&self, helix: usize) -> Option<Vec<Vec3>>;
 }

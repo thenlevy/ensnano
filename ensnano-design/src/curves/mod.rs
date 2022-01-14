@@ -28,7 +28,7 @@ mod sphere_like_spiral;
 mod torus;
 mod twist;
 use super::GridDescriptor;
-pub use bezier::{BezierEnd, CubicBezierConstructor, PiecewiseBezier};
+pub use bezier::{BezierControlPoint, BezierEnd, CubicBezierConstructor, PiecewiseBezier};
 pub use sphere_like_spiral::SphereLikeSpiral;
 use std::collections::HashMap;
 pub use torus::Torus;
@@ -317,6 +317,28 @@ impl InstanciatedCurveDescriptor {
 
     pub fn get_bezier_controls(&self) -> Option<CubicBezierConstructor> {
         self.instance.get_bezier_controls()
+    }
+
+    pub fn bezier_points(&self) -> Vec<Vec3> {
+        match &self.instance {
+            InsanciatedCurveDescriptor_::Bezier(constructor) => {
+                vec![
+                    constructor.start,
+                    constructor.control1,
+                    constructor.control2,
+                    constructor.end,
+                ]
+            }
+            InsanciatedCurveDescriptor_::PiecewiseBezier(desc) => {
+                let desc = &desc.desc;
+                desc.0
+                    .iter()
+                    .map(|b| vec![b.position - b.vector, b.position + b.vector].into_iter())
+                    .flatten()
+                    .collect()
+            }
+            _ => vec![],
+        }
     }
 }
 
