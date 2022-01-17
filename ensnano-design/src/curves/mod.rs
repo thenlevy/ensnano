@@ -273,6 +273,7 @@ pub(super) trait GridPositionProvider {
 }
 
 impl InstanciatedCurveDescriptor {
+    /// Reads the design data to resolve the reference to elements of the design
     pub fn instanciate(desc: Arc<CurveDescriptor>, grid_reader: &dyn GridPositionProvider) -> Self {
         let instance = match desc.as_ref() {
             CurveDescriptor::Bezier(b) => InsanciatedCurveDescriptor_::Bezier(b.clone()),
@@ -299,6 +300,8 @@ impl InstanciatedCurveDescriptor {
         }
     }
 
+    /// Return true if the instanciated curve descriptor was built using these curve descriptor and
+    /// grid data
     fn is_up_to_date(&self, desc: &Arc<CurveDescriptor>, grids: &Arc<Vec<GridDescriptor>>) -> bool {
         if Arc::ptr_eq(&self.source, desc) {
             if let InsanciatedCurveDescriptor_::PiecewiseBezier(instanciated_descriptor) =
@@ -354,9 +357,13 @@ enum InsanciatedCurveDescriptor_ {
     PiecewiseBezier(InstanciatedPiecewiseBezierDescriptor),
 }
 
+/// An instanciation of a PiecewiseBezier descriptor where reference to grid positions in the
+/// design have been replaced by their actual position in space using the data in `grids`.
 #[derive(Clone, Debug)]
 pub struct InstanciatedPiecewiseBezierDescriptor {
+    /// The instanciated descriptor
     desc: PiecewiseBezier,
+    /// The data that was used to map grid positions to space position
     grids: Arc<Vec<GridDescriptor>>,
 }
 
@@ -373,6 +380,7 @@ impl InstanciatedPiecewiseBezierDescriptor {
                 let position = grid_reader.position(*p);
                 BezierEnd {
                     position,
+                    // recall that the tengents are expressed in the grid's coordinates
                     vector: t.rotated_by(grid_reader.orientation(p.grid)),
                 }
             })
@@ -420,10 +428,13 @@ impl InsanciatedCurveDescriptor_ {
 }
 
 #[derive(Default, Clone)]
+/// A map from curve descriptor to instanciated curves to avoid duplication of computations
 pub struct CurveCache(HashMap<TwistedTorusDescriptor, Arc<Curve>>);
 
 #[derive(Clone)]
+/// An instanciated curve with pre-computed nucleotides positions and orientations
 pub(super) struct InstanciatedCurve {
+    /// A descriptor of the instanciated curve
     pub source: Arc<InstanciatedCurveDescriptor>,
     pub curve: Arc<Curve>,
 }
@@ -453,7 +464,9 @@ impl Helix {
                 .filter(|desc| desc.is_up_to_date(current_desc, grid_data))
                 .is_none()
         } else {
-            self.instanciated_descriptor.is_none()
+            // If helix should not be a curved, the descriptor is up-to-date iff there is no
+            // descriptor
+            self.instanciated_descriptor.is_some()
         }
     }
 

@@ -592,6 +592,7 @@ pub enum Edge {
 /// An object lying on a grid
 pub enum GridObject {
     Helix(usize),
+    /// A point on the grid through which a bezier helix goes.
     BezierPoint {
         /// The helix to which the point belong
         helix_id: usize,
