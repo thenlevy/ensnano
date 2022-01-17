@@ -1232,10 +1232,7 @@ impl GridData {
                 };
                 Some(GridAwareTranslation(ret))
             }
-            BezierControlPoint::Start
-            | BezierControlPoint::Control1
-            | BezierControlPoint::Control2
-            | BezierControlPoint::End => Some(GridAwareTranslation(translation)),
+            BezierControlPoint::CubicBezier(_) => Some(GridAwareTranslation(translation)),
         }
     }
 }

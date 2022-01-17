@@ -19,12 +19,26 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use crate::utils::vec_to_dvec;
 use ultraviolet::{DVec3, Vec3};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BezierControlPoint {
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
+#[repr(usize)]
+/// A control point of a cubic bezier curve.
+///
+/// This enum implements Into<usize>.
+pub enum CubicBezierControlPoint {
     Start,
     End,
     Control1,
     Control2,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// A control point of a bezier curve
+pub enum BezierControlPoint {
+    /// One of the control points of a cubic bezier curve
+    CubicBezier(CubicBezierControlPoint),
+    /// One of the control points of a piecewise bezier curve
     PiecewiseBezier(usize),
 }
 
@@ -43,6 +57,17 @@ pub struct CubicBezierConstructor {
 impl CubicBezierConstructor {
     pub(super) fn into_bezier(self) -> CubicBezier {
         CubicBezier::new(self)
+    }
+
+    /// Returns an iterator over the control points of self
+    pub fn iter(&self) -> impl Iterator<Item = (CubicBezierControlPoint, &Vec3)> {
+        vec![
+            (CubicBezierControlPoint::Start, &self.start),
+            (CubicBezierControlPoint::Control1, &self.control1),
+            (CubicBezierControlPoint::Control2, &self.control2),
+            (CubicBezierControlPoint::End, &self.end),
+        ]
+        .into_iter()
     }
 }
 

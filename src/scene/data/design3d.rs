@@ -842,27 +842,13 @@ impl<R: DesignReader> Design3D<R> {
         let mut tubes = Vec::new();
         if let Some(constructor) = self.design.get_cubic_bezier_controls(h_id) {
             log::info!("got control");
-            spheres.push(make_bezier_controll(
-                constructor.start,
-                h_id as u32,
-                BezierControlPoint::Start,
-            ));
-            spheres.push(make_bezier_controll(
-                constructor.control1,
-                h_id as u32,
-                BezierControlPoint::Control1,
-            ));
-            spheres.push(make_bezier_controll(
-                constructor.control2,
-                h_id as u32,
-                BezierControlPoint::Control2,
-            ));
-            spheres.push(make_bezier_controll(
-                constructor.end,
-                h_id as u32,
-                BezierControlPoint::End,
-            ));
-
+            for (control_point, position) in constructor.iter() {
+                spheres.push(make_bezier_controll(
+                    *position,
+                    h_id as u32,
+                    BezierControlPoint::CubicBezier(control_point),
+                ));
+            }
             tubes.push(make_bezier_squelton(
                 constructor.start,
                 constructor.control1,
@@ -872,7 +858,6 @@ impl<R: DesignReader> Design3D<R> {
                 constructor.control2,
             ));
             tubes.push(make_bezier_squelton(constructor.control2, constructor.end));
-
             (spheres, tubes)
         } else if let Some(controls) = self.design.get_piecewise_bezier_controls(h_id) {
             let mut iter = controls.into_iter().enumerate();

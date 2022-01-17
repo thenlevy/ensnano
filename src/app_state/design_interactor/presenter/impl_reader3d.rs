@@ -324,10 +324,7 @@ impl Reader3D for DesignReader {
         } else {
             let points = helix.cubic_bezier_points()?;
             match control {
-                BezierControlPoint::Start => points.get(0),
-                BezierControlPoint::Control1 => points.get(1),
-                BezierControlPoint::Control2 => points.get(2),
-                BezierControlPoint::End => points.get(3),
+                BezierControlPoint::CubicBezier(point) => points.get(usize::from(point)),
                 PiecewiseBezier => None,
             }
             .cloned()

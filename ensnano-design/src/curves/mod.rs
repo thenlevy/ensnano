@@ -28,7 +28,9 @@ mod sphere_like_spiral;
 mod torus;
 mod twist;
 use super::GridDescriptor;
-pub use bezier::{BezierControlPoint, BezierEnd, CubicBezierConstructor, PiecewiseBezier};
+pub use bezier::{
+    BezierControlPoint, BezierEnd, CubicBezierConstructor, CubicBezierControlPoint, PiecewiseBezier,
+};
 pub use sphere_like_spiral::SphereLikeSpiral;
 use std::collections::HashMap;
 pub use torus::Torus;
