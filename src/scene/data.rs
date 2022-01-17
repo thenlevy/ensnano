@@ -31,6 +31,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use ensnano_design::grid::GridObject;
+use ensnano_design::BezierControlPoint;
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
@@ -1472,7 +1473,10 @@ impl<R: DesignReader> Data<R> {
             Some(SceneElement::GridCircle(d_id, position)) => {
                 self.designs[d_id as usize].get_grid_basis(position.grid)
             }
-            Some(SceneElement::BezierControl { .. }) => Some(Rotor3::identity()),
+            Some(SceneElement::BezierControl {
+                helix_id,
+                bezier_control,
+            }) => self.designs[0].get_bezier_control_basis(helix_id, bezier_control),
             _ => None,
         };
         let from_selection = match app_state.get_selection().get(0) {
@@ -1492,7 +1496,8 @@ impl<R: DesignReader> Data<R> {
             Some(_) => Some(Rotor3::identity()),
             None => None,
         };
-        from_selection.or(from_selected_element)
+        //from_selection.or(from_selected_element)
+        from_selected_element.or(from_selection)
     }
 
     pub fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl> {

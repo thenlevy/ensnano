@@ -371,6 +371,11 @@ impl Reader3D for DesignReader {
         let helix = self.presenter.current_design.helices.get(&helix)?;
         helix.piecewise_bezier_points()
     }
+
+    fn get_curve_descriptor(&self, helix: usize) -> Option<&CurveDescriptor> {
+        let helix = self.presenter.current_design.helices.get(&helix)?;
+        helix.curve.as_ref().map(Arc::as_ref)
+    }
 }
 
 #[cfg(test)]

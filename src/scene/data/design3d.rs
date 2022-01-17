@@ -24,8 +24,8 @@ use super::{LetterInstance, SceneElement};
 use crate::consts::*;
 use crate::utils::instance::Instance;
 use ensnano_design::grid::{GridObject, GridPosition};
-use ensnano_design::CubicBezierConstructor;
 use ensnano_design::{grid::HelixGridPosition, Nucl};
+use ensnano_design::{CubicBezierConstructor, CurveDescriptor};
 use ensnano_interactor::{
     phantom_helix_encoder_bound, phantom_helix_encoder_nucl, BezierControlPoint, ObjectType,
     PhantomElement, Referential, PHANTOM_RANGE,
@@ -884,6 +884,39 @@ impl<R: DesignReader> Design3D<R> {
         self.design
             .get_position_of_bezier_control(helix_id, control)
     }
+
+    pub fn get_bezier_control_basis(
+        &self,
+        h_id: usize,
+        bezier_control: BezierControlPoint,
+    ) -> Option<Rotor3> {
+        log::info!(
+            "Getting bezier basis {:?} of helix {}",
+            bezier_control,
+            h_id
+        );
+        match bezier_control {
+            BezierControlPoint::CubicBezier(_) => None,
+            BezierControlPoint::PiecewiseBezier(n) => {
+                let descriptor = self.design.get_curve_descriptor(h_id)?;
+                if let CurveDescriptor::PiecewiseBezier { points, tengents } = descriptor {
+                    // There are two control points per bezier grid position
+                    let g_id = points.get(n / 2).map(|pos| pos.grid)?;
+                    let grid_orientation = self.design.get_grid_basis(g_id)?;
+                    tengents.get(n / 2).map(|t| {
+                        let world_tengent = t.normalized().rotated_by(grid_orientation);
+                        if world_tengent.dot(Vec3::unit_x()) > -0.999 {
+                            Rotor3::from_rotation_between(Vec3::unit_x(), world_tengent)
+                        } else {
+                            Rotor3::identity()
+                        }
+                    })
+                } else {
+                    None
+                }
+            }
+        }
+    }
 }
 
 fn make_bezier_controll(
@@ -1043,4 +1076,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     ) -> Option<Vec3>;
     fn get_cubic_bezier_controls(&self, helix: usize) -> Option<CubicBezierConstructor>;
     fn get_piecewise_bezier_controls(&self, helix: usize) -> Option<Vec<Vec3>>;
+    fn get_curve_descriptor(&self, helix: usize) -> Option<&CurveDescriptor>;
 }
