@@ -300,6 +300,25 @@ impl InstanciatedCurveDescriptor {
         }
     }
 
+    fn try_instanciate(desc: Arc<CurveDescriptor>) -> Option<Self> {
+        let instance = match desc.as_ref() {
+            CurveDescriptor::Bezier(b) => Some(InsanciatedCurveDescriptor_::Bezier(b.clone())),
+            CurveDescriptor::SphereLikeSpiral(s) => {
+                Some(InsanciatedCurveDescriptor_::SphereLikeSpiral(s.clone()))
+            }
+            CurveDescriptor::Twist(t) => Some(InsanciatedCurveDescriptor_::Twist(t.clone())),
+            CurveDescriptor::Torus(t) => Some(InsanciatedCurveDescriptor_::Torus(t.clone())),
+            CurveDescriptor::TwistedTorus(t) => {
+                Some(InsanciatedCurveDescriptor_::TwistedTorus(t.clone()))
+            }
+            CurveDescriptor::PiecewiseBezier { points, tengents } => None,
+        };
+        instance.map(|instance| Self {
+            source: desc.clone(),
+            instance,
+        })
+    }
+
     /// Return true if the instanciated curve descriptor was built using these curve descriptor and
     /// grid data
     fn is_up_to_date(&self, desc: &Arc<CurveDescriptor>, grids: &Arc<Vec<GridDescriptor>>) -> bool {
@@ -418,6 +437,22 @@ impl InsanciatedCurveDescriptor_ {
         }
     }
 
+    pub fn try_into_curve(&self, parameters: &Parameters) -> Option<Arc<Curve>> {
+        match self {
+            Self::Bezier(constructor) => Some(Arc::new(Curve::new(
+                constructor.clone().into_bezier(),
+                parameters,
+            ))),
+            Self::SphereLikeSpiral(spiral) => {
+                Some(Arc::new(Curve::new(spiral.clone(), parameters)))
+            }
+            Self::Twist(twist) => Some(Arc::new(Curve::new(twist.clone(), parameters))),
+            Self::Torus(torus) => Some(Arc::new(Curve::new(torus.clone(), parameters))),
+            Self::TwistedTorus(_) => None,
+            Self::PiecewiseBezier(_) => None,
+        }
+    }
+
     pub fn get_bezier_controls(&self) -> Option<CubicBezierConstructor> {
         if let Self::Bezier(b) = self {
             Some(b.clone())
@@ -471,13 +506,30 @@ impl Helix {
     }
 
     pub(super) fn need_curve_update(&self, grid_data: &Arc<Vec<GridDescriptor>>) -> bool {
-        self.need_curve_descriptor_update(grid_data) || {
-            let up_to_date = self.curve.as_ref().map(|source| Arc::as_ptr(source))
-                == self
-                    .instanciated_descriptor
-                    .as_ref()
-                    .map(|target| Arc::as_ptr(&target.source));
-            !up_to_date
+        self.need_curve_descriptor_update(grid_data) || { self.need_curve_update_only() }
+    }
+
+    fn need_curve_update_only(&self) -> bool {
+        let up_to_date = self.curve.as_ref().map(|source| Arc::as_ptr(source))
+            == self
+                .instanciated_descriptor
+                .as_ref()
+                .map(|target| Arc::as_ptr(&target.source));
+        !up_to_date
+    }
+
+    pub fn try_update_curve(&mut self, parameters: &Parameters) {
+        if let Some(curve) = self.curve.as_ref() {
+            if let Some(desc) = InstanciatedCurveDescriptor::try_instanciate(curve.clone()) {
+                let desc = Arc::new(desc);
+                self.instanciated_descriptor = Some(desc.clone());
+                if let Some(curve) = desc.as_ref().instance.try_into_curve(parameters) {
+                    self.instanciated_curve = Some(InstanciatedCurve {
+                        curve,
+                        source: desc,
+                    })
+                }
+            }
         }
     }
 }
