@@ -679,6 +679,8 @@ impl RollPresenter for Presenter {
     }
 }
 
+impl TwistPresenter for Presenter {}
+
 use std::collections::HashMap;
 pub trait SimulationUpdate: Send + Sync {
     fn update_positions(

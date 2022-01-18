@@ -61,7 +61,7 @@ pub use shift_optimization::{ShiftOptimizationResult, ShiftOptimizerReader};
 mod simulations;
 pub use simulations::{
     GridPresenter, HelixPresenter, RigidHelixState, RollPresenter, ShakeTarget,
-    SimulationInterface, SimulationOperation, SimulationReader,
+    SimulationInterface, SimulationOperation, SimulationReader, TwistPresenter,
 };
 
 #[derive(Clone, Default)]
