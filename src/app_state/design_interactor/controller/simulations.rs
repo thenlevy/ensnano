@@ -33,6 +33,8 @@ use ultraviolet::{Bivec3, Mat3};
 
 mod roller;
 pub use roller::{PhysicalSystem, RollInterface, RollPresenter};
+mod twister;
+pub use twister::{TwistInterface, TwistPresenter, Twister};
 
 const MAX_DERIVATIVE_NORM: f32 = 1e4;
 
@@ -1332,6 +1334,11 @@ pub enum SimulationOperation<'pres, 'reader> {
         presenter: &'pres dyn RollPresenter,
         reader: &'reader mut dyn SimulationReader,
         target_helices: Option<Vec<usize>>,
+    },
+    StartTwist {
+        grid_id: usize,
+        presenter: &'pres dyn TwistPresenter,
+        reader: &'reader mut dyn SimulationReader,
     },
 }
 

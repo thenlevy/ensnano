@@ -45,7 +45,7 @@ use clipboard::{PastedStrand, StrandClipboard};
 
 use self::simulations::{
     GridSystemInterface, GridsSystemThread, HelixSystemInterface, HelixSystemThread,
-    PhysicalSystem, RollInterface,
+    PhysicalSystem, RollInterface, TwistInterface,
 };
 
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -419,6 +419,21 @@ impl Controller {
                 }
                 let interface = PhysicalSystem::start_new(presenter, target_helices, reader);
                 ret.state = ControllerState::Rolling {
+                    interface,
+                    initial_design: AddressPointer::new(design.clone()),
+                };
+            }
+            SimulationOperation::StartTwist {
+                grid_id,
+                presenter,
+                reader,
+            } => {
+                if self.is_in_persistant_state().is_transitory() {
+                    return Err(ErrOperation::IncompatibleState);
+                }
+                let interface = simulations::Twister::start_new(presenter, grid_id, reader)
+                    .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+                ret.state = ControllerState::Twisting {
                     interface,
                     initial_design: AddressPointer::new(design.clone()),
                 };
@@ -923,6 +938,7 @@ impl Controller {
             ControllerState::WithPausedSimulation { .. } => SimulationState::Paused,
             ControllerState::SimulatingGrids { .. } => SimulationState::RigidGrid,
             ControllerState::Rolling { .. } => SimulationState::Rolling,
+            ControllerState::Twisting { .. } => SimulationState::Twisting,
             _ => SimulationState::None,
         }
     }
@@ -2674,6 +2690,10 @@ enum ControllerState {
         interface: Arc<Mutex<RollInterface>>,
         initial_design: AddressPointer<Design>,
     },
+    Twisting {
+        interface: Arc<Mutex<TwistInterface>>,
+        initial_design: AddressPointer<Design>,
+    },
     ChangingStrandName {
         strand_id: usize,
     },
@@ -2708,6 +2728,7 @@ impl ControllerState {
             Self::Rolling { .. } => "Rolling",
             Self::SettingRollHelices => "SettingRollHelices",
             Self::ChangingStrandName { .. } => "ChangingStrandName",
+            Self::Twisting { .. } => "Twisting",
         }
     }
     fn update_pasting_position(
@@ -2811,6 +2832,7 @@ impl ControllerState {
             Self::WithPausedSimulation { .. } => self.clone(),
             Self::Rolling { .. } => Self::Normal,
             Self::SettingRollHelices => Self::Normal,
+            Self::Twisting { .. } => Self::Normal,
             Self::ChangingStrandName { .. } => Self::Normal,
         }
     }

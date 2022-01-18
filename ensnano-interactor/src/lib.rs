@@ -400,6 +400,7 @@ pub enum SimulationState {
     RigidGrid,
     RigidHelices,
     Paused,
+    Twisting,
 }
 
 impl SimulationState {
