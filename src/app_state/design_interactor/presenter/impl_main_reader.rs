@@ -100,15 +100,15 @@ impl StaplesDownloader for DesignReader {
             let mut sheet = wb.create_sheet(&format!("Plate {}", sheet_id));
             wb.write_sheet(&mut sheet, |sw| {
                 for row in rows {
-                    sw.append_row(row![
-                        row[0],
-                        row[1],
-                        row[2],
-                        row[3].parse::<f64>().ok().unwrap_or_default(),
-                        row[4],
-                        row[5],
-                        row[6]
-                    ])?;
+                    if let Ok(length) = row[3].parse::<f64>() {
+                        sw.append_row(row![
+                            row[0], row[1], row[2], length, row[4], row[5], row[6]
+                        ])?;
+                    } else {
+                        sw.append_row(row![
+                            row[0], row[1], row[2], row[3], row[4], row[5], row[6]
+                        ])?;
+                    }
                 }
                 Ok(())
             })
