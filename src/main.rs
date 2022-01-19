@@ -951,6 +951,7 @@ pub(crate) struct MainState {
     file_name: Option<PathBuf>,
     wants_fit: bool,
     last_backup_date: Instant,
+    last_backed_up_state: AppState,
 }
 
 struct MainStateConstructor {
@@ -975,6 +976,7 @@ impl MainState {
             file_name: None,
             wants_fit: false,
             last_backup_date: Instant::now(),
+            last_backed_up_state: app_state.clone(),
         }
     }
 
@@ -1306,6 +1308,7 @@ impl MainState {
             .get_design_reader()
             .save_design(&path, save_info)?;
 
+        self.last_backed_up_state = self.app_state.clone();
         println!("Saved backup to {}", path.to_string_lossy());
         Ok(())
     }
@@ -1440,8 +1443,16 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn need_backup(&self) -> bool {
-        Instant::now() - self.main_state.last_backup_date
-            > Duration::from_secs(crate::consts::SEC_BETWEEN_BACKUPS)
+        (Instant::now() - self.main_state.last_backup_date
+            > Duration::from_secs(crate::consts::SEC_BETWEEN_BACKUPS))
+            && self
+                .main_state
+                .last_backed_up_state
+                .design_was_modified(&self.main_state.app_state)
+            && self
+                .main_state
+                .last_saved_state
+                .design_was_modified(&self.main_state.app_state)
     }
 
     fn exit_control_flow(&mut self) {
