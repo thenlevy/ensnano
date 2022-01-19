@@ -463,6 +463,8 @@ impl Controller {
                     ret.state = ControllerState::Normal;
                 } else if let ControllerState::Rolling { .. } = &ret.state {
                     ret.state = ControllerState::Normal
+                } else if let ControllerState::Twisting { .. } = &ret.state {
+                    ret.state = ControllerState::Normal
                 }
             }
             SimulationOperation::Reset => {

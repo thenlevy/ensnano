@@ -40,9 +40,9 @@ pub struct Twister {
 }
 
 const NB_ROLL_STEP_PER_TWIST: usize = 100;
-const MIN_OMEGA: f64 = -10.0;
-const MAX_OMEGA: f64 = 10.0;
-const NB_STEP_OMEGA: usize = 10_000;
+const MIN_OMEGA: f64 = 6.5;
+const MAX_OMEGA: f64 = 7.5;
+const NB_STEP_OMEGA: usize = 100;
 
 #[derive(Clone)]
 pub struct TwistState {
@@ -161,7 +161,7 @@ impl TwistState {
             if let Some(CurveDescriptor::Twist(Twist { omega, .. })) =
                 h.curve.as_mut().map(Arc::make_mut)
             {
-                *omega = twist;
+                *omega = twist * std::f64::consts::TAU;
                 // no need to update the curve because the helices here are not used to make
                 // computations
             } else {
@@ -183,12 +183,15 @@ impl Twister {
 
     fn solve_one_step(&mut self) {
         let err = self.evaluate_twist(self.system.current_omega);
+        println!("err = {}", err);
         if err < self.system.best_square_error {
+            println!("best omega = {}", self.system.current_omega);
             self.system.best_square_error = err;
             self.system.best_omega = self.system.current_omega;
             self.state.set_twist(self.system.best_omega);
         }
         self.system.current_omega += (MAX_OMEGA - MIN_OMEGA) / (NB_STEP_OMEGA as f64);
+        println!("current_omega = {}", self.system.current_omega);
     }
 
     pub fn run(mut self) {
@@ -253,7 +256,7 @@ impl DesignData {
             if let Some(CurveDescriptor::Twist(Twist { omega, .. })) =
                 h.curve.as_mut().map(Arc::make_mut)
             {
-                *omega = twist;
+                *omega = twist * std::f64::consts::TAU;
                 h.try_update_curve(&self.parameters);
             } else {
                 log::error!("Wrong kind of curve descriptor");
