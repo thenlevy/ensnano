@@ -538,6 +538,7 @@ struct AppStateParameters {
     show_stereography: bool,
     rendering_mode: RenderingMode,
     background3d: Background3D,
+    thick_helices: bool,
     scroll_sensitivity: f32,
     inverted_y_scroll: bool,
 }
