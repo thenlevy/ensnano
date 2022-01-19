@@ -1442,17 +1442,23 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.pending_actions.pop_front()
     }
 
-    fn need_backup(&self) -> bool {
-        (Instant::now() - self.main_state.last_backup_date
-            > Duration::from_secs(crate::consts::SEC_BETWEEN_BACKUPS))
-            && self
-                .main_state
-                .last_backed_up_state
-                .design_was_modified(&self.main_state.app_state)
-            && self
+    fn check_backup(&mut self) {
+        if !self
+            .main_state
+            .last_backed_up_state
+            .design_was_modified(&self.main_state.app_state)
+            && !self
                 .main_state
                 .last_saved_state
                 .design_was_modified(&self.main_state.app_state)
+        {
+            self.main_state.last_backup_date = Instant::now()
+        }
+    }
+
+    fn need_backup(&self) -> bool {
+        Instant::now() - self.main_state.last_backup_date
+            > Duration::from_secs(crate::consts::SEC_BETWEEN_BACKUPS)
     }
 
     fn exit_control_flow(&mut self) {
@@ -1847,10 +1853,10 @@ impl<'a> controller::ScaffoldSetter for MainStateView<'a> {
     }
 }
 
-fn apply_update<T: Default, F>(obj: &mut T, update_func: F)
+fn apply_update<T: Clone, F>(obj: &mut T, update_func: F)
 where
     F: FnOnce(T) -> T,
 {
-    let tmp = std::mem::take(obj);
+    let tmp = obj.clone();
     *obj = update_func(tmp);
 }

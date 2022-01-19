@@ -98,3 +98,10 @@ impl<T: Default> From<Arc<T>> for AddressPointer<T> {
         Self(arc)
     }
 }
+
+impl<T: Default> std::fmt::Pointer for AddressPointer<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ptr = Arc::as_ptr(&self.0);
+        std::fmt::Pointer::fmt(&ptr, f)
+    }
+}

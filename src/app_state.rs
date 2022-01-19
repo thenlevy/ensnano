@@ -206,7 +206,8 @@ impl AppState {
         Ok(Self(AddressPointer::new(AppState_ {
             design: AddressPointer::new(design_interactor),
             ..Default::default()
-        })))
+        }))
+        .updated())
     }
 
     pub(super) fn update(&mut self) {

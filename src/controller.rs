@@ -57,6 +57,7 @@ impl Controller {
     }
 
     pub(crate) fn make_progress(&mut self, main_state: &mut dyn MainState) {
+        main_state.check_backup();
         if main_state.need_backup() {
             if let Err(e) = main_state.save_backup() {
                 log::error!("{:?}", e);
@@ -223,6 +224,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn toggle_2d(&mut self);
     fn make_all_suggested_xover(&mut self, doubled: bool);
     fn need_backup(&self) -> bool;
+    fn check_backup(&mut self);
     fn flip_split_views(&mut self);
 }
 
