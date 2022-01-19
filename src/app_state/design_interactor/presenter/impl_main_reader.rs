@@ -69,22 +69,38 @@ impl StaplesDownloader for DesignReader {
         let stapples = self
             .presenter
             .content
-            .get_staples(&self.presenter.current_design);
+            .get_staples(&self.presenter.current_design, &self.presenter);
         let mut wb = Workbook::create(xlsx_path.to_str().unwrap());
         let mut sheets = BTreeMap::new();
 
         for stapple in stapples.iter() {
-            let sheet = sheets
-                .entry(stapple.plate)
-                .or_insert_with(|| vec![vec!["Well Position", "Name", "Sequence"]]);
-            sheet.push(vec![&stapple.well, &stapple.name, &stapple.sequence]);
+            let sheet = sheets.entry(stapple.plate).or_insert_with(|| {
+                vec![vec![
+                    "Well Position",
+                    "Name",
+                    "Sequence",
+                    "Length",
+                    "Domain Length",
+                    "Groups",
+                    "Color",
+                ]]
+            });
+            sheet.push(vec![
+                &stapple.well,
+                &stapple.name,
+                &stapple.sequence,
+                &stapple.length_str,
+                &stapple.domain_decomposition,
+                &stapple.groups_name_str,
+                &stapple.color_str,
+            ])
         }
 
         for (sheet_id, rows) in sheets.iter() {
             let mut sheet = wb.create_sheet(&format!("Plate {}", sheet_id));
             wb.write_sheet(&mut sheet, |sw| {
                 for row in rows {
-                    sw.append_row(row![row[0], row[1], row[2]])?;
+                    sw.append_row(row![row[0], row[1], row[2], row[3], row[4], row[5], row[6]])?;
                 }
                 Ok(())
             })
