@@ -153,7 +153,7 @@ impl Curve {
         let mut current_axis = self.itterative_axis(t, None);
         axis.push(current_axis);
         curvature.push(self.geometry.curvature(t));
-        let mut first_non_negative = true;
+        let mut first_non_negative = t < 0.0;
 
         while t < self.geometry.t_max() {
             if first_non_negative && t >= 0.0 {
@@ -213,7 +213,7 @@ impl Curve {
     }
 
     fn idx_convertsion(&self, n: isize) -> Option<usize> {
-        if n > 0 {
+        if n >= 0 {
             Some(n as usize + self.nucl_t0)
         } else {
             let nb_neg = self.nucl_t0;
@@ -277,7 +277,6 @@ pub enum CurveDescriptor {
         t_min: Option<f64>,
         #[serde(skip_serializing_if = "Option::is_none", default)]
         t_max: Option<f64>,
-        #[serde(skip, default)]
         points: Vec<GridPosition>,
         tengents: Vec<Vec3>,
     },
@@ -417,6 +416,7 @@ impl InstanciatedPiecewiseBezierDescriptor {
         t_min: Option<f64>,
         t_max: Option<f64>,
     ) -> Self {
+        log::debug!("Instanciating {:?}, {:?}", points, tengents);
         let bezier_ends = points
             .iter()
             .zip(tengents)
