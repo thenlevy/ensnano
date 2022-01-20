@@ -131,6 +131,7 @@ pub struct DrawOptions {
     pub rendering_mode: RenderingMode,
     pub background3d: Background3D,
     pub show_stereographic_camera: bool,
+    pub thick_helices: bool,
 }
 
 impl View {

@@ -130,7 +130,11 @@ impl<R: DesignReader> Data<R> {
         }
         if app_state.design_was_modified(older_app_state)
             || app_state.suggestion_parameters_were_updated(older_app_state)
+            || app_state.draw_options_were_updated(older_app_state)
         {
+            for d in self.designs.iter_mut() {
+                d.thick_helices = app_state.get_draw_options().thick_helices;
+            }
             self.update_instances(app_state);
         }
 

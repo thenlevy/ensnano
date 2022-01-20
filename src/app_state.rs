@@ -42,6 +42,7 @@ use address_pointer::AddressPointer;
 use ensnano_design::Design;
 use ensnano_interactor::{DesignOperation, RigidBodyConstants, SuggestionParameters};
 use ensnano_organizer::GroupId;
+use derivative::Derivative;
 
 pub use design_interactor::controller::ErrOperation;
 pub use design_interactor::{
@@ -530,7 +531,8 @@ impl AppState {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Derivative)]
+#[derivative(Clone, Default)]
 struct AppStateParameters {
     suggestion_parameters: SuggestionParameters,
     check_xover_paramters: CheckXoversParameter,
@@ -538,6 +540,7 @@ struct AppStateParameters {
     show_stereography: bool,
     rendering_mode: RenderingMode,
     background3d: Background3D,
+    #[derivative(Default(value = "true"))]
     thick_helices: bool,
     scroll_sensitivity: f32,
     inverted_y_scroll: bool,

@@ -37,7 +37,7 @@ pub struct Design3D<R: DesignReader> {
     design: R,
     id: u32,
     symbol_map: HashMap<char, usize>,
-    thick_helices: bool,
+    pub thick_helices: bool,
 }
 
 impl<R: DesignReader> Design3D<R> {
@@ -831,6 +831,9 @@ impl<R: DesignReader> Design3D<R> {
     }
 
     pub fn get_all_prime3_cone(&self) -> Vec<RawDnaInstance> {
+        if !self.thick_helices {
+            return vec![]
+        }
         let cones = self.design.get_all_prime3_nucl();
         let mut ret = Vec::with_capacity(cones.len());
         for c in cones {
