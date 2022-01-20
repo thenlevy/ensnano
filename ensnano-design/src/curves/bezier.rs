@@ -206,6 +206,10 @@ impl super::Curved for CubicBezier {
     fn acceleration(&self, t: f64) -> DVec3 {
         self.polynomial.acceleration(t)
     }
+
+    fn bounds(&self) -> super::CurveBounds {
+        super::CurveBounds::BiInfinite
+    }
 }
 
 /// A curve that is the concatenation of several cubic bezier curves.
@@ -287,5 +291,9 @@ impl super::Curved for PiecewiseBezier {
         let i = self.t_to_i(t);
         let b_i = self.ith_cubic_bezier(i);
         b_i.acceleration(t - i as f64)
+    }
+
+    fn bounds(&self) -> super::CurveBounds {
+        super::CurveBounds::BiInfinite
     }
 }

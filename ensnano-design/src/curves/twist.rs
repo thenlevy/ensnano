@@ -91,4 +91,8 @@ impl Curved for Twist {
         let orientation = rotor_to_drotor(self.orientation);
         orientation * pos_0
     }
+
+    fn bounds(&self) -> super::CurveBounds {
+        super::CurveBounds::BiInfinite
+    }
 }

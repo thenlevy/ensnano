@@ -122,6 +122,36 @@ impl Strands {
         false
     }
 
+    pub fn get_used_bounds_for_helix(
+        &self,
+        h_id: usize,
+        helices: &super::Helices,
+    ) -> Option<(isize, isize)> {
+        let mut min = None;
+        let mut max = None;
+
+        for s in self.0.values() {
+            for d in s.domains.iter() {
+                if let Domain::HelixDomain(i) = d {
+                    for nucl in [i.prime5(), i.prime3()] {
+                        let (helix, pos) =
+                            if let Some(nucl) = Nucl::map_to_virtual_nucl(nucl, helices) {
+                                (nucl.0.helix, nucl.0.position)
+                            } else {
+                                (nucl.helix, nucl.position)
+                            };
+                        if helix == h_id {
+                            min = Some(min.map_or(pos, |m: isize| m.min(pos)));
+                            max = Some(max.map_or(pos, |m: isize| m.max(pos)));
+                        }
+                    }
+                }
+            }
+        }
+
+        min.zip(max)
+    }
+
     // Collection methods
     //============================================================================================
     pub fn len(&self) -> usize {

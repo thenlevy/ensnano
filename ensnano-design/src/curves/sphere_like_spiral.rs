@@ -84,4 +84,8 @@ impl Curved for SphereLikeSpiral {
 
         DVec3 { x, y, z }
     }
+
+    fn bounds(&self) -> super::CurveBounds {
+        super::CurveBounds::Finite
+    }
 }

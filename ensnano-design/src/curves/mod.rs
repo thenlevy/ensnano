@@ -19,6 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use ultraviolet::{DMat3, DVec3, Rotor3, Vec3};
 const EPSILON: f64 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
+const DELTA_MAX: f64 = 256.0;
 use crate::grid::GridPosition;
 
 use super::{Helix, Parameters};
@@ -89,6 +90,20 @@ pub(super) trait Curved {
         let denominator = speed.mag().powi(3);
         numerator / denominator
     }
+
+    /// The bounds of the curve
+    fn bounds(&self) -> CurveBounds;
+}
+
+/// The bounds of the curve. This describe the interval in which t can be taken
+pub(super) enum CurveBounds {
+    /// t ∈ [t_min, t_max]
+    Finite,
+    #[allow(dead_code)]
+    /// t ∈ [t_min, +∞[
+    PositiveInfinite,
+    /// t ∈ ]-∞, +∞[
+    BiInfinite,
 }
 
 #[derive(Clone)]
@@ -248,12 +263,73 @@ impl Curve {
 
     pub fn range(&self) -> std::ops::RangeInclusive<isize> {
         let min = (-(self.nucl_t0 as isize)).max(-100);
-        let max = (min + self.nb_points() as isize).min(100);
+        let max = (min + self.nb_points() as isize - 1).min(100);
         min..=max
     }
 
     pub fn nucl_t0(&self) -> usize {
         self.nucl_t0
+    }
+
+    /// Return a value of t_min that would allow self to have nucl
+    pub fn left_extension_to_have_nucl(&self, nucl: isize, parameters: &Parameters) -> Option<f64> {
+        let nucl_min = -(self.nucl_t0 as isize);
+        if nucl < nucl_min {
+            if let CurveBounds::BiInfinite = self.geometry.bounds() {
+                let objective = (-nucl) as f64 * parameters.z_step as f64;
+                let mut delta = 1.0;
+                while delta < DELTA_MAX {
+                    let new_tmin = self.geometry.t_min() - delta;
+                    if self.length_by_descretisation(
+                        new_tmin,
+                        0.0,
+                        nucl.abs() as usize * DISCRETISATION_STEP,
+                    ) > objective
+                    {
+                        return Some(new_tmin);
+                    }
+                    delta *= 2.0;
+                }
+                None
+            } else {
+                None
+            }
+        } else {
+            Some(self.geometry.t_min())
+        }
+    }
+
+    /// Return a value of t_max that would allow self to have nucl
+    pub fn right_extension_to_have_nucl(
+        &self,
+        nucl: isize,
+        parameters: &Parameters,
+    ) -> Option<f64> {
+        let nucl_max = (self.nb_points() - self.nucl_t0) as isize;
+        if nucl >= nucl_max {
+            match self.geometry.bounds() {
+                CurveBounds::BiInfinite | CurveBounds::PositiveInfinite => {
+                    let objective = nucl as f64 * parameters.z_step as f64;
+                    let mut delta = 1.0;
+                    while delta < DELTA_MAX {
+                        let new_tmax = self.geometry.t_max() + delta;
+                        if self.length_by_descretisation(
+                            0.0,
+                            new_tmax,
+                            nucl as usize * DISCRETISATION_STEP,
+                        ) > objective
+                        {
+                            return Some(new_tmax);
+                        }
+                        delta *= 2.0;
+                    }
+                    None
+                }
+                CurveBounds::Finite => None,
+            }
+        } else {
+            Some(self.geometry.t_max())
+        }
     }
 }
 
@@ -299,6 +375,49 @@ impl CurveDescriptor {
             points.as_slice()
         } else {
             &[]
+        }
+    }
+    pub fn set_t_min(&mut self, new_t_min: f64) -> bool {
+        match self {
+            Self::PiecewiseBezier { t_min, .. } => {
+                if matches!(*t_min, Some(x) if x <= new_t_min) {
+                    false
+                } else {
+                    *t_min = Some(new_t_min);
+                    true
+                }
+            }
+            Self::Twist(twist) => {
+                if matches!(twist.t_min, Some(x) if x <= new_t_min) {
+                    false
+                } else {
+                    twist.t_min = Some(new_t_min);
+                    true
+                }
+            }
+            _ => false,
+        }
+    }
+
+    pub fn set_t_max(&mut self, new_t_max: f64) -> bool {
+        match self {
+            Self::PiecewiseBezier { t_max, .. } => {
+                if matches!(*t_max, Some(x) if x >= new_t_max) {
+                    false
+                } else {
+                    *t_max = Some(new_t_max);
+                    true
+                }
+            }
+            Self::Twist(twist) => {
+                if matches!(twist.t_max, Some(x) if x >= new_t_max) {
+                    false
+                } else {
+                    twist.t_max = Some(new_t_max);
+                    true
+                }
+            }
+            _ => false,
         }
     }
 }

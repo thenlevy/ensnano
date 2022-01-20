@@ -681,7 +681,7 @@ impl Helix {
 /// Two nucleotides on different helices with the same support helix will be mapped
 /// to the same `VirtualNucl` if they are at the same position on that support helix
 #[derive(Serialize, Deserialize, Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
-pub struct VirtualNucl(Nucl);
+pub struct VirtualNucl(pub(super) Nucl);
 
 impl VirtualNucl {
     pub fn compl(&self) -> Self {
