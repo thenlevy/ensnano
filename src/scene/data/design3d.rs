@@ -52,7 +52,7 @@ impl<R: DesignReader> Design3D<R> {
             design,
             id,
             symbol_map,
-            thick_helices: false,
+            thick_helices: true,
         }
     }
 

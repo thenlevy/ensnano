@@ -531,10 +531,8 @@ impl Helix {
 
     fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32) -> Vec3 {
         if let Some(curve) = self.instanciated_curve.as_ref() {
-            if n >= 0 {
-                if let Some(point) = curve.as_ref().nucl_pos(n, theta as f64, p) {
-                    return dvec_to_vec(point);
-                }
+            if let Some(point) = curve.as_ref().nucl_pos(n, theta as f64, p) {
+                return dvec_to_vec(point);
             }
         }
         let mut ret = Vec3::new(
@@ -616,10 +614,8 @@ impl Helix {
     pub fn axis_position(&self, p: &Parameters, n: isize) -> Vec3 {
         let n = n + self.initial_nt_index;
         if let Some(curve) = self.instanciated_curve.as_ref().map(|s| &s.curve) {
-            if n >= 0 && n <= curve.nb_points() as isize {
-                if let Some(point) = curve.axis_pos(n as usize) {
-                    return dvec_to_vec(point);
-                }
+            if let Some(point) = curve.axis_pos(n) {
+                return dvec_to_vec(point);
             }
         }
         let mut ret = Vec3::new(n as f32 * p.z_step, 0., 0.);
@@ -669,7 +665,7 @@ impl Helix {
 
     pub fn get_curve_range(&self) -> Option<std::ops::RangeInclusive<isize>> {
         if let Some(ref curve) = self.instanciated_curve {
-            Some(0..=(curve.curve.nb_points() as isize - 1))
+            Some(curve.curve.range())
         } else {
             None
         }

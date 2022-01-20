@@ -203,8 +203,9 @@ impl Curve {
         self.positions.len()
     }
 
-    pub fn axis_pos(&self, n: usize) -> Option<DVec3> {
-        self.positions.get(n).cloned()
+    pub fn axis_pos(&self, n: isize) -> Option<DVec3> {
+        let idx = self.idx_convertsion(n)?;
+        self.positions.get(idx).cloned()
     }
 
     #[allow(dead_code)]
@@ -217,8 +218,8 @@ impl Curve {
             Some(n as usize + self.nucl_t0)
         } else {
             let nb_neg = self.nucl_t0;
-            if (-n as usize) <= nb_neg {
-                Some(nb_neg - (-n as usize))
+            if ((-n) as usize) <= nb_neg {
+                Some(nb_neg - ((-n) as usize))
             } else {
                 None
             }
@@ -243,6 +244,12 @@ impl Curve {
 
     pub fn points(&self) -> &[DVec3] {
         &self.positions
+    }
+
+    pub fn range(&self) -> std::ops::RangeInclusive<isize> {
+        let min = (-(self.nucl_t0 as isize)).max(-100);
+        let max = (min + self.nb_points() as isize).min(100);
+        min..=max
     }
 }
 
