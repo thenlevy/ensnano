@@ -39,10 +39,10 @@ mod transitions;
 use crate::apply_update;
 use crate::controller::SimulationRequest;
 use address_pointer::AddressPointer;
+use derivative::Derivative;
 use ensnano_design::Design;
 use ensnano_interactor::{DesignOperation, RigidBodyConstants, SuggestionParameters};
 use ensnano_organizer::GroupId;
-use derivative::Derivative;
 
 pub use design_interactor::controller::ErrOperation;
 pub use design_interactor::{

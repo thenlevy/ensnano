@@ -390,7 +390,7 @@ impl GuiRequests for Requests {
     fn set_show_stereographic_camera(&mut self, show: bool) {
         self.set_show_stereographic_camera = Some(show);
     }
-    
+
     fn set_thick_helices(&mut self, thick: bool) {
         self.set_thick_helices = Some(thick)
     }

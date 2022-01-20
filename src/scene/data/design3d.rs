@@ -168,15 +168,18 @@ impl<R: DesignReader> Design3D<R> {
         let kind = self.get_object_type(id)?;
         let instanciable = match kind {
             ObjectType::Bound(id1, id2) => {
-                let pos1 = self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id1))?;
-                let pos2 = self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id2))?;
+                let pos1 =
+                    self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id1))?;
+                let pos2 =
+                    self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id2))?;
                 let id = id | self.id << 24;
                 create_dna_bound(pos1, pos2, color, id, true)
                     .with_radius(radius)
                     .to_raw_instance()
             }
             ObjectType::Nucleotide(id) => {
-                let position = self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id))?;
+                let position =
+                    self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id))?;
                 let id = id | self.id << 24;
                 let color = Instance::color_from_au32(color);
                 let small = self.design.has_small_spheres_nucl_id(id);
@@ -220,15 +223,18 @@ impl<R: DesignReader> Design3D<R> {
         let kind = self.get_object_type(id)?;
         let raw_instance = match kind {
             ObjectType::Bound(id1, id2) => {
-                let pos1 = self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id1))?;
-                let pos2 = self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id2))?;
+                let pos1 =
+                    self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id1))?;
+                let pos2 =
+                    self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id2))?;
                 let color = self.get_color(id).unwrap_or(0);
                 let id = id | self.id << 24;
                 let tube = create_dna_bound(pos1, pos2, color, id, false);
                 tube.to_raw_instance()
             }
             ObjectType::Nucleotide(id) => {
-                let position = self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id))?;
+                let position =
+                    self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id))?;
                 let color = self.get_color(id)?;
                 let color = Instance::color_from_u32(color);
                 let id = id | self.id << 24;
@@ -254,12 +260,16 @@ impl<R: DesignReader> Design3D<R> {
         let suggestion = self.design.get_suggestions();
         let mut ret = vec![];
         for (n1, n2) in suggestion {
-            let nucl_1 = self
-                .design
-                .get_position_of_nucl_on_helix(n1, Referential::Model, !self.thick_helices);
-            let nucl_2 = self
-                .design
-                .get_position_of_nucl_on_helix(n2, Referential::Model, !self.thick_helices);
+            let nucl_1 = self.design.get_position_of_nucl_on_helix(
+                n1,
+                Referential::Model,
+                !self.thick_helices,
+            );
+            let nucl_2 = self.design.get_position_of_nucl_on_helix(
+                n2,
+                Referential::Model,
+                !self.thick_helices,
+            );
             if let Some(position) = nucl_1 {
                 let instance = SphereInstance {
                     color: Instance::color_from_au32(SUGGESTION_COLOR),
@@ -288,12 +298,16 @@ impl<R: DesignReader> Design3D<R> {
         let suggestion = self.design.get_suggestions();
         let mut ret = vec![];
         for (n1, n2) in suggestion {
-            let nucl_1 = self
-                .design
-                .get_position_of_nucl_on_helix(n1, Referential::Model, !self.thick_helices);
-            let nucl_2 = self
-                .design
-                .get_position_of_nucl_on_helix(n2, Referential::Model, !self.thick_helices);
+            let nucl_1 = self.design.get_position_of_nucl_on_helix(
+                n1,
+                Referential::Model,
+                !self.thick_helices,
+            );
+            let nucl_2 = self.design.get_position_of_nucl_on_helix(
+                n2,
+                Referential::Model,
+                !self.thick_helices,
+            );
             if let Some((position1, position2)) = nucl_1.zip(nucl_2) {
                 let instance = create_dna_bound(position1, position2, SUGGESTION_COLOR, 0, true)
                     .to_raw_instance();
@@ -453,7 +467,7 @@ impl<R: DesignReader> Design3D<R> {
     ) -> Option<Vec3> {
         match element {
             SceneElement::DesignElement(_, e_id) => {
-                    self.get_design_element_position(*e_id, referential)
+                self.get_design_element_position(*e_id, referential)
             }
             SceneElement::PhantomElement(phantom) => {
                 self.get_phantom_element_position(phantom, referential, false)
@@ -832,7 +846,7 @@ impl<R: DesignReader> Design3D<R> {
 
     pub fn get_all_prime3_cone(&self) -> Vec<RawDnaInstance> {
         if !self.thick_helices {
-            return vec![]
+            return vec![];
         }
         let cones = self.design.get_all_prime3_nucl();
         let mut ret = Vec::with_capacity(cones.len());

@@ -195,7 +195,6 @@ pub trait Requests: 'static + Send {
     fn set_thick_helices(&mut self, thick: bool);
 }
 
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum OverlayType {
     Color,
