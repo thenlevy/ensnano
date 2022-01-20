@@ -602,7 +602,11 @@ impl Helix {
         if let Some(curve) = self.instanciated_curve.as_ref() {
             let shift = self.initial_nt_index;
             let points = curve.as_ref().points();
-            Axis::Curve { shift, points }
+            Axis::Curve {
+                shift,
+                points,
+                nucl_t0: curve.as_ref().nucl_t0(),
+            }
         } else {
             Axis::Line {
                 origin: self.position,
@@ -704,23 +708,42 @@ impl Nucl {
 /// bezier curve
 #[derive(Debug, Clone)]
 pub enum Axis<'a> {
-    Line { origin: Vec3, direction: Vec3 },
-    Curve { shift: isize, points: &'a [DVec3] },
+    Line {
+        origin: Vec3,
+        direction: Vec3,
+    },
+    Curve {
+        shift: isize,
+        points: &'a [DVec3],
+        nucl_t0: usize,
+    },
 }
 
 #[derive(Debug, Clone)]
 pub enum OwnedAxis {
-    Line { origin: Vec3, direction: Vec3 },
-    Curve { shift: isize, points: Vec<DVec3> },
+    Line {
+        origin: Vec3,
+        direction: Vec3,
+    },
+    Curve {
+        shift: isize,
+        points: Vec<DVec3>,
+        nucl_t0: usize,
+    },
 }
 
 impl<'a> Axis<'a> {
     pub fn to_owned(self) -> OwnedAxis {
         match self {
             Self::Line { origin, direction } => OwnedAxis::Line { origin, direction },
-            Self::Curve { shift, points } => OwnedAxis::Curve {
+            Self::Curve {
+                shift,
+                points,
+                nucl_t0,
+            } => OwnedAxis::Curve {
                 shift,
                 points: points.to_vec(),
+                nucl_t0,
             },
         }
     }
@@ -733,9 +756,14 @@ impl OwnedAxis {
                 origin: *origin,
                 direction: *direction,
             },
-            Self::Curve { shift, points } => Axis::Curve {
+            Self::Curve {
+                shift,
+                points,
+                nucl_t0,
+            } => Axis::Curve {
                 shift: *shift,
                 points: &points[..],
+                nucl_t0: *nucl_t0,
             },
         }
     }

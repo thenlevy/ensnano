@@ -251,6 +251,10 @@ impl Curve {
         let max = (min + self.nb_points() as isize).min(100);
         min..=max
     }
+
+    pub fn nucl_t0(&self) -> usize {
+        self.nucl_t0
+    }
 }
 
 fn perpendicular_basis(point: DVec3) -> DMat3 {

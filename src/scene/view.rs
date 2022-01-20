@@ -849,7 +849,11 @@ impl View {
                 let sign = (p1 - origin).dot(direction).signum();
                 Some(((p1 - origin).mag() * sign / direction.mag()).round() as isize)
             }
-            Axis::Curve { shift, points } => {
+            Axis::Curve {
+                shift,
+                points,
+                nucl_t0,
+            } => {
                 let mut ret = 0;
                 let mut opt = f32::INFINITY;
                 for (i, point) in points.iter().enumerate() {
@@ -865,7 +869,7 @@ impl View {
                     .unwrap_or(f32::INFINITY);
                     if d < opt {
                         opt = d;
-                        ret = i as isize
+                        ret = i as isize - nucl_t0 as isize
                     }
                 }
                 Some(ret - shift)
