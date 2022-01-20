@@ -134,6 +134,10 @@ impl GuiState for AppState {
     fn get_invert_y_scroll(&self) -> bool {
         self.0.parameters.inverted_y_scroll
     }
+
+    fn want_thick_helices(&self) -> bool {
+        self.0.parameters.thick_helices
+    }
 }
 
 #[cfg(test)]

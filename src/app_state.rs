@@ -387,6 +387,10 @@ impl AppState {
         self.with_updated_parameters(|p| p.show_stereography = show)
     }
 
+    pub fn with_thick_helices(&self, thick: bool) -> Self {
+        self.with_updated_parameters(|p| p.thick_helices = thick)
+    }
+
     pub fn with_background3d(&self, bg: Background3D) -> Self {
         self.with_updated_parameters(|p| p.background3d = bg)
     }

@@ -1366,6 +1366,10 @@ impl MainState {
         self.modify_state(|s| s.with_show_stereographic_camera(show), None)
     }
 
+    fn set_thick_helices(&mut self, thick: bool) {
+        self.modify_state(|s| s.with_thick_helices(thick), None)
+    }
+
     fn set_background_3d(&mut self, bg: ensnano_interactor::graphics::Background3D) {
         self.modify_state(|s| s.with_background3d(bg), None)
     }

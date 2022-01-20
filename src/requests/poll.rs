@@ -390,4 +390,8 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     if let Some(b) = requests.set_show_stereographic_camera.take() {
         main_state.set_show_stereographic_camera(b);
     }
+
+    if let Some(b) = requests.set_thick_helices.take() {
+        main_state.set_thick_helices(b);
+    }
 }
