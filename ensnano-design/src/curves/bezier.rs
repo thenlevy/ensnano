@@ -180,19 +180,23 @@ impl super::Curved for CubicBezier {
 /// C(t) = B_i({t}) where i = 1 -  ⌊t⌋ and {t} = t - ⌊t⌋ and B_i is the bezier curve with extremities
 /// p_i and p_{i + 1} and control points (p_i + u_i) and p_{i + 1} - u_{i + 1}
 #[derive(Clone, Debug)]
-pub struct PiecewiseBezier(pub Vec<BezierEnd>);
+pub struct PiecewiseBezier{
+    pub ends: Vec<BezierEnd>,
+    pub t_min: Option<f64>,
+    pub t_max: Option<f64>
+}
 
 impl PiecewiseBezier {
     fn t_to_i(&self, t: f64) -> usize {
-        (t.floor() as usize).min(self.0.len() - 1) // for t = self.t_max() we take i = self.t_max() - 1
+        (t.floor() as usize).min(self.ends.len() - 1) // for t = self.t_max() we take i = self.t_max() - 1
     }
 
     fn ith_cubic_bezier(&self, i: usize) -> CubicBezier {
         CubicBezier::new(CubicBezierConstructor {
-            start: self.0[i].position,
-            end: self.0[i + 1].position,
-            control1: self.0[i].position + self.0[i].vector,
-            control2: self.0[i + 1].position - self.0[i + 1].vector,
+            start: self.ends[i].position,
+            end: self.ends[i + 1].position,
+            control1: self.ends[i].position + self.ends[i].vector,
+            control2: self.ends[i + 1].position - self.ends[i + 1].vector,
         })
     }
 }
@@ -212,7 +216,20 @@ pub struct BezierEnd {
 
 impl super::Curved for PiecewiseBezier {
     fn t_max(&self) -> f64 {
-        self.0.len() as f64 - 1.0
+        let n = self.ends.len() as f64 - 1.0;
+        if let Some(tmax) = self.t_max {
+            tmax.max(n)
+        } else {
+            n
+        }
+    }
+
+    fn t_min(&self) -> f64 {
+        if let Some(tmin) = self.t_min {
+            tmin.min(0.0)
+        } else {
+            0.0
+        }
     }
 
     fn position(&self, t: f64) -> DVec3 {

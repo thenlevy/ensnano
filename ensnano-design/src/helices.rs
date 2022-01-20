@@ -458,7 +458,7 @@ impl Helix {
     fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32) -> Vec3 {
         if let Some(curve) = self.instanciated_curve.as_ref() {
             if n >= 0 {
-                if let Some(point) = curve.as_ref().nucl_pos(n as usize, theta as f64, p) {
+                if let Some(point) = curve.as_ref().nucl_pos(n, theta as f64, p) {
                     return dvec_to_vec(point);
                 }
             }

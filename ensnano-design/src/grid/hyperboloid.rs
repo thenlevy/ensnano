@@ -177,6 +177,8 @@ impl Hyperboloid {
             orientation: Rotor3::identity(),
             length_x: self.length as f64,
             omega: self.nb_turn as f64 * std::f64::consts::TAU,
+            t_min: None,
+            t_max: None,
         }
     }
 

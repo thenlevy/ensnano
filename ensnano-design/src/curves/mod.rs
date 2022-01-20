@@ -42,10 +42,18 @@ pub(super) trait Curved {
 
     /// The upper bound of the definition domain of `Self::position`.
     ///
-    /// By default this is 1.0, but for curves that are defined "piecewise"
-    /// it may be more practical to override this value.
+    /// By default this is 1.0, but for curves that are infinite
+    /// this value may be overriden to allow the helix to have more nucleotides
     fn t_max(&self) -> f64 {
         1.0
+    }
+
+    /// The lower bound of the definition domain of `Self::position`.
+    ///
+    /// By default this is 0.0, but for curves that are infinite
+    /// this value may be overriden to allow the helix to have more nucleotides
+    fn t_min(&self) -> f64 {
+        0.0
     }
 
     /// The derivative of `Self::position` with respect to time.
@@ -91,6 +99,9 @@ pub(super) struct Curve {
     axis: Vec<DMat3>,
     /// The precomputed values of the curve's curvature
     curvature: Vec<f64>,
+    /// The index in positions that was reached when t became non-negative
+    nucl_t0: usize,
+    
 }
 
 impl Curve {
@@ -100,13 +111,14 @@ impl Curve {
             positions: Vec::new(),
             axis: Vec::new(),
             curvature: Vec::new(),
+            nucl_t0: 0,
         };
         ret.discretize(parameters.z_step as f64, DISCRETISATION_STEP);
         ret
     }
 
     pub fn length_by_descretisation(&self, t0: f64, t1: f64, nb_step: usize) -> f64 {
-        if t0 < 0. || t1 > self.geometry.t_max() || t0 > t1 {
+        if t0 > t1 {
             log::error!(
                 "Bad parameters ofr length by descritisation: \n t0 {} \n t1 {} \n nb_step {}",
                 t0,
@@ -133,13 +145,18 @@ impl Curve {
         let mut points = Vec::with_capacity(nb_points + 1);
         let mut axis = Vec::with_capacity(nb_points + 1);
         let mut curvature = Vec::with_capacity(nb_points + 1);
-        let mut t = 0f64;
+        let mut t = self.geometry.t_min();
         points.push(self.geometry.position(t));
         let mut current_axis = self.itterative_axis(t, None);
         axis.push(current_axis);
         curvature.push(self.geometry.curvature(t));
+        let mut first_non_negative = true;
 
         while t < self.geometry.t_max() {
+            if first_non_negative && t >= 0.0 {
+                first_non_negative = false;
+                self.nucl_t0 = points.len();
+            }
             let mut s = 0f64;
             let mut p = self.geometry.position(t);
 
@@ -191,15 +208,29 @@ impl Curve {
         self.curvature.get(n).cloned()
     }
 
-    pub fn nucl_pos(&self, n: usize, theta: f64, parameters: &Parameters) -> Option<DVec3> {
-        if let Some(matrix) = self.axis.get(n).cloned() {
+    fn idx_convertsion(&self, n: isize) -> Option<usize> {
+        if n > 0 {
+            Some(n as usize + self.nucl_t0)
+        } else {
+            let nb_neg = self.nucl_t0;
+            if (-n as usize) <= nb_neg {
+                Some(nb_neg - (-n as usize))
+            } else {
+                None
+            }
+        }
+    }
+
+    pub fn nucl_pos(&self, n: isize, theta: f64, parameters: &Parameters) -> Option<DVec3> {
+        let idx = self.idx_convertsion(n)?;
+        if let Some(matrix) = self.axis.get(idx).cloned() {
             let mut ret = matrix
                 * DVec3::new(
                     -theta.cos() * parameters.helix_radius as f64,
                     theta.sin() * parameters.helix_radius as f64,
                     0.,
                 );
-            ret += self.positions[n];
+            ret += self.positions[idx];
             Some(ret)
         } else {
             None
@@ -238,6 +269,10 @@ pub enum CurveDescriptor {
     TwistedTorus(TwistedTorusDescriptor),
     PiecewiseBezier {
         points: Vec<(usize, isize, isize)>,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        t_min: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        t_max: Option<f64>,
         #[serde(skip, default)]
         instanciated_descriptor: Option<InstanciatedPiecewiseBezierDescriptor>,
     },
