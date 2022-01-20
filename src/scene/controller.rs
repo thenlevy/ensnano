@@ -22,7 +22,7 @@ use super::{
 };
 use crate::consts::*;
 use crate::{PhySize, PhysicalPosition, WindowEvent};
-use ensnano_design::grid::GridPosition;
+use ensnano_design::grid::{GridObject, GridPosition, HelixGridPosition};
 use ensnano_design::Nucl;
 use ensnano_interactor::DesignReader;
 use ensnano_interactor::Selection;
@@ -68,7 +68,7 @@ pub struct Controller<S: AppState> {
     state: State<S>,
     stereography: Option<Stereography>,
     /// The origin of the two points bezier curve being created.
-    bezier_curve_origin: Option<GridPosition>,
+    bezier_curve_origin: Option<HelixGridPosition>,
 }
 
 pub enum Consequence {
@@ -109,8 +109,8 @@ pub enum Consequence {
     Paste(Option<super::SceneElement>),
     DoubleClick(Option<super::SceneElement>),
     InitBuild(Vec<Nucl>),
-    HelixTranslated {
-        helix: usize,
+    ObjectTranslated {
+        object: GridObject,
         grid: usize,
         x: isize,
         y: isize,
@@ -430,8 +430,8 @@ impl<S: AppState> Controller<S> {
     /// is returned.
     pub fn add_bezier_point(
         &mut self,
-        point: GridPosition,
-    ) -> Option<(GridPosition, GridPosition)> {
+        point: HelixGridPosition,
+    ) -> Option<(HelixGridPosition, HelixGridPosition)> {
         if let Some(position) = self.bezier_curve_origin.take() {
             Some((position, point))
         } else {
@@ -462,7 +462,7 @@ pub(super) trait Data {
         dest: &Option<SceneElement>,
     ) -> Option<(Nucl, Nucl, usize)>;
     fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl>;
-    fn get_grid_helix(&self, grid_id: usize, x: isize, y: isize) -> Option<u32>;
+    fn get_grid_object(&self, position: GridPosition) -> Option<GridObject>;
     fn notify_rotating_pivot(&mut self);
     fn stop_rotating_pivot(&mut self);
     fn update_handle_colors(&mut self, colors: HandleColors);

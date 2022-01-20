@@ -17,11 +17,11 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::{
-    AddressPointer, Controller, ControllerState, Design, Domain, ErrOperation, GridPosition,
+    AddressPointer, Controller, ControllerState, Design, Domain, ErrOperation, HelixGridPosition,
     HelixInterval, Nucl, Strand,
 };
 use ensnano_design::{
-    grid::{Edge, GridData},
+    grid::{Edge, GridData, GridObject},
     Helices, HelixCollection, MutStrandAndData, Parameters, Strands, UpToDateDesign,
 };
 use ultraviolet::Vec3;
@@ -90,7 +90,7 @@ struct StrandTemplate {
 /// The starting point of a template. Used to determine weither a nucleotide is a correct starting
 /// point for a copy of the strand.
 struct TemplateOrigin {
-    helix: GridPosition,
+    helix: HelixGridPosition,
     start: isize,
     forward: bool,
 }
@@ -344,7 +344,7 @@ impl Controller {
     ) -> Result<Vec<Domain>, ErrOperation> {
         let mut ret = Vec::with_capacity(template.domains.len());
         let mut edge_iter = template.edges.iter();
-        let mut previous_position: Option<GridPosition> = None;
+        let mut previous_position: Option<HelixGridPosition> = None;
         let mut edge_opt = None;
         let shift = if template.origin.forward {
             start_nucl.position - template.origin.start
@@ -365,7 +365,8 @@ impl Controller {
                             .translate_by_edge(pos1, edge)
                             .ok_or(ErrOperation::CannotPasteHere)?;
                         let helix = grid_manager
-                            .pos_to_helix(pos2.grid, pos2.x, pos2.y)
+                            .pos_to_object(pos2.light())
+                            .map(|obj| obj.helix())
                             .ok_or(ErrOperation::CannotPasteHere)?;
                         ret.push(Domain::HelixDomain(HelixInterval {
                             helix,
@@ -387,7 +388,8 @@ impl Controller {
                             return Err(ErrOperation::CannotPasteHere);
                         }
                         let helix = grid_manager
-                            .pos_to_helix(pos2.grid, pos2.x, pos2.y)
+                            .pos_to_object(pos2.light())
+                            .map(|obj| obj.helix())
                             .ok_or(ErrOperation::CannotPasteHere)?;
 
                         ret.push(Domain::HelixDomain(HelixInterval {
@@ -417,7 +419,8 @@ impl Controller {
         let pos1 = helices.get(&nucl1.helix).and_then(|h| h.grid_position)?;
         let h2 = grid_manager
             .translate_by_edge(&pos1, edge)
-            .and_then(|pos2| grid_manager.pos_to_helix(pos2.grid, pos2.x, pos2.y))?;
+            .and_then(|pos2| grid_manager.pos_to_object(pos2.light()))
+            .map(|obj| obj.helix())?;
         Some(Nucl {
             helix: h2,
             position: nucl1.position + shift,

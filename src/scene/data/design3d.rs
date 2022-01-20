@@ -23,7 +23,9 @@ use super::super::GridInstance;
 use super::{LetterInstance, SceneElement};
 use crate::consts::*;
 use crate::utils::instance::Instance;
-use ensnano_design::{grid::GridPosition, Nucl};
+use ensnano_design::grid::{GridObject, GridPosition};
+use ensnano_design::{grid::HelixGridPosition, Nucl};
+use ensnano_design::{CubicBezierConstructor, CurveDescriptor};
 use ensnano_interactor::{
     phantom_helix_encoder_bound, phantom_helix_encoder_nucl, BezierControlPoint, ObjectType,
     PhantomElement, Referential, PHANTOM_RANGE,
@@ -473,8 +475,8 @@ impl<R: DesignReader> Design3D<R> {
                 self.get_phantom_element_position(phantom, referential, false)
             }
             SceneElement::Grid(_, g_id) => self.design.get_grid_position(*g_id),
-            SceneElement::GridCircle(_, g_id, x, y) => {
-                self.design.get_grid_latice_position(*g_id, *x, *y)
+            SceneElement::GridCircle(_, position) => {
+                self.design.get_grid_latice_position(*position)
             }
             _ => None,
         }
@@ -503,7 +505,7 @@ impl<R: DesignReader> Design3D<R> {
             SceneElement::WidgetElement(_)
             | SceneElement::Grid(_, _)
             | SceneElement::BezierControl { .. }
-            | SceneElement::GridCircle(_, _, _, _) => None,
+            | SceneElement::GridCircle(_, _) => None,
         }
     }
 
@@ -775,8 +777,12 @@ impl<R: DesignReader> Design3D<R> {
             .unwrap_or(Vec::new())
     }
 
-    pub fn get_helix_grid(&self, g_id: usize, x: isize, y: isize) -> Option<u32> {
-        self.design.get_helix_id_at_grid_coord(g_id, x, y)
+    pub fn get_helix_grid(&self, position: GridPosition) -> Option<u32> {
+        self.design.get_helix_id_at_grid_coord(position)
+    }
+
+    pub fn get_grid_object(&self, position: GridPosition) -> Option<GridObject> {
+        self.design.get_grid_object(position)
     }
 
     pub fn get_persistent_phantom_helices(&self) -> HashSet<u32> {
@@ -795,7 +801,7 @@ impl<R: DesignReader> Design3D<R> {
         self.design.get_nucl_with_id_relaxed(e_id)
     }
 
-    pub fn get_helix_grid_position(&self, h_id: u32) -> Option<GridPosition> {
+    pub fn get_helix_grid_position(&self, h_id: u32) -> Option<HelixGridPosition> {
         self.design.get_helix_grid_position(h_id)
     }
 
@@ -859,29 +865,15 @@ impl<R: DesignReader> Design3D<R> {
     pub fn get_bezier_elements(&self, h_id: usize) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
         let mut spheres = Vec::new();
         let mut tubes = Vec::new();
-        if let Some(constructor) = self.design.get_bezier_controll(h_id) {
+        if let Some(constructor) = self.design.get_cubic_bezier_controls(h_id) {
             log::info!("got control");
-            spheres.push(make_bezier_controll(
-                constructor.start,
-                h_id as u32,
-                BezierControlPoint::Start,
-            ));
-            spheres.push(make_bezier_controll(
-                constructor.control1,
-                h_id as u32,
-                BezierControlPoint::Control1,
-            ));
-            spheres.push(make_bezier_controll(
-                constructor.control2,
-                h_id as u32,
-                BezierControlPoint::Control2,
-            ));
-            spheres.push(make_bezier_controll(
-                constructor.end,
-                h_id as u32,
-                BezierControlPoint::End,
-            ));
-
+            for (control_point, position) in constructor.iter() {
+                spheres.push(make_bezier_controll(
+                    *position,
+                    h_id as u32,
+                    BezierControlPoint::CubicBezier(control_point),
+                ));
+            }
             tubes.push(make_bezier_squelton(
                 constructor.start,
                 constructor.control1,
@@ -891,7 +883,22 @@ impl<R: DesignReader> Design3D<R> {
                 constructor.control2,
             ));
             tubes.push(make_bezier_squelton(constructor.control2, constructor.end));
-
+            (spheres, tubes)
+        } else if let Some(controls) = self.design.get_piecewise_bezier_controls(h_id) {
+            let mut iter = controls.into_iter().enumerate();
+            while let Some(((n1, c1), (n2, c2))) = iter.next().zip(iter.next()) {
+                spheres.push(make_bezier_controll(
+                    c1,
+                    h_id as u32,
+                    BezierControlPoint::PiecewiseBezier(n1),
+                ));
+                spheres.push(make_bezier_controll(
+                    c2,
+                    h_id as u32,
+                    BezierControlPoint::PiecewiseBezier(n2),
+                ));
+                tubes.push(make_bezier_squelton(c1, c2));
+            }
             (spheres, tubes)
         } else {
             (vec![], vec![])
@@ -899,8 +906,44 @@ impl<R: DesignReader> Design3D<R> {
     }
 
     pub fn get_control_point(&self, helix_id: usize, control: BezierControlPoint) -> Option<Vec3> {
-        let constructor = self.design.get_bezier_controll(helix_id)?;
-        Some(control.get_point(&constructor))
+        self.design
+            .get_position_of_bezier_control(helix_id, control)
+    }
+
+    pub fn get_bezier_control_basis(
+        &self,
+        h_id: usize,
+        bezier_control: BezierControlPoint,
+    ) -> Option<Rotor3> {
+        log::info!(
+            "Getting bezier basis {:?} of helix {}",
+            bezier_control,
+            h_id
+        );
+        match bezier_control {
+            BezierControlPoint::CubicBezier(_) => None,
+            BezierControlPoint::PiecewiseBezier(n) => {
+                let descriptor = self.design.get_curve_descriptor(h_id)?;
+                if let CurveDescriptor::PiecewiseBezier {
+                    points, tengents, ..
+                } = descriptor
+                {
+                    // There are two control points per bezier grid position
+                    let g_id = points.get(n / 2).map(|pos| pos.grid)?;
+                    let grid_orientation = self.design.get_grid_basis(g_id)?;
+                    tengents.get(n / 2).map(|t| {
+                        let world_tengent = t.normalized().rotated_by(grid_orientation);
+                        if world_tengent.dot(Vec3::unit_x()) > -0.999 {
+                            Rotor3::from_rotation_between(Vec3::unit_x(), world_tengent)
+                        } else {
+                            Rotor3::identity()
+                        }
+                    })
+                } else {
+                    None
+                }
+            }
+        }
     }
 }
 
@@ -1023,7 +1066,7 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     ) -> Option<Vec3>;
     fn get_object_type(&self, id: u32) -> Option<ObjectType>;
     fn get_grid_position(&self, g_id: usize) -> Option<Vec3>;
-    fn get_grid_latice_position(&self, g_id: usize, x: isize, y: isize) -> Option<Vec3>;
+    fn get_grid_latice_position(&self, position: GridPosition) -> Option<Vec3>;
     fn get_element_position(&self, e_id: u32, referential: Referential) -> Option<Vec3>;
     fn get_element_axis_position(&self, id: u32, referential: Referential) -> Option<Vec3>;
     fn get_color(&self, e_id: u32) -> Option<u32>;
@@ -1043,15 +1086,23 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>>;
     fn get_used_coordinates_on_grid(&self, g_id: usize) -> Option<Vec<(isize, isize)>>;
     fn get_helices_grid_key_coord(&self, g_id: usize) -> Option<Vec<((isize, isize), usize)>>;
-    fn get_helix_id_at_grid_coord(&self, g_id: usize, x: isize, y: isize) -> Option<u32>;
+    fn get_helix_id_at_grid_coord(&self, position: GridPosition) -> Option<u32>;
     fn get_persistent_phantom_helices_id(&self) -> HashSet<u32>;
     fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3>;
-    fn get_helix_grid_position(&self, h_id: u32) -> Option<GridPosition>;
+    fn get_helix_grid_position(&self, h_id: u32) -> Option<HelixGridPosition>;
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)>;
-    fn get_bezier_controll(&self, h_id: usize) -> Option<ensnano_design::CubicBezierConstructor>;
     fn get_curve_range(&self, h_id: usize) -> Option<std::ops::RangeInclusive<isize>>;
     fn get_checked_xovers_ids(&self, checked: bool) -> Vec<u32>;
     fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize>;
+    fn get_grid_object(&self, position: GridPosition) -> Option<GridObject>;
+    fn get_position_of_bezier_control(
+        &self,
+        helix: usize,
+        control: BezierControlPoint,
+    ) -> Option<Vec3>;
+    fn get_cubic_bezier_controls(&self, helix: usize) -> Option<CubicBezierConstructor>;
+    fn get_piecewise_bezier_controls(&self, helix: usize) -> Option<Vec<Vec3>>;
+    fn get_curve_descriptor(&self, helix: usize) -> Option<&CurveDescriptor>;
 }

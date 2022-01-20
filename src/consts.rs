@@ -55,31 +55,37 @@ pub fn bezier_widget_id(helix_id: u32, control_point: BezierControlPoint) -> u32
 
 use ensnano_interactor::BezierControlPoint;
 pub fn widget_id_to_bezier(id: u32) -> Option<(usize, BezierControlPoint)> {
+    use std::convert::TryInto;
     let control = match id & 0xFF {
-        BEZIER_START_WIDGET_ID => Some(BezierControlPoint::Start),
-        BEZIER_END_WIDGET_ID => Some(BezierControlPoint::End),
-        BEZIER_CONTROL1_WIDGET_ID => Some(BezierControlPoint::Control1),
-        BEZIER_CONTROL2_WIDGET_ID => Some(BezierControlPoint::Control2),
-        _ => None,
+        n if n > BEZIER_END_WIDGET_ID => Some(BezierControlPoint::PiecewiseBezier(
+            (n - 1 - BEZIER_END_WIDGET_ID) as usize,
+        )),
+        n => {
+            let control = ((n - BEZIER_START_WIDGET_ID) as usize).try_into().ok();
+            control.map(|c| BezierControlPoint::CubicBezier(c))
+        }
     };
     Some((id >> 8) as usize).zip(control)
 }
 
 pub const fn bezier_control_color(control_point: BezierControlPoint) -> u32 {
+    use ensnano_design::CubicBezierControlPoint::*;
     match control_point {
-        BezierControlPoint::Start => BEZIER_START_COLOR,
-        BezierControlPoint::Control1 => BEZIER_CONTROL1_COLOR,
-        BezierControlPoint::Control2 => BEZIER_CONTROL2_COLOR,
-        BezierControlPoint::End => BEZIER_END_COLOR,
+        BezierControlPoint::CubicBezier(Start) => BEZIER_START_COLOR,
+        BezierControlPoint::CubicBezier(Control1) => BEZIER_CONTROL1_COLOR,
+        BezierControlPoint::CubicBezier(Control2) => BEZIER_CONTROL2_COLOR,
+        BezierControlPoint::CubicBezier(End) => BEZIER_END_COLOR,
+        BezierControlPoint::PiecewiseBezier(_) => PIECEWISE_BEZIER_COLOR,
     }
 }
 
-pub const fn bezier_control_id(control_point: BezierControlPoint) -> u32 {
+pub fn bezier_control_id(control_point: BezierControlPoint) -> u32 {
     match control_point {
-        BezierControlPoint::Start => BEZIER_START_WIDGET_ID,
-        BezierControlPoint::Control1 => BEZIER_CONTROL1_WIDGET_ID,
-        BezierControlPoint::Control2 => BEZIER_CONTROL2_WIDGET_ID,
-        BezierControlPoint::End => BEZIER_END_WIDGET_ID,
+        BezierControlPoint::CubicBezier(c) => {
+            let control_id: usize = c.into();
+            BEZIER_START_WIDGET_ID + control_id as u32
+        }
+        BezierControlPoint::PiecewiseBezier(n) => n as u32 + BEZIER_END_WIDGET_ID + 1,
     }
 }
 
@@ -185,5 +191,6 @@ pub const SEC_BETWEEN_BACKUPS: u64 = 60;
 pub const SEC_PER_YEAR: u64 = 31_536_000;
 pub const DEFAULT_STEREOGRAPHIC_ZOOM: f32 = 3.0;
 pub const STEREOGRAPHIC_ZOOM_STEP: f32 = 1.1;
+pub const PIECEWISE_BEZIER_COLOR: u32 = 0xFF_66_CD_AA; // Medium Aquamarine
 
 pub const UPDATE_VISIBILITY_SIEVE_LABEL: &'static str = "Update visibility sieve";

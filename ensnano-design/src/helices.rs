@@ -16,10 +16,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::design_operations::ErrOperation;
+use crate::grid::GridAwareTranslation;
+
 use super::curves::*;
 use super::{
     codenano,
-    grid::{Grid, GridPosition},
+    grid::{Grid, GridData, HelixGridPosition},
     scadnano::*,
     utils::*,
     Nucl, Parameters,
@@ -29,7 +32,7 @@ use std::sync::Arc;
 use ultraviolet::{DVec3, Isometry2, Mat4, Rotor3, Vec3};
 
 /// A structure maping helices identifier to `Helix` objects
-#[derive(Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Helices(pub(super) Arc<BTreeMap<usize, Arc<Helix>>>);
 
 impl Helices {
@@ -119,6 +122,14 @@ impl<'a> HelicesMut<'a> {
         })
     }
 
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut Helix> {
+        self.new_map.values_mut().map(|arc| {
+            let new_helix = Helix::clone(arc.as_ref());
+            *arc = Arc::new(new_helix);
+            Arc::make_mut(arc)
+        })
+    }
+
     pub fn insert(&mut self, id: usize, helix: Helix) {
         self.new_map.insert(id, Arc::new(helix));
     }
@@ -180,7 +191,7 @@ pub struct Helix {
     /// The position of the helix on a grid. If this is None, it means that helix is not bound to
     /// any grid.
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub grid_position: Option<GridPosition>,
+    pub grid_position: Option<HelixGridPosition>,
 
     /// Representation of the helix in 2d
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -193,6 +204,9 @@ pub struct Helix {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub curve: Option<Arc<CurveDescriptor>>,
+
+    #[serde(default, skip)]
+    pub(super) instanciated_descriptor: Option<Arc<InstanciatedCurveDescriptor>>,
 
     #[serde(default, skip)]
     pub(super) instanciated_curve: Option<InstanciatedCurve>,
@@ -244,6 +258,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
@@ -307,7 +322,7 @@ impl Helix {
         Ok(Self {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
-            grid_position: Some(GridPosition {
+            grid_position: Some(HelixGridPosition {
                 grid: *grid_id,
                 x,
                 y,
@@ -320,6 +335,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
@@ -339,6 +355,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
@@ -351,7 +368,7 @@ impl Helix {
             position,
             orientation: grid.orientation,
             isometry2d: None,
-            grid_position: Some(GridPosition {
+            grid_position: Some(HelixGridPosition {
                 grid: g_id,
                 x,
                 y,
@@ -363,6 +380,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
@@ -381,43 +399,99 @@ impl Helix {
             locked_for_simulations: false,
             curve: Some(Arc::new(CurveDescriptor::SphereLikeSpiral(constructor))),
             instanciated_curve: None,
+            instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
         }
     }
 
+    pub fn piecewise_bezier_points(&self) -> Option<Vec<Vec3>> {
+        if let Some(CurveDescriptor::PiecewiseBezier { .. }) = self.curve.as_ref().map(Arc::as_ref)
+        {
+            Some(self.bezier_points())
+        } else {
+            None
+        }
+    }
+
+    pub fn cubic_bezier_points(&self) -> Option<Vec<Vec3>> {
+        if let Some(CurveDescriptor::Bezier(_)) = self.curve.as_ref().map(Arc::as_ref) {
+            Some(self.bezier_points())
+        } else {
+            None
+        }
+    }
+
+    pub fn translate_bezier_point(
+        &mut self,
+        bezier_point: BezierControlPoint,
+        translation: GridAwareTranslation,
+    ) -> Result<(), ErrOperation> {
+        let point = match bezier_point {
+            BezierControlPoint::PiecewiseBezier(n) => {
+                if let Some(CurveDescriptor::PiecewiseBezier { tengents, .. }) =
+                    self.curve.as_mut().map(Arc::make_mut)
+                {
+                    tengents.get_mut(n / 2)
+                } else {
+                    None
+                }
+            }
+            _ => {
+                log::error!("Translation of cubic bezier point not implemented");
+                None
+            }
+        }
+        .ok_or(ErrOperation::NotEnoughBezierPoints)?;
+        *point += translation.0;
+        Ok(())
+    }
+
+    fn bezier_points(&self) -> Vec<Vec3> {
+        if let Some(desc) = self.instanciated_descriptor.as_ref() {
+            desc.bezier_points()
+        } else {
+            vec![]
+        }
+    }
+
     pub fn new_bezier_two_points(
-        start: Vec3,
-        mut start_axis: Vec3,
-        end: Vec3,
-        mut end_axis: Vec3,
-    ) -> Self {
-        start_axis.normalize();
-        end_axis.normalize();
-        let middle = (end - start) / 2.;
-        let proj_start = start + middle.dot(start_axis) * start_axis;
-        let proj_end = end - middle.dot(end_axis) * end_axis;
-        let constructor = CubicBezierConstructor {
-            start,
-            end,
-            control1: proj_start,
-            control2: proj_end,
+        grid_manager: &GridData,
+        grid_pos_start: HelixGridPosition,
+        grid_pos_end: HelixGridPosition,
+    ) -> Result<Self, ErrOperation> {
+        let position = grid_manager
+            .pos_to_space(grid_pos_start.light())
+            .ok_or(ErrOperation::GridDoesNotExist(grid_pos_start.grid))?;
+        let (vec_start, vec_end) = grid_manager
+            .get_tengents_between_two_points(grid_pos_start.light(), grid_pos_end.light())
+            .ok_or(ErrOperation::GridDoesNotExist(grid_pos_end.grid))?;
+        let constructor = CurveDescriptor::PiecewiseBezier {
+            points: vec![grid_pos_start.light(), grid_pos_end.light()],
+            tengents: vec![vec_start, vec_end],
+            t_max: None,
+            t_min: None,
         };
-        Self {
-            position: start,
+        let mut ret = Self {
+            position,
             orientation: Rotor3::identity(),
             isometry2d: None,
             grid_position: None,
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
-            curve: Some(Arc::new(CurveDescriptor::Bezier(constructor))),
+            curve: Some(Arc::new(constructor)),
             instanciated_curve: None,
+            instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
-        }
+        };
+        // we can use a fake cache because we don't need it for bezier curves.
+        let mut fake_cache = Default::default();
+        grid_manager.update_curve(&mut ret, &mut fake_cache);
+        Ok(ret)
     }
 
     pub fn nb_bezier_nucls(&self) -> usize {
@@ -499,6 +573,7 @@ impl Helix {
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
+            instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
@@ -587,7 +662,9 @@ impl Helix {
     }
 
     pub fn get_bezier_controls(&self) -> Option<CubicBezierConstructor> {
-        self.curve.as_ref().and_then(|c| c.get_bezier_controls())
+        self.instanciated_descriptor
+            .as_ref()
+            .and_then(|c| c.get_bezier_controls())
     }
 
     pub fn get_curve_range(&self) -> Option<std::ops::RangeInclusive<isize>> {

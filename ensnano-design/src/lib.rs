@@ -46,7 +46,10 @@ mod helices;
 pub use helices::*;
 
 mod curves;
-pub use curves::{CubicBezierConstructor, CurveCache, CurveDescriptor};
+pub use curves::{
+    BezierControlPoint, CubicBezierConstructor, CubicBezierControlPoint, CurveCache,
+    CurveDescriptor,
+};
 pub mod design_operations;
 pub mod utils;
 
@@ -139,6 +142,9 @@ pub struct Design {
 
     #[serde(skip)]
     instanciated_grid_data: Option<GridData>,
+
+    #[serde(skip, default)]
+    cached_curve: Arc<CurveCache>,
 }
 
 /// An immuatable reference to a design whose helices and grid data are guaranteed to be up-to
@@ -269,6 +275,7 @@ impl Design {
             checked_xovers: Default::default(),
             rainbow_scaffold: false,
             instanciated_grid_data: None,
+            cached_curve: Default::default(),
         }
     }
 
@@ -396,36 +403,6 @@ impl Design {
 
     pub fn prepare_for_save(&mut self, saving_information: SavingInformation) {
         self.saved_camera = saving_information.camera;
-    }
-
-    pub fn update_curves(&mut self, cached_curve: &mut CurveCache) {
-        let mut need_update = false;
-        for h in self.helices.values() {
-            if h.need_curve_update() {
-                need_update = true;
-                break;
-            }
-        }
-        if need_update {
-            let parameters = self.parameters.unwrap_or(Parameters::DEFAULT);
-            let mut new_helices_map = BTreeMap::clone(self.helices.0.as_ref());
-            for h in new_helices_map.values_mut() {
-                mutate_in_arc(h, |h| h.update_curve(&parameters, cached_curve))
-            }
-            self.helices = Helices(Arc::new(new_helices_map));
-        }
-    }
-
-    pub fn update_support_helices(&mut self) {
-        let parameters = self.parameters.unwrap_or_default();
-        let old_helices = self.helices.clone();
-        mutate_all_helices(self, |h| {
-            if let Some(mother_id) = h.support_helix {
-                if let Some(mother) = old_helices.get(&mother_id) {
-                    h.roll = mother.roll;
-                }
-            }
-        })
     }
 
     pub fn get_nucl_position(&self, nucl: Nucl) -> Option<Vec3> {

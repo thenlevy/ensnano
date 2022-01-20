@@ -26,7 +26,7 @@ pub use value_constructor::{BuilderMessage, InstanciatedValue, ValueKind};
 
 use ultraviolet::{Rotor3, Vec3};
 pub enum ValueRequest {
-    GridPosition { grid_id: usize, position: Vec3 },
+    HelixGridPosition { grid_id: usize, position: Vec3 },
     GridOrientation { grid_id: usize, orientation: Rotor3 },
     GridNbTurn { grid_id: usize, nb_turn: f32 },
 }
@@ -34,9 +34,9 @@ pub enum ValueRequest {
 impl ValueRequest {
     fn from_value_and_selection(selection: &Selection, value: InstanciatedValue) -> Option<Self> {
         match value {
-            InstanciatedValue::GridPosition(v) => {
+            InstanciatedValue::HelixGridPosition(v) => {
                 if let Selection::Grid(_, g_id) = selection {
-                    Some(Self::GridPosition {
+                    Some(Self::HelixGridPosition {
                         grid_id: *g_id,
                         position: v,
                     })
@@ -72,7 +72,7 @@ impl ValueRequest {
 
     pub(super) fn make_request(&self, request: Arc<Mutex<dyn Requests>>) {
         match self {
-            Self::GridPosition { grid_id, position } => request
+            Self::HelixGridPosition { grid_id, position } => request
                 .lock()
                 .unwrap()
                 .set_grid_position(*grid_id, *position),

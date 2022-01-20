@@ -19,6 +19,29 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use crate::utils::vec_to_dvec;
 use ultraviolet::{DVec3, Vec3};
 
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
+#[repr(usize)]
+/// A control point of a cubic bezier curve.
+///
+/// This enum implements Into<usize>.
+pub enum CubicBezierControlPoint {
+    Start,
+    End,
+    Control1,
+    Control2,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// A control point of a bezier curve
+pub enum BezierControlPoint {
+    /// One of the control points of a cubic bezier curve
+    CubicBezier(CubicBezierControlPoint),
+    /// One of the control points of a piecewise bezier curve
+    PiecewiseBezier(usize),
+}
+
 pub struct CubicBezier {
     polynomial: CubicBezierPolynom,
 }
@@ -34,6 +57,17 @@ pub struct CubicBezierConstructor {
 impl CubicBezierConstructor {
     pub(super) fn into_bezier(self) -> CubicBezier {
         CubicBezier::new(self)
+    }
+
+    /// Returns an iterator over the control points of self
+    pub fn iter(&self) -> impl Iterator<Item = (CubicBezierControlPoint, &Vec3)> {
+        vec![
+            (CubicBezierControlPoint::Start, &self.start),
+            (CubicBezierControlPoint::Control1, &self.control1),
+            (CubicBezierControlPoint::Control2, &self.control2),
+            (CubicBezierControlPoint::End, &self.end),
+        ]
+        .into_iter()
     }
 }
 
@@ -180,15 +214,20 @@ impl super::Curved for CubicBezier {
 /// C(t) = B_i({t}) where i = 1 -  ⌊t⌋ and {t} = t - ⌊t⌋ and B_i is the bezier curve with extremities
 /// p_i and p_{i + 1} and control points (p_i + u_i) and p_{i + 1} - u_{i + 1}
 #[derive(Clone, Debug)]
-pub struct PiecewiseBezier{
+pub struct PiecewiseBezier {
     pub ends: Vec<BezierEnd>,
     pub t_min: Option<f64>,
-    pub t_max: Option<f64>
+    pub t_max: Option<f64>,
 }
 
 impl PiecewiseBezier {
     fn t_to_i(&self, t: f64) -> usize {
-        (t.floor() as usize).min(self.ends.len() - 1) // for t = self.t_max() we take i = self.t_max() - 1
+        if t < 0.0 {
+            0
+        } else {
+            // for t = self.t_max() - 1 we take i = self.t_max() - 2
+            (t.floor() as usize).min(self.ends.len() - 2)
+        }
     }
 
     fn ith_cubic_bezier(&self, i: usize) -> CubicBezier {

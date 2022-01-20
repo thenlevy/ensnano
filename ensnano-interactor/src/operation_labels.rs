@@ -27,8 +27,8 @@ impl DesignOperation {
             Self::Translation(translation) => {
                 format!("Translation of {}", translation.target.to_string()).into()
             }
-            Self::AddGridHelix { position, .. } => "Helix creation".into(),
-            Self::AddTwoPointsBezier { start, end } => "Bezier curve creation".into(),
+            Self::AddGridHelix { .. } => "Helix creation".into(),
+            Self::AddTwoPointsBezier { .. } => "Bezier curve creation".into(),
             Self::RmHelices { .. } => "Helix deletion".into(),
             Self::RmXovers { .. } => "Xover deletion".into(),
             Self::Cut { nucl, .. } => format!("Cut on {:?}", nucl).into(),
@@ -67,7 +67,7 @@ impl DesignOperation {
             Self::SetVisibilityHelix { visible: false, .. } => "Make helices invisible".into(),
             Self::FlipHelixGroup { .. } => "Change xover group of helices".into(),
             Self::FlipAnchors { .. } => "Set/Unset nucl anchor".into(),
-            Self::AttachHelix { .. } => "Attach helix to grid".into(),
+            Self::AttachObject { .. } => "Move grid object".into(),
             Self::SetOrganizerTree(_) => "Update organizer tree".into(),
             Self::SetStrandName { .. } => "Update name of strand".into(),
             Self::SetGroupPivot { .. } => "Set group pivot".into(),

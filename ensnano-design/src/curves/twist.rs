@@ -49,7 +49,7 @@ impl Curved for Twist {
             1.0
         }
     }
-    
+
     fn t_min(&self) -> f64 {
         if let Some(tmin) = self.t_min {
             tmin.min(0.0)

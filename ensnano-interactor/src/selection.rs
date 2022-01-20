@@ -15,7 +15,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use ensnano_design::grid::GridPosition;
+use ensnano_design::grid::HelixGridPosition;
+pub use ensnano_design::BezierControlPoint;
 use ensnano_design::{CubicBezierConstructor, Nucl, Strand};
 use std::collections::BTreeSet;
 
@@ -43,7 +44,7 @@ pub enum Selection {
 pub enum CenterOfSelection {
     Nucleotide(u32, Nucl),
     Bound(u32, Nucl, Nucl),
-    GridPosition {
+    HelixGridPosition {
         design: u32,
         grid_id: usize,
         x: isize,
@@ -53,37 +54,6 @@ pub enum CenterOfSelection {
         helix_id: usize,
         bezier_control: BezierControlPoint,
     },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BezierControlPoint {
-    Start,
-    End,
-    Control1,
-    Control2,
-}
-
-impl BezierControlPoint {
-    pub fn get_point(&self, constructor: &CubicBezierConstructor) -> ultraviolet::Vec3 {
-        match self {
-            Self::Start => constructor.start,
-            Self::End => constructor.end,
-            Self::Control1 => constructor.control1,
-            Self::Control2 => constructor.control2,
-        }
-    }
-
-    pub fn get_point_mut<'a>(
-        &self,
-        constructor: &'a mut CubicBezierConstructor,
-    ) -> &'a mut ultraviolet::Vec3 {
-        match self {
-            Self::Start => &mut constructor.start,
-            Self::End => &mut constructor.end,
-            Self::Control1 => &mut constructor.control1,
-            Self::Control2 => &mut constructor.control2,
-        }
-    }
 }
 
 impl Selection {
@@ -621,7 +591,7 @@ impl PhantomElement {
 }
 
 pub trait DesignReader {
-    fn get_grid_position_of_helix(&self, h_id: usize) -> Option<GridPosition>;
+    fn get_grid_position_of_helix(&self, h_id: usize) -> Option<HelixGridPosition>;
     fn get_xover_id(&self, pair: &(Nucl, Nucl)) -> Option<usize>;
     fn get_xover_with_id(&self, id: usize) -> Option<(Nucl, Nucl)>;
     fn get_strand_with_id(&self, id: usize) -> Option<&Strand>;

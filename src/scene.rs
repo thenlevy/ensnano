@@ -1,4 +1,4 @@
-use ensnano_design::grid::GridPosition;
+use ensnano_design::grid::HelixGridPosition;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -27,7 +27,7 @@ use ultraviolet::{Mat4, Rotor3, Vec3};
 use crate::scene::camera::FiniteVec3;
 use crate::utils;
 use crate::{DrawArea, PhySize, WindowEvent};
-use ensnano_design::{group_attributes::GroupPivot, Nucl};
+use ensnano_design::{grid::GridPosition, group_attributes::GroupPivot, Nucl};
 use ensnano_interactor::{
     application::{AppId, Application, Camera3D, Notification},
     operation::*,
@@ -253,12 +253,12 @@ impl<S: AppState> Scene<S> {
                     }
                 }
             }
-            Consequence::HelixTranslated { helix, grid, x, y } => {
-                log::info!("Moving helix {} to grid {} ({} {})", helix, grid, x, y);
+            Consequence::ObjectTranslated { object, grid, x, y } => {
+                log::info!("Moving helix {:?} to grid {} ({} {})", object, grid, x, y);
                 self.requests
                     .lock()
                     .unwrap()
-                    .apply_design_operation(DesignOperation::AttachHelix { helix, grid, x, y });
+                    .apply_design_operation(DesignOperation::AttachObject { object, grid, x, y });
             }
             Consequence::MovementEnded => {
                 self.requests.lock().unwrap().suspend_op();
@@ -368,7 +368,7 @@ impl<S: AppState> Scene<S> {
                 y,
             } => {
                 if self.controller.is_building_bezier_curve() {
-                    let point = GridPosition::from_grid_id_x_y(grid_id, x, y);
+                    let point = HelixGridPosition::from_grid_id_x_y(grid_id, x, y);
                     if let Some((start, end)) = self.controller.add_bezier_point(point) {
                         self.requests.lock().unwrap().apply_design_operation(
                             DesignOperation::AddTwoPointsBezier { start, end },
@@ -376,7 +376,17 @@ impl<S: AppState> Scene<S> {
                     } else {
                         // This is the first point of the bezier curve, select the corresponding
                         // disc to highlight it.
-                        self.select(Some(SceneElement::GridCircle(0, grid_id, x, y)), app_state)
+                        self.select(
+                            Some(SceneElement::GridCircle(
+                                0,
+                                GridPosition {
+                                    grid: grid_id,
+                                    x,
+                                    y,
+                                },
+                            )),
+                            app_state,
+                        )
                     }
                 } else {
                     // build regular grid helix
