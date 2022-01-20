@@ -194,7 +194,9 @@ impl Design {
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CameraId(u64);
 
+use serde_with::{serde_as, DefaultOnError};
 /// A saved camera position. This can be use to register intresting point of views of the design.
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Camera {
     pub position: Vec3,
@@ -202,6 +204,7 @@ pub struct Camera {
     pub name: String,
     pub id: CameraId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
     pub pivot_position: Option<Vec3>,
 }
 
