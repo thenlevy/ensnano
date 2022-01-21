@@ -40,8 +40,8 @@ pub struct Twister {
 }
 
 const NB_ROLL_STEP_PER_TWIST: usize = 100;
-const MIN_OMEGA: f64 = 6.5;
-const MAX_OMEGA: f64 = 7.5;
+const MIN_OMEGA: f64 = -1.;
+const MAX_OMEGA: f64 = 1.;
 const NB_STEP_OMEGA: usize = 100;
 
 #[derive(Clone)]
@@ -262,11 +262,17 @@ impl DesignData {
     }
 
     fn update_twist(&mut self, twist: f64) {
+        let nb_helices = self.helices.len();
         for h in self.helices.iter_mut() {
             if let Some(CurveDescriptor::Twist(Twist { omega, .. })) =
                 h.curve.as_mut().map(Arc::make_mut)
             {
-                *omega = twist * std::f64::consts::TAU;
+                *omega = ensnano_design::nb_turn_per_100_nt_to_omega(
+                    twist,
+                    nb_helices,
+                    &self.parameters,
+                )
+                .unwrap_or(*omega);
                 h.try_update_curve(&self.parameters);
             } else {
                 log::error!("Wrong kind of curve descriptor");

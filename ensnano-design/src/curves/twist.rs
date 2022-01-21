@@ -29,7 +29,7 @@ pub fn nb_turn_per_100_nt_to_omega(
     parameters: &Parameters,
 ) -> Option<f64> {
     if nb_turn_per_100_nt.abs() < 1e-3 {
-        return None;
+        return Some(0.0);
     }
     #[allow(non_snake_case)]
     let Z: f64 = 100.0 * parameters.z_step as f64;
@@ -43,7 +43,7 @@ pub fn nb_turn_per_100_nt_to_omega(
             "nb_turn_per_100_nt = {}r = {}, omega = {}",
             nb_turn_per_100_nt, r, omega
         );
-        Some(omega)
+        Some(omega * nb_turn_per_100_nt.signum())
     } else {
         None
     }
@@ -87,11 +87,15 @@ impl Curved for Twist {
 
     fn position(&self, t: f64) -> DVec3 {
         let pos_0 = if self.omega.abs() < 1e-5 {
-            t * DVec3::unit_x()
-        } else {
-            let theta = self.theta0 + t;
             DVec3 {
-                x: t / self.omega,
+                x: t,
+                y: self.radius * self.theta0.sin(),
+                z: self.radius * self.theta0.cos(),
+            }
+        } else {
+            let theta = self.theta0 + t * self.omega.signum();
+            DVec3 {
+                x: t / self.omega.abs(),
                 y: self.radius * theta.sin(),
                 z: self.radius * theta.cos(),
             }
@@ -105,9 +109,9 @@ impl Curved for Twist {
         let pos_0 = if self.omega.abs() < 1e-5 {
             DVec3::unit_x()
         } else {
-            let theta = self.theta0 + t;
+            let theta = self.theta0 + t * self.omega.signum();
             DVec3 {
-                x: 1.0 / self.omega,
+                x: 1.0 / self.omega.abs(),
                 y: self.radius * theta.cos(),
                 z: self.radius * -theta.sin(),
             }
@@ -120,7 +124,7 @@ impl Curved for Twist {
         let pos_0 = if self.omega.abs() < 1e-5 {
             DVec3::zero()
         } else {
-            let theta = self.theta0 + t;
+            let theta = self.theta0 + t * self.omega.signum();
             DVec3 {
                 x: 0.,
                 y: self.radius * -theta.sin(),
