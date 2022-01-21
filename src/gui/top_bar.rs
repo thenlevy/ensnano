@@ -81,6 +81,7 @@ pub struct TopBar<R: Requests, S: AppState> {
     button_reload: button::State,
     button_toggle_2d: button::State,
     button_new_empty_design: button::State,
+    button_thick_helices: button::State,
     requests: Arc<Mutex<R>>,
     logical_size: LogicalSize<f64>,
     action_mode_state: ActionModeState,
@@ -123,6 +124,7 @@ pub enum Message<S: AppState> {
     Toggle2D,
     Reload,
     FlipSplitViews,
+    ThickHelices(bool),
 }
 
 impl<R: Requests, S: AppState> TopBar<R, S> {
@@ -149,6 +151,7 @@ impl<R: Requests, S: AppState> TopBar<R, S> {
             button_new_empty_design: Default::default(),
             button_reload: Default::default(),
             button_toggle_2d: Default::default(),
+            button_thick_helices: Default::default(),
             requests,
             logical_size,
             action_mode_state: Default::default(),
@@ -224,6 +227,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
                 self.requests.lock().unwrap().toggle_2d();
             }
             Message::FlipSplitViews => self.requests.lock().unwrap().flip_split_views(),
+            Message::ThickHelices(b) => self.requests.lock().unwrap().set_thick_helices(b),
         };
         Command::none()
     }
@@ -324,6 +328,19 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
         let button_3d = Button::new(&mut self.button_3d, iced::Text::new("3D"))
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Scene3D));
+        let button_thick_helices = if self.application_state.app_state.want_thick_helices() {
+            Button::new(
+                &mut self.button_thick_helices,
+                light_icon(LightIcon::PianoOff, self.ui_size),
+            )
+            .on_press(Message::ThickHelices(false))
+        } else {
+            Button::new(
+                &mut self.button_thick_helices,
+                light_icon(LightIcon::Piano, self.ui_size),
+            )
+            .on_press(Message::ThickHelices(true))
+        };
         let button_split = Button::new(&mut self.button_split, iced::Text::new("3D+2D"))
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Both));
@@ -424,6 +441,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .push(oxdna_tooltip)
             .push(iced::Space::with_width(Length::Units(10)))
             .push(button_3d)
+            .push(button_thick_helices)
             .push(button_2d)
             .push(button_split)
             .push(button_split_2d)

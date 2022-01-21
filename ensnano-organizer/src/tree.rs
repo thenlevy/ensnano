@@ -29,6 +29,31 @@ pub enum OrganizerTree<K> {
     },
 }
 
+impl<K: PartialEq> OrganizerTree<K> {
+    pub fn get_names_of_groups_having(&self, element: &K) -> Vec<String> {
+        let mut ret = Vec::new();
+        match self {
+            Self::Leaf(_) => (),
+            Self::Node {
+                name, childrens, ..
+            } => {
+                for c in childrens {
+                    match c {
+                        Self::Leaf(k) if k == element => ret.push(name.clone()),
+                        Self::Leaf(_) => (),
+                        node => {
+                            let extention = node.get_names_of_groups_having(element);
+                            ret.extend(extention)
+                        }
+                    }
+                }
+            }
+        }
+        ret.dedup();
+        ret
+    }
+}
+
 // For compatibility reasons, we need to implement Deserialize ourselved for OrganizerTree.
 // We want to be able to accept both the old format (pre 0.3.0) and the current format.
 

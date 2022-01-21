@@ -35,9 +35,29 @@ pub struct Twist {
     pub length_x: f64,
     /// The radius of the circle arround which the helix turns
     pub radius: f64,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub t_min: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub t_max: Option<f64>,
 }
 
 impl Curved for Twist {
+    fn t_max(&self) -> f64 {
+        if let Some(tmax) = self.t_max {
+            tmax.max(1.0)
+        } else {
+            1.0
+        }
+    }
+
+    fn t_min(&self) -> f64 {
+        if let Some(tmin) = self.t_min {
+            tmin.min(0.0)
+        } else {
+            0.0
+        }
+    }
+
     fn position(&self, t: f64) -> DVec3 {
         let theta = self.theta0 + self.omega * t;
         let pos_0 = DVec3 {
@@ -70,5 +90,9 @@ impl Curved for Twist {
         };
         let orientation = rotor_to_drotor(self.orientation);
         orientation * pos_0
+    }
+
+    fn bounds(&self) -> super::CurveBounds {
+        super::CurveBounds::BiInfinite
     }
 }

@@ -470,6 +470,8 @@ impl Helix {
         let constructor = CurveDescriptor::PiecewiseBezier {
             points: vec![grid_pos_start.light(), grid_pos_end.light()],
             tengents: vec![vec_start, vec_end],
+            t_max: None,
+            t_min: None,
         };
         let mut ret = Self {
             position,
@@ -529,10 +531,8 @@ impl Helix {
 
     fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32) -> Vec3 {
         if let Some(curve) = self.instanciated_curve.as_ref() {
-            if n >= 0 {
-                if let Some(point) = curve.as_ref().nucl_pos(n as usize, theta as f64, p) {
-                    return dvec_to_vec(point);
-                }
+            if let Some(point) = curve.as_ref().nucl_pos(n, theta as f64, p) {
+                return dvec_to_vec(point);
             }
         }
         let mut ret = Vec3::new(
@@ -602,7 +602,11 @@ impl Helix {
         if let Some(curve) = self.instanciated_curve.as_ref() {
             let shift = self.initial_nt_index;
             let points = curve.as_ref().points();
-            Axis::Curve { shift, points }
+            Axis::Curve {
+                shift,
+                points,
+                nucl_t0: curve.as_ref().nucl_t0(),
+            }
         } else {
             Axis::Line {
                 origin: self.position,
@@ -614,10 +618,8 @@ impl Helix {
     pub fn axis_position(&self, p: &Parameters, n: isize) -> Vec3 {
         let n = n + self.initial_nt_index;
         if let Some(curve) = self.instanciated_curve.as_ref().map(|s| &s.curve) {
-            if n >= 0 && n <= curve.nb_points() as isize {
-                if let Some(point) = curve.axis_pos(n as usize) {
-                    return dvec_to_vec(point);
-                }
+            if let Some(point) = curve.axis_pos(n) {
+                return dvec_to_vec(point);
             }
         }
         let mut ret = Vec3::new(n as f32 * p.z_step, 0., 0.);
@@ -667,7 +669,7 @@ impl Helix {
 
     pub fn get_curve_range(&self) -> Option<std::ops::RangeInclusive<isize>> {
         if let Some(ref curve) = self.instanciated_curve {
-            Some(0..=(curve.curve.nb_points() as isize - 1))
+            Some(curve.curve.range())
         } else {
             None
         }
@@ -679,7 +681,7 @@ impl Helix {
 /// Two nucleotides on different helices with the same support helix will be mapped
 /// to the same `VirtualNucl` if they are at the same position on that support helix
 #[derive(Serialize, Deserialize, Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
-pub struct VirtualNucl(Nucl);
+pub struct VirtualNucl(pub(super) Nucl);
 
 impl VirtualNucl {
     pub fn compl(&self) -> Self {
@@ -706,23 +708,42 @@ impl Nucl {
 /// bezier curve
 #[derive(Debug, Clone)]
 pub enum Axis<'a> {
-    Line { origin: Vec3, direction: Vec3 },
-    Curve { shift: isize, points: &'a [DVec3] },
+    Line {
+        origin: Vec3,
+        direction: Vec3,
+    },
+    Curve {
+        shift: isize,
+        points: &'a [DVec3],
+        nucl_t0: usize,
+    },
 }
 
 #[derive(Debug, Clone)]
 pub enum OwnedAxis {
-    Line { origin: Vec3, direction: Vec3 },
-    Curve { shift: isize, points: Vec<DVec3> },
+    Line {
+        origin: Vec3,
+        direction: Vec3,
+    },
+    Curve {
+        shift: isize,
+        points: Vec<DVec3>,
+        nucl_t0: usize,
+    },
 }
 
 impl<'a> Axis<'a> {
     pub fn to_owned(self) -> OwnedAxis {
         match self {
             Self::Line { origin, direction } => OwnedAxis::Line { origin, direction },
-            Self::Curve { shift, points } => OwnedAxis::Curve {
+            Self::Curve {
+                shift,
+                points,
+                nucl_t0,
+            } => OwnedAxis::Curve {
                 shift,
                 points: points.to_vec(),
+                nucl_t0,
             },
         }
     }
@@ -735,9 +756,14 @@ impl OwnedAxis {
                 origin: *origin,
                 direction: *direction,
             },
-            Self::Curve { shift, points } => Axis::Curve {
+            Self::Curve {
+                shift,
+                points,
+                nucl_t0,
+            } => Axis::Curve {
                 shift: *shift,
                 points: &points[..],
+                nucl_t0: *nucl_t0,
             },
         }
     }

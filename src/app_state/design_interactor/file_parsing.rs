@@ -81,6 +81,7 @@ fn read_file<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Design, ParseD
             log::info!("ok cadnano");
             Ok(Design::from_cadnano(cadnano))
         } else {
+            log::error!("{:?}", design.err().unwrap());
             // The file is not in any supported format
             //message("Unrecognized file format".into(), rfd::MessageLevel::Error);
             Err(ParseDesignError::UnrecognizedFileFormat)

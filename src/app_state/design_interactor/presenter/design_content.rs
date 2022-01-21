@@ -163,7 +163,7 @@ impl DesignContent {
         self.grid_manager.pos_to_object(position)
     }
 
-    pub(super) fn get_staples(&self, design: &Design) -> Vec<Staple> {
+    pub(super) fn get_staples(&self, design: &Design, presenter: &Presenter) -> Vec<Staple> {
         let mut ret = Vec::new();
         let mut sequences: BTreeMap<(usize, isize, usize, isize), StapleInfo> = Default::default();
         let basis_map = self.basis_map.as_ref();
@@ -201,6 +201,10 @@ impl DesignContent {
                     s_id: *s_id,
                     sequence,
                     strand_name: strand.name.clone(),
+                    domain_decomposition: presenter.decompose_length(*s_id),
+                    length: strand.length(),
+                    color: strand.color & 0xFFFFFF,
+                    group_names: presenter.get_name_of_group_having_strand(*s_id),
                 },
             );
         }
@@ -229,6 +233,14 @@ impl DesignContent {
                     )
                     .into()
                 }),
+                color_str: format!("{:#08X}", staple_info.color),
+                groups_name_str: staple_info.group_names.join(" ; "),
+                length_str: staple_info.length.to_string(),
+                domain_decomposition: staple_info
+                    .domain_decomposition
+                    .split_once("=")
+                    .map(|split| split.1.to_string())
+                    .unwrap_or(staple_info.domain_decomposition.clone()),
             });
         }
         ret
@@ -286,12 +298,20 @@ pub struct Staple {
     pub name: Cow<'static, str>,
     pub sequence: String,
     pub plate: usize,
+    pub color_str: String,
+    pub groups_name_str: String,
+    pub domain_decomposition: String,
+    pub length_str: String,
 }
 
 struct StapleInfo {
     s_id: usize,
     sequence: String,
     strand_name: Option<Cow<'static, str>>,
+    color: u32,
+    group_names: Vec<String>,
+    domain_decomposition: String,
+    length: usize,
 }
 
 #[derive(Clone)]

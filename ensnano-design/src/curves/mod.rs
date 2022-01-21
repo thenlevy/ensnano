@@ -19,6 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use ultraviolet::{DMat3, DVec3, Rotor3, Vec3};
 const EPSILON: f64 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
+const DELTA_MAX: f64 = 256.0;
 use crate::grid::GridPosition;
 
 use super::{Helix, Parameters};
@@ -46,10 +47,18 @@ pub(super) trait Curved {
 
     /// The upper bound of the definition domain of `Self::position`.
     ///
-    /// By default this is 1.0, but for curves that are defined "piecewise"
-    /// it may be more practical to override this value.
+    /// By default this is 1.0, but for curves that are infinite
+    /// this value may be overriden to allow the helix to have more nucleotides
     fn t_max(&self) -> f64 {
         1.0
+    }
+
+    /// The lower bound of the definition domain of `Self::position`.
+    ///
+    /// By default this is 0.0, but for curves that are infinite
+    /// this value may be overriden to allow the helix to have more nucleotides
+    fn t_min(&self) -> f64 {
+        0.0
     }
 
     /// The derivative of `Self::position` with respect to time.
@@ -81,6 +90,20 @@ pub(super) trait Curved {
         let denominator = speed.mag().powi(3);
         numerator / denominator
     }
+
+    /// The bounds of the curve
+    fn bounds(&self) -> CurveBounds;
+}
+
+/// The bounds of the curve. This describe the interval in which t can be taken
+pub(super) enum CurveBounds {
+    /// t ∈ [t_min, t_max]
+    Finite,
+    #[allow(dead_code)]
+    /// t ∈ [t_min, +∞[
+    PositiveInfinite,
+    /// t ∈ ]-∞, +∞[
+    BiInfinite,
 }
 
 #[derive(Clone)]
@@ -95,6 +118,8 @@ pub(super) struct Curve {
     axis: Vec<DMat3>,
     /// The precomputed values of the curve's curvature
     curvature: Vec<f64>,
+    /// The index in positions that was reached when t became non-negative
+    nucl_t0: usize,
 }
 
 impl Curve {
@@ -104,13 +129,14 @@ impl Curve {
             positions: Vec::new(),
             axis: Vec::new(),
             curvature: Vec::new(),
+            nucl_t0: 0,
         };
         ret.discretize(parameters.z_step as f64, DISCRETISATION_STEP);
         ret
     }
 
     pub fn length_by_descretisation(&self, t0: f64, t1: f64, nb_step: usize) -> f64 {
-        if t0 < 0. || t1 > self.geometry.t_max() || t0 > t1 {
+        if t0 > t1 {
             log::error!(
                 "Bad parameters ofr length by descritisation: \n t0 {} \n t1 {} \n nb_step {}",
                 t0,
@@ -137,13 +163,18 @@ impl Curve {
         let mut points = Vec::with_capacity(nb_points + 1);
         let mut axis = Vec::with_capacity(nb_points + 1);
         let mut curvature = Vec::with_capacity(nb_points + 1);
-        let mut t = 0f64;
+        let mut t = self.geometry.t_min();
         points.push(self.geometry.position(t));
         let mut current_axis = self.itterative_axis(t, None);
         axis.push(current_axis);
         curvature.push(self.geometry.curvature(t));
+        let mut first_non_negative = t < 0.0;
 
         while t < self.geometry.t_max() {
+            if first_non_negative && t >= 0.0 {
+                first_non_negative = false;
+                self.nucl_t0 = points.len();
+            }
             let mut s = 0f64;
             let mut p = self.geometry.position(t);
 
@@ -187,8 +218,9 @@ impl Curve {
         self.positions.len()
     }
 
-    pub fn axis_pos(&self, n: usize) -> Option<DVec3> {
-        self.positions.get(n).cloned()
+    pub fn axis_pos(&self, n: isize) -> Option<DVec3> {
+        let idx = self.idx_convertsion(n)?;
+        self.positions.get(idx).cloned()
     }
 
     #[allow(dead_code)]
@@ -196,15 +228,29 @@ impl Curve {
         self.curvature.get(n).cloned()
     }
 
-    pub fn nucl_pos(&self, n: usize, theta: f64, parameters: &Parameters) -> Option<DVec3> {
-        if let Some(matrix) = self.axis.get(n).cloned() {
+    fn idx_convertsion(&self, n: isize) -> Option<usize> {
+        if n >= 0 {
+            Some(n as usize + self.nucl_t0)
+        } else {
+            let nb_neg = self.nucl_t0;
+            if ((-n) as usize) <= nb_neg {
+                Some(nb_neg - ((-n) as usize))
+            } else {
+                None
+            }
+        }
+    }
+
+    pub fn nucl_pos(&self, n: isize, theta: f64, parameters: &Parameters) -> Option<DVec3> {
+        let idx = self.idx_convertsion(n)?;
+        if let Some(matrix) = self.axis.get(idx).cloned() {
             let mut ret = matrix
                 * DVec3::new(
                     -theta.cos() * parameters.helix_radius as f64,
                     theta.sin() * parameters.helix_radius as f64,
                     0.,
                 );
-            ret += self.positions[n];
+            ret += self.positions[idx];
             Some(ret)
         } else {
             None
@@ -213,6 +259,77 @@ impl Curve {
 
     pub fn points(&self) -> &[DVec3] {
         &self.positions
+    }
+
+    pub fn range(&self) -> std::ops::RangeInclusive<isize> {
+        let min = (-(self.nucl_t0 as isize)).max(-100);
+        let max = (min + self.nb_points() as isize - 1).min(100);
+        min..=max
+    }
+
+    pub fn nucl_t0(&self) -> usize {
+        self.nucl_t0
+    }
+
+    /// Return a value of t_min that would allow self to have nucl
+    pub fn left_extension_to_have_nucl(&self, nucl: isize, parameters: &Parameters) -> Option<f64> {
+        let nucl_min = -(self.nucl_t0 as isize);
+        if nucl < nucl_min {
+            if let CurveBounds::BiInfinite = self.geometry.bounds() {
+                let objective = (-nucl) as f64 * parameters.z_step as f64;
+                let mut delta = 1.0;
+                while delta < DELTA_MAX {
+                    let new_tmin = self.geometry.t_min() - delta;
+                    if self.length_by_descretisation(
+                        new_tmin,
+                        0.0,
+                        nucl.abs() as usize * DISCRETISATION_STEP,
+                    ) > objective
+                    {
+                        return Some(new_tmin);
+                    }
+                    delta *= 2.0;
+                }
+                None
+            } else {
+                None
+            }
+        } else {
+            Some(self.geometry.t_min())
+        }
+    }
+
+    /// Return a value of t_max that would allow self to have nucl
+    pub fn right_extension_to_have_nucl(
+        &self,
+        nucl: isize,
+        parameters: &Parameters,
+    ) -> Option<f64> {
+        let nucl_max = (self.nb_points() - self.nucl_t0) as isize;
+        if nucl >= nucl_max {
+            match self.geometry.bounds() {
+                CurveBounds::BiInfinite | CurveBounds::PositiveInfinite => {
+                    let objective = nucl as f64 * parameters.z_step as f64;
+                    let mut delta = 1.0;
+                    while delta < DELTA_MAX {
+                        let new_tmax = self.geometry.t_max() + delta;
+                        if self.length_by_descretisation(
+                            0.0,
+                            new_tmax,
+                            nucl as usize * DISCRETISATION_STEP,
+                        ) > objective
+                        {
+                            return Some(new_tmax);
+                        }
+                        delta *= 2.0;
+                    }
+                    None
+                }
+                CurveBounds::Finite => None,
+            }
+        } else {
+            Some(self.geometry.t_max())
+        }
     }
 }
 
@@ -243,6 +360,10 @@ pub enum CurveDescriptor {
     Torus(Torus),
     TwistedTorus(TwistedTorusDescriptor),
     PiecewiseBezier {
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        t_min: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        t_max: Option<f64>,
         points: Vec<GridPosition>,
         tengents: Vec<Vec3>,
     },
@@ -254,6 +375,49 @@ impl CurveDescriptor {
             points.as_slice()
         } else {
             &[]
+        }
+    }
+    pub fn set_t_min(&mut self, new_t_min: f64) -> bool {
+        match self {
+            Self::PiecewiseBezier { t_min, .. } => {
+                if matches!(*t_min, Some(x) if x <= new_t_min) {
+                    false
+                } else {
+                    *t_min = Some(new_t_min);
+                    true
+                }
+            }
+            Self::Twist(twist) => {
+                if matches!(twist.t_min, Some(x) if x <= new_t_min) {
+                    false
+                } else {
+                    twist.t_min = Some(new_t_min);
+                    true
+                }
+            }
+            _ => false,
+        }
+    }
+
+    pub fn set_t_max(&mut self, new_t_max: f64) -> bool {
+        match self {
+            Self::PiecewiseBezier { t_max, .. } => {
+                if matches!(*t_max, Some(x) if x >= new_t_max) {
+                    false
+                } else {
+                    *t_max = Some(new_t_max);
+                    true
+                }
+            }
+            Self::Twist(twist) => {
+                if matches!(twist.t_max, Some(x) if x >= new_t_max) {
+                    false
+                } else {
+                    twist.t_max = Some(new_t_max);
+                    true
+                }
+            }
+            _ => false,
         }
     }
 }
@@ -285,11 +449,18 @@ impl InstanciatedCurveDescriptor {
             CurveDescriptor::TwistedTorus(t) => {
                 InsanciatedCurveDescriptor_::TwistedTorus(t.clone())
             }
-            CurveDescriptor::PiecewiseBezier { points, tengents } => {
+            CurveDescriptor::PiecewiseBezier {
+                points,
+                tengents,
+                t_min,
+                t_max,
+            } => {
                 let instanciated = InstanciatedPiecewiseBezierDescriptor::instanciate(
                     &points,
                     &tengents,
                     grid_reader,
+                    *t_min,
+                    *t_max,
                 );
                 InsanciatedCurveDescriptor_::PiecewiseBezier(instanciated)
             }
@@ -355,7 +526,7 @@ impl InstanciatedCurveDescriptor {
             }
             InsanciatedCurveDescriptor_::PiecewiseBezier(desc) => {
                 let desc = &desc.desc;
-                desc.0
+                desc.ends
                     .iter()
                     .map(|b| vec![b.position - b.vector, b.position + b.vector].into_iter())
                     .flatten()
@@ -391,7 +562,10 @@ impl InstanciatedPiecewiseBezierDescriptor {
         points: &[GridPosition],
         tengents: &[Vec3],
         grid_reader: &dyn GridPositionProvider,
+        t_min: Option<f64>,
+        t_max: Option<f64>,
     ) -> Self {
+        log::debug!("Instanciating {:?}, {:?}", points, tengents);
         let bezier_ends = points
             .iter()
             .zip(tengents)
@@ -404,7 +578,11 @@ impl InstanciatedPiecewiseBezierDescriptor {
                 }
             })
             .collect();
-        let desc = PiecewiseBezier(bezier_ends);
+        let desc = PiecewiseBezier {
+            ends: bezier_ends,
+            t_min,
+            t_max,
+        };
         Self {
             desc,
             grids: grid_reader.source(),

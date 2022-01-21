@@ -39,6 +39,7 @@ mod transitions;
 use crate::apply_update;
 use crate::controller::SimulationRequest;
 use address_pointer::AddressPointer;
+use derivative::Derivative;
 use ensnano_design::Design;
 use ensnano_interactor::{DesignOperation, RigidBodyConstants, SuggestionParameters};
 use ensnano_organizer::GroupId;
@@ -206,7 +207,8 @@ impl AppState {
         Ok(Self(AddressPointer::new(AppState_ {
             design: AddressPointer::new(design_interactor),
             ..Default::default()
-        })))
+        }))
+        .updated())
     }
 
     pub(super) fn update(&mut self) {
@@ -385,6 +387,10 @@ impl AppState {
         self.with_updated_parameters(|p| p.show_stereography = show)
     }
 
+    pub fn with_thick_helices(&self, thick: bool) -> Self {
+        self.with_updated_parameters(|p| p.thick_helices = thick)
+    }
+
     pub fn with_background3d(&self, bg: Background3D) -> Self {
         self.with_updated_parameters(|p| p.background3d = bg)
     }
@@ -529,7 +535,8 @@ impl AppState {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Derivative)]
+#[derivative(Clone, Default)]
 struct AppStateParameters {
     suggestion_parameters: SuggestionParameters,
     check_xover_paramters: CheckXoversParameter,
@@ -537,6 +544,8 @@ struct AppStateParameters {
     show_stereography: bool,
     rendering_mode: RenderingMode,
     background3d: Background3D,
+    #[derivative(Default(value = "true"))]
+    thick_helices: bool,
     scroll_sensitivity: f32,
     inverted_y_scroll: bool,
 }

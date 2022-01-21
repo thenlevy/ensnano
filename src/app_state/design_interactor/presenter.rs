@@ -163,6 +163,7 @@ impl Presenter {
             &mut self.curve_cache,
         );
         self.current_design = AddressPointer::new(new_design);
+        log::trace!("Presenter design <- {:p}", self.current_design);
         self.content = AddressPointer::new(content);
         self.junctions_ids = AddressPointer::new(new_junctions_ids);
         self.current_suggestion_paramters = suggestion_parameters.clone();
@@ -315,6 +316,14 @@ impl Presenter {
             }
         }
         ret
+    }
+
+    fn get_name_of_group_having_strand(&self, s_id: usize) -> Vec<String> {
+        let tree = &self.current_design.organizer_tree.as_ref();
+        tree.map(|t| {
+            t.get_names_of_groups_having(&ensnano_design::elements::DnaElementKey::Strand(s_id))
+        })
+        .unwrap_or_default()
     }
 
     pub fn get_strand_domain(&self, s_id: usize, d_id: usize) -> Option<&ensnano_design::Domain> {

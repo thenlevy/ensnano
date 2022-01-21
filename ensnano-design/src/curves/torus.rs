@@ -285,6 +285,10 @@ impl Curved for Torus {
     fn acceleration(&self, t: f64) -> DVec3 {
         return self.acceleration_moebius(t);
     }
+
+    fn bounds(&self) -> super::CurveBounds {
+        super::CurveBounds::Finite
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -551,5 +555,9 @@ impl Curved for TwistedTorus {
                 + *self.descriptor.big_radius)
                 * theta.sin(),
         }
+    }
+
+    fn bounds(&self) -> super::CurveBounds {
+        super::CurveBounds::Finite
     }
 }

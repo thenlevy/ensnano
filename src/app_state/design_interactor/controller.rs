@@ -2098,7 +2098,10 @@ impl Controller {
                     } else {
                         None
                     };
-                if let Some(CurveDescriptor::PiecewiseBezier { points, tengents }) = desc {
+                if let Some(CurveDescriptor::PiecewiseBezier {
+                    points, tengents, ..
+                }) = desc
+                {
                     let insertion_point = if append { n + 1 } else { n };
                     points.insert(insertion_point, point);
                     tengents.insert(insertion_point, tengent);

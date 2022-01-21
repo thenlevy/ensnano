@@ -410,9 +410,14 @@ impl View {
 
     pub fn update_selection(&mut self, strands: &[Strand], helices: &[Helix]) {
         self.selected_strands.clear();
+        let other_cam = if self.splited {
+            &self.camera_bottom
+        } else {
+            &self.camera_top
+        };
         for s in strands.iter() {
             let mut strand_view = StrandView::new(self.device.clone(), self.queue.clone());
-            strand_view.update(s, helices, &None, &self.camera_top, &self.camera_bottom);
+            strand_view.update(s, helices, &None, &self.camera_top, other_cam);
             self.selected_strands.push(strand_view);
         }
         self.was_updated = true;

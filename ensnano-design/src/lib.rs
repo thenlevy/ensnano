@@ -200,7 +200,9 @@ impl Design {
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CameraId(u64);
 
+use serde_with::{serde_as, DefaultOnError};
 /// A saved camera position. This can be use to register intresting point of views of the design.
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Camera {
     pub position: Vec3,
@@ -208,6 +210,7 @@ pub struct Camera {
     pub name: String,
     pub id: CameraId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
     pub pivot_position: Option<Vec3>,
 }
 
@@ -412,18 +415,73 @@ impl Design {
     }
 
     pub fn get_updated_grid_data(&mut self) -> &GridData {
-        let need_update = if let Some(data) = self.instanciated_grid_data.as_ref() {
-            !data.is_up_to_date(&self)
-        } else {
-            true
-        };
-        if need_update {
-            let updated_data = GridData::new_by_updating_design(self);
-            self.instanciated_grid_data = Some(updated_data);
+        self.update_curve_bounds();
+        for _ in 0..3 {
+            let need_update = if let Some(data) = self.instanciated_grid_data.as_ref() {
+                !data.is_up_to_date(&self)
+            } else {
+                true
+            };
+            if need_update {
+                let updated_data = GridData::new_by_updating_design(self);
+                self.instanciated_grid_data = Some(updated_data);
+            }
+            if !self.update_curve_bounds() {
+                // we are done
+                break;
+            }
         }
         // unwrap ok: If need_update is true, then instanciated_grid_data has just been given a
         // value, otherwise it was already some up-to-date data
         self.instanciated_grid_data.as_ref().unwrap()
+    }
+
+    fn update_curve_bounds(&mut self) -> bool {
+        log::debug!("updating curve bounds");
+        let mut new_helices = self.helices.clone();
+        let mut new_helices_mut = new_helices.make_mut();
+        let mut replace = false;
+        let parameters = self.parameters.unwrap_or_default();
+        for (h_id, h) in self.helices.iter() {
+            log::debug!("Helix {}", h_id);
+            if let Some((n_min, n_max)) =
+                self.strands.get_used_bounds_for_helix(*h_id, &self.helices)
+            {
+                log::debug!("bounds {} {}", n_min, n_max);
+                if let Some(curve) = h.instanciated_curve.as_ref() {
+                    if let Some(t_min) = curve.curve.left_extension_to_have_nucl(n_min, &parameters)
+                    {
+                        log::debug!("t_min {}", t_min);
+                        if let Some(h_mut) = new_helices_mut.get_mut(h_id) {
+                            replace |= h_mut
+                                .curve
+                                .as_mut()
+                                .map(|c| Arc::make_mut(c).set_t_min(t_min))
+                                .unwrap_or(false);
+                        }
+                    }
+                    if let Some(t_max) =
+                        curve.curve.right_extension_to_have_nucl(n_max, &parameters)
+                    {
+                        log::debug!("tmax {}", t_max);
+                        if let Some(h_mut) = new_helices_mut.get_mut(h_id) {
+                            replace |= h_mut
+                                .curve
+                                .as_mut()
+                                .map(|c| Arc::make_mut(c).set_t_max(t_max))
+                                .unwrap_or(false);
+                        }
+                    }
+                }
+            }
+        }
+        drop(new_helices_mut);
+        if replace {
+            self.helices = new_helices;
+            true
+        } else {
+            false
+        }
     }
 
     pub fn mut_strand_and_data(&mut self) -> MutStrandAndData {

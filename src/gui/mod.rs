@@ -192,6 +192,7 @@ pub trait Requests: 'static + Send {
     fn set_show_stereographic_camera(&mut self, show: bool);
     fn flip_split_views(&mut self);
     fn set_rainbow_scaffold(&mut self, rainbow: bool);
+    fn set_thick_helices(&mut self, thick: bool);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -980,6 +981,7 @@ pub trait AppState:
     fn show_stereographic_camera(&self) -> bool;
     fn get_scroll_sensitivity(&self) -> f32;
     fn get_invert_y_scroll(&self) -> bool;
+    fn want_thick_helices(&self) -> bool;
 }
 
 pub trait DesignReader: 'static {

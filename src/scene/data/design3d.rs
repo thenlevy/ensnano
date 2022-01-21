@@ -39,6 +39,7 @@ pub struct Design3D<R: DesignReader> {
     design: R,
     id: u32,
     symbol_map: HashMap<char, usize>,
+    pub thick_helices: bool,
 }
 
 impl<R: DesignReader> Design3D<R> {
@@ -51,6 +52,7 @@ impl<R: DesignReader> Design3D<R> {
             design,
             id,
             symbol_map,
+            thick_helices: true,
         }
     }
 
@@ -166,18 +168,20 @@ impl<R: DesignReader> Design3D<R> {
     /// color and radius.
     pub fn make_instance(&self, id: u32, color: u32, mut radius: f32) -> Option<RawDnaInstance> {
         let kind = self.get_object_type(id)?;
-        let referential = Referential::Model;
         let instanciable = match kind {
             ObjectType::Bound(id1, id2) => {
-                let pos1 = self.get_design_element_position(id1, referential)?;
-                let pos2 = self.get_design_element_position(id2, referential)?;
+                let pos1 =
+                    self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id1))?;
+                let pos2 =
+                    self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id2))?;
                 let id = id | self.id << 24;
                 create_dna_bound(pos1, pos2, color, id, true)
                     .with_radius(radius)
                     .to_raw_instance()
             }
             ObjectType::Nucleotide(id) => {
-                let position = self.get_design_element_position(id, referential)?;
+                let position =
+                    self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id))?;
                 let id = id | self.id << 24;
                 let color = Instance::color_from_au32(color);
                 let small = self.design.has_small_spheres_nucl_id(id);
@@ -219,18 +223,20 @@ impl<R: DesignReader> Design3D<R> {
     /// Convert return an instance representing the object with identifier `id`
     pub fn make_raw_instance(&self, id: u32) -> Option<RawDnaInstance> {
         let kind = self.get_object_type(id)?;
-        let referential = Referential::Model;
         let raw_instance = match kind {
             ObjectType::Bound(id1, id2) => {
-                let pos1 = self.get_design_element_position(id1, referential)?;
-                let pos2 = self.get_design_element_position(id2, referential)?;
+                let pos1 =
+                    self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id1))?;
+                let pos2 =
+                    self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id2))?;
                 let color = self.get_color(id).unwrap_or(0);
                 let id = id | self.id << 24;
                 let tube = create_dna_bound(pos1, pos2, color, id, false);
                 tube.to_raw_instance()
             }
             ObjectType::Nucleotide(id) => {
-                let position = self.get_design_element_position(id, referential)?;
+                let position =
+                    self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id))?;
                 let color = self.get_color(id)?;
                 let color = Instance::color_from_u32(color);
                 let id = id | self.id << 24;
@@ -256,12 +262,16 @@ impl<R: DesignReader> Design3D<R> {
         let suggestion = self.design.get_suggestions();
         let mut ret = vec![];
         for (n1, n2) in suggestion {
-            let nucl_1 = self
-                .design
-                .get_position_of_nucl_on_helix(n1, Referential::Model, false);
-            let nucl_2 = self
-                .design
-                .get_position_of_nucl_on_helix(n2, Referential::Model, false);
+            let nucl_1 = self.design.get_position_of_nucl_on_helix(
+                n1,
+                Referential::Model,
+                !self.thick_helices,
+            );
+            let nucl_2 = self.design.get_position_of_nucl_on_helix(
+                n2,
+                Referential::Model,
+                !self.thick_helices,
+            );
             if let Some(position) = nucl_1 {
                 let instance = SphereInstance {
                     color: Instance::color_from_au32(SUGGESTION_COLOR),
@@ -290,12 +300,16 @@ impl<R: DesignReader> Design3D<R> {
         let suggestion = self.design.get_suggestions();
         let mut ret = vec![];
         for (n1, n2) in suggestion {
-            let nucl_1 = self
-                .design
-                .get_position_of_nucl_on_helix(n1, Referential::Model, false);
-            let nucl_2 = self
-                .design
-                .get_position_of_nucl_on_helix(n2, Referential::Model, false);
+            let nucl_1 = self.design.get_position_of_nucl_on_helix(
+                n1,
+                Referential::Model,
+                !self.thick_helices,
+            );
+            let nucl_2 = self.design.get_position_of_nucl_on_helix(
+                n2,
+                Referential::Model,
+                !self.thick_helices,
+            );
             if let Some((position1, position2)) = nucl_1.zip(nucl_2) {
                 let instance = create_dna_bound(position1, position2, SUGGESTION_COLOR, 0, true)
                     .to_raw_instance();
@@ -465,6 +479,14 @@ impl<R: DesignReader> Design3D<R> {
                 self.design.get_grid_latice_position(*position)
             }
             _ => None,
+        }
+    }
+
+    fn get_graphic_element_position(&self, element: &SceneElement) -> Option<Vec3> {
+        if self.thick_helices {
+            self.get_element_position(element, Referential::World)
+        } else {
+            self.get_element_axis_position(element, Referential::World)
         }
     }
 
@@ -829,6 +851,9 @@ impl<R: DesignReader> Design3D<R> {
     }
 
     pub fn get_all_prime3_cone(&self) -> Vec<RawDnaInstance> {
+        if !self.thick_helices {
+            return vec![];
+        }
         let cones = self.design.get_all_prime3_nucl();
         let mut ret = Vec::with_capacity(cones.len());
         for c in cones {
@@ -899,7 +924,10 @@ impl<R: DesignReader> Design3D<R> {
             BezierControlPoint::CubicBezier(_) => None,
             BezierControlPoint::PiecewiseBezier(n) => {
                 let descriptor = self.design.get_curve_descriptor(h_id)?;
-                if let CurveDescriptor::PiecewiseBezier { points, tengents } = descriptor {
+                if let CurveDescriptor::PiecewiseBezier {
+                    points, tengents, ..
+                } = descriptor
+                {
                     // There are two control points per bezier grid position
                     let g_id = points.get(n / 2).map(|pos| pos.grid)?;
                     let grid_orientation = self.design.get_grid_basis(g_id)?;

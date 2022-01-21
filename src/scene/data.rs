@@ -132,7 +132,11 @@ impl<R: DesignReader> Data<R> {
         }
         if app_state.design_was_modified(older_app_state)
             || app_state.suggestion_parameters_were_updated(older_app_state)
+            || app_state.draw_options_were_updated(older_app_state)
         {
+            for d in self.designs.iter_mut() {
+                d.thick_helices = app_state.get_draw_options().thick_helices;
+            }
             self.update_instances(app_state);
         }
 
@@ -1246,8 +1250,8 @@ impl<R: DesignReader> Data<R> {
 
     /// Notify the view that the set of instances have been modified.
     fn update_instances<S: AppState>(&mut self, app_state: &S) {
-        let mut spheres = Vec::with_capacity(self.get_number_spheres());
-        let mut tubes = Vec::with_capacity(self.get_number_tubes());
+        let mut spheres = Vec::with_capacity(10_000);
+        let mut tubes = Vec::with_capacity(10_000);
         let mut suggested_spheres = Vec::with_capacity(1000);
         let mut suggested_tubes = Vec::with_capacity(1000);
         let mut pasted_spheres = Vec::with_capacity(1000);
@@ -1405,14 +1409,6 @@ impl<R: DesignReader> Data<R> {
     /// Return the point in the middle of the selected design
     pub fn get_middle_point(&self, design_id: u32) -> Vec3 {
         self.designs[design_id as usize].middle_point()
-    }
-
-    fn get_number_spheres(&self) -> usize {
-        self.designs.iter().map(|d| d.get_spheres_raw().len()).sum()
-    }
-
-    fn get_number_tubes(&self) -> usize {
-        self.designs.iter().map(|d| d.get_tubes_raw().len()).sum()
     }
 
     pub fn get_widget_basis<S: AppState>(&self, app_state: &S) -> Option<Rotor3> {

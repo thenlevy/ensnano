@@ -232,6 +232,7 @@ impl DesignInteractor {
             print!("New design: ");
             new_design.show_address();
         }
+        log::trace!("Interactor design <- {:p}", new_design);
         self.design = new_design;
         if let Some(update) = self.simulation_update.clone() {
             if !self.controller.get_simulation_state().is_runing() {
@@ -263,6 +264,7 @@ impl DesignInteractor {
             suggestion_parameters,
         );
         self.presenter = new_presenter;
+        log::trace!("Interactor design <- {:p}", new_design);
         self.design = new_design;
         self
     }
