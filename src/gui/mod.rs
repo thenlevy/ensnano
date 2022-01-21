@@ -214,7 +214,7 @@ impl<R: Requests, S: AppState> GuiState<R, S> {
         }) = event
         {
             match self {
-                GuiState::StatusBar(state) => {
+                GuiState::StatusBar(_) => {
                     self.queue_status_bar_message(status_bar::Message::TabPressed)
                 }
                 GuiState::TopBar(_) => (),
@@ -887,6 +887,7 @@ impl<S: AppState> IcedMessages<S> {
             .push_back(status_bar::Message::Message(Some(message)));
     }
 
+    #[allow(dead_code)]
     pub fn clear_message(&mut self) {
         self.status_bar
             .push_back(status_bar::Message::Message(None));

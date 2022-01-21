@@ -121,8 +121,6 @@ impl CubicBezierPolynom {
 
 #[cfg(test)]
 mod tests {
-    use super::super::Parameters;
-    const DNA_PARAMETERS: Parameters = Parameters::DEFAULT;
     const EPSILON: f64 = 1e-6;
     use super::*;
     #[test]

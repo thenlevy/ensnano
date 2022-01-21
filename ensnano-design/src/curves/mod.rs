@@ -482,7 +482,7 @@ impl InstanciatedCurveDescriptor {
             CurveDescriptor::TwistedTorus(t) => {
                 Some(InsanciatedCurveDescriptor_::TwistedTorus(t.clone()))
             }
-            CurveDescriptor::PiecewiseBezier { points, tengents } => None,
+            CurveDescriptor::PiecewiseBezier { .. } => None,
         };
         instance.map(|instance| Self {
             source: desc.clone(),

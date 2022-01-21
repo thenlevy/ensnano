@@ -20,7 +20,7 @@ use ensnano_design::grid::{GridDescriptor, GridTypeDescr};
 use ensnano_design::{CurveDescriptor, HelixCollection, Twist};
 
 use super::roller::{DesignData, RollPresenter, RollSystem};
-use super::{Design, GridPresenter, Helix, Nucl, Parameters, SimulationReader};
+use super::{Design, Helix, SimulationReader};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
 

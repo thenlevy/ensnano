@@ -28,7 +28,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 use ultraviolet::Vec3;
 
-use ensnano_design::{grid::GridData, HasHelixCollection};
+use ensnano_design::grid::GridData;
 
 mod xover_suggestions;
 use xover_suggestions::XoverSuggestions;
@@ -326,7 +326,6 @@ impl DesignContent {
         mut design: Design,
         xover_ids: &JunctionsIds,
         suggestion_parameters: &SuggestionParameters,
-        curve_cache: &mut CurveCache,
     ) -> (Self, Design, JunctionsIds) {
         let groups = design.groups.clone();
         let mut object_type = HashMap::default();

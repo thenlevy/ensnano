@@ -37,9 +37,6 @@ pub mod torsion;
 use ensnano_organizer::GroupId;
 mod operation_labels;
 
-#[macro_use]
-extern crate log;
-
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum ObjectType {
     /// A nucleotide identified by its identifier

@@ -136,12 +136,7 @@ impl<S: AppState> Controller<S> {
     ) -> Self {
         let camera_controller = {
             let view = view.borrow();
-            CameraController::new(
-                4.0,
-                BASE_SCROLL_SENSITIVITY,
-                view.get_camera(),
-                view.get_projection(),
-            )
+            CameraController::new(4.0, view.get_camera(), view.get_projection())
         };
         Self {
             view,

@@ -31,7 +31,6 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use ensnano_design::grid::GridObject;
-use ensnano_design::BezierControlPoint;
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;

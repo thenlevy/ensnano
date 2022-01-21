@@ -26,11 +26,10 @@ use ensnano_design::{
     },
     group_attributes::GroupPivot,
     mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix,
-    HelixCollection, Nucl, Parameters, Strand, Strands, UpToDateDesign, VirtualNucl,
+    HelixCollection, Nucl, Strand, Strands, UpToDateDesign, VirtualNucl,
 };
 use ensnano_interactor::{
-    operation::{Operation, Parameter},
-    BezierControlPoint, HyperboloidOperation, SimulationState,
+    operation::Operation, BezierControlPoint, HyperboloidOperation, SimulationState,
 };
 use ensnano_interactor::{
     DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
@@ -1381,10 +1380,6 @@ impl OkOperation {
 pub enum ErrOperation {
     GroupHasNoPivot(GroupId),
     NotImplemented,
-    NotEnoughHelices {
-        actual: usize,
-        required: usize,
-    },
     /// The operation cannot be applied on the current selection
     BadSelection,
     /// The controller is in a state incompatible with applying the operation
@@ -2802,21 +2797,13 @@ impl ControllerState {
         }
     }
 
-    fn get_operation(&self) -> Option<Arc<dyn Operation>> {
-        match self {
-            Self::ApplyingOperation { operation, .. } => operation.clone(),
-            Self::WithPendingOp { operation, .. } => Some(operation.clone()),
-            _ => None,
-        }
-    }
-
     fn finish(&self) -> Self {
         match self {
             Self::Normal => Self::Normal,
             Self::MakingHyperboloid { .. } => self.clone(),
             Self::BuildingStrand { .. } => Self::Normal,
             Self::ChangingColor => Self::Normal,
-            Self::WithPendingOp { operation, design } => self.clone(),
+            Self::WithPendingOp { .. } => self.clone(),
             Self::ApplyingOperation {
                 operation: Some(op),
                 design,

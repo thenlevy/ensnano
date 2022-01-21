@@ -57,7 +57,6 @@ pub(super) struct Presenter {
     pub junctions_ids: AddressPointer<JunctionsIds>,
     visibility_sive: Option<VisibilitySieve>,
     invisible_nucls: HashSet<Nucl>,
-    curve_cache: ensnano_design::CurveCache,
 }
 
 impl Default for Presenter {
@@ -70,7 +69,6 @@ impl Default for Presenter {
             junctions_ids: Default::default(),
             visibility_sive: None,
             invisible_nucls: Default::default(),
-            curve_cache: Default::default(),
         }
     }
 }
@@ -78,7 +76,7 @@ impl Default for Presenter {
 impl Presenter {
     #[cfg(test)]
     pub(super) fn get_staples(&self) -> Vec<Staple> {
-        self.content.get_staples(&self.current_design)
+        self.content.get_staples(&self.current_design, self)
     }
 
     pub fn can_start_builder_at(&self, nucl: Nucl) -> bool {
@@ -120,13 +118,8 @@ impl Presenter {
     ) -> (Self, AddressPointer<Design>) {
         log::info!("new design presenter");
         let model_matrix = Mat4::identity();
-        let mut curve_cache = Default::default();
-        let (content, design, junctions_ids) = DesignContent::make_hash_maps(
-            design,
-            old_junctions_ids,
-            &suggestion_parameters,
-            &mut curve_cache,
-        );
+        let (content, design, junctions_ids) =
+            DesignContent::make_hash_maps(design, old_junctions_ids, &suggestion_parameters);
         let design = AddressPointer::new(design);
         let mut ret = Self {
             current_design: design.clone(),
@@ -136,7 +129,6 @@ impl Presenter {
             junctions_ids: AddressPointer::new(junctions_ids),
             visibility_sive: None,
             invisible_nucls: Default::default(),
-            curve_cache,
         };
         ret.read_scaffold_seq();
         (ret, design)
@@ -160,7 +152,6 @@ impl Presenter {
             design.clone_inner(),
             self.junctions_ids.as_ref(),
             suggestion_parameters,
-            &mut self.curve_cache,
         );
         self.current_design = AddressPointer::new(new_design);
         log::trace!("Presenter design <- {:p}", self.current_design);
@@ -331,10 +322,6 @@ impl Presenter {
             .strands
             .get(&s_id)
             .and_then(|s| s.domains.get(d_id))
-    }
-
-    pub(super) fn get_nucl_map(&self) -> AHashMap<Nucl, u32> {
-        self.content.identifier_nucl.clone().into()
     }
 
     pub(super) fn get_virtual_nucl_map(&self) -> AHashMap<VirtualNucl, Nucl> {

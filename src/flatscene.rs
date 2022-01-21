@@ -549,7 +549,6 @@ impl<S: AppState> Application for FlatScene<S> {
             Notification::WindowFocusLost => (),
             Notification::TeleportCamera(_) => (),
             Notification::NewStereographicCamera(_) => (),
-            Notification::TeleportCamera(_) => (),
             Notification::FlipSplitViews => self.controller[0].flip_split_views(),
         }
     }

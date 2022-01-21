@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use ensnano_design::grid::HelixGridPosition;
 pub use ensnano_design::BezierControlPoint;
-use ensnano_design::{CubicBezierConstructor, Nucl, Strand};
+use ensnano_design::{Nucl, Strand};
 use std::collections::BTreeSet;
 
 pub const PHANTOM_RANGE: i32 = 1000;

@@ -42,8 +42,8 @@ use ensnano_interactor::{
 };
 
 use super::{
-    icon_btn, slider_style::DesactivatedSlider, text_btn, AppState, DesignReader,
-    FogParameters as Fog, OverlayType, Requests, UiSize,
+    icon_btn, slider_style::DesactivatedSlider, text_btn, AppState, FogParameters as Fog,
+    OverlayType, Requests, UiSize,
 };
 
 use ensnano_design::grid::GridTypeDescr;
@@ -176,11 +176,9 @@ pub enum Message<S> {
     EditCameraName(String),
     SubmitCameraName,
     StartEditCameraName(CameraId),
-    SetCameraFavorite(CameraId),
     DeleteCamera(CameraId),
     SelectCamera(CameraId),
     NewCustomCamera,
-    UpdateCamera(CameraId),
     NewSuggestionParameters(SuggestionParameters),
     ContextualValueChanged(ValueKind, usize, String),
     ContextualValueSubmitted(ValueKind),
@@ -715,11 +713,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::StartEditCameraName(camera_id) => {
                 self.camera_shortcut.start_editing(camera_id)
             }
-            Message::SetCameraFavorite(camera_id) => self
-                .requests
-                .lock()
-                .unwrap()
-                .set_favourite_camera(camera_id),
             Message::DeleteCamera(camera_id) => {
                 self.requests.lock().unwrap().delete_camera(camera_id)
             }
@@ -729,9 +722,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::NewCustomCamera => {
                 self.requests.lock().unwrap().create_new_camera();
                 self.camera_shortcut.scroll_down()
-            }
-            Message::UpdateCamera(camera_id) => {
-                self.requests.lock().unwrap().update_camera(camera_id)
             }
             Message::NewSuggestionParameters(param) => {
                 self.requests
