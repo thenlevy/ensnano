@@ -1120,7 +1120,7 @@ impl Requestable for Hyperboloid_ {
             length: values[1],
             shift: values[2],
             radius_shift: values[3],
-            nb_turn: values[4],
+            nb_turn: values[4] as f64,
         }
     }
     fn nb_values(&self) -> usize {

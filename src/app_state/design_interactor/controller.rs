@@ -266,9 +266,10 @@ impl Controller {
                 |c, d| c.set_grid_orientation(d, grid_id, orientation),
                 design,
             ),
-            DesignOperation::SetGridNbTurn { grid_id, nb_turn } => {
-                self.apply(|c, d| c.set_grid_nb_turn(d, grid_id, nb_turn), design)
-            }
+            DesignOperation::SetGridNbTurn { grid_id, nb_turn } => self.apply(
+                |c, d| c.set_grid_nb_turn(d, grid_id, nb_turn as f64),
+                design,
+            ),
             DesignOperation::MakeSeveralXovers { xovers, doubled } => {
                 self.apply(|c, d| c.apply_several_xovers(d, xovers, doubled), design)
             }
@@ -2592,14 +2593,17 @@ impl Controller {
         &mut self,
         mut design: Design,
         grid_id: usize,
-        x: f32,
+        x: f64,
     ) -> Result<Design, ErrOperation> {
         let mut new_grids = Vec::clone(design.grids.as_ref());
         let grid = new_grids
             .get_mut(grid_id)
             .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
-        if let GridTypeDescr::Hyperboloid { nb_turn, .. } = &mut grid.grid_type {
-            *nb_turn = x;
+        if let GridTypeDescr::Hyperboloid {
+            nb_turn_per_100_nt, ..
+        } = &mut grid.grid_type
+        {
+            *nb_turn_per_100_nt = x;
         } else {
             return Err(ErrOperation::GridIsNotHyperboloid(grid_id));
         }

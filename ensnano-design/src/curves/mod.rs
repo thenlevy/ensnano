@@ -37,7 +37,7 @@ use std::collections::HashMap;
 pub use torus::Torus;
 use torus::TwistedTorus;
 pub use torus::{CurveDescriptor2D, TwistedTorusDescriptor};
-pub use twist::Twist;
+pub use twist::{nb_turn_per_100_nt_to_omega, Twist};
 
 const EPSILON_DERIVATIVE: f64 = 1e-6;
 /// Types that implements this trait represents curves.
@@ -93,6 +93,16 @@ pub(super) trait Curved {
 
     /// The bounds of the curve
     fn bounds(&self) -> CurveBounds;
+
+    /// Curved for which there exists a closed formula for the curvilinear abscissa can override
+    /// this method.
+    fn curvilinear_abscissa(&self, _t: f64) -> Option<f64> {
+        None
+    }
+
+    fn inverse_curvilinear_abscissa(&self, x: f64) -> Option<f64> {
+        None
+    }
 }
 
 /// The bounds of the curve. This describe the interval in which t can be taken
@@ -144,6 +154,13 @@ impl Curve {
                 nb_step
             );
         }
+        if let Some((x0, x1)) = self
+            .geometry
+            .curvilinear_abscissa(t0)
+            .zip(self.geometry.curvilinear_abscissa(t1))
+        {
+            return x1 - x0;
+        }
         let mut p = self.geometry.position(t0);
         let mut len = 0f64;
         for i in 1..=nb_step {
@@ -178,12 +195,21 @@ impl Curve {
             let mut s = 0f64;
             let mut p = self.geometry.position(t);
 
-            while s < len_segment {
-                t += small_step;
-                let q = self.geometry.position(t);
-                current_axis = self.itterative_axis(t, Some(&current_axis));
-                s += (q - p).mag();
-                p = q;
+            if let Some(t_x) = self
+                .geometry
+                .curvilinear_abscissa(t)
+                .and_then(|s| self.geometry.inverse_curvilinear_abscissa(s + len_segment))
+            {
+                t = t_x;
+                p = self.geometry.position(t);
+            } else {
+                while s < len_segment {
+                    t += small_step;
+                    let q = self.geometry.position(t);
+                    current_axis = self.itterative_axis(t, Some(&current_axis));
+                    s += (q - p).mag();
+                    p = q;
+                }
             }
             points.push(p);
             axis.push(current_axis);
@@ -277,6 +303,9 @@ impl Curve {
         if nucl < nucl_min {
             if let CurveBounds::BiInfinite = self.geometry.bounds() {
                 let objective = (-nucl) as f64 * parameters.z_step as f64;
+                if let Some(t_min) = self.geometry.inverse_curvilinear_abscissa(objective) {
+                    return Some(t_min);
+                }
                 let mut delta = 1.0;
                 while delta < DELTA_MAX {
                     let new_tmin = self.geometry.t_min() - delta;
@@ -310,6 +339,9 @@ impl Curve {
             match self.geometry.bounds() {
                 CurveBounds::BiInfinite | CurveBounds::PositiveInfinite => {
                     let objective = nucl as f64 * parameters.z_step as f64;
+                    if let Some(t_max) = self.geometry.inverse_curvilinear_abscissa(objective) {
+                        return Some(t_max);
+                    }
                     let mut delta = 1.0;
                     while delta < DELTA_MAX {
                         let new_tmax = self.geometry.t_max() + delta;
@@ -418,6 +450,22 @@ impl CurveDescriptor {
                 }
             }
             _ => false,
+        }
+    }
+
+    pub fn t_min(&self) -> Option<f64> {
+        match self {
+            Self::PiecewiseBezier { t_min, .. } => *t_min,
+            Self::Twist(twist) => twist.t_min,
+            _ => None,
+        }
+    }
+
+    pub fn t_max(&self) -> Option<f64> {
+        match self {
+            Self::PiecewiseBezier { t_max, .. } => *t_max,
+            Self::Twist(twist) => twist.t_max,
+            _ => None,
         }
     }
 }

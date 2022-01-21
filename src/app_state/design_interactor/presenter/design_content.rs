@@ -128,7 +128,7 @@ impl DesignContent {
         self.grid_manager
             .grids
             .get(g_id)
-            .and_then(|g| g.grid_type.get_nb_turn())
+            .and_then(|g| g.grid_type.get_nb_turn().map(|x| x as f32))
     }
 
     pub(super) fn get_grid_shift(&self, g_id: usize) -> Option<f32> {

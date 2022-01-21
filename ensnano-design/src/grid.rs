@@ -61,7 +61,15 @@ pub enum GridTypeDescr {
         #[serde(skip_serializing_if = "Option::is_none", default)]
         forced_radius: Option<f32>,
         #[serde(default)]
-        nb_turn: f32,
+        /// The number of turns arround the grid made by the helices every 100 nucleotides.
+        ///
+        /// Note that this value is subject to the constraint
+        /// |Ω| ≤ Z * r / sqrt(2π)
+        /// where
+        ///  * Ω is `self.nb_turn_per_100_nt`,
+        ///  * Z is `100.0 * Parameters::step`
+        ///  * r is `self.radius`
+        nb_turn_per_100_nt: f64,
     },
 }
 
@@ -113,14 +121,14 @@ impl GridTypeDescr {
                 forced_radius,
                 length,
                 radius_shift,
-                nb_turn,
+                nb_turn_per_100_nt,
             } => GridType::Hyperboloid(Hyperboloid {
                 radius,
                 shift,
                 forced_radius,
                 length,
                 radius_shift,
-                nb_turn,
+                nb_turn_per_100_nt,
             }),
         }
     }
@@ -189,9 +197,13 @@ impl GridDivision for GridType {
         position: Vec3,
         orientation: Rotor3,
         parameters: &Parameters,
+        t_min: Option<f64>,
+        t_max: Option<f64>,
     ) -> Option<Arc<CurveDescriptor>> {
         match self {
-            GridType::Hyperboloid(grid) => grid.curve(x, y, position, orientation, parameters),
+            GridType::Hyperboloid(grid) => {
+                grid.curve(x, y, position, orientation, parameters, t_min, t_max)
+            }
             _ => None,
         }
     }
@@ -220,7 +232,7 @@ impl GridType {
                 length: h.length,
                 radius_shift: h.radius_shift,
                 forced_radius: h.forced_radius,
-                nb_turn: h.nb_turn,
+                nb_turn_per_100_nt: h.nb_turn_per_100_nt,
             },
         }
     }
@@ -233,11 +245,11 @@ impl GridType {
         }
     }
 
-    pub fn get_nb_turn(&self) -> Option<f32> {
+    pub fn get_nb_turn(&self) -> Option<f64> {
         match self {
             GridType::Square(_) => None,
             GridType::Honeycomb(_) => None,
-            GridType::Hyperboloid(h) => Some(h.nb_turn),
+            GridType::Hyperboloid(h) => Some(h.nb_turn_per_100_nt),
         }
     }
 
@@ -380,9 +392,22 @@ impl Grid {
         }
     }
 
-    pub fn make_curve(&self, x: isize, y: isize) -> Option<Arc<CurveDescriptor>> {
-        self.grid_type
-            .curve(x, y, self.position, self.orientation, &self.parameters)
+    pub fn make_curve(
+        &self,
+        x: isize,
+        y: isize,
+        t_min: Option<f64>,
+        t_max: Option<f64>,
+    ) -> Option<Arc<CurveDescriptor>> {
+        self.grid_type.curve(
+            x,
+            y,
+            self.position,
+            self.orientation,
+            &self.parameters,
+            t_min,
+            t_max,
+        )
     }
 }
 
@@ -408,6 +433,8 @@ pub trait GridDivision {
         _position: Vec3,
         _orientation: Rotor3,
         _parameters: &Parameters,
+        _t_min: Option<f64>,
+        _t_max: Option<f64>,
     ) -> Option<Arc<CurveDescriptor>> {
         None
     }
@@ -716,7 +743,10 @@ impl GridData {
                 if let Axis::Line { direction, .. } = h.get_axis(&self.parameters) {
                     h.position -= grid_position.axis_pos as f32 * direction;
                 }
-                if let Some(curve) = grid.make_curve(grid_position.x, grid_position.y) {
+                let t_min = h.curve.as_ref().and_then(|c| c.t_min());
+                let t_max = h.curve.as_ref().and_then(|c| c.t_max());
+                if let Some(curve) = grid.make_curve(grid_position.x, grid_position.y, t_min, t_max)
+                {
                     log::info!("setting curve");
                     h.curve = Some(curve)
                 }

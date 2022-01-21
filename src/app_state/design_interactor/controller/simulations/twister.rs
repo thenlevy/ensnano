@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use ensnano_design::grid::{GridDescriptor, GridTypeDescr};
-use ensnano_design::{CurveDescriptor, HelixCollection, Twist};
+use ensnano_design::{CurveDescriptor, HelixCollection, Parameters, Twist};
 
 use super::roller::{DesignData, RollPresenter, RollSystem};
 use super::{Design, Helix, SimulationReader};
@@ -150,22 +150,31 @@ impl Twister {
 }
 
 impl TwistState {
-    fn set_twist(&mut self, twist: f64) {
-        if let GridTypeDescr::Hyperboloid { nb_turn, .. } = &mut self.grid.grid_type {
-            *nb_turn = twist as f32
+    fn set_twist(&mut self, twist: f64, parameters: &Parameters) {
+        let omega = if let GridTypeDescr::Hyperboloid {
+            nb_turn_per_100_nt,
+            radius,
+            ..
+        } = &mut self.grid.grid_type
+        {
+            *nb_turn_per_100_nt = twist;
+            ensnano_design::nb_turn_per_100_nt_to_omega(*nb_turn_per_100_nt, *radius, parameters)
         } else {
             log::error!("Wrong kind of grid descriptor");
-        }
+            None
+        };
 
-        for h in self.helices.values_mut() {
-            if let Some(CurveDescriptor::Twist(Twist { omega, .. })) =
-                h.curve.as_mut().map(Arc::make_mut)
-            {
-                *omega = twist * std::f64::consts::TAU;
-                // no need to update the curve because the helices here are not used to make
-                // computations
-            } else {
-                log::error!("Wrong kind of curve descriptor");
+        if let Some(new_omega) = omega {
+            for h in self.helices.values_mut() {
+                if let Some(CurveDescriptor::Twist(Twist { omega, .. })) =
+                    h.curve.as_mut().map(Arc::make_mut)
+                {
+                    *omega = new_omega;
+                    // no need to update the curve because the helices here are not used to make
+                    // computations
+                } else {
+                    log::error!("Wrong kind of curve descriptor");
+                }
             }
         }
     }
@@ -188,7 +197,8 @@ impl Twister {
             println!("best omega = {}", self.system.current_omega);
             self.system.best_square_error = err;
             self.system.best_omega = self.system.current_omega;
-            self.state.set_twist(self.system.best_omega);
+            self.state
+                .set_twist(self.system.best_omega, &self.data.parameters);
         }
         self.system.current_omega += (MAX_OMEGA - MIN_OMEGA) / (NB_STEP_OMEGA as f64);
         println!("current_omega = {}", self.system.current_omega);
