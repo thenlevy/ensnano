@@ -331,13 +331,13 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
         let button_thick_helices = if self.application_state.app_state.want_thick_helices() {
             Button::new(
                 &mut self.button_thick_helices,
-                light_icon(LightIcon::PianoOff, self.ui_size),
+                light_icon(LightIcon::Dehaze, self.ui_size),
             )
             .on_press(Message::ThickHelices(false))
         } else {
             Button::new(
                 &mut self.button_thick_helices,
-                light_icon(LightIcon::Piano, self.ui_size),
+                light_icon(LightIcon::Water, self.ui_size),
             )
             .on_press(Message::ThickHelices(true))
         };
