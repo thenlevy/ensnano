@@ -275,7 +275,7 @@ impl DesignData {
                 .unwrap_or(*omega);
                 h.try_update_curve(&self.parameters);
             } else {
-                log::error!("Wrong kind of curve descriptor");
+                log::error!("Update twist: Wrong kind of curve descriptor");
             }
         }
     }

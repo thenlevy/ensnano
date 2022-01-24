@@ -113,7 +113,12 @@ impl GridDivision for Hyperboloid {
                 None
             }
         } else {
-            None
+            let mut ret = self.curve(x as usize, parameters, 0.0);
+            ret.orientation = orientation;
+            ret.position = position;
+            ret.t_max = t_max;
+            ret.t_min = t_min;
+            Some(Arc::new(CurveDescriptor::Twist(ret)))
         }
     }
 }
