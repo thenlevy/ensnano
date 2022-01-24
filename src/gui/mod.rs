@@ -114,6 +114,7 @@ pub trait Requests: 'static + Send {
     fn update_rigid_helices_simulation(&mut self, parameters: RigidBodyParametersRequest);
     /// Start of Update the rigid grids simulation
     fn update_rigid_grids_simulation(&mut self, parameters: RigidBodyParametersRequest);
+    fn start_twist_simulation(&mut self, grid_id: usize);
     /// Update the parameters of the current simulation (rigid grids or helices)
     fn update_rigid_body_simulation_parameters(&mut self, parameters: RigidBodyParametersRequest);
     fn create_new_hyperboloid(&mut self, parameters: HyperboloidRequest);

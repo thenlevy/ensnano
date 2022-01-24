@@ -1085,6 +1085,15 @@ impl MainState {
         self.apply_operation_result(result)
     }
 
+    fn start_twist(&mut self, grid_id: usize) {
+        let result = self.app_state.start_simulation(
+            Default::default(),
+            &mut self.chanel_reader,
+            SimulationTarget::Twist { grid_id },
+        );
+        self.apply_operation_result(result)
+    }
+
     fn start_roll_simulation(&mut self, target_helices: Option<Vec<usize>>) {
         let result = self.app_state.start_simulation(
             Default::default(),
@@ -1827,6 +1836,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn flip_split_views(&mut self) {
         self.notify_apps(Notification::FlipSplitViews)
+    }
+
+    fn start_twist(&mut self, g_id: usize) {
+        self.main_state.start_twist(g_id);
     }
 }
 

@@ -436,6 +436,7 @@ impl Controller {
                 ret.state = ControllerState::Twisting {
                     interface,
                     initial_design: AddressPointer::new(design.clone()),
+                    grid_id,
                 };
             }
             SimulationOperation::UpdateParameters { new_parameters } => {
@@ -940,7 +941,7 @@ impl Controller {
             ControllerState::WithPausedSimulation { .. } => SimulationState::Paused,
             ControllerState::SimulatingGrids { .. } => SimulationState::RigidGrid,
             ControllerState::Rolling { .. } => SimulationState::Rolling,
-            ControllerState::Twisting { .. } => SimulationState::Twisting,
+            ControllerState::Twisting { grid_id, .. } => SimulationState::Twisting { grid_id },
             _ => SimulationState::None,
         }
     }
@@ -2697,6 +2698,7 @@ enum ControllerState {
     Twisting {
         interface: Arc<Mutex<TwistInterface>>,
         initial_design: AddressPointer<Design>,
+        grid_id: usize,
     },
     ChangingStrandName {
         strand_id: usize,

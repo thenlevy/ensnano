@@ -198,6 +198,10 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.push_action(Action::RigidGridSimulation { parameters })
     }
 
+    if let Some(g_id) = requests.twist_simulation.take() {
+        main_state.push_action(Action::Twist(g_id))
+    }
+
     if let Some(parameters) = requests.rigid_helices_simulation.take() {
         main_state.push_action(Action::RigidHelicesSimulation { parameters })
     }

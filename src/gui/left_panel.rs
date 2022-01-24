@@ -59,7 +59,7 @@ use crate::consts::*;
 mod contextual_panel;
 use contextual_panel::{ContextualPanel, InstanciatedValue, ValueKind};
 
-use ensnano_interactor::{CheckXoversParameter, HyperboloidRequest};
+use ensnano_interactor::{CheckXoversParameter, HyperboloidRequest, Selection};
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use tabs::{
     CameraShortcut, CameraTab, EditionTab, GridTab, ParametersTab, SequenceTab, SimulationTab,
@@ -187,6 +187,8 @@ pub enum Message<S> {
     FollowStereographicCamera(bool),
     ShowStereographicCamera(bool),
     RainbowScaffold(bool),
+    StopSimulation,
+    StartTwist,
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -757,6 +759,14 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .set_show_stereographic_camera(b);
             }
             Message::RainbowScaffold(b) => self.requests.lock().unwrap().set_rainbow_scaffold(b),
+            Message::StopSimulation => self.requests.lock().unwrap().stop_simulations(),
+            Message::StartTwist => {
+                if let Some(Selection::Grid(_, g_id)) =
+                    self.application_state.get_selection().get(0)
+                {
+                    self.requests.lock().unwrap().start_twist_simulation(*g_id)
+                }
+            }
         };
         Command::none()
     }
