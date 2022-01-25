@@ -40,8 +40,8 @@ fn default_grid() -> String {
 impl ScadnanoDesign {
     pub fn default_grid_descriptor(&self) -> Result<GridDescriptor, ScadnanoImportError> {
         let grid_type = match self.grid.as_str() {
-            "square" => Ok(GridTypeDescr::Square),
-            "honeycomb" => Ok(GridTypeDescr::Honeycomb),
+            "square" => Ok(GridTypeDescr::Square { twist: None }),
+            "honeycomb" => Ok(GridTypeDescr::Honeycomb { twist: None }),
             grid_type => {
                 println!("Unsported grid type: {}", grid_type);
                 Err(ScadnanoImportError::UnsuportedGridType(
@@ -73,8 +73,8 @@ pub struct ScadnanoGroup {
 impl ScadnanoGroup {
     pub fn to_grid_desc(&self) -> Result<GridDescriptor, ScadnanoImportError> {
         let grid_type = match self.grid.as_str() {
-            "square" => Ok(GridTypeDescr::Square),
-            "honeycomb" => Ok(GridTypeDescr::Honeycomb),
+            "square" => Ok(GridTypeDescr::Square { twist: None }),
+            "honeycomb" => Ok(GridTypeDescr::Honeycomb { twist: None }),
             grid_type => {
                 println!("Unsported grid type: {}", grid_type);
                 Err(ScadnanoImportError::UnsuportedGridType(

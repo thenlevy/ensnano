@@ -49,6 +49,10 @@ pub fn nb_turn_per_100_nt_to_omega(
     }
 }
 
+pub fn twist_to_omega(twist: f64, parameters: &Parameters) -> Option<f64> {
+    nb_turn_per_100_nt_to_omega(twist, 5, parameters)
+}
+
 /// An helicoidal curve
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Twist {

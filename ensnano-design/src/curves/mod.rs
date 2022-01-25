@@ -37,7 +37,7 @@ use std::collections::HashMap;
 pub use torus::Torus;
 use torus::TwistedTorus;
 pub use torus::{CurveDescriptor2D, TwistedTorusDescriptor};
-pub use twist::{nb_turn_per_100_nt_to_omega, Twist};
+pub use twist::{nb_turn_per_100_nt_to_omega, twist_to_omega, Twist};
 
 const EPSILON_DERIVATIVE: f64 = 1e-6;
 /// Types that implements this trait represents curves.

@@ -32,13 +32,13 @@ macro_rules! add_grid_buttons {
     ($ret: ident, $self:ident, $ui_size: ident) => {
         let make_square_grid_btn =
             icon_btn(&mut $self.make_square_grid_btn, ICON_SQUARE_GRID, $ui_size)
-                .on_press(Message::NewGrid(GridTypeDescr::Square));
+                .on_press(Message::NewGrid(GridTypeDescr::Square { twist: None }));
         let make_honeycomb_grid_btn = icon_btn(
             &mut $self.make_honeycomb_grid_btn,
             ICON_HONEYCOMB_GRID,
             $ui_size,
         )
-        .on_press(Message::NewGrid(GridTypeDescr::Honeycomb));
+        .on_press(Message::NewGrid(GridTypeDescr::Honeycomb { twist: None }));
 
         let grid_buttons = Row::new()
             .push(make_square_grid_btn)

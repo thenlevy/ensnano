@@ -22,7 +22,8 @@ use std::collections::{HashMap, HashSet};
 use super::{
     curves,
     design_operations::{ErrOperation, MIN_HELICES_TO_MAKE_GRID},
-    Axis, BezierControlPoint, Design, Helices, Helix, HelixCollection, Parameters,
+    twist_to_omega, Axis, BezierControlPoint, Design, Helices, Helix, HelixCollection, Parameters,
+    Twist,
 };
 use curves::{CurveCache, GridPositionProvider, InstanciatedCurve, InstanciatedCurveDescriptor};
 mod hyperboloid;
@@ -51,8 +52,14 @@ pub struct GridDescriptor {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum GridTypeDescr {
-    Square,
-    Honeycomb,
+    Square {
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        twist: Option<f64>,
+    },
+    Honeycomb {
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        twist: Option<f64>,
+    },
     Hyperboloid {
         radius: usize,
         shift: f32,
@@ -97,24 +104,24 @@ impl GridDescriptor {
 impl GridTypeDescr {
     pub fn to_string(&self) -> String {
         match self {
-            GridTypeDescr::Square => String::from("Square"),
-            GridTypeDescr::Honeycomb => String::from("Honeycomb"),
+            GridTypeDescr::Square { .. } => String::from("Square"),
+            GridTypeDescr::Honeycomb { .. } => String::from("Honeycomb"),
             GridTypeDescr::Hyperboloid { .. } => String::from("Hyperboloid"),
         }
     }
 
     pub fn to_u32(&self) -> u32 {
         match self {
-            GridTypeDescr::Square => 0u32,
-            GridTypeDescr::Honeycomb => 1u32,
+            GridTypeDescr::Square { .. } => 0u32,
+            GridTypeDescr::Honeycomb { .. } => 1u32,
             GridTypeDescr::Hyperboloid { .. } => 2u32,
         }
     }
 
     fn to_concrete(&self) -> GridType {
         match self.clone() {
-            Self::Square => GridType::square(),
-            Self::Honeycomb => GridType::honneycomb(),
+            Self::Square { twist } => GridType::square(twist.clone()),
+            Self::Honeycomb { twist } => GridType::honneycomb(twist.clone()),
             Self::Hyperboloid {
                 radius,
                 shift,
@@ -143,11 +150,7 @@ pub enum GridType {
 
 impl GridDivision for GridType {
     fn grid_type(&self) -> GridType {
-        match self {
-            GridType::Square(SquareGrid) => GridType::Square(SquareGrid),
-            GridType::Honeycomb(HoneyComb) => GridType::Honeycomb(HoneyComb),
-            GridType::Hyperboloid(hyperboloid) => GridType::Hyperboloid(hyperboloid.clone()),
-        }
+        self.clone()
     }
 
     fn origin_helix(&self, parameters: &Parameters, x: isize, y: isize) -> Vec2 {
@@ -199,12 +202,12 @@ impl GridDivision for GridType {
 }
 
 impl GridType {
-    pub fn square() -> Self {
-        Self::Square(SquareGrid)
+    pub fn square(twist: Option<f64>) -> Self {
+        Self::Square(SquareGrid { twist })
     }
 
-    pub fn honneycomb() -> Self {
-        Self::Honeycomb(HoneyComb)
+    pub fn honneycomb(twist: Option<f64>) -> Self {
+        Self::Honeycomb(HoneyComb { twist })
     }
 
     pub fn hyperboloid(h: Hyperboloid) -> Self {
@@ -213,8 +216,12 @@ impl GridType {
 
     pub fn descr(&self) -> GridTypeDescr {
         match self {
-            GridType::Square(_) => GridTypeDescr::Square,
-            GridType::Honeycomb(_) => GridTypeDescr::Honeycomb,
+            GridType::Square(SquareGrid { twist }) => GridTypeDescr::Square {
+                twist: twist.clone(),
+            },
+            GridType::Honeycomb(HoneyComb { twist }) => GridTypeDescr::Honeycomb {
+                twist: twist.clone(),
+            },
             GridType::Hyperboloid(h) => GridTypeDescr::Hyperboloid {
                 radius: h.radius,
                 shift: h.shift,
@@ -236,8 +243,8 @@ impl GridType {
 
     pub fn get_nb_turn(&self) -> Option<f64> {
         match self {
-            GridType::Square(_) => None,
-            GridType::Honeycomb(_) => None,
+            GridType::Square(s) => s.twist.clone(),
+            GridType::Honeycomb(h) => h.twist.clone(),
             GridType::Hyperboloid(h) => Some(h.nb_turn_per_100_nt),
         }
     }
@@ -415,9 +422,7 @@ pub trait GridDivision {
 
     /// If the helix at position (x, y) should be a curve istead of a cylinder, this method must be
     /// overiden
-    fn curve(&self, _x: isize, _y: isize, _info: CurveInfo) -> Option<Arc<CurveDescriptor>> {
-        None
-    }
+    fn curve(&self, _x: isize, _y: isize, _info: CurveInfo) -> Option<Arc<CurveDescriptor>>;
 }
 
 pub struct CurveInfo {
@@ -429,7 +434,9 @@ pub struct CurveInfo {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct SquareGrid;
+pub struct SquareGrid {
+    twist: Option<f64>,
+}
 
 impl GridDivision for SquareGrid {
     fn origin_helix(&self, parameters: &Parameters, x: isize, y: isize) -> Vec2 {
@@ -462,12 +469,35 @@ impl GridDivision for SquareGrid {
     }
 
     fn grid_type(&self) -> GridType {
-        GridType::Square(SquareGrid)
+        GridType::Square(self.clone())
+    }
+
+    fn curve(&self, x: isize, y: isize, info: CurveInfo) -> Option<Arc<CurveDescriptor>> {
+        let twist = self.twist?;
+        let omega = twist_to_omega(twist, &info.parameters)?;
+        let grid_position = self.origin_helix(&info.parameters, x, y);
+        Some(basic_curve(grid_position, omega, info))
     }
 }
 
+fn basic_curve(grid_position: Vec2, omega: f64, info: CurveInfo) -> Arc<CurveDescriptor> {
+    let theta0 = grid_position.y.atan2(grid_position.x) as f64;
+    let radius = grid_position.mag() as f64;
+    Arc::new(CurveDescriptor::Twist(Twist {
+        theta0,
+        radius,
+        position: info.position,
+        orientation: info.orientation,
+        t_max: info.t_max,
+        t_min: info.t_min,
+        omega,
+    }))
+}
+
 #[derive(Debug, Clone, Copy)]
-pub struct HoneyComb;
+pub struct HoneyComb {
+    twist: Option<f64>,
+}
 
 impl GridDivision for HoneyComb {
     fn origin_helix(&self, parameters: &Parameters, x: isize, y: isize) -> Vec2 {
@@ -527,7 +557,14 @@ impl GridDivision for HoneyComb {
     }
 
     fn grid_type(&self) -> GridType {
-        GridType::Honeycomb(HoneyComb)
+        GridType::Honeycomb(self.clone())
+    }
+
+    fn curve(&self, x: isize, y: isize, info: CurveInfo) -> Option<Arc<CurveDescriptor>> {
+        let twist = self.twist?;
+        let omega = twist_to_omega(twist, &info.parameters)?;
+        let grid_position = self.origin_helix(&info.parameters, x, y);
+        Some(basic_curve(grid_position, omega, info))
     }
 }
 
@@ -887,7 +924,7 @@ impl GridData {
             leader.position,
             orientation,
             self.parameters,
-            GridType::honneycomb(),
+            GridType::honneycomb(None),
         );
         let mut best_err = hex_grid.error_group(&group, &self.source_helices);
         for dx in [-1, 0, 1].iter() {
@@ -900,7 +937,7 @@ impl GridData {
                         position,
                         orientation.rotated_by(rotor),
                         self.parameters,
-                        GridType::honneycomb(),
+                        GridType::honneycomb(None),
                     );
                     let err = grid.error_group(group, &self.source_helices);
                     if err < best_err {
@@ -915,7 +952,7 @@ impl GridData {
             leader.position,
             leader.orientation,
             self.parameters,
-            GridType::square(),
+            GridType::square(None),
         );
         let mut best_square_err = square_grid.error_group(&group, &self.source_helices);
         for i in 0..100 {
@@ -925,7 +962,7 @@ impl GridData {
                 leader.position,
                 orientation.rotated_by(rotor),
                 self.parameters,
-                GridType::square(),
+                GridType::square(None),
             );
             let err = grid.error_group(group, &self.source_helices);
             if err < best_square_err {
@@ -937,14 +974,14 @@ impl GridData {
             GridDescriptor {
                 position: square_grid.position,
                 orientation: square_grid.orientation,
-                grid_type: GridTypeDescr::Square,
+                grid_type: GridTypeDescr::Square { twist: None },
                 invisible: square_grid.invisible,
             }
         } else {
             GridDescriptor {
                 position: hex_grid.position,
                 orientation: hex_grid.orientation,
-                grid_type: GridTypeDescr::Honeycomb,
+                grid_type: GridTypeDescr::Honeycomb { twist: None },
                 invisible: hex_grid.invisible,
             }
         }
