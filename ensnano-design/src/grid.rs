@@ -196,7 +196,8 @@ impl GridDivision for GridType {
     fn curve(&self, x: isize, y: isize, info: CurveInfo) -> Option<Arc<CurveDescriptor>> {
         match self {
             GridType::Hyperboloid(grid) => grid.curve(x, y, info),
-            _ => None,
+            GridType::Square(grid) => grid.curve(x, y, info),
+            GridType::Honeycomb(grid) => grid.curve(x, y, info),
         }
     }
 }
@@ -402,6 +403,7 @@ impl Grid {
             t_min,
             t_max,
             parameters: self.parameters.clone(),
+            grid_center: self.position,
         };
         self.grid_type.curve(x, y, info)
     }
@@ -431,6 +433,7 @@ pub struct CurveInfo {
     pub position: Vec3,
     pub orientation: Rotor3,
     pub parameters: Parameters,
+    pub grid_center: Vec3,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -481,8 +484,13 @@ impl GridDivision for SquareGrid {
 }
 
 fn basic_curve(grid_position: Vec2, omega: f64, info: CurveInfo) -> Arc<CurveDescriptor> {
-    let theta0 = grid_position.y.atan2(grid_position.x) as f64;
-    let radius = grid_position.mag() as f64;
+    let z_vec = Vec3::unit_z().rotated_by(info.orientation);
+    let y_vec = Vec3::unit_y().rotated_by(info.orientation);
+    let origin_vec =
+        info.grid_center + grid_position.x * z_vec + grid_position.y * y_vec - info.position;
+    let theta0 = origin_vec.dot(y_vec).atan2(origin_vec.dot(z_vec)) as f64;
+    let radius = origin_vec.mag() as f64;
+
     Arc::new(CurveDescriptor::Twist(Twist {
         theta0,
         radius,

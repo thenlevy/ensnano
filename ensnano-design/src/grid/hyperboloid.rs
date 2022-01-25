@@ -136,6 +136,7 @@ impl Hyperboloid {
                     t_max: None,
                     orientation,
                     parameters: parameters.clone(),
+                    grid_center: origin,
                 },
             );
             ret.push(helix);

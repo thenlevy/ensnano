@@ -40,8 +40,8 @@ pub struct Twister {
 }
 
 const NB_ROLL_STEP_PER_TWIST: usize = 100;
-const MIN_OMEGA: f64 = -1.;
-const MAX_OMEGA: f64 = 1.;
+const MIN_OMEGA: f64 = -0.2;
+const MAX_OMEGA: f64 = 0.2;
 const NB_STEP_OMEGA: usize = 100;
 
 #[derive(Clone)]
@@ -151,17 +151,27 @@ impl Twister {
 
 impl TwistState {
     fn set_twist(&mut self, twist: f64, parameters: &Parameters) {
-        let omega = if let GridTypeDescr::Hyperboloid {
-            nb_turn_per_100_nt,
-            radius,
-            ..
-        } = &mut self.grid.grid_type
-        {
-            *nb_turn_per_100_nt = twist;
-            ensnano_design::nb_turn_per_100_nt_to_omega(*nb_turn_per_100_nt, *radius, parameters)
-        } else {
-            log::error!("Wrong kind of grid descriptor");
-            None
+        let omega = match &mut self.grid.grid_type {
+            GridTypeDescr::Hyperboloid {
+                nb_turn_per_100_nt,
+                radius,
+                ..
+            } => {
+                *nb_turn_per_100_nt = twist;
+                ensnano_design::nb_turn_per_100_nt_to_omega(
+                    *nb_turn_per_100_nt,
+                    *radius,
+                    parameters,
+                )
+            }
+            GridTypeDescr::Square { twist: grid_twist } => {
+                *grid_twist = Some(twist);
+                ensnano_design::twist_to_omega(twist, parameters)
+            }
+            GridTypeDescr::Honeycomb { twist: grid_twist } => {
+                *grid_twist = Some(twist);
+                ensnano_design::twist_to_omega(twist, parameters)
+            }
         };
 
         if let Some(new_omega) = omega {
