@@ -88,36 +88,27 @@ impl GridDivision for Hyperboloid {
         GridType::Hyperboloid(self.clone())
     }
 
-    fn curve(
-        &self,
-        x: isize,
-        _y: isize,
-        position: Vec3,
-        orientation: Rotor3,
-        parameters: &Parameters,
-        t_min: Option<f64>,
-        t_max: Option<f64>,
-    ) -> Option<Arc<CurveDescriptor>> {
+    fn curve(&self, x: isize, _y: isize, info: CurveInfo) -> Option<Arc<CurveDescriptor>> {
         if self.nb_turn_per_100_nt != 0.0 {
             if let Some(omega) =
-                nb_turn_per_100_nt_to_omega(self.nb_turn_per_100_nt, self.radius, parameters)
+                nb_turn_per_100_nt_to_omega(self.nb_turn_per_100_nt, self.radius, &info.parameters)
             {
-                let mut ret = self.curve(x as usize, parameters, omega);
-                ret.orientation = orientation;
-                ret.position = position;
-                ret.t_max = t_max;
-                ret.t_min = t_min;
+                let mut ret = self.curve(x as usize, &info.parameters, omega);
+                ret.orientation = info.orientation;
+                ret.position = info.position;
+                ret.t_max = info.t_max;
+                ret.t_min = info.t_min;
                 Some(Arc::new(CurveDescriptor::Twist(ret)))
             } else {
                 log::error!("Too high number of turn per 100 nt");
                 None
             }
         } else {
-            let mut ret = self.curve(x as usize, parameters, 0.0);
-            ret.orientation = orientation;
-            ret.position = position;
-            ret.t_max = t_max;
-            ret.t_min = t_min;
+            let mut ret = self.curve(x as usize, &info.parameters, 0.0);
+            ret.orientation = info.orientation;
+            ret.position = info.position;
+            ret.t_max = info.t_max;
+            ret.t_min = info.t_min;
             Some(Arc::new(CurveDescriptor::Twist(ret)))
         }
     }
@@ -139,11 +130,13 @@ impl Hyperboloid {
                 self,
                 i as isize,
                 0,
-                origin,
-                orientation,
-                parameters,
-                None,
-                None,
+                CurveInfo {
+                    position: origin,
+                    t_min: None,
+                    t_max: None,
+                    orientation,
+                    parameters: parameters.clone(),
+                },
             );
             ret.push(helix);
         }

@@ -190,20 +190,9 @@ impl GridDivision for GridType {
         }
     }
 
-    fn curve(
-        &self,
-        x: isize,
-        y: isize,
-        position: Vec3,
-        orientation: Rotor3,
-        parameters: &Parameters,
-        t_min: Option<f64>,
-        t_max: Option<f64>,
-    ) -> Option<Arc<CurveDescriptor>> {
+    fn curve(&self, x: isize, y: isize, info: CurveInfo) -> Option<Arc<CurveDescriptor>> {
         match self {
-            GridType::Hyperboloid(grid) => {
-                grid.curve(x, y, position, orientation, parameters, t_min, t_max)
-            }
+            GridType::Hyperboloid(grid) => grid.curve(x, y, info),
             _ => None,
         }
     }
@@ -398,16 +387,16 @@ impl Grid {
         y: isize,
         t_min: Option<f64>,
         t_max: Option<f64>,
+        center_of_gravitiy: Option<Vec3>,
     ) -> Option<Arc<CurveDescriptor>> {
-        self.grid_type.curve(
-            x,
-            y,
-            self.position,
-            self.orientation,
-            &self.parameters,
+        let info = CurveInfo {
+            position: center_of_gravitiy.unwrap_or(self.position),
+            orientation: self.orientation,
             t_min,
             t_max,
-        )
+            parameters: self.parameters.clone(),
+        };
+        self.grid_type.curve(x, y, info)
     }
 }
 
@@ -426,18 +415,17 @@ pub trait GridDivision {
 
     /// If the helix at position (x, y) should be a curve istead of a cylinder, this method must be
     /// overiden
-    fn curve(
-        &self,
-        _x: isize,
-        _y: isize,
-        _position: Vec3,
-        _orientation: Rotor3,
-        _parameters: &Parameters,
-        _t_min: Option<f64>,
-        _t_max: Option<f64>,
-    ) -> Option<Arc<CurveDescriptor>> {
+    fn curve(&self, _x: isize, _y: isize, _info: CurveInfo) -> Option<Arc<CurveDescriptor>> {
         None
     }
+}
+
+pub struct CurveInfo {
+    pub t_min: Option<f64>,
+    pub t_max: Option<f64>,
+    pub position: Vec3,
+    pub orientation: Rotor3,
+    pub parameters: Parameters,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -745,7 +733,8 @@ impl GridData {
                 }
                 let t_min = h.curve.as_ref().and_then(|c| c.t_min());
                 let t_max = h.curve.as_ref().and_then(|c| c.t_max());
-                if let Some(curve) = grid.make_curve(grid_position.x, grid_position.y, t_min, t_max)
+                if let Some(curve) =
+                    grid.make_curve(grid_position.x, grid_position.y, t_min, t_max, None)
                 {
                     log::info!("setting curve");
                     h.curve = Some(curve)

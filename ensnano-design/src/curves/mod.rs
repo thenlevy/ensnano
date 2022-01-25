@@ -100,7 +100,7 @@ pub(super) trait Curved {
         None
     }
 
-    fn inverse_curvilinear_abscissa(&self, x: f64) -> Option<f64> {
+    fn inverse_curvilinear_abscissa(&self, _x: f64) -> Option<f64> {
         None
     }
 }
