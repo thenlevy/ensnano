@@ -638,6 +638,31 @@ pub struct GridData {
     pub parameters: Parameters,
     pub no_phantoms: HashSet<usize>,
     pub small_spheres: HashSet<usize>,
+    center_of_gravity: HashMap<usize, CenterOfGravity>,
+}
+
+#[derive(Default, Debug, Clone)]
+struct CenterOfGravity {
+    center: Option<Vec3>,
+    nb: usize,
+}
+
+impl CenterOfGravity {
+    fn add_point(&mut self, point: Vec3) {
+        if self.nb == 0 {
+            self.center = Some(point);
+            self.nb = 1
+        } else {
+            let new_center = point
+                + self.nb as f32
+                    * self.center.unwrap_or_else(|| {
+                        log::error!("nb > 0 but center is none");
+                        Vec3::zero()
+                    });
+            self.nb += 1;
+            self.center = Some(new_center / (self.nb as f32))
+        }
+    }
 }
 
 impl GridData {
@@ -686,6 +711,7 @@ impl GridData {
             parameters: design.parameters.unwrap_or_default(),
             no_phantoms: design.no_phantoms.clone(),
             small_spheres: design.small_spheres.clone(),
+            center_of_gravity: Default::default(),
         };
         ret.reposition_all_helices();
         ret.update_all_curves(Arc::make_mut(&mut design.cached_curve));
@@ -714,7 +740,12 @@ impl GridData {
                     .insert(grid_position.light(), GridObject::Helix(*h_id));
                 let grid = &self.grids[grid_position.grid];
 
-                h.position = grid.position_helix(grid_position.x, grid_position.y);
+                let position_from_grid = grid.position_helix(grid_position.x, grid_position.y);
+                h.position = position_from_grid;
+                self.center_of_gravity
+                    .entry(grid_position.grid)
+                    .or_default()
+                    .add_point(position_from_grid);
                 h.orientation = {
                     let orientation = grid.orientation_helix(grid_position.x, grid_position.y);
                     let normal =
@@ -731,11 +762,24 @@ impl GridData {
                 if let Axis::Line { direction, .. } = h.get_axis(&self.parameters) {
                     h.position -= grid_position.axis_pos as f32 * direction;
                 }
+            }
+        }
+        for h in helices_mut.values_mut() {
+            if let Some(grid_position) = h.grid_position {
+                let grid = &self.grids[grid_position.grid];
                 let t_min = h.curve.as_ref().and_then(|c| c.t_min());
                 let t_max = h.curve.as_ref().and_then(|c| c.t_max());
-                if let Some(curve) =
-                    grid.make_curve(grid_position.x, grid_position.y, t_min, t_max, None)
-                {
+                let center_of_gravity = self
+                    .center_of_gravity
+                    .get(&grid_position.grid)
+                    .and_then(|c| c.center);
+                if let Some(curve) = grid.make_curve(
+                    grid_position.x,
+                    grid_position.y,
+                    t_min,
+                    t_max,
+                    center_of_gravity,
+                ) {
                     log::info!("setting curve");
                     h.curve = Some(curve)
                 }
