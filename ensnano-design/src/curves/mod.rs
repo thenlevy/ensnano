@@ -200,6 +200,10 @@ impl Curve {
                 .curvilinear_abscissa(t)
                 .and_then(|s| self.geometry.inverse_curvilinear_abscissa(s + len_segment))
             {
+                let delta = (t_x - t) / DISCRETISATION_STEP as f64;
+                for i in 0..DISCRETISATION_STEP {
+                    current_axis = self.itterative_axis(t + delta * i as f64, Some(&current_axis));
+                }
                 t = t_x;
                 p = self.geometry.position(t);
             } else {

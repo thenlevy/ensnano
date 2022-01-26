@@ -513,7 +513,7 @@ impl Design {
         let mut grids = Vec::new();
         let mut group_map = BTreeMap::new();
         let default_grid = scad.default_grid_descriptor()?;
-        let mut deletions = BTreeMap::new();
+        let mut insertion_deletions = ScadnanoInsertionsDeletions::default();
         group_map.insert(String::from("default_group"), 0usize);
         grids.push(default_grid);
         let mut helices_per_group = vec![0];
@@ -528,7 +528,9 @@ impl Design {
             }
         }
         for s in scad.strands.iter() {
-            s.read_deletions(&mut deletions);
+            for d in s.domains.iter() {
+                insertion_deletions.read_domain(d)
+            }
         }
         let mut helices = BTreeMap::new();
         for (i, h) in scad.helices.iter().enumerate() {
@@ -537,7 +539,7 @@ impl Design {
         }
         let mut strands = BTreeMap::new();
         for (i, s) in scad.strands.iter().enumerate() {
-            let strand = Strand::from_scadnano(s, &deletions)?;
+            let strand = Strand::from_scadnano(s, &insertion_deletions)?;
             strands.insert(i, strand);
         }
         println!("grids {:?}", grids);

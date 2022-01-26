@@ -116,8 +116,8 @@ impl Curved for Twist {
             let theta = self.theta0 + t * self.omega.signum();
             DVec3 {
                 x: 1.0 / self.omega.abs(),
-                y: self.radius * theta.cos(),
-                z: self.radius * -theta.sin(),
+                y: self.radius * theta.cos() * self.omega.signum(),
+                z: self.radius * -theta.sin() * self.omega.signum(),
             }
         };
         let orientation = rotor_to_drotor(self.orientation);
@@ -131,8 +131,8 @@ impl Curved for Twist {
             let theta = self.theta0 + t * self.omega.signum();
             DVec3 {
                 x: 0.,
-                y: self.radius * -theta.sin(),
-                z: self.radius * -theta.cos(),
+                y: self.radius * -theta.sin() * self.omega.signum(),
+                z: self.radius * -theta.cos() * self.omega.signum(),
             }
         };
         let orientation = rotor_to_drotor(self.orientation);
