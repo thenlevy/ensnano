@@ -39,7 +39,7 @@ pub fn nb_turn_per_100_nt_to_omega(
     use std::f64::consts::TAU;
     if (Z / (TAU * nb_turn_per_100_nt)).powi(2) > r.powi(2) {
         let omega = ((Z / (TAU * nb_turn_per_100_nt)).powi(2) - r.powi(2)).powf(-0.5);
-        println!(
+        log::debug!(
             "nb_turn_per_100_nt = {}r = {}, omega = {}",
             nb_turn_per_100_nt, r, omega
         );

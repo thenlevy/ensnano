@@ -39,10 +39,10 @@ pub struct Twister {
     state: TwistState,
 }
 
-const NB_ROLL_STEP_PER_TWIST: usize = 100;
+const NB_ROLL_STEP_PER_TWIST: usize = 300;
 const MIN_OMEGA: f64 = -0.5;
 const MAX_OMEGA: f64 = 0.5;
-const NB_STEP_OMEGA: usize = 100;
+const NB_STEP_OMEGA: usize = 300;
 
 #[derive(Clone)]
 pub struct TwistState {
