@@ -103,6 +103,32 @@ pub(super) trait Curved {
     fn inverse_curvilinear_abscissa(&self, _x: f64) -> Option<f64> {
         None
     }
+
+    /// If the z_step along the curve is not the same than for straight helices, this method should
+    /// be overriden
+    fn z_step_ratio(&self) -> Option<f64> {
+        None
+    }
+
+    fn theta_shift(&self, parameters: &Parameters) -> Option<f64> {
+        if let Some(real_z_ratio) = self.z_step_ratio() {
+            use std::f64::consts::SQRT_2;
+            let theta_0 = std::f64::consts::TAU / parameters.bases_per_turn as f64;
+            let dist_ac = (parameters.helix_radius as f64 * SQRT_2 * (1.0 - theta_0.cos())
+                + (parameters.z_step as f64).powi(2))
+            .sqrt();
+            let real_z = parameters.z_step as f64 * real_z_ratio;
+            let cos_ret = 1.0
+                - (dist_ac * dist_ac - real_z.powi(2)) / (parameters.helix_radius as f64 * SQRT_2);
+            if cos_ret.abs() > 1.0 {
+                None
+            } else {
+                Some(cos_ret.acos())
+            }
+        } else {
+            None
+        }
+    }
 }
 
 /// The bounds of the curve. This describe the interval in which t can be taken
@@ -141,7 +167,8 @@ impl Curve {
             curvature: Vec::new(),
             nucl_t0: 0,
         };
-        ret.discretize(parameters.z_step as f64, DISCRETISATION_STEP);
+        let len_segment = ret.geometry.z_step_ratio().unwrap_or(1.0) * parameters.z_step as f64;
+        ret.discretize(len_segment, DISCRETISATION_STEP);
         ret
     }
 
@@ -270,6 +297,12 @@ impl Curve {
 
     pub fn nucl_pos(&self, n: isize, theta: f64, parameters: &Parameters) -> Option<DVec3> {
         let idx = self.idx_convertsion(n)?;
+        let theta = if let Some(real_theta) = self.geometry.theta_shift(parameters) {
+            let base_theta = std::f64::consts::TAU / parameters.bases_per_turn as f64;
+            (real_theta - base_theta) * n as f64 + theta
+        } else {
+            theta
+        };
         if let Some(matrix) = self.axis.get(idx).cloned() {
             let mut ret = matrix
                 * DVec3::new(
@@ -303,7 +336,9 @@ impl Curve {
         let nucl_min = -(self.nucl_t0 as isize);
         if nucl < nucl_min {
             if let CurveBounds::BiInfinite = self.geometry.bounds() {
-                let objective = (-nucl) as f64 * parameters.z_step as f64;
+                let objective = (-nucl) as f64
+                    * parameters.z_step as f64
+                    * self.geometry.z_step_ratio().unwrap_or(1.);
                 if let Some(t_min) = self.geometry.inverse_curvilinear_abscissa(objective) {
                     return Some(t_min);
                 }
@@ -339,7 +374,9 @@ impl Curve {
         if nucl >= nucl_max {
             match self.geometry.bounds() {
                 CurveBounds::BiInfinite | CurveBounds::PositiveInfinite => {
-                    let objective = nucl as f64 * parameters.z_step as f64;
+                    let objective = nucl as f64
+                        * parameters.z_step as f64
+                        * self.geometry.z_step_ratio().unwrap_or(1.);
                     if let Some(t_max) = self.geometry.inverse_curvilinear_abscissa(objective) {
                         return Some(t_max);
                     }

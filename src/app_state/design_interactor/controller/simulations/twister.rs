@@ -158,11 +158,7 @@ impl TwistState {
                 ..
             } => {
                 *nb_turn_per_100_nt = twist;
-                ensnano_design::nb_turn_per_100_nt_to_omega(
-                    *nb_turn_per_100_nt,
-                    *radius,
-                    parameters,
-                )
+                ensnano_design::nb_turn_per_100_nt_to_omega(*nb_turn_per_100_nt, parameters)
             }
             GridTypeDescr::Square { twist: grid_twist } => {
                 *grid_twist = Some(twist);
@@ -277,7 +273,7 @@ impl DesignData {
             if let Some(CurveDescriptor::Twist(Twist { omega, .. })) =
                 h.curve.as_mut().map(Arc::make_mut)
             {
-                *omega = ensnano_design::nb_turn_per_100_nt_to_omega(twist, 8, &self.parameters)
+                *omega = ensnano_design::nb_turn_per_100_nt_to_omega(twist, &self.parameters)
                     .unwrap_or(*omega);
                 h.try_update_curve(&self.parameters);
             } else {

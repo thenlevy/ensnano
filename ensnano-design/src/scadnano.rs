@@ -235,7 +235,7 @@ impl ScadnanoInsertionsDeletions {
         let mut ret = position;
         if let Some(counts) = self.count.get(&helix) {
             for (_, c) in counts.iter().take_while(|(y, _)| **y <= position) {
-                ret += *c
+                ret += *c / 2
             }
         }
         ret

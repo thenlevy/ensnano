@@ -25,7 +25,6 @@ use ultraviolet::{DVec3, Rotor3, Vec3};
 
 pub fn nb_turn_per_100_nt_to_omega(
     nb_turn_per_100_nt: f64,
-    radius: usize,
     parameters: &Parameters,
 ) -> Option<f64> {
     if nb_turn_per_100_nt.abs() < 1e-3 {
@@ -33,24 +32,12 @@ pub fn nb_turn_per_100_nt_to_omega(
     }
     #[allow(non_snake_case)]
     let Z: f64 = 100.0 * parameters.z_step as f64;
-    use std::f64::consts::PI;
-    let angle = PI / radius as f64;
-    let r = ((parameters.helix_radius + parameters.inter_helix_gap / 2.) as f64) / angle.sin();
     use std::f64::consts::TAU;
-    if (Z / (TAU * nb_turn_per_100_nt)).powi(2) > r.powi(2) {
-        let omega = ((Z / (TAU * nb_turn_per_100_nt)).powi(2) - r.powi(2)).powf(-0.5);
-        log::debug!(
-            "nb_turn_per_100_nt = {}r = {}, omega = {}",
-            nb_turn_per_100_nt, r, omega
-        );
-        Some(omega * nb_turn_per_100_nt.signum())
-    } else {
-        None
-    }
+    Some(TAU * nb_turn_per_100_nt / Z)
 }
 
 pub fn twist_to_omega(twist: f64, parameters: &Parameters) -> Option<f64> {
-    nb_turn_per_100_nt_to_omega(twist, 8, parameters)
+    nb_turn_per_100_nt_to_omega(twist, parameters)
 }
 
 /// An helicoidal curve
@@ -90,16 +77,10 @@ impl Curved for Twist {
     }
 
     fn position(&self, t: f64) -> DVec3 {
-        let pos_0 = if self.omega.abs() < 1e-5 {
+        let pos_0 = {
+            let theta = self.theta0 + t * self.omega;
             DVec3 {
                 x: t,
-                y: self.radius * self.theta0.sin(),
-                z: self.radius * self.theta0.cos(),
-            }
-        } else {
-            let theta = self.theta0 + t * self.omega.signum();
-            DVec3 {
-                x: t / self.omega.abs(),
                 y: self.radius * theta.sin(),
                 z: self.radius * theta.cos(),
             }
@@ -110,14 +91,12 @@ impl Curved for Twist {
     }
 
     fn speed(&self, t: f64) -> DVec3 {
-        let pos_0 = if self.omega.abs() < 1e-5 {
-            DVec3::unit_x()
-        } else {
-            let theta = self.theta0 + t * self.omega.signum();
+        let pos_0 = {
+            let theta = self.theta0 + t * self.omega;
             DVec3 {
-                x: 1.0 / self.omega.abs(),
-                y: self.radius * theta.cos() * self.omega.signum(),
-                z: self.radius * -theta.sin() * self.omega.signum(),
+                x: 1.0,
+                y: self.radius * self.omega * theta.cos(),
+                z: -self.radius * self.omega * theta.sin(),
             }
         };
         let orientation = rotor_to_drotor(self.orientation);
@@ -125,14 +104,12 @@ impl Curved for Twist {
     }
 
     fn acceleration(&self, t: f64) -> DVec3 {
-        let pos_0 = if self.omega.abs() < 1e-5 {
-            DVec3::zero()
-        } else {
-            let theta = self.theta0 + t * self.omega.signum();
+        let pos_0 = {
+            let theta = self.theta0 + t * self.omega;
             DVec3 {
-                x: 0.,
-                y: self.radius * -theta.sin() * self.omega.signum(),
-                z: self.radius * -theta.cos() * self.omega.signum(),
+                x: 0.0,
+                y: -self.radius * self.omega * self.omega * theta.sin(),
+                z: -self.radius * self.omega * self.omega * theta.cos(),
             }
         };
         let orientation = rotor_to_drotor(self.orientation);
@@ -150,7 +127,7 @@ impl Curved for Twist {
             // https://mathcurve.com/courbes3d.gb/helicecirculaire/helicecirculaire.shtml
             let a = self.radius;
             let b = 1. / self.omega;
-            Some((a * a + b * b).sqrt() * t)
+            Some((a * a + b * b).sqrt() * t / self.omega)
         }
     }
 
@@ -162,7 +139,15 @@ impl Curved for Twist {
             let a = self.radius;
             let b = 1. / self.omega;
             let s = (a * a + b * b).sqrt();
-            Some(x / s)
+            Some(x * self.omega / s)
+        }
+    }
+
+    fn z_step_ratio(&self) -> Option<f64> {
+        if self.omega.abs() < 1e-5 {
+            None
+        } else {
+            self.curvilinear_abscissa(1.0)
         }
     }
 }
