@@ -296,8 +296,7 @@ impl Curve {
         let idx = self.idx_convertsion(n)?;
         let theta = if let Some(real_theta) = self.geometry.theta_shift(parameters) {
             let base_theta = std::f64::consts::TAU / parameters.bases_per_turn as f64;
-            println!("delta theta = {}", (real_theta - base_theta).to_degrees());
-            (real_theta - base_theta) * n as f64 + theta
+            (base_theta - real_theta) * n as f64 + theta
         } else {
             theta
         };

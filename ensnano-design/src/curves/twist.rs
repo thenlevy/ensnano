@@ -164,7 +164,7 @@ mod tests {
                 omega,
                 position: Vec3::zero(),
                 orientation: Rotor3::identity(),
-                radius: 1.0,
+                radius: 20.0,
                 t_min: None,
                 t_max: None,
             }
@@ -226,7 +226,6 @@ mod tests {
     }
 
     fn roll_adjustment_is_correct(nb_turn: f64) {
-        use super::super::Curved;
         let p = Parameters::DEFAULT;
         #[allow(non_snake_case)]
         let Z = 100.0 * p.z_step as f64;
