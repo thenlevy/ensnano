@@ -112,14 +112,11 @@ pub(super) trait Curved {
 
     fn theta_shift(&self, parameters: &Parameters) -> Option<f64> {
         if let Some(real_z_ratio) = self.z_step_ratio() {
-            use std::f64::consts::SQRT_2;
-            let theta_0 = std::f64::consts::TAU / parameters.bases_per_turn as f64;
-            let dist_ac = (parameters.helix_radius as f64 * SQRT_2 * (1.0 - theta_0.cos())
-                + (parameters.z_step as f64).powi(2))
-            .sqrt();
-            let real_z = parameters.z_step as f64 * real_z_ratio;
-            let cos_ret = 1.0
-                - (dist_ac * dist_ac - real_z.powi(2)) / (parameters.helix_radius as f64 * SQRT_2);
+            let r = parameters.helix_radius as f64;
+            let z = parameters.z_step as f64;
+            let real_z = z * real_z_ratio;
+            let d1 = parameters.dist_ac() as f64;
+            let cos_ret = 1.0 - (d1 * d1 - real_z * real_z) / (r * r * 2.0);
             if cos_ret.abs() > 1.0 {
                 None
             } else {
@@ -299,6 +296,7 @@ impl Curve {
         let idx = self.idx_convertsion(n)?;
         let theta = if let Some(real_theta) = self.geometry.theta_shift(parameters) {
             let base_theta = std::f64::consts::TAU / parameters.bases_per_turn as f64;
+            println!("delta theta = {}", (real_theta - base_theta).to_degrees());
             (real_theta - base_theta) * n as f64 + theta
         } else {
             theta

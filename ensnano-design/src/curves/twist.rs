@@ -127,7 +127,7 @@ impl Curved for Twist {
             // https://mathcurve.com/courbes3d.gb/helicecirculaire/helicecirculaire.shtml
             let a = self.radius;
             let b = 1. / self.omega;
-            Some((a * a + b * b).sqrt() * t / self.omega)
+            Some((a * a + b * b).sqrt() * t * self.omega.abs())
         }
     }
 
@@ -139,7 +139,7 @@ impl Curved for Twist {
             let a = self.radius;
             let b = 1. / self.omega;
             let s = (a * a + b * b).sqrt();
-            Some(x * self.omega / s)
+            Some(x / self.omega.abs() / s)
         }
     }
 
@@ -149,5 +149,113 @@ impl Curved for Twist {
         } else {
             self.curvilinear_abscissa(1.0)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Helix;
+
+    impl Twist {
+        fn with_omega(omega: f64) -> Self {
+            Self {
+                theta0: 0.0,
+                omega,
+                position: Vec3::zero(),
+                orientation: Rotor3::identity(),
+                radius: 1.0,
+                t_min: None,
+                t_max: None,
+            }
+        }
+    }
+
+    #[test]
+    fn correct_curvilinear_abscissa() {
+        let p = Parameters::DEFAULT;
+        let nb_turn = 0.1234;
+        let omega = nb_turn_per_100_nt_to_omega(nb_turn, &p).unwrap();
+        let twist = Twist::with_omega(omega);
+        let mut s = 0.0;
+        let mut t = 0.;
+        let mut p = twist.position(0.0);
+        while t < 1. {
+            t += 0.0001;
+            let q = twist.position(t);
+            s += (p - q).mag();
+            p = q;
+        }
+        let expected = twist.curvilinear_abscissa(1.0).unwrap();
+        println!("s = {}", s);
+        println!("expected = {}", expected);
+        assert!((s - expected).abs() < 1e-3);
+    }
+
+    #[test]
+    fn nb_turn_per_100_nt_is_correct() {
+        let p = Parameters::DEFAULT;
+        let nb_turn = 0.1234;
+        let omega = nb_turn_per_100_nt_to_omega(nb_turn, &p).unwrap();
+        #[allow(non_snake_case)]
+        let Z = 100. * p.z_step as f64;
+        assert!(((omega * Z) - (std::f64::consts::TAU * nb_turn)).abs() < 1e-5)
+    }
+
+    #[test]
+    fn z_step_ratio_is_correct() {
+        let p = Parameters::DEFAULT;
+        #[allow(non_snake_case)]
+        let Z = 100.0 * p.z_step as f64;
+        let nb_turn = 0.1234;
+        let omega = nb_turn_per_100_nt_to_omega(nb_turn, &p).unwrap();
+        let mut twist = Twist::with_omega(omega);
+        twist.t_max = Some(Z);
+        let descriptor = super::super::InsanciatedCurveDescriptor_::Twist(twist);
+        let curve = descriptor.try_into_curve(&p).unwrap();
+        let flat_helix = Helix::new(Vec3::zero(), Rotor3::identity());
+        let theta = flat_helix.theta(99, true, &p);
+        let nucl_curved = curve.nucl_pos(99, theta as f64, &p).unwrap();
+        let nucl_flat = crate::utils::vec_to_dvec(flat_helix.space_pos(&p, 99, true));
+
+        println!("curved {:?} \n flat {:?}", nucl_curved, nucl_flat);
+        // The two nucleotides are not in the same position
+        assert!((nucl_curved - nucl_flat).mag() > 0.5);
+        // But have almost the same x coordinate
+        assert!((nucl_curved.x - nucl_flat.x).abs() < 1e-2);
+    }
+
+    fn roll_adjustment_is_correct(nb_turn: f64) {
+        use super::super::Curved;
+        let p = Parameters::DEFAULT;
+        #[allow(non_snake_case)]
+        let Z = 100.0 * p.z_step as f64;
+        let omega = nb_turn_per_100_nt_to_omega(nb_turn, &p).unwrap();
+        let mut twist = Twist::with_omega(omega);
+        twist.t_max = Some(Z);
+        let descriptor = super::super::InsanciatedCurveDescriptor_::Twist(twist.clone());
+        let curve = descriptor.try_into_curve(&p).unwrap();
+        println!("abscissa {:?}", twist.curvilinear_abscissa(Z));
+        println!("z ratio {:?}", twist.z_step_ratio());
+        assert!(twist.theta_shift(&p).is_some());
+        let flat_helix = Helix::new(Vec3::zero(), Rotor3::identity());
+        let theta_99 = flat_helix.theta(99, true, &p);
+        let theta_98 = flat_helix.theta(98, true, &p);
+        let nucl_98 = curve.nucl_pos(98, theta_98 as f64, &p).unwrap();
+        let nucl_99 = curve.nucl_pos(99, theta_99 as f64, &p).unwrap();
+
+        let dist = (nucl_99 - nucl_98).mag() as f32;
+        println!("dist {} \n  vs \n dist_ac {}", dist, p.dist_ac());
+        assert!((dist - p.dist_ac()).abs() < 1e-2);
+    }
+
+    #[test]
+    fn roll_adjustment_is_correct_right() {
+        roll_adjustment_is_correct(0.4);
+    }
+
+    #[test]
+    fn roll_adjustment_is_correct_left() {
+        roll_adjustment_is_correct(-0.4);
     }
 }
