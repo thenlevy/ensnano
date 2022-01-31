@@ -27,6 +27,7 @@ pub(super) enum Clipboard {
     Empty,
     Strands(StrandClipboard),
     Xovers(Vec<(Nucl, Nucl)>),
+    Grids(Vec<usize>),
 }
 
 impl Clipboard {
@@ -36,6 +37,7 @@ impl Clipboard {
             Self::Empty => 0,
             Self::Strands(strand_clipboard) => strand_clipboard.templates.len(),
             Self::Xovers(xovers) => xovers.len(),
+            Self::Grids(grids) => grids.len(),
         }
     }
 
@@ -44,6 +46,7 @@ impl Clipboard {
             Self::Empty => Err(ErrOperation::EmptyClipboard),
             Self::Strands(strand_clipboard) => Ok(strand_clipboard.clone()),
             Self::Xovers(_) => Err(ErrOperation::WrongClipboard),
+            Self::Grids(_) => Err(ErrOperation::WrongClipboard),
         }
     }
 
@@ -106,6 +109,20 @@ enum DomainTemplate {
 }
 
 impl Controller {
+    pub fn copy_grids(
+        &mut self,
+        design: &Design,
+        grid_ids: Vec<usize>,
+    ) -> Result<(), ErrOperation> {
+        for grid_id in grid_ids.iter() {
+            if design.grids.get(*grid_id).is_none() {
+                return Err(ErrOperation::GridDoesNotExist(*grid_id));
+            }
+        }
+        self.clipboard = AddressPointer::new(Clipboard::Grids(grid_ids));
+        Ok(())
+    }
+
     pub fn set_templates(
         &mut self,
         design: &Design,
@@ -267,6 +284,12 @@ impl Controller {
             }
             Clipboard::Xovers(_) => {
                 self.position_xover_copies(&mut design, nucl)?;
+                Ok(design)
+            }
+            Clipboard::Grids(grid_ids) => {
+                design
+                    .copy_grids(grid_ids, Vec3::zero(), ultraviolet::Rotor3::identity())
+                    .map_err(|e| ErrOperation::GridCopyError(e))?;
                 Ok(design)
             }
             Clipboard::Empty => Err(ErrOperation::EmptyClipboard),
@@ -776,6 +799,7 @@ impl Controller {
 }
 
 pub enum CopyOperation {
+    CopyGrids(Vec<usize>),
     CopyStrands(Vec<usize>),
     CopyXovers(Vec<(Nucl, Nucl)>),
     InitStrandsDuplication(Vec<usize>),

@@ -1135,11 +1135,13 @@ impl MainState {
 
     fn request_copy(&mut self) {
         let reader = self.app_state.get_design_reader();
-        if let Some((_, xover_ids)) = ensnano_interactor::list_of_xover_as_nucl_pairs(
-            self.app_state.get_selection().as_ref(),
-            &reader,
-        ) {
+        let selection = self.app_state.get_selection();
+        if let Some((_, xover_ids)) =
+            ensnano_interactor::list_of_xover_as_nucl_pairs(selection.as_ref(), &reader)
+        {
             self.apply_copy_operation(CopyOperation::CopyXovers(xover_ids))
+        } else if let Some(grid_ids) = ensnano_interactor::extract_only_grids(selection.as_ref()) {
+            self.apply_copy_operation(CopyOperation::CopyGrids(grid_ids))
         } else {
             let strand_ids = ensnano_interactor::extract_strands_from_selection(
                 self.app_state.get_selection().as_ref(),

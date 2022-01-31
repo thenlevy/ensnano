@@ -330,6 +330,9 @@ impl Controller {
                 },
                 design,
             ),
+            CopyOperation::CopyGrids(grid_ids) => {
+                self.apply_no_op(|c, d| c.copy_grids(d, grid_ids), design)
+            }
         }
     }
 
@@ -1334,6 +1337,7 @@ pub enum ErrOperation {
     NoGrids,
     FinishFirst,
     CameraDoesNotExist(CameraId),
+    GridCopyError(ensnano_design::grid::GridCopyError),
 }
 
 impl Controller {
