@@ -144,11 +144,14 @@ impl Curved for Twist {
     }
 
     fn z_step_ratio(&self) -> Option<f64> {
+        /*
         if self.omega.abs() < 1e-5 {
             None
         } else {
             self.curvilinear_abscissa(1.0)
         }
+        */
+        None
     }
 }
 
