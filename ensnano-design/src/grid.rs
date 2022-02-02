@@ -27,6 +27,7 @@ use super::{
 };
 use curves::{CurveCache, GridPositionProvider, InstanciatedCurve, InstanciatedCurveDescriptor};
 mod copy_grid;
+mod deserialize;
 mod hyperboloid;
 pub use copy_grid::GridCopyError;
 pub use hyperboloid::*;
@@ -52,7 +53,7 @@ pub struct GridDescriptor {
     pub invisible: bool, // by default grids are visible so we store a "negative attribute"
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub enum GridTypeDescr {
     Square {
         #[serde(skip_serializing_if = "Option::is_none", default)]
