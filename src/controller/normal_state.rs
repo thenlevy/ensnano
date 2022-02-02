@@ -240,6 +240,10 @@ impl State for NormalState {
                     main_state.flip_split_views();
                     self
                 }
+                Action::Twist(g_id) => {
+                    main_state.start_twist(g_id);
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -436,4 +440,5 @@ pub enum Action {
         doubled: bool,
     },
     FlipSplitViews,
+    Twist(usize),
 }

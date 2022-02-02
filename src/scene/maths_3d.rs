@@ -66,30 +66,6 @@ pub fn unproject_point_on_line(
     }
 }
 
-/// Shoot a ray from the camera and project a point of the world on that line
-pub fn distance_to_cursor(
-    objective: Vec3,
-    camera: CameraPtr,
-    projection: ProjectionPtr,
-    x_ndc: f32,
-    y_ndc: f32,
-    stereography: Option<&Stereography>,
-) -> Option<f32> {
-    let p1 = camera.borrow().position;
-    let p2 = ndc_to_world(x_ndc, y_ndc, camera, projection, stereography);
-
-    let direction = (p2 - p1).normalized();
-
-    let point = objective - p1;
-
-    if point.dot(direction) < 0.0 {
-        None
-    } else {
-        let projected_point = direction * point.dot(direction);
-        Some((projected_point - point).mag())
-    }
-}
-
 const DIST_TO_CAMERA_PENALTY: f32 = 0.001;
 
 /// Shoot a ray from the camera and project a point of the world on that line

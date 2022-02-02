@@ -79,8 +79,6 @@ pub struct Multiplexer {
     status_bar_texture: Option<MultiplexerTexture>,
     /// The texutre on which the flat scene is rendered,
     flat_scene_texture: Option<MultiplexerTexture>,
-    /// The pointer the node that separate the left pannel from the scene
-    left_pannel_split: usize,
     /// The pointer to the node that separate the top bar from the scene
     top_bar_split: usize,
     /// The pointer to the node that separtate the status bar from the scene
@@ -114,7 +112,6 @@ impl Multiplexer {
             exact_proportion(ui_size.top_bar() * scale_factor, window_size.height as f64);
         let top_bar_split = 0;
         let (top_bar, scene) = layout_manager.hsplit(0, top_pannel_prop, false);
-        let left_pannel_split = scene;
         let left_pannel_prop = proportion(
             0.2,
             MAX_LEFT_PANNEL_WIDTH * scale_factor,
@@ -150,7 +147,6 @@ impl Multiplexer {
             pipeline: None,
             split_mode: SplitMode::Scene3D,
             requests,
-            left_pannel_split,
             status_bar_split,
             top_bar_split,
             state: State::Normal {

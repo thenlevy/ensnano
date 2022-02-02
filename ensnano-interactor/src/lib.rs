@@ -37,9 +37,6 @@ pub mod torsion;
 use ensnano_organizer::GroupId;
 mod operation_labels;
 
-#[macro_use]
-extern crate log;
-
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum ObjectType {
     /// A nucleotide identified by its identifier
@@ -337,7 +334,7 @@ pub struct HyperboloidRequest {
     pub length: f32,
     pub shift: f32,
     pub radius_shift: f32,
-    pub nb_turn: f32,
+    pub nb_turn: f64,
 }
 
 impl HyperboloidRequest {
@@ -348,7 +345,7 @@ impl HyperboloidRequest {
             shift: self.shift,
             radius_shift: self.radius_shift,
             forced_radius: None,
-            nb_turn: self.nb_turn,
+            nb_turn_per_100_nt: self.nb_turn,
         }
     }
 }
@@ -400,6 +397,7 @@ pub enum SimulationState {
     RigidGrid,
     RigidHelices,
     Paused,
+    Twisting { grid_id: usize },
 }
 
 impl SimulationState {

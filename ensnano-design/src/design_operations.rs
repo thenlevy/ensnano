@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! The functions that apply thes operations take a mutable reference to the design that they are
 //! modifying and may return an `ErrOperation` if the opperation could not be applied.
 
-use super::{grid::*, CurveDescriptor, Design, Helix};
+use super::{grid::*, CurveDescriptor, Design};
 use std::sync::Arc;
 use ultraviolet::{Rotor3, Vec3};
 

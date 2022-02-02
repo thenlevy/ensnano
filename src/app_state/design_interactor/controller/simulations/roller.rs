@@ -96,7 +96,7 @@ impl PhysicalSystem {
                 let grad = self.roller.solve_one_step(&mut self.data, 1e-3);
                 log::trace!("grad {}", grad);
                 interface_ptr.lock().unwrap().stabilized = grad < 0.1;
-                interface_ptr.lock().unwrap().new_state = Some(self.data.get_simulation_state())
+                interface_ptr.lock().unwrap().new_state = Some(self.data.get_roll_state())
             }
         });
     }
@@ -106,7 +106,7 @@ fn angle_aoc2(p: &Parameters) -> f32 {
     2. * PI / p.bases_per_turn
 }
 
-fn dist_ac(p: &Parameters) -> f32 {
+pub(super) fn dist_ac(p: &Parameters) -> f32 {
     (dist_ac2(p) * dist_ac2(p) + p.z_step * p.z_step).sqrt()
 }
 
@@ -150,7 +150,7 @@ pub(super) fn cross_over_force(
     )
 }
 
-struct RollSystem {
+pub(super) struct RollSystem {
     speed: Vec<f32>,
     acceleration: Vec<f32>,
     time_scale: f32,
@@ -338,7 +338,7 @@ pub struct DesignData {
 }
 
 impl DesignData {
-    fn get_simulation_state(&self) -> RollState {
+    fn get_roll_state(&self) -> RollState {
         let mut ret = HashMap::new();
         for (k, n) in self.helix_map.iter() {
             ret.insert(*k, self.helices[*n].clone());

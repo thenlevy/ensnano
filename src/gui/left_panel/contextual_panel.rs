@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::super::DesignReader;
 use super::*;
-use ensnano_interactor::Selection;
+use ensnano_interactor::{Selection, SimulationState};
 use iced::{scrollable, Scrollable};
 
 mod value_constructor;
@@ -152,6 +152,7 @@ pub(super) struct ContextualPanel<S: AppState> {
     add_strand_menu: AddStrandMenu,
     strand_name_state: text_input::State,
     builder: Option<InstantiatedBuilder<S>>,
+    twist_button: button::State,
 }
 
 impl<S: AppState> ContextualPanel<S> {
@@ -166,6 +167,7 @@ impl<S: AppState> ContextualPanel<S> {
             add_strand_menu: Default::default(),
             strand_name_state: Default::default(),
             builder: None,
+            twist_button: Default::default(),
         }
     }
 
@@ -263,8 +265,21 @@ impl<S: AppState> ContextualPanel<S> {
             }
 
             match selection {
-                Selection::Grid(_, _) => {
-                    column = add_grid_content(column, info_values.as_slice(), ui_size.clone())
+                Selection::Grid(_, g_id) => {
+                    let twisting = match app_state.get_simulation_state() {
+                        SimulationState::Twisting { grid_id } if *g_id == grid_id => {
+                            TwistStatus::Twisting
+                        }
+                        SimulationState::None => TwistStatus::CanTwist,
+                        _ => TwistStatus::CannotTwist,
+                    };
+                    column = add_grid_content(
+                        column,
+                        info_values.as_slice(),
+                        ui_size.clone(),
+                        &mut self.twist_button,
+                        twisting,
+                    )
                 }
                 Selection::Strand(_, _) => {
                     column = add_strand_content(
@@ -402,11 +417,29 @@ impl<S: AppState> ContextualPanel<S> {
     }
 }
 
+enum TwistStatus {
+    CanTwist,
+    CannotTwist,
+    Twisting,
+}
+
 fn add_grid_content<'a, S: AppState, I: std::ops::Deref<Target = str>>(
     mut column: Column<'a, Message<S>>,
     info_values: &[I],
     ui_size: UiSize,
+    twist_button: &'a mut button::State,
+    twisting: TwistStatus,
 ) -> Column<'a, Message<S>> {
+    let twist_button = match twisting {
+        TwistStatus::Twisting => {
+            text_btn(twist_button, "Stop", ui_size).on_press(Message::StopSimulation)
+        }
+        TwistStatus::CanTwist => {
+            text_btn(twist_button, "Twist", ui_size).on_press(Message::StartTwist)
+        }
+        TwistStatus::CannotTwist => text_btn(twist_button, "Twist", ui_size),
+    };
+    column = column.push(twist_button);
     column = column.push(
         Checkbox::new(
             info_values[0].parse::<bool>().unwrap(),

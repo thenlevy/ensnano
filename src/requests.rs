@@ -123,4 +123,5 @@ pub struct Requests {
     pub set_show_stereographic_camera: Option<bool>,
     pub set_invert_y_scroll: Option<bool>,
     pub set_thick_helices: Option<bool>,
+    pub twist_simulation: Option<usize>,
 }

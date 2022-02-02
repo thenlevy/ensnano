@@ -26,11 +26,10 @@ use ensnano_design::{
     },
     group_attributes::GroupPivot,
     mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix,
-    HelixCollection, Nucl, Parameters, Strand, Strands, UpToDateDesign, VirtualNucl,
+    HelixCollection, Nucl, Strand, Strands, UpToDateDesign, VirtualNucl,
 };
 use ensnano_interactor::{
-    operation::{Operation, Parameter},
-    BezierControlPoint, HyperboloidOperation, SimulationState,
+    operation::Operation, BezierControlPoint, HyperboloidOperation, SimulationState,
 };
 use ensnano_interactor::{
     DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
@@ -45,7 +44,7 @@ use clipboard::{PastedStrand, StrandClipboard};
 
 use self::simulations::{
     GridSystemInterface, GridsSystemThread, HelixSystemInterface, HelixSystemThread,
-    PhysicalSystem, RollInterface,
+    PhysicalSystem, RollInterface, TwistInterface,
 };
 
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -61,7 +60,7 @@ pub use shift_optimization::{ShiftOptimizationResult, ShiftOptimizerReader};
 mod simulations;
 pub use simulations::{
     GridPresenter, HelixPresenter, RigidHelixState, RollPresenter, ShakeTarget,
-    SimulationInterface, SimulationOperation, SimulationReader,
+    SimulationInterface, SimulationOperation, SimulationReader, TwistPresenter,
 };
 
 #[derive(Clone, Default)]
@@ -267,9 +266,10 @@ impl Controller {
                 |c, d| c.set_grid_orientation(d, grid_id, orientation),
                 design,
             ),
-            DesignOperation::SetGridNbTurn { grid_id, nb_turn } => {
-                self.apply(|c, d| c.set_grid_nb_turn(d, grid_id, nb_turn), design)
-            }
+            DesignOperation::SetGridNbTurn { grid_id, nb_turn } => self.apply(
+                |c, d| c.set_grid_nb_turn(d, grid_id, nb_turn as f64),
+                design,
+            ),
             DesignOperation::MakeSeveralXovers { xovers, doubled } => {
                 self.apply(|c, d| c.apply_several_xovers(d, xovers, doubled), design)
             }
@@ -426,6 +426,22 @@ impl Controller {
                     initial_design: AddressPointer::new(design.clone()),
                 };
             }
+            SimulationOperation::StartTwist {
+                grid_id,
+                presenter,
+                reader,
+            } => {
+                if self.is_in_persistant_state().is_transitory() {
+                    return Err(ErrOperation::IncompatibleState);
+                }
+                let interface = simulations::Twister::start_new(presenter, grid_id, reader)
+                    .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+                ret.state = ControllerState::Twisting {
+                    interface,
+                    initial_design: AddressPointer::new(design.clone()),
+                    grid_id,
+                };
+            }
             SimulationOperation::UpdateParameters { new_parameters } => {
                 if let ControllerState::Simulating { interface, .. } = &ret.state {
                     interface.lock().unwrap().parameters_update = Some(new_parameters);
@@ -450,6 +466,8 @@ impl Controller {
                 } else if let ControllerState::SimulatingGrids { .. } = &ret.state {
                     ret.state = ControllerState::Normal;
                 } else if let ControllerState::Rolling { .. } = &ret.state {
+                    ret.state = ControllerState::Normal
+                } else if let ControllerState::Twisting { .. } = &ret.state {
                     ret.state = ControllerState::Normal
                 }
             }
@@ -926,6 +944,7 @@ impl Controller {
             ControllerState::WithPausedSimulation { .. } => SimulationState::Paused,
             ControllerState::SimulatingGrids { .. } => SimulationState::RigidGrid,
             ControllerState::Rolling { .. } => SimulationState::Rolling,
+            ControllerState::Twisting { grid_id, .. } => SimulationState::Twisting { grid_id },
             _ => SimulationState::None,
         }
     }
@@ -1366,10 +1385,6 @@ impl OkOperation {
 pub enum ErrOperation {
     GroupHasNoPivot(GroupId),
     NotImplemented,
-    NotEnoughHelices {
-        actual: usize,
-        required: usize,
-    },
     /// The operation cannot be applied on the current selection
     BadSelection,
     /// The controller is in a state incompatible with applying the operation
@@ -2583,14 +2598,17 @@ impl Controller {
         &mut self,
         mut design: Design,
         grid_id: usize,
-        x: f32,
+        x: f64,
     ) -> Result<Design, ErrOperation> {
         let mut new_grids = Vec::clone(design.grids.as_ref());
         let grid = new_grids
             .get_mut(grid_id)
             .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
-        if let GridTypeDescr::Hyperboloid { nb_turn, .. } = &mut grid.grid_type {
-            *nb_turn = x;
+        if let GridTypeDescr::Hyperboloid {
+            nb_turn_per_100_nt, ..
+        } = &mut grid.grid_type
+        {
+            *nb_turn_per_100_nt = x;
         } else {
             return Err(ErrOperation::GridIsNotHyperboloid(grid_id));
         }
@@ -2681,6 +2699,11 @@ enum ControllerState {
         interface: Arc<Mutex<RollInterface>>,
         initial_design: AddressPointer<Design>,
     },
+    Twisting {
+        interface: Arc<Mutex<TwistInterface>>,
+        initial_design: AddressPointer<Design>,
+        grid_id: usize,
+    },
     ChangingStrandName {
         strand_id: usize,
     },
@@ -2715,6 +2738,7 @@ impl ControllerState {
             Self::Rolling { .. } => "Rolling",
             Self::SettingRollHelices => "SettingRollHelices",
             Self::ChangingStrandName { .. } => "ChangingStrandName",
+            Self::Twisting { .. } => "Twisting",
         }
     }
     fn update_pasting_position(
@@ -2783,21 +2807,13 @@ impl ControllerState {
         }
     }
 
-    fn get_operation(&self) -> Option<Arc<dyn Operation>> {
-        match self {
-            Self::ApplyingOperation { operation, .. } => operation.clone(),
-            Self::WithPendingOp { operation, .. } => Some(operation.clone()),
-            _ => None,
-        }
-    }
-
     fn finish(&self) -> Self {
         match self {
             Self::Normal => Self::Normal,
             Self::MakingHyperboloid { .. } => self.clone(),
             Self::BuildingStrand { .. } => Self::Normal,
             Self::ChangingColor => Self::Normal,
-            Self::WithPendingOp { operation, design } => self.clone(),
+            Self::WithPendingOp { .. } => self.clone(),
             Self::ApplyingOperation {
                 operation: Some(op),
                 design,
@@ -2818,6 +2834,7 @@ impl ControllerState {
             Self::WithPausedSimulation { .. } => self.clone(),
             Self::Rolling { .. } => Self::Normal,
             Self::SettingRollHelices => Self::Normal,
+            Self::Twisting { .. } => Self::Normal,
             Self::ChangingStrandName { .. } => Self::Normal,
         }
     }

@@ -33,6 +33,7 @@ macro_rules! type_builder {
         paste! {
             pub struct $builder_name {
                 $(
+                    #[allow(dead_code)]
                     $param: $param_type,
                     [<$param _string>]: String,
                     [<$param _input>]: text_input::State,

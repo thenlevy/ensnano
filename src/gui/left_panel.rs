@@ -42,8 +42,8 @@ use ensnano_interactor::{
 };
 
 use super::{
-    icon_btn, slider_style::DesactivatedSlider, text_btn, AppState, DesignReader,
-    FogParameters as Fog, OverlayType, Requests, UiSize,
+    icon_btn, slider_style::DesactivatedSlider, text_btn, AppState, FogParameters as Fog,
+    OverlayType, Requests, UiSize,
 };
 
 use ensnano_design::grid::GridTypeDescr;
@@ -59,7 +59,7 @@ use crate::consts::*;
 mod contextual_panel;
 use contextual_panel::{ContextualPanel, InstanciatedValue, ValueKind};
 
-use ensnano_interactor::{CheckXoversParameter, HyperboloidRequest};
+use ensnano_interactor::{CheckXoversParameter, HyperboloidRequest, Selection};
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use tabs::{
     CameraShortcut, CameraTab, EditionTab, GridTab, ParametersTab, SequenceTab, SimulationTab,
@@ -176,11 +176,9 @@ pub enum Message<S> {
     EditCameraName(String),
     SubmitCameraName,
     StartEditCameraName(CameraId),
-    SetCameraFavorite(CameraId),
     DeleteCamera(CameraId),
     SelectCamera(CameraId),
     NewCustomCamera,
-    UpdateCamera(CameraId),
     NewSuggestionParameters(SuggestionParameters),
     ContextualValueChanged(ValueKind, usize, String),
     ContextualValueSubmitted(ValueKind),
@@ -189,6 +187,8 @@ pub enum Message<S> {
     FollowStereographicCamera(bool),
     ShowStereographicCamera(bool),
     RainbowScaffold(bool),
+    StopSimulation,
+    StartTwist,
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -715,11 +715,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::StartEditCameraName(camera_id) => {
                 self.camera_shortcut.start_editing(camera_id)
             }
-            Message::SetCameraFavorite(camera_id) => self
-                .requests
-                .lock()
-                .unwrap()
-                .set_favourite_camera(camera_id),
             Message::DeleteCamera(camera_id) => {
                 self.requests.lock().unwrap().delete_camera(camera_id)
             }
@@ -729,9 +724,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::NewCustomCamera => {
                 self.requests.lock().unwrap().create_new_camera();
                 self.camera_shortcut.scroll_down()
-            }
-            Message::UpdateCamera(camera_id) => {
-                self.requests.lock().unwrap().update_camera(camera_id)
             }
             Message::NewSuggestionParameters(param) => {
                 self.requests
@@ -767,6 +759,14 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .set_show_stereographic_camera(b);
             }
             Message::RainbowScaffold(b) => self.requests.lock().unwrap().set_rainbow_scaffold(b),
+            Message::StopSimulation => self.requests.lock().unwrap().stop_simulations(),
+            Message::StartTwist => {
+                if let Some(Selection::Grid(_, g_id)) =
+                    self.application_state.get_selection().get(0)
+                {
+                    self.requests.lock().unwrap().start_twist_simulation(*g_id)
+                }
+            }
         };
         Command::none()
     }
@@ -1130,7 +1130,7 @@ impl Requestable for Hyperboloid_ {
             length: values[1],
             shift: values[2],
             radius_shift: values[3],
-            nb_turn: values[4],
+            nb_turn: values[4] as f64,
         }
     }
     fn nb_values(&self) -> usize {

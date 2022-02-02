@@ -174,7 +174,7 @@ impl From<FiniteVec3> for Vec3 {
 }
 
 impl CameraController {
-    pub fn new(speed: f32, sensitivity: f32, camera: CameraPtr, projection: ProjectionPtr) -> Self {
+    pub fn new(speed: f32, camera: CameraPtr, projection: ProjectionPtr) -> Self {
         Self {
             speed,
             amount_left: 0.0,

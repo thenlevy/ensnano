@@ -114,6 +114,7 @@ pub trait Requests: 'static + Send {
     fn update_rigid_helices_simulation(&mut self, parameters: RigidBodyParametersRequest);
     /// Start of Update the rigid grids simulation
     fn update_rigid_grids_simulation(&mut self, parameters: RigidBodyParametersRequest);
+    fn start_twist_simulation(&mut self, grid_id: usize);
     /// Update the parameters of the current simulation (rigid grids or helices)
     fn update_rigid_body_simulation_parameters(&mut self, parameters: RigidBodyParametersRequest);
     fn create_new_hyperboloid(&mut self, parameters: HyperboloidRequest);
@@ -214,7 +215,7 @@ impl<R: Requests, S: AppState> GuiState<R, S> {
         }) = event
         {
             match self {
-                GuiState::StatusBar(state) => {
+                GuiState::StatusBar(_) => {
                     self.queue_status_bar_message(status_bar::Message::TabPressed)
                 }
                 GuiState::TopBar(_) => (),
@@ -887,6 +888,7 @@ impl<S: AppState> IcedMessages<S> {
             .push_back(status_bar::Message::Message(Some(message)));
     }
 
+    #[allow(dead_code)]
     pub fn clear_message(&mut self) {
         self.status_bar
             .push_back(status_bar::Message::Message(None));

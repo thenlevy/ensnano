@@ -763,11 +763,11 @@ impl Operation for CreateGrid {
         match n {
             0 => match val.as_str() {
                 "Square" => Some(Arc::new(Self {
-                    grid_type: GridTypeDescr::Square,
+                    grid_type: GridTypeDescr::Square { twist: None },
                     ..*self
                 })),
                 "Honeycomb" => Some(Arc::new(Self {
-                    grid_type: GridTypeDescr::Honeycomb,
+                    grid_type: GridTypeDescr::Honeycomb { twist: None },
                     ..*self
                 })),
                 _ => None,

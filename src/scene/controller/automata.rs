@@ -962,7 +962,7 @@ impl<S: AppState> ControllerState<S> for BuildingStrand {
         self.last_scroll = Instant::now()
     }
 
-    fn check_timers(&mut self, controller: &Controller<S>) -> Transition<S> {
+    fn check_timers(&mut self, _controller: &Controller<S>) -> Transition<S> {
         let now = Instant::now();
         if !self.clicked && (now - self.last_scroll).as_millis() > 1000 {
             Transition {

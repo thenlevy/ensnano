@@ -394,6 +394,10 @@ impl GuiRequests for Requests {
     fn set_thick_helices(&mut self, thick: bool) {
         self.set_thick_helices = Some(thick)
     }
+
+    fn start_twist_simulation(&mut self, grid_id: usize) {
+        self.twist_simulation = Some(grid_id);
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

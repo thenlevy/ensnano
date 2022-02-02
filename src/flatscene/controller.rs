@@ -182,6 +182,7 @@ impl<S: AppState> Controller<S> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn fit(&mut self) {
         let rectangle = self.data.borrow().get_fit_rectangle();
         self.camera_top.borrow_mut().fit(rectangle);
