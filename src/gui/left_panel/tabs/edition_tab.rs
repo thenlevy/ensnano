@@ -211,8 +211,10 @@ impl<S: AppState> EditionTab<S> {
         add_roll_slider!(ret, self, app_state, ui_size);
         add_autoroll_button!(ret, self, app_state, roll_target_helices);
 
-        let color_square = self.color_picker.color_square(&mut self.color_square_state);
-        if app_state.get_selection_mode() == SelectionMode::Strand {
+        let selection_contains_strand =
+            ensnano_interactor::extract_strands_from_selection(app_state.get_selection()).len() > 0;
+        if selection_contains_strand {
+            let color_square = self.color_picker.color_square(&mut self.color_square_state);
             add_color_square!(ret, self, color_square);
         }
 

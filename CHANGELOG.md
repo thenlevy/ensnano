@@ -3,6 +3,12 @@
 
 <!-- next-header -->
 
+## 0.4.1
+- Introduce the possibility to copy and paste whole grids with their content
+- Make the strand color picker appear when the current selection contains a strand
+(previously, it appeared when the current selection mode was strand)
+- Treat unpaired nucleotide as seperate domains during staples export
+
 ## 0.4.0
 - Remaps mouse buttons in the 2D view.
  * Left Clicking on a nucleotide selects it, clicking again selects the strands on which the nucleotide lies
