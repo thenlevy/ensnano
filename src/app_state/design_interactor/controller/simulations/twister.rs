@@ -153,9 +153,7 @@ impl TwistState {
     fn set_twist(&mut self, twist: f64, parameters: &Parameters) {
         let omega = match &mut self.grid.grid_type {
             GridTypeDescr::Hyperboloid {
-                nb_turn_per_100_nt,
-                radius,
-                ..
+                nb_turn_per_100_nt, ..
             } => {
                 *nb_turn_per_100_nt = twist;
                 ensnano_design::nb_turn_per_100_nt_to_omega(*nb_turn_per_100_nt, parameters)
@@ -268,7 +266,6 @@ impl DesignData {
     }
 
     fn update_twist(&mut self, twist: f64) {
-        let nb_helices = self.helices.len();
         for h in self.helices.iter_mut() {
             if let Some(CurveDescriptor::Twist(Twist { omega, .. })) =
                 h.curve.as_mut().map(Arc::make_mut)

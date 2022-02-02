@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::scadnano::*;
 use super::{codenano, Nucl};
 use std::borrow::Cow;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 mod formating;
 
 /// A collection of strands, that maps strand identifier to strands.
@@ -688,15 +688,6 @@ impl HelixInterval {
     }
 }
 
-// used in Domain::from_scadnano
-fn count_leq(set: &BTreeSet<isize>, x: isize) -> isize {
-    let mut ret = 0;
-    for _ in set.iter().take_while(|y| **y <= x) {
-        ret += 1
-    }
-    ret
-}
-
 impl Domain {
     pub fn from_codenano<Dl>(codenano_domain: &codenano::Domain<Dl>) -> Self {
         let interval = HelixInterval {
@@ -719,7 +710,6 @@ impl Domain {
                 start,
                 end,
                 forward,
-                insertions,
                 ..// TODO read insertion and deletion
             } => {
                 let start = insertion_deletions.adjust(*start, *helix);

@@ -19,7 +19,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! All other format supported by ensnano are converted into this format and run-time manipulation
 //! of designs are performed on an `ensnano::Design` structure
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::f32::consts::PI;
 use std::sync::Arc;
 
 #[macro_use]
