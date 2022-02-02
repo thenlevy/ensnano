@@ -178,6 +178,7 @@ impl DesignContent {
             }
             let mut sequence = String::new();
             let mut first = true;
+            let mut previous_char_is_basis = None;
             for domain in &strand.domains {
                 if !first {
                     sequence.push(' ');
@@ -190,7 +191,20 @@ impl DesignContent {
                             forward: dom.forward,
                             helix: dom.helix,
                         };
-                        sequence.push(*basis_map.get(&nucl).unwrap_or(&'?'));
+                        let next_basis = basis_map.get(&nucl);
+                        if let Some(basis) = next_basis {
+                            if previous_char_is_basis == Some(false) {
+                                sequence.push(' ');
+                            }
+                            sequence.push(*basis);
+                            previous_char_is_basis = Some(true);
+                        } else {
+                            if previous_char_is_basis == Some(true) {
+                                sequence.push(' ');
+                            }
+                            sequence.push('?');
+                            previous_char_is_basis = Some(false);
+                        }
                     }
                 }
             }
