@@ -206,6 +206,10 @@ pub fn extract_grids(selection: &[Selection]) -> Vec<usize> {
     selection.iter().filter_map(extract_one_grid).collect()
 }
 
+pub fn extract_only_grids(selection: &[Selection]) -> Option<Vec<usize>> {
+    selection.iter().map(extract_one_grid).collect()
+}
+
 fn extract_one_grid(selection: &Selection) -> Option<usize> {
     if let Selection::Grid(_, g_id) = selection {
         Some(*g_id)

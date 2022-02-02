@@ -193,6 +193,11 @@ impl Strands {
     pub fn values_mut(&mut self) -> impl Iterator<Item = &mut Strand> {
         self.0.values_mut()
     }
+
+    pub fn push(&mut self, strand: Strand) {
+        let id = self.0.keys().max().map(|m| m + 1).unwrap_or(0);
+        self.0.insert(id, strand);
+    }
     //============================================================================================
 }
 

@@ -371,6 +371,9 @@ impl Controller {
                 },
                 up_to_date_design.design,
             ),
+            CopyOperation::CopyGrids(grid_ids) => {
+                self.apply_no_op(|c, d| c.copy_grids(d, grid_ids), up_to_date_design.design)
+            }
         }
     }
 
@@ -1398,6 +1401,7 @@ pub enum ErrOperation {
     GridIsNotHyperboloid(usize),
     DesignOperationError(ensnano_design::design_operations::ErrOperation),
     NotPiecewiseBezier(usize),
+    GridCopyError(ensnano_design::grid::GridCopyError),
 }
 
 impl From<ensnano_design::design_operations::ErrOperation> for ErrOperation {

@@ -1,6 +1,6 @@
 [package]
 name = "ensnano_design"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["thenlevy <nicolaspierrelevy@gmail.com>"]
 edition = "2018"
 license = "GPL-3.0-or-later"

@@ -25,7 +25,9 @@ use super::{
     Axis, BezierControlPoint, Design, Helices, Helix, HelixCollection, Parameters,
 };
 use curves::{CurveCache, GridPositionProvider, InstanciatedCurve, InstanciatedCurveDescriptor};
+mod copy_grid;
 mod hyperboloid;
+pub use copy_grid::GridCopyError;
 pub use hyperboloid::*;
 use std::sync::Arc;
 
