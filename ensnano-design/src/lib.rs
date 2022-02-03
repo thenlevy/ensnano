@@ -100,7 +100,7 @@ pub struct Design {
     /// The set of identifiers of grids whose helices must not always display their phantom
     /// helices.
     #[serde(skip_serializing_if = "HashSet::is_empty", default)]
-    pub no_phantoms: HashSet<usize>,
+    pub no_phantoms: Arc<HashSet<usize>>,
 
     /// The set of identifiers of grids whose helices are displayed with smaller spheres for the
     /// nucleotides.
@@ -111,7 +111,7 @@ pub struct Design {
         skip_serializing_if = "HashSet::is_empty",
         default
     )]
-    pub small_spheres: HashSet<usize>,
+    pub small_spheres: Arc<HashSet<usize>>,
 
     /// The set of nucleotides that must not move during physical simulations
     #[serde(skip_serializing_if = "HashSet::is_empty", default)]

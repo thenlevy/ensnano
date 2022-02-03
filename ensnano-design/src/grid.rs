@@ -684,8 +684,8 @@ pub struct GridData {
     object_to_pos: HashMap<GridObject, HelixGridPosition>,
     pos_to_object: HashMap<GridPosition, GridObject>,
     pub parameters: Parameters,
-    pub no_phantoms: HashSet<usize>,
-    pub small_spheres: HashSet<usize>,
+    pub no_phantoms: Arc<HashSet<usize>>,
+    pub small_spheres: Arc<HashSet<usize>>,
     center_of_gravity: HashMap<usize, CenterOfGravity>,
 }
 
@@ -717,6 +717,8 @@ impl GridData {
     pub(super) fn is_up_to_date(&self, design: &Design) -> bool {
         Arc::ptr_eq(&self.source_grids, &design.grids)
             && Arc::ptr_eq(&self.source_helices.0, &design.helices.0)
+            && Arc::ptr_eq(&self.no_phantoms, &design.no_phantoms)
+            && Arc::ptr_eq(&self.small_spheres, &design.small_spheres)
     }
 
     pub fn get_visibility(&self, g_id: usize) -> bool {

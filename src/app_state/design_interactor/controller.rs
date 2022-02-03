@@ -1478,9 +1478,9 @@ impl Controller {
     ) -> Design {
         for g_id in grid_ids.into_iter() {
             if persistant {
-                design.no_phantoms.remove(&g_id);
+                Arc::make_mut(&mut design.no_phantoms).remove(&g_id);
             } else {
-                design.no_phantoms.insert(g_id);
+                Arc::make_mut(&mut design.no_phantoms).insert(g_id);
             }
         }
         design
@@ -1494,9 +1494,9 @@ impl Controller {
     ) -> Design {
         for g_id in grid_ids.into_iter() {
             if small {
-                design.small_spheres.insert(g_id);
+                Arc::make_mut(&mut design.small_spheres).insert(g_id);
             } else {
-                design.small_spheres.remove(&g_id);
+                Arc::make_mut(&mut design.small_spheres).remove(&g_id);
             }
         }
         design

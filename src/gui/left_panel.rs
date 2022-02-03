@@ -38,7 +38,7 @@ use ensnano_design::{
 };
 use ensnano_interactor::{
     graphics::{Background3D, RenderingMode},
-    ActionMode, SelectionConversion, SelectionMode, SuggestionParameters,
+    ActionMode, SelectionConversion, SuggestionParameters,
 };
 
 use super::{
