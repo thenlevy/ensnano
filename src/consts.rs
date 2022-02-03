@@ -196,3 +196,24 @@ pub const STEREOGRAPHIC_ZOOM_STEP: f32 = 1.1;
 pub const PIECEWISE_BEZIER_COLOR: u32 = 0xFF_66_CD_AA; // Medium Aquamarine
 
 pub const UPDATE_VISIBILITY_SIEVE_LABEL: &'static str = "Update visibility sieve";
+pub const COLOR_ADENOSINE: u32 = 0x00_CC0000;
+pub const COLOR_THYMINE: u32 = 0x00_0000CC;
+pub const COLOR_GUANINE: u32 = 0x00_00CC00;
+pub const COLOR_CYTOSINE: u32 = 0x00_CC00CC;
+pub const UNKONW_BASE_COLOR: u32 = 0x00_77_88_99;
+
+pub const fn basis_color(basis: char) -> u32 {
+    match basis {
+        'A' => COLOR_ADENOSINE,
+        'T' => COLOR_THYMINE,
+        'G' => COLOR_GUANINE,
+        'C' => COLOR_CYTOSINE,
+        _ => UNKONW_BASE_COLOR,
+    }
+}
+
+pub const BASIS_SCALE: ultraviolet::Vec3 = ultraviolet::Vec3 {
+    x: 0.33 / SPHERE_RADIUS,
+    y: BOUND_RADIUS / SPHERE_RADIUS,
+    z: 2. * BOUND_RADIUS / SPHERE_RADIUS,
+};

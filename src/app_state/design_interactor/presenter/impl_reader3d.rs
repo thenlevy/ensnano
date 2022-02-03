@@ -312,6 +312,10 @@ impl Reader3D for DesignReader {
         }
     }
 
+    fn get_all_h_bonds(&self) -> &[HBond] {
+        self.presenter.bonds.as_ref()
+    }
+
     fn get_position_of_bezier_control(
         &self,
         helix: usize,

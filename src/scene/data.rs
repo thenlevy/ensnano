@@ -48,7 +48,7 @@ type ViewPtr = Rc<RefCell<View>>;
 /// A module that handles the instantiation of designs as 3D geometric objects
 mod design3d;
 use design3d::Design3D;
-pub use design3d::DesignReader;
+pub use design3d::{DesignReader, HBond, HalfHBond};
 
 pub struct Data<R: DesignReader> {
     view: ViewPtr,
@@ -1316,6 +1316,13 @@ impl<R: DesignReader> Data<R> {
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::Prime3Cone, Rc::new(cones)));
+        let (hbonds, ellipsoids) = self.designs[0].get_all_hbond();
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::HBond, Rc::new(hbonds)));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::BaseEllipsoid, Rc::new(ellipsoids)));
     }
 
     fn update_discs<S: AppState>(&mut self, app_state: &S) {

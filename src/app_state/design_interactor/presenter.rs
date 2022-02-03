@@ -35,6 +35,7 @@ mod impl_reader2d;
 mod impl_reader3d;
 mod impl_readergui;
 mod oxdna;
+use crate::scene::{HBond, HalfHBond};
 use ahash::AHashMap;
 use design_content::DesignContent;
 use std::collections::{BTreeMap, HashSet};
@@ -57,6 +58,7 @@ pub(super) struct Presenter {
     pub junctions_ids: AddressPointer<JunctionsIds>,
     visibility_sive: Option<VisibilitySieve>,
     invisible_nucls: HashSet<Nucl>,
+    bonds: AddressPointer<Vec<HBond>>,
 }
 
 impl Default for Presenter {
@@ -69,6 +71,7 @@ impl Default for Presenter {
             junctions_ids: Default::default(),
             visibility_sive: None,
             invisible_nucls: Default::default(),
+            bonds: Default::default(),
         }
     }
 }
@@ -104,6 +107,7 @@ impl Presenter {
         {
             self.read_design(design, suggestion_parameters);
             self.read_scaffold_seq();
+            self.collect_h_bonds();
             self.update_visibility();
         }
         self
@@ -129,8 +133,10 @@ impl Presenter {
             junctions_ids: AddressPointer::new(junctions_ids),
             visibility_sive: None,
             invisible_nucls: Default::default(),
+            bonds: Default::default(),
         };
         ret.read_scaffold_seq();
+        ret.collect_h_bonds();
         (ret, design)
     }
 
@@ -229,6 +235,63 @@ impl Presenter {
             new_content.basis_map = Arc::new(basis_map);
             self.content = AddressPointer::new(new_content);
         }
+    }
+
+    fn collect_h_bonds(&mut self) {
+        let mut bonds = Vec::with_capacity(self.content.identifier_nucl.len());
+        for (n_forward, forward_id) in self
+            .content
+            .identifier_nucl
+            .iter()
+            .filter(|(n, _)| n.forward)
+        {
+            let n_backward = n_forward.compl();
+            if let Some(backward_id) = self.content.identifier_nucl.get(&n_backward) {
+                if let Some(bond) = self.h_bond(*forward_id, *backward_id, *n_forward, n_backward) {
+                    bonds.push(bond);
+                }
+            }
+        }
+        self.bonds = AddressPointer::new(bonds);
+    }
+
+    fn h_bond(
+        &self,
+        forward_id: u32,
+        backward_id: u32,
+        forward_nucl: Nucl,
+        backward_nucl: Nucl,
+    ) -> Option<HBond> {
+        let pos_forward: Vec3 = self
+            .content
+            .space_position
+            .get(&forward_id)
+            .cloned()?
+            .into();
+        let pos_backward: Vec3 = self
+            .content
+            .space_position
+            .get(&backward_id)
+            .cloned()?
+            .into();
+        let a1 = (pos_backward - pos_forward).normalized();
+        let forward_half = HalfHBond {
+            backbone: pos_forward,
+            center_of_mass: pos_forward + 2. * a1 * oxdna::BACKBONE_TO_CM,
+            base: self.content.basis_map.get(&forward_nucl).cloned(),
+            backbone_color: self.content.color.get(&forward_id).cloned()?,
+        };
+
+        let backward_half = HalfHBond {
+            backbone: pos_backward,
+            center_of_mass: pos_backward - 2. * a1 * oxdna::BACKBONE_TO_CM,
+            base: self.content.basis_map.get(&backward_nucl).cloned(),
+            backbone_color: self.content.color.get(&backward_id).cloned()?,
+        };
+        Some(HBond {
+            forward: forward_half,
+            backward: backward_half,
+        })
     }
 
     fn update_visibility(&mut self) {

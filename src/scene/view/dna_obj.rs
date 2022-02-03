@@ -432,3 +432,57 @@ impl Instanciable for ConeInstance {
 }
 
 impl DnaObject for ConeInstance {}
+
+pub struct Ellipsoid {
+    pub scale: Vec3,
+    pub orientation: Rotor3,
+    pub sphere: SphereInstance,
+}
+
+impl Instanciable for Ellipsoid {
+    type Vertex = DnaVertex;
+    type RawInstance = RawDnaInstance;
+    type Ressource = ();
+
+    fn vertices() -> Vec<Self::Vertex> {
+        SphereInstance::vertices()
+    }
+
+    fn indices() -> Vec<u16>
+    where
+        Self: Sized,
+    {
+        SphereInstance::indices()
+    }
+
+    fn fragment_module(device: &wgpu::Device) -> wgpu::ShaderModule
+    where
+        Self: Sized,
+    {
+        SphereInstance::fragment_module(device)
+    }
+
+    fn vertex_module(device: &wgpu::Device) -> wgpu::ShaderModule
+    where
+        Self: Sized,
+    {
+        SphereInstance::vertex_module(device)
+    }
+
+    fn primitive_topology() -> wgpu::PrimitiveTopology
+    where
+        Self: Sized,
+    {
+        SphereInstance::primitive_topology()
+    }
+
+    fn to_raw_instance(&self) -> Self::RawInstance {
+        let mut ret = self.sphere.to_raw_instance();
+        let model = Mat4::from_translation(self.sphere.position)
+            * self.orientation.into_matrix().into_homogeneous();
+        ret.scale = self.scale;
+        ret.model = model;
+        ret.inversed_model = model.inversed();
+        ret
+    }
+}

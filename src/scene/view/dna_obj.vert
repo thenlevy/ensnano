@@ -62,7 +62,7 @@ void main() {
     v_normal = normal_matrix * a_normal;
     v_color = instances[gl_InstanceIndex].color;
     vec3 scale = instances[gl_InstanceIndex].scale;
-    if (scale.x > LOW_CRIT && abs(scale.x - scale.y) > 1e-5) {
+    if (scale.x > LOW_CRIT && abs(scale.x - scale.y) > 1e-5 && instances[gl_InstanceIndex].id > 0.0) {
        scale.y *= 1.3;
        scale.z *= 1.3;
        float shade = smoothstep(LOW_CRIT, HIGH_CRIT, scale.x);

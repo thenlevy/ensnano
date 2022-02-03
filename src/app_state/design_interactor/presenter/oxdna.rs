@@ -21,9 +21,9 @@ use std::io::Write;
 use std::path::Path;
 use ultraviolet::Vec3;
 
-const BACKBONE_TO_CM: f32 = 0.34;
+pub(super) const BACKBONE_TO_CM: f32 = 0.34;
 
-struct OxDnaNucl {
+pub struct OxDnaNucl {
     position: Vec3,
     backbone_base: Vec3,
     normal: Vec3,
@@ -103,7 +103,7 @@ struct OxDnaBound {
     prime3: isize,
 }
 
-trait OxDnaHelix {
+pub(super) trait OxDnaHelix {
     fn ox_dna_nucl(&self, nucl_idx: isize, forward: bool, parameters: &Parameters) -> OxDnaNucl;
 }
 
