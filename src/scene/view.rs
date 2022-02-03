@@ -54,8 +54,8 @@ use crate::text::Letter;
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use direction_cube::*;
 pub use dna_obj::{
-    ConeInstance, DnaObject, RawDnaInstance, SphereInstance, StereographicSphereAndPlane,
-    TubeInstance, Ellipsoid, 
+    ConeInstance, DnaObject, Ellipsoid, RawDnaInstance, SphereInstance,
+    StereographicSphereAndPlane, TubeInstance,
 };
 use drawable::{Drawable, Drawer, Vertex};
 pub use grid::{GridInstance, GridIntersection};

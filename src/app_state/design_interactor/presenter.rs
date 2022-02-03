@@ -239,16 +239,24 @@ impl Presenter {
 
     fn collect_h_bonds(&mut self) {
         let mut bonds = Vec::with_capacity(self.content.identifier_nucl.len());
-        for (n_forward, forward_id) in self
+        for (forward_nucl, virtual_nucl_forward, forward_id) in self
             .content
             .identifier_nucl
             .iter()
             .filter(|(n, _)| n.forward)
+            .filter_map(|(n, id)| {
+                Nucl::map_to_virtual_nucl(*n, &self.current_design.helices)
+                    .map(move |v| (*n, v, *id))
+            })
         {
-            let n_backward = n_forward.compl();
-            if let Some(backward_id) = self.content.identifier_nucl.get(&n_backward) {
-                if let Some(bond) = self.h_bond(*forward_id, *backward_id, *n_forward, n_backward) {
-                    bonds.push(bond);
+            let virtual_nucl_backward = virtual_nucl_forward.compl();
+            if let Some(backward_nucl) = self.content.virtual_nucl_map.get(&virtual_nucl_backward) {
+                if let Some(backward_id) = self.content.identifier_nucl.get(backward_nucl) {
+                    if let Some(bond) =
+                        self.h_bond(forward_id, *backward_id, forward_nucl, *backward_nucl)
+                    {
+                        bonds.push(bond);
+                    }
                 }
             }
         }
