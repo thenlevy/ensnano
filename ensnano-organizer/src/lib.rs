@@ -274,7 +274,10 @@ impl<E: OrganizerElement> Organizer<E> {
     ) -> Option<OrganizerMessage<E>> {
         log::trace!("{:?}", message);
         match &message.0 {
-            OrganizerMessage_::Expand { id, expanded } => self.expand(id, *expanded),
+            OrganizerMessage_::Expand { id, expanded } => {
+                self.expand(id, *expanded);
+                return Some(OrganizerMessage::NewTree(self.tree()));
+            }
             OrganizerMessage_::NodeSelected { id } => {
                 let add = self.modifiers.command() || self.modifiers.shift();
                 let (new_selection, new_group) = self.select_node(id, add, selection.clone());
