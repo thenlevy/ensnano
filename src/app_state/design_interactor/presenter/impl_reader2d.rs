@@ -27,6 +27,7 @@ use std::sync::Arc;
 use ultraviolet::{Isometry2, Vec3};
 
 impl Reader2D for DesignReader {
+    type NuclCollection = IdentifierNucl;
     fn get_isometry(&self, h_id: usize) -> Option<Isometry2> {
         self.presenter
             .current_design
@@ -191,7 +192,7 @@ impl Reader2D for DesignReader {
             .collect()
     }
 
-    fn get_nucl_collection(&self) -> Arc<dyn crate::flatscene::NuclCollection> {
+    fn get_nucl_collection(&self) -> Arc<IdentifierNucl> {
         Arc::new(self.presenter.content.identifier_nucl.clone())
     }
 }

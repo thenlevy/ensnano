@@ -49,7 +49,7 @@ use std::time::Instant;
 use view::View;
 
 type ViewPtr = Rc<RefCell<View>>;
-type DataPtr = Rc<RefCell<Data>>;
+type DataPtr<R> = Rc<RefCell<Data<R>>>;
 type CameraPtr = Rc<RefCell<Camera>>;
 
 /// A Flatscene handles one design at a time
@@ -57,7 +57,7 @@ pub struct FlatScene<S: AppState> {
     /// Handle the data to send to the GPU
     view: Vec<ViewPtr>,
     /// Handle the data representing the design
-    data: Vec<DataPtr>,
+    data: Vec<DataPtr<S::Reader>>,
     /// Handle the inputs
     controller: Vec<Controller<S>>,
     /// The area on which the flatscene is displayed

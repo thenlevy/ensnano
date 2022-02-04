@@ -38,9 +38,9 @@ pub use design::{DesignReader, FlatTorsion, NuclCollection};
 use ensnano_design::Strand as DesignStrand;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
-pub struct Data {
+pub struct Data<R: DesignReader> {
     view: ViewPtr,
-    design: Design2d,
+    design: Design2d<R>,
     instance_update: bool,
     instance_reset: bool,
     helices: HelixVec<Helix>,
@@ -52,13 +52,8 @@ pub struct Data {
     last_click: LastClick,
 }
 
-impl Data {
-    pub fn new<R: DesignReader>(
-        view: ViewPtr,
-        design: R,
-        id: u32,
-        requests: Arc<Mutex<dyn Requests>>,
-    ) -> Self {
+impl<R: DesignReader> Data<R> {
+    pub fn new(view: ViewPtr, design: R, id: u32, requests: Arc<Mutex<dyn Requests>>) -> Self {
         Self {
             view,
             design: Design2d::new(design, requests.clone()),
@@ -74,7 +69,7 @@ impl Data {
         }
     }
 
-    pub fn perform_update<S: AppState>(&mut self, new_state: &S, old_state: &S) {
+    pub fn perform_update<S: AppState<Reader = R>>(&mut self, new_state: &S, old_state: &S) {
         if self.instance_reset {
             self.view.borrow_mut().reset();
             self.instance_reset = false;
@@ -216,7 +211,7 @@ impl Data {
             .update_strand_building_info(flat_info);
     }
 
-    fn fetch_helices<R: DesignReader>(&mut self, design: R) {
+    fn fetch_helices(&mut self, design: R) {
         let removed_helices = self.design.get_removed_helices();
         for h in removed_helices.iter().rev() {
             self.helices.remove(*h);
