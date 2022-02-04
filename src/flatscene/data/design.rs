@@ -25,7 +25,7 @@ use ensnano_design::{Extremity, Helix as DesignHelix, HelixCollection, Strand as
 use ensnano_interactor::{torsion::Torsion, Referential};
 use ultraviolet::{Isometry2, Rotor2, Vec2, Vec3};
 
-pub(super) struct Design2d {
+pub(super) struct Design2d<R: DesignReader> {
     /// The 2d helices
     helices: HelixVec<Helix2d>,
     /// Maps id of helices in design to location in self.helices
@@ -33,7 +33,7 @@ pub(super) struct Design2d {
     /// the 2d strands
     strands: Vec<Strand>,
     /// A pointer to the design
-    design: Box<dyn DesignReader>,
+    design: R,
     /// The strand being pasted,
     pasted_strands: Vec<Strand>,
     last_flip_other: Option<FlatHelix>,
@@ -43,10 +43,10 @@ pub(super) struct Design2d {
     known_map: *const ensnano_design::Helices,
 }
 
-impl Design2d {
-    pub fn new<R: DesignReader>(design: R, requests: Arc<Mutex<dyn Requests>>) -> Self {
+impl<R: DesignReader> Design2d<R> {
+    pub fn new(design: R, requests: Arc<Mutex<dyn Requests>>) -> Self {
         Self {
-            design: Box::new(design),
+            design,
             helices: HelixVec::new(),
             id_map: HashMap::new(),
             strands: Vec::new(),
@@ -60,8 +60,8 @@ impl Design2d {
     }
 
     /// Re-read the design and update the 2d data accordingly
-    pub fn update<R: DesignReader>(&mut self, design: R) {
-        self.design = Box::new(design);
+    pub fn update(&mut self, design: R) {
+        self.design = design;
         log::trace!("updating design");
         // At the moment we rebuild the strands from scratch. If needed, this might be an optimisation
         // target
@@ -441,6 +441,7 @@ impl FlatTorsion {
 }
 
 pub trait DesignReader: 'static {
+    type NuclCollection: NuclCollection;
     fn get_all_strand_ids(&self) -> Vec<usize>;
     /// Return a the list of consecutive domain extremities of strand `s_id`. Return None iff there
     /// is no strand with id `s_id` in the design.
@@ -477,4 +478,10 @@ pub trait DesignReader: 'static {
     fn get_basis_map(&self) -> Arc<HashMap<Nucl, char, RandomState>>;
     fn get_group_map(&self) -> Arc<BTreeMap<usize, bool>>;
     fn get_strand_ends(&self) -> Vec<Nucl>;
+    fn get_nucl_collection(&self) -> Arc<Self::NuclCollection>;
+}
+
+pub trait NuclCollection {
+    fn contains(&self, nucl: &Nucl) -> bool;
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a>;
 }

@@ -34,6 +34,48 @@ mod xover_suggestions;
 use xover_suggestions::XoverSuggestions;
 
 #[derive(Default, Clone)]
+pub struct NuclCollection {
+    identifier: HashMap<Nucl, u32, RandomState>,
+    virtual_nucl_map: HashMap<VirtualNucl, Nucl, RandomState>,
+}
+
+impl super::NuclCollection for NuclCollection {
+    fn iter_nucls_ids<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Nucl, &'a u32)> + 'a> {
+        Box::new(self.identifier.iter())
+    }
+
+    fn contains_nucl(&self, nucl: &Nucl) -> bool {
+        self.identifier.contains_key(nucl)
+    }
+
+    fn iter_nucls<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a> {
+        Box::new(self.identifier.keys())
+    }
+
+    fn virtual_to_real(&self, virtual_nucl: &VirtualNucl) -> Option<&Nucl> {
+        self.virtual_nucl_map.get(virtual_nucl)
+    }
+}
+
+impl NuclCollection {
+    pub fn get_identifier(&self, nucl: &Nucl) -> Option<&u32> {
+        self.identifier.get(nucl)
+    }
+
+    pub fn contains_nucl(&self, nucl: &Nucl) -> bool {
+        self.identifier.contains_key(nucl)
+    }
+
+    fn insert(&mut self, key: Nucl, id: u32) -> Option<u32> {
+        self.identifier.insert(key, id)
+    }
+
+    fn insert_virtual(&mut self, virtual_nucl: VirtualNucl, nucl: Nucl) -> Option<Nucl> {
+        self.virtual_nucl_map.insert(virtual_nucl, nucl)
+    }
+}
+
+#[derive(Default, Clone)]
 pub(super) struct DesignContent {
     /// Maps identifer of elements to their object type
     pub object_type: HashMap<u32, ObjectType, RandomState>,
@@ -44,7 +86,7 @@ pub(super) struct DesignContent {
     /// Maps identifier of element to their position in the Model's coordinates
     pub space_position: HashMap<u32, [f32; 3], RandomState>,
     /// Maps a Nucl object to its identifier
-    pub identifier_nucl: HashMap<Nucl, u32, RandomState>,
+    pub nucl_collection: Arc<NuclCollection>,
     /// Maps a pair of nucleotide forming a bound to the identifier of the bound
     pub identifier_bound: HashMap<(Nucl, Nucl), u32, RandomState>,
     /// Maps the identifier of a element to the identifier of the strands to which it belongs
@@ -58,7 +100,6 @@ pub(super) struct DesignContent {
     pub elements: Vec<DnaElement>,
     pub suggestions: Vec<(Nucl, Nucl)>,
     pub(super) grid_manager: GridData,
-    pub virtual_nucl_map: HashMap<VirtualNucl, Nucl, RandomState>,
 }
 
 impl DesignContent {
@@ -344,7 +385,7 @@ impl DesignContent {
         let groups = design.groups.clone();
         let mut object_type = HashMap::default();
         let mut space_position = HashMap::default();
-        let mut identifier_nucl = HashMap::default();
+        let mut nucl_collection = NuclCollection::default();
         let mut identifier_bound = HashMap::default();
         let mut nucleotides_involved = HashMap::default();
         let mut nucleotide = HashMap::default();
@@ -360,7 +401,6 @@ impl DesignContent {
         let mut prime3_set = Vec::new();
         let mut new_junctions: JunctionsIds = Default::default();
         let mut suggestion_maker = XoverSuggestions::default();
-        let mut virtual_nucl_map = HashMap::default();
         xover_ids.agree_on_next_id(&mut new_junctions);
         let rainbow_strand = design.scaffold_id.filter(|_| design.rainbow_scaffold);
         let grid_manager = design.get_updated_grid_data().clone();
@@ -421,7 +461,7 @@ impl DesignContent {
                         };
                         let virtual_nucl = Nucl::map_to_virtual_nucl(nucl, &design.helices);
                         if let Some(v_nucl) = virtual_nucl {
-                            let previous = virtual_nucl_map.insert(v_nucl, nucl);
+                            let previous = nucl_collection.insert_virtual(v_nucl, nucl);
                             if previous.is_some() && previous != Some(nucl) {
                                 log::error!("NUCLEOTIDE CONFLICTS: nucls {:?} and {:?} are mapped to the same virtual postition {:?}", previous, nucl, v_nucl);
                             }
@@ -438,7 +478,7 @@ impl DesignContent {
                         id += 1;
                         object_type.insert(nucl_id, ObjectType::Nucleotide(nucl_id));
                         nucleotide.insert(nucl_id, nucl);
-                        identifier_nucl.insert(nucl, nucl_id);
+                        nucl_collection.insert(nucl, nucl_id);
                         strand_map.insert(nucl_id, *s_id);
                         let color = rainbow_iterator.next().unwrap_or(color);
                         color_map.insert(nucl_id, color);
@@ -492,7 +532,7 @@ impl DesignContent {
             }
             if strand.cyclic {
                 let nucl = strand.get_5prime().unwrap();
-                let prime5_id = identifier_nucl.get(&nucl).unwrap();
+                let prime5_id = nucl_collection.get_identifier(&nucl).unwrap();
                 let bound_id = id;
                 id += 1;
                 let bound = (old_nucl.unwrap(), nucl);
@@ -553,7 +593,7 @@ impl DesignContent {
             object_type,
             nucleotide,
             nucleotides_involved,
-            identifier_nucl,
+            nucl_collection: Arc::new(nucl_collection),
             identifier_bound,
             strand_map,
             space_position,
@@ -564,7 +604,6 @@ impl DesignContent {
             elements,
             grid_manager,
             suggestions: vec![],
-            virtual_nucl_map,
         };
         let suggestions = suggestion_maker.get_suggestions(&design, suggestion_parameters);
         ret.suggestions = suggestions;
@@ -613,7 +652,7 @@ impl DesignContent {
     }
 
     pub fn read_simualtion_update(&mut self, update: &dyn SimulationUpdate) {
-        update.update_positions(&self.identifier_nucl, &mut self.space_position)
+        update.update_positions(self.nucl_collection.as_ref(), &mut self.space_position)
     }
 }
 

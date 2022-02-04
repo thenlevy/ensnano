@@ -15,6 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+use ultraviolet::Vec4;
 pub const VIEWER_BINDING_ID: u32 = 0;
 pub const INSTANCES_BINDING_ID: u32 = 1;
 pub const LIGHT_BINDING_ID: u32 = 2;
@@ -191,8 +192,23 @@ pub const BEZIER_CONTROL1_COLOR: u32 = 0xFF_37_85_30;
 pub const BEZIER_CONTROL2_COLOR: u32 = 0xFF_1A_15_70;
 pub const SEC_BETWEEN_BACKUPS: u64 = 60;
 pub const SEC_PER_YEAR: u64 = 31_536_000;
+
 pub const DEFAULT_STEREOGRAPHIC_ZOOM: f32 = 3.0;
 pub const STEREOGRAPHIC_ZOOM_STEP: f32 = 1.1;
 pub const PIECEWISE_BEZIER_COLOR: u32 = 0xFF_66_CD_AA; // Medium Aquamarine
 
 pub const UPDATE_VISIBILITY_SIEVE_LABEL: &'static str = "Update visibility sieve";
+
+pub const BLACK_VEC4: Vec4 = Vec4 {
+    x: 0.,
+    y: 0.,
+    z: 0.,
+    w: 1.,
+};
+const GREY_UNKNOWN_NUCL: f32 = 0.3;
+pub const GREY_UNKNOWN_NUCL_VEC4: Vec4 = Vec4 {
+    x: GREY_UNKNOWN_NUCL,
+    y: GREY_UNKNOWN_NUCL,
+    z: GREY_UNKNOWN_NUCL,
+    w: 1.,
+};

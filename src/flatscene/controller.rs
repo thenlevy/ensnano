@@ -37,7 +37,7 @@ use automata::{ControllerState, NormalState, Transition};
 pub struct Controller<S: AppState> {
     #[allow(dead_code)]
     view: ViewPtr,
-    data: DataPtr,
+    data: DataPtr<S::Reader>,
     #[allow(dead_code)]
     window_size: PhySize,
     area_size: PhySize,
@@ -92,7 +92,7 @@ pub enum Consequence {
 impl<S: AppState> Controller<S> {
     pub fn new(
         view: ViewPtr,
-        data: DataPtr,
+        data: DataPtr<S::Reader>,
         window_size: PhySize,
         area_size: PhySize,
         camera_top: CameraPtr,
