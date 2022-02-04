@@ -192,7 +192,7 @@ impl View {
         let rectangle = Rectangle::new(&device, queue.clone());
         let chars = [
             'A', 'T', 'G', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', 'n', 't',
-            'm', '.', '/', ' ', '(', ')',
+            'm', '.', '/', ' ', '(', ')', '?',
         ];
         let mut char_drawers_top = HashMap::new();
         let mut char_map_top = HashMap::new();

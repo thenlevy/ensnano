@@ -43,7 +43,7 @@ mod view;
 use camera::{Camera, Globals};
 use controller::Controller;
 use data::Data;
-pub use data::DesignReader;
+pub use data::{DesignReader, NuclCollection};
 use flattypes::*;
 use std::time::Instant;
 use view::View;

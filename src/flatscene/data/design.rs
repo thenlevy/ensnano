@@ -470,4 +470,9 @@ pub trait DesignReader: 'static {
     fn get_basis_map(&self) -> Arc<HashMap<Nucl, char, RandomState>>;
     fn get_group_map(&self) -> Arc<BTreeMap<usize, bool>>;
     fn get_strand_ends(&self) -> Vec<Nucl>;
+    fn get_nucl_collection(&self) -> Arc<dyn NuclCollection>;
+}
+
+pub trait NuclCollection {
+    fn contains(&self, nucl: &Nucl) -> bool;
 }

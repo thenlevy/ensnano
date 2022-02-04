@@ -16,6 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use self::design_content::IdentifierNucl;
 #[cfg(test)]
 pub use self::design_content::Staple;
 
@@ -312,8 +313,8 @@ impl Presenter {
             .and_then(|s| s.domains.get(d_id))
     }
 
-    pub(super) fn get_nucl_map(&self) -> AHashMap<Nucl, u32> {
-        self.content.identifier_nucl.clone().into()
+    pub(super) fn get_nucl_map(&self) -> IdentifierNucl {
+        self.content.identifier_nucl.clone()
     }
 
     fn whole_selection_is_visible(&self, selection: &[Selection], compl: bool) -> bool {
@@ -587,12 +588,17 @@ use std::collections::HashMap;
 pub trait SimulationUpdate: Send + Sync {
     fn update_positions(
         &self,
-        _identifier_nucl: &HashMap<Nucl, u32, ahash::RandomState>,
+        _identifier_nucl: &dyn NuclCollection,
         _space_position: &mut HashMap<u32, [f32; 3], ahash::RandomState>,
     ) {
     }
 
     fn update_design(&self, design: &mut Design);
+}
+
+pub trait NuclCollection: Send + Sync {
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Nucl, &'a u32)> + 'a>;
+    fn contains_key(&self, nucl: &Nucl) -> bool;
 }
 
 #[derive(Clone)]

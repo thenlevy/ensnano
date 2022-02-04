@@ -34,6 +34,33 @@ mod xover_suggestions;
 use xover_suggestions::XoverSuggestions;
 
 #[derive(Default, Clone)]
+pub struct IdentifierNucl(HashMap<Nucl, u32, RandomState>);
+
+impl super::NuclCollection for IdentifierNucl {
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Nucl, &'a u32)> + 'a> {
+        Box::new(self.0.iter())
+    }
+
+    fn contains_key(&self, nucl: &Nucl) -> bool {
+        self.contains_key(nucl)
+    }
+}
+
+impl IdentifierNucl {
+    pub fn get(&self, nucl: &Nucl) -> Option<&u32> {
+        self.0.get(nucl)
+    }
+
+    pub fn contains_key(&self, nucl: &Nucl) -> bool {
+        self.0.contains_key(nucl)
+    }
+
+    pub fn insert(&mut self, key: Nucl, id: u32) -> Option<u32> {
+        self.0.insert(key, id)
+    }
+}
+
+#[derive(Default, Clone)]
 pub(super) struct DesignContent {
     /// Maps identifer of elements to their object type
     pub object_type: HashMap<u32, ObjectType, RandomState>,
@@ -44,7 +71,7 @@ pub(super) struct DesignContent {
     /// Maps identifier of element to their position in the Model's coordinates
     pub space_position: HashMap<u32, [f32; 3], RandomState>,
     /// Maps a Nucl object to its identifier
-    pub identifier_nucl: HashMap<Nucl, u32, RandomState>,
+    pub identifier_nucl: IdentifierNucl,
     /// Maps a pair of nucleotide forming a bound to the identifier of the bound
     pub identifier_bound: HashMap<(Nucl, Nucl), u32, RandomState>,
     /// Maps the identifier of a element to the identifier of the strands to which it belongs
@@ -330,7 +357,7 @@ impl DesignContent {
         let groups = design.groups.clone();
         let mut object_type = HashMap::default();
         let mut space_position = HashMap::default();
-        let mut identifier_nucl = HashMap::default();
+        let mut identifier_nucl = IdentifierNucl::default();
         let mut identifier_bound = HashMap::default();
         let mut nucleotides_involved = HashMap::default();
         let mut nucleotide = HashMap::default();

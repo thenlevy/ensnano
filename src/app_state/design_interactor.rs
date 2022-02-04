@@ -26,7 +26,7 @@ use ensnano_interactor::{
 mod presenter;
 use ensnano_organizer::GroupId;
 pub use presenter::SimulationUpdate;
-use presenter::{apply_simulation_update, update_presenter, Presenter};
+use presenter::{apply_simulation_update, update_presenter, NuclCollection, Presenter};
 pub(super) mod controller;
 use controller::Controller;
 pub use controller::{

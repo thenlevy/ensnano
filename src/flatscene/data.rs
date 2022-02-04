@@ -34,7 +34,7 @@ use crate::consts::*;
 use crate::utils::camera2d::FitRectangle;
 use ahash::RandomState;
 use design::{Design2d, Helix2d};
-pub use design::{DesignReader, FlatTorsion};
+pub use design::{DesignReader, FlatTorsion, NuclCollection};
 use ensnano_design::Strand as DesignStrand;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 

@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::SimulationUpdate;
+use super::{NuclCollection, SimulationUpdate};
 use crate::app_state::AddressPointer;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
@@ -721,7 +721,7 @@ impl Controller {
     pub(super) fn optimize_shift(
         &self,
         chanel_reader: &mut dyn ShiftOptimizerReader,
-        nucl_map: Arc<AHashMap<Nucl, u32>>,
+        nucl_map: Arc<dyn NuclCollection>,
         design: &Design,
     ) -> Result<(OkOperation, Self), ErrOperation> {
         if let OperationCompatibility::Incompatible =
@@ -739,7 +739,7 @@ impl Controller {
         &mut self,
         design: &Design,
         chanel_reader: &mut dyn ShiftOptimizerReader,
-        nucl_map: Arc<AHashMap<Nucl, u32>>,
+        nucl_map: Arc<dyn NuclCollection>,
     ) {
         self.state = ControllerState::OptimizingScaffoldPosition;
         shift_optimization::optimize_shift(Arc::new(design.clone()), nucl_map, chanel_reader);

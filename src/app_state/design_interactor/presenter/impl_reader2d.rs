@@ -190,6 +190,16 @@ impl Reader2D for DesignReader {
             .flatten()
             .collect()
     }
+
+    fn get_nucl_collection(&self) -> Arc<dyn crate::flatscene::NuclCollection> {
+        Arc::new(self.presenter.content.identifier_nucl.clone())
+    }
+}
+
+impl<T: super::NuclCollection> crate::flatscene::NuclCollection for T {
+    fn contains(&self, nucl: &Nucl) -> bool {
+        self.contains_key(nucl)
+    }
 }
 
 #[cfg(test)]
