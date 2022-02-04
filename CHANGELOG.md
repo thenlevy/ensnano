@@ -8,6 +8,7 @@
 - Make the strand color picker appear when the current selection contains a strand
 (previously, it appeared when the current selection mode was strand)
 - Treat unpaired nucleotide as seperate domains during staples export
+- Show a question mark in place of letter for nucleotide with no basis in 2D view
 
 ## 0.4.0
 - Remaps mouse buttons in the 2D view.
