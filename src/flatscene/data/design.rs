@@ -475,4 +475,5 @@ pub trait DesignReader: 'static {
 
 pub trait NuclCollection {
     fn contains(&self, nucl: &Nucl) -> bool;
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a>;
 }

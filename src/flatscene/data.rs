@@ -251,9 +251,11 @@ impl Data {
         self.view
             .borrow_mut()
             .set_torsions(self.design.get_torsions());
-        self.view
-            .borrow_mut()
-            .update_maps(design.get_group_map(), design.get_basis_map());
+        self.view.borrow_mut().update_maps(
+            design.get_group_map(),
+            design.get_basis_map(),
+            design.get_nucl_collection(),
+        );
     }
 
     fn update_suggestion(&mut self, suggestion: &[(FlatNucl, FlatNucl)]) {

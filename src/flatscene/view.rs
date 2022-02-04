@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::data::{
     FlatTorsion, FreeEnd, GpuVertex, Helix, HelixModel, Shift, Strand, StrandVertex,
 };
-use super::{CameraPtr, FlatIdx, FlatNucl};
+use super::{CameraPtr, FlatIdx, FlatNucl, NuclCollection};
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
 use crate::utils::Ndc;
@@ -100,8 +100,19 @@ pub struct View {
     rectangle: Rectangle,
     groups: Arc<BTreeMap<usize, bool>>,
     basis_map: Arc<HashMap<Nucl, char, RandomState>>,
+    nucl_collection: Arc<dyn NuclCollection>,
     edition_info: Option<EditionInfo>,
     hovered_nucl: Option<FlatNucl>,
+}
+
+impl NuclCollection for () {
+    fn contains(&self, _nucl: &Nucl) -> bool {
+        false
+    }
+
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a> {
+        Box::new([].iter())
+    }
 }
 
 pub struct EditionInfo {
@@ -263,6 +274,7 @@ impl View {
             insertion_drawer,
             groups: Default::default(),
             basis_map: Default::default(),
+            nucl_collection: Arc::new(()),
             edition_info: Default::default(),
             selected_nucl: vec![],
             candidate_nucl: vec![],
@@ -1172,6 +1184,7 @@ impl View {
                 self.show_sec,
                 &self.edition_info,
                 &self.hovered_nucl,
+                self.nucl_collection.as_ref(),
             );
             h.add_char_instances(
                 &self.camera_bottom,
@@ -1182,6 +1195,7 @@ impl View {
                 self.show_sec,
                 &self.edition_info,
                 &self.hovered_nucl,
+                self.nucl_collection.as_ref(),
             )
         }
 
@@ -1208,10 +1222,12 @@ impl View {
         &mut self,
         groups: Arc<BTreeMap<usize, bool>>,
         basis_map: Arc<HashMap<Nucl, char, RandomState>>,
+        nucl_collection: Arc<dyn NuclCollection>,
     ) {
         self.was_updated = true;
         self.groups = groups;
         self.basis_map = basis_map;
+        self.nucl_collection = nucl_collection;
     }
 }
 

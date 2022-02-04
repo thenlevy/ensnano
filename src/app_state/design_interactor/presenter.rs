@@ -599,6 +599,7 @@ pub trait SimulationUpdate: Send + Sync {
 pub trait NuclCollection: Send + Sync {
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Nucl, &'a u32)> + 'a>;
     fn contains_key(&self, nucl: &Nucl) -> bool;
+    fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a>;
 }
 
 #[derive(Clone)]

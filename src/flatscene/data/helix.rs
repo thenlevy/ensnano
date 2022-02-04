@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::super::view::{CharInstance, CircleInstance, InsertionInstance};
 use super::super::{CameraPtr, Flat, FlatHelix, FlatIdx};
-use super::{FlatNucl, Helix2d};
+use super::{FlatNucl, Helix2d, NuclCollection};
 use crate::consts::*;
 use crate::flatscene::view::EditionInfo;
 use crate::utils::instance::Instance;
@@ -673,6 +673,7 @@ impl Helix {
         show_seq: bool,
         edition_info: &Option<EditionInfo>,
         hovered_nucl: &Option<FlatNucl>,
+        nucl_collection: &dyn NuclCollection,
     ) {
         let candidate_pos: Option<isize> = hovered_nucl
             .filter(|n| n.helix == self.flat_id)
@@ -807,7 +808,11 @@ impl Helix {
                 position,
                 forward,
             };
-            if let Some(c) = basis_map.get(&nucl) {
+            if nucl_collection.contains(&nucl) {
+                let (c, color) = basis_map
+                    .get(&nucl)
+                    .map(|c| (*c, BLACK_VEC4))
+                    .unwrap_or(('?', GREY_UNKNOWN_NUCL_VEC4));
                 let advances =
                     crate::utils::chars2d::char_positions_x(&pos.to_string(), char_drawers);
                 let height = crate::utils::chars2d::height(&c.to_string(), char_drawers);
@@ -822,7 +827,7 @@ impl Helix {
                     rotation: self.isometry.rotation.into_matrix(),
                     size: scale,
                     z_index: self.flat_id.flat.0 as i32,
-                    color: [0., 0., 0., 1.].into(),
+                    color,
                 })
             }
         };

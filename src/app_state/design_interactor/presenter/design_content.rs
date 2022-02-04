@@ -44,6 +44,10 @@ impl super::NuclCollection for IdentifierNucl {
     fn contains_key(&self, nucl: &Nucl) -> bool {
         self.contains_key(nucl)
     }
+
+    fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a> {
+        Box::new(self.0.keys())
+    }
 }
 
 impl IdentifierNucl {

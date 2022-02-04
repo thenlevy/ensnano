@@ -200,6 +200,10 @@ impl<T: super::NuclCollection> crate::flatscene::NuclCollection for T {
     fn contains(&self, nucl: &Nucl) -> bool {
         self.contains_key(nucl)
     }
+
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a> {
+        self.keys()
+    }
 }
 
 #[cfg(test)]
