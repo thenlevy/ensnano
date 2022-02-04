@@ -313,7 +313,7 @@ impl Presenter {
             .and_then(|s| s.domains.get(d_id))
     }
 
-    pub(super) fn get_nucl_map(&self) -> IdentifierNucl {
+    pub(super) fn get_owned_nucl_collection(&self) -> impl NuclCollection {
         self.content.identifier_nucl.clone()
     }
 
@@ -596,7 +596,7 @@ pub trait SimulationUpdate: Send + Sync {
     fn update_design(&self, design: &mut Design);
 }
 
-pub trait NuclCollection: Send + Sync {
+pub trait NuclCollection: Send + Sync + 'static {
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Nucl, &'a u32)> + 'a>;
     fn contains_key(&self, nucl: &Nucl) -> bool;
     fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a>;

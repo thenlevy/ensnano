@@ -71,10 +71,10 @@ impl DesignInteractor {
         &self,
         reader: &mut dyn ShiftOptimizerReader,
     ) -> Result<InteractorResult, ErrOperation> {
-        let nucl_map = self.presenter.get_nucl_map().clone();
+        let nucl_map = self.presenter.get_owned_nucl_collection();
         let result = self
             .controller
-            .optimize_shift(reader, Arc::new(nucl_map), &self.design);
+            .optimize_shift(reader, nucl_map, &self.design);
         self.handle_operation_result(result)
     }
 

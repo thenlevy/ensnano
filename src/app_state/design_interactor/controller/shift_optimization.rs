@@ -83,9 +83,9 @@ fn read_scaffold_seq(
 }
 
 /// Shift the scaffold at an optimized poisition and return the corresponding score
-pub fn optimize_shift(
+pub fn optimize_shift<Nc: NuclCollection>(
     design: Arc<Design>,
-    identifier_nucl: Arc<dyn NuclCollection>,
+    identifier_nucl: Nc,
     chanel_reader: &mut dyn ShiftOptimizerReader,
 ) {
     let (progress_snd, progress_rcv) = std::sync::mpsc::channel();
@@ -93,8 +93,7 @@ pub fn optimize_shift(
     chanel_reader.attach_result_chanel(result_rcv);
     chanel_reader.attach_progress_chanel(progress_rcv);
     std::thread::spawn(move || {
-        let result =
-            get_shift_optimization_result(design.as_ref(), progress_snd, identifier_nucl.as_ref());
+        let result = get_shift_optimization_result(design.as_ref(), progress_snd, &identifier_nucl);
         log_err!(result_snd.send(result));
     });
 }
