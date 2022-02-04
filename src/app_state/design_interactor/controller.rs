@@ -721,7 +721,7 @@ impl Controller {
     pub(super) fn optimize_shift<Nc: NuclCollection>(
         &self,
         chanel_reader: &mut dyn ShiftOptimizerReader,
-        nucl_map: Nc,
+        nucl_map: Arc<Nc>,
         design: &Design,
     ) -> Result<(OkOperation, Self), ErrOperation> {
         if let OperationCompatibility::Incompatible =
@@ -739,7 +739,7 @@ impl Controller {
         &mut self,
         design: &Design,
         chanel_reader: &mut dyn ShiftOptimizerReader,
-        nucl_map: Nc,
+        nucl_map: Arc<Nc>,
     ) {
         self.state = ControllerState::OptimizingScaffoldPosition;
         shift_optimization::optimize_shift(Arc::new(design.clone()), nucl_map, chanel_reader);

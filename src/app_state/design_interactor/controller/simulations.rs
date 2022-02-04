@@ -1379,7 +1379,7 @@ impl SimulationUpdate for RigidHelixState {
                 h
             })
             .collect();
-        for (nucl, id) in identifier_nucl.iter() {
+        for (nucl, id) in identifier_nucl.iter_nucls_ids() {
             let free_nucl = self.constants.nucl_maps[nucl];
             if let Some(n) = free_nucl.helix {
                 space_position.insert(

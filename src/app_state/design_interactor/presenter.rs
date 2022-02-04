@@ -16,7 +16,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use self::design_content::IdentifierNucl;
 #[cfg(test)]
 pub use self::design_content::Staple;
 
@@ -35,7 +34,6 @@ mod impl_reader2d;
 mod impl_reader3d;
 mod impl_readergui;
 mod oxdna;
-use ahash::AHashMap;
 use design_content::DesignContent;
 use std::collections::{BTreeMap, HashSet};
 
@@ -84,7 +82,7 @@ impl Presenter {
     pub fn can_start_builder_at(&self, nucl: Nucl) -> bool {
         let left = self.current_design.get_neighbour_nucl(nucl.left());
         let right = self.current_design.get_neighbour_nucl(nucl.right());
-        if self.content.identifier_nucl.contains_key(&nucl) {
+        if self.content.nucl_collection.contains_nucl(&nucl) {
             if let Some(desc) = self.current_design.get_neighbour_nucl(nucl) {
                 let filter = |d: &NeighbourDescriptor| d.identifier != desc.identifier;
                 !left.filter(filter).and(right.filter(filter)).is_some()
@@ -144,7 +142,7 @@ impl Presenter {
     fn apply_simulation_update(&mut self, update: impl AsRef<dyn SimulationUpdate>) {
         let mut new_content = self.content.clone_inner();
         update.as_ref().update_positions(
-            &new_content.identifier_nucl,
+            new_content.nucl_collection.as_ref(),
             &mut new_content.space_position,
         );
         self.content = AddressPointer::new(new_content);
@@ -211,7 +209,7 @@ impl Presenter {
                             log::debug!("basis {:?}, basis_compl {:?}", basis, basis_compl);
                             if let Some((basis, basis_compl)) = basis.zip(basis_compl) {
                                 basis_map.insert(nucl, basis);
-                                if self.content.identifier_nucl.contains_key(&nucl.compl()) {
+                                if self.content.nucl_collection.contains_nucl(&nucl.compl()) {
                                     basis_map.insert(nucl.compl(), basis_compl);
                                 }
                             }
@@ -258,7 +256,7 @@ impl Presenter {
     }
 
     fn selection_contains_nucl(&self, selection: &[Selection], nucl: Nucl) -> bool {
-        let identifier_nucl = if let Some(id) = self.content.identifier_nucl.get(&nucl) {
+        let identifier_nucl = if let Some(id) = self.content.nucl_collection.get_identifier(&nucl) {
             id
         } else {
             return false;
@@ -313,8 +311,8 @@ impl Presenter {
             .and_then(|s| s.domains.get(d_id))
     }
 
-    pub(super) fn get_owned_nucl_collection(&self) -> impl NuclCollection {
-        self.content.identifier_nucl.clone()
+    pub(super) fn get_owned_nucl_collection(&self) -> Arc<impl NuclCollection> {
+        self.content.nucl_collection.clone()
     }
 
     fn whole_selection_is_visible(&self, selection: &[Selection], compl: bool) -> bool {
@@ -436,7 +434,7 @@ impl DesignReader {
     }
 
     pub(super) fn get_id_of_strand_containing_nucl(&self, nucl: &Nucl) -> Option<usize> {
-        let e_id = self.presenter.content.identifier_nucl.get(nucl)?;
+        let e_id = self.presenter.content.nucl_collection.get_identifier(nucl)?;
         self.presenter.content.strand_map.get(e_id).cloned()
     }
 
@@ -533,7 +531,7 @@ impl HelixPresenter for Presenter {
     }
 
     fn get_identifier(&self, nucl: &Nucl) -> Option<u32> {
-        self.content.identifier_nucl.get(nucl).cloned()
+        self.content.nucl_collection.get_identifier(nucl).cloned()
     }
 
     fn get_space_position(&self, nucl: &Nucl) -> Option<Vec3> {
@@ -542,7 +540,7 @@ impl HelixPresenter for Presenter {
     }
 
     fn has_nucl(&self, nucl: &Nucl) -> bool {
-        self.content.identifier_nucl.contains_key(nucl)
+        self.content.nucl_collection.contains_nucl(nucl)
     }
 }
 
@@ -597,9 +595,9 @@ pub trait SimulationUpdate: Send + Sync {
 }
 
 pub trait NuclCollection: Send + Sync + 'static {
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Nucl, &'a u32)> + 'a>;
-    fn contains_key(&self, nucl: &Nucl) -> bool;
-    fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a>;
+    fn iter_nucls_ids<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Nucl, &'a u32)> + 'a>;
+    fn contains_nucl(&self, nucl: &Nucl) -> bool;
+    fn iter_nucls<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a>;
 }
 
 #[derive(Clone)]

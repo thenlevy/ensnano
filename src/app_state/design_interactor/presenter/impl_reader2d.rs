@@ -27,7 +27,7 @@ use std::sync::Arc;
 use ultraviolet::{Isometry2, Vec3};
 
 impl Reader2D for DesignReader {
-    type NuclCollection = IdentifierNucl;
+    type NuclCollection = super::design_content::NuclCollection;
     fn get_isometry(&self, h_id: usize) -> Option<Isometry2> {
         self.presenter
             .current_design
@@ -114,7 +114,7 @@ impl Reader2D for DesignReader {
     }
 
     fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32> {
-        self.presenter.content.identifier_nucl.get(nucl).cloned()
+        self.presenter.content.nucl_collection.get_identifier(nucl).cloned()
     }
 
     fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
@@ -192,18 +192,18 @@ impl Reader2D for DesignReader {
             .collect()
     }
 
-    fn get_nucl_collection(&self) -> Arc<IdentifierNucl> {
-        Arc::new(self.presenter.content.identifier_nucl.clone())
+    fn get_nucl_collection(&self) -> Arc<super::design_content::NuclCollection> {
+        self.presenter.content.nucl_collection.clone()
     }
 }
 
 impl<T: super::NuclCollection> crate::flatscene::NuclCollection for T {
     fn contains(&self, nucl: &Nucl) -> bool {
-        self.contains_key(nucl)
+        self.contains_nucl(nucl)
     }
 
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a> {
-        self.keys()
+        self.iter_nucls()
     }
 }
 

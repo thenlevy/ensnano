@@ -34,33 +34,35 @@ mod xover_suggestions;
 use xover_suggestions::XoverSuggestions;
 
 #[derive(Default, Clone)]
-pub struct IdentifierNucl(HashMap<Nucl, u32, RandomState>);
+pub struct NuclCollection{
+    identifier: HashMap<Nucl, u32, RandomState>
+}
 
-impl super::NuclCollection for IdentifierNucl {
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Nucl, &'a u32)> + 'a> {
-        Box::new(self.0.iter())
+impl super::NuclCollection for NuclCollection {
+    fn iter_nucls_ids<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Nucl, &'a u32)> + 'a> {
+        Box::new(self.identifier.iter())
     }
 
-    fn contains_key(&self, nucl: &Nucl) -> bool {
-        self.contains_key(nucl)
+    fn contains_nucl(&self, nucl: &Nucl) -> bool {
+        self.identifier.contains_key(nucl)
     }
 
-    fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a> {
-        Box::new(self.0.keys())
+    fn iter_nucls<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a> {
+        Box::new(self.identifier.keys())
     }
 }
 
-impl IdentifierNucl {
-    pub fn get(&self, nucl: &Nucl) -> Option<&u32> {
-        self.0.get(nucl)
+impl NuclCollection {
+    pub fn get_identifier(&self, nucl: &Nucl) -> Option<&u32> {
+        self.identifier.get(nucl)
     }
 
-    pub fn contains_key(&self, nucl: &Nucl) -> bool {
-        self.0.contains_key(nucl)
+    pub fn contains_nucl(&self, nucl: &Nucl) -> bool {
+        self.identifier.contains_key(nucl)
     }
 
-    pub fn insert(&mut self, key: Nucl, id: u32) -> Option<u32> {
-        self.0.insert(key, id)
+    fn insert(&mut self, key: Nucl, id: u32) -> Option<u32> {
+        self.identifier.insert(key, id)
     }
 }
 
@@ -75,7 +77,7 @@ pub(super) struct DesignContent {
     /// Maps identifier of element to their position in the Model's coordinates
     pub space_position: HashMap<u32, [f32; 3], RandomState>,
     /// Maps a Nucl object to its identifier
-    pub identifier_nucl: IdentifierNucl,
+    pub nucl_collection: Arc<NuclCollection>,
     /// Maps a pair of nucleotide forming a bound to the identifier of the bound
     pub identifier_bound: HashMap<(Nucl, Nucl), u32, RandomState>,
     /// Maps the identifier of a element to the identifier of the strands to which it belongs
@@ -361,7 +363,7 @@ impl DesignContent {
         let groups = design.groups.clone();
         let mut object_type = HashMap::default();
         let mut space_position = HashMap::default();
-        let mut identifier_nucl = IdentifierNucl::default();
+        let mut nucl_collection = NuclCollection::default();
         let mut identifier_bound = HashMap::default();
         let mut nucleotides_involved = HashMap::default();
         let mut nucleotide = HashMap::default();
@@ -432,7 +434,7 @@ impl DesignContent {
                         id += 1;
                         object_type.insert(nucl_id, ObjectType::Nucleotide(nucl_id));
                         nucleotide.insert(nucl_id, nucl);
-                        identifier_nucl.insert(nucl, nucl_id);
+                        nucl_collection.insert(nucl, nucl_id);
                         strand_map.insert(nucl_id, *s_id);
                         color_map.insert(nucl_id, color);
                         helix_map.insert(nucl_id, nucl.helix);
@@ -480,7 +482,7 @@ impl DesignContent {
             }
             if strand.cyclic {
                 let nucl = strand.get_5prime().unwrap();
-                let prime5_id = identifier_nucl.get(&nucl).unwrap();
+                let prime5_id = nucl_collection.get_identifier(&nucl).unwrap();
                 let bound_id = id;
                 id += 1;
                 let bound = (old_nucl.unwrap(), nucl);
@@ -541,7 +543,7 @@ impl DesignContent {
             object_type,
             nucleotide,
             nucleotides_involved,
-            identifier_nucl,
+            nucl_collection: Arc::new(nucl_collection),
             identifier_bound,
             strand_map,
             space_position,
@@ -600,7 +602,7 @@ impl DesignContent {
     }
 
     pub fn read_simualtion_update(&mut self, update: &dyn SimulationUpdate) {
-        update.update_positions(&self.identifier_nucl, &mut self.space_position)
+        update.update_positions(self.nucl_collection.as_ref(), &mut self.space_position)
     }
 }
 
