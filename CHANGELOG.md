@@ -9,6 +9,7 @@
 (previously, it appeared when the current selection mode was strand)
 - Treat unpaired nucleotide as seperate domains during staples export
 - Show a question mark in place of letter for nucleotide with no basis in 2D view
+- Use cursor icons to indicate that actions are being performed in the 2D/3D views
 
 ## 0.4.0
 - Remaps mouse buttons in the 2D view.
