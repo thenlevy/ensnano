@@ -25,6 +25,7 @@ use iced_winit::winit;
 use std::sync::Arc;
 use std::time::Duration;
 use ultraviolet::{Rotor3, Vec3};
+pub use winit::window::CursorIcon;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{ModifiersState, WindowEvent},
@@ -59,7 +60,7 @@ pub trait Application {
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
         app_state: &Self::AppState,
-    );
+    ) -> Option<CursorIcon>;
     /// The method is used to forwards redraw_requests to applications
     fn on_redraw_request(
         &mut self,

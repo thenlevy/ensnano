@@ -434,6 +434,10 @@ impl<S: AppState> Controller<S> {
             None
         }
     }
+
+    pub fn get_icon(&self) -> Option<ensnano_interactor::CursorIcon> {
+        self.state.borrow().cursor()
+    }
 }
 
 fn ctrl(modifiers: &ModifiersState) -> bool {

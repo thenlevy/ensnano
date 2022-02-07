@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::*;
 use ensnano_design::grid::GridObject;
-use ensnano_interactor::ActionMode;
+use ensnano_interactor::{ActionMode, CursorIcon};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::time::Instant;
@@ -98,6 +98,9 @@ pub(super) trait ControllerState<S: AppState> {
 
     fn notify_scroll(&mut self) {
         ()
+    }
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        None
     }
 }
 
@@ -471,6 +474,10 @@ impl<S: AppState> ControllerState<S> for TranslatingCamera {
             _ => Transition::nothing(),
         }
     }
+
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Crosshair)
+    }
 }
 
 struct SettingPivot {
@@ -587,6 +594,10 @@ impl<S: AppState> ControllerState<S> for RotatingCamera {
             },
             _ => Transition::nothing(),
         }
+    }
+
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::AllScroll)
     }
 }
 
@@ -823,6 +834,10 @@ impl<S: AppState> ControllerState<S> for TranslatingWidget {
             _ => Transition::nothing(),
         }
     }
+
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Grabbing)
+    }
 }
 
 struct TranslatingGridObject {
@@ -887,6 +902,10 @@ impl<S: AppState> ControllerState<S> for TranslatingGridObject {
             _ => Transition::nothing(),
         }
     }
+
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Grabbing)
+    }
 }
 
 struct RotatingWidget {
@@ -945,6 +964,10 @@ impl<S: AppState> ControllerState<S> for RotatingWidget {
             controller.data.borrow_mut().stop_rotating_pivot();
         }
         TransistionConsequence::Nothing
+    }
+
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Grabbing)
     }
 }
 
@@ -1030,6 +1053,10 @@ impl<S: AppState> ControllerState<S> for BuildingStrand {
             _ => Transition::nothing(),
         }
     }
+
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Grabbing)
+    }
 }
 
 struct Xovering {
@@ -1091,6 +1118,10 @@ impl<S: AppState> ControllerState<S> for Xovering {
             }
             _ => Transition::nothing(),
         }
+    }
+
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Grabbing)
     }
 }
 
