@@ -341,6 +341,7 @@ fn main() {
     let mut last_render_time = std::time::Instant::now();
     let mut mouse_interaction = iced::mouse::Interaction::Pointer;
     let mut multiplexer_cursor = None;
+    let mut app_cursor = None;
 
     let main_state_constructor = MainStateConstructor {
         messages: messages.clone(),
@@ -458,6 +459,7 @@ fn main() {
                             main_state.focussed_element = Some(area);
                             main_state.update_candidates(vec![]);
                         }
+                        app_cursor = None;
                         match area {
                             area if area.is_gui() => {
                                 let event = iced_winit::conversion::window_event(
@@ -482,15 +484,15 @@ fn main() {
                             area if area.is_scene() => {
                                 let cursor_position = multiplexer.get_cursor_position();
                                 let state = main_state.get_app_state();
-                                multiplexer_cursor = scheduler
-                                    .forward_event(&event, area, cursor_position, state)
-                                    .or(multiplexer_cursor);
+                                app_cursor =
+                                    scheduler.forward_event(&event, area, cursor_position, state);
                                 if matches!(event, winit::event::WindowEvent::MouseInput { .. }) {
                                     gui.clear_foccus();
                                 }
                             }
                             _ => unreachable!(),
                         }
+                        multiplexer.icon = app_cursor.or(multiplexer.icon);
                     }
                 }
             }

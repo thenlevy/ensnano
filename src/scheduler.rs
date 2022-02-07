@@ -62,6 +62,8 @@ impl Scheduler {
             app.lock()
                 .unwrap()
                 .on_event(event, cursor_position, &app_state)
+        } else {
+            None
         }
     }
 
