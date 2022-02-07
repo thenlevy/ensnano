@@ -111,7 +111,11 @@ impl Reader3D for DesignReader {
     }
 
     fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32> {
-        self.presenter.content.nucl_collection.get_identifier(nucl).cloned()
+        self.presenter
+            .content
+            .nucl_collection
+            .get_identifier(nucl)
+            .cloned()
     }
 
     fn get_position_of_nucl_on_helix(

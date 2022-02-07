@@ -175,10 +175,14 @@ impl<S: AppState> FlatScene<S> {
         event: &WindowEvent,
         cursor_position: PhysicalPosition<f64>,
         app_state: &S,
-    ) {
+    ) -> Option<ensnano_interactor::CursorIcon> {
         if let Some(controller) = self.controller.get_mut(self.selected_design) {
             let consequence = controller.input(event, cursor_position, app_state);
+            let icon = controller.get_icon();
             self.read_consequence(consequence, Some(app_state));
+            icon
+        } else {
+            None
         }
     }
 
@@ -558,7 +562,12 @@ impl<S: AppState> Application for FlatScene<S> {
         self.resize(window_size, area)
     }
 
-    fn on_event(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>, state: &S) {
+    fn on_event(
+        &mut self,
+        event: &WindowEvent,
+        cursor_position: PhysicalPosition<f64>,
+        state: &S,
+    ) -> Option<ensnano_interactor::CursorIcon> {
         self.input(event, cursor_position, state)
     }
 

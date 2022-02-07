@@ -303,4 +303,8 @@ impl<S: AppState> Controller<S> {
             .borrow_mut()
             .swap(&mut self.camera_top.borrow_mut())
     }
+
+    pub fn get_icon(&self) -> Option<ensnano_interactor::CursorIcon> {
+        None
+    }
 }

@@ -482,7 +482,9 @@ fn main() {
                             area if area.is_scene() => {
                                 let cursor_position = multiplexer.get_cursor_position();
                                 let state = main_state.get_app_state();
-                                scheduler.forward_event(&event, area, cursor_position, state);
+                                multiplexer_cursor = scheduler
+                                    .forward_event(&event, area, cursor_position, state)
+                                    .or(multiplexer_cursor);
                                 if matches!(event, winit::event::WindowEvent::MouseInput { .. }) {
                                     gui.clear_foccus();
                                 }

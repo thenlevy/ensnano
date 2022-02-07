@@ -434,7 +434,11 @@ impl DesignReader {
     }
 
     pub(super) fn get_id_of_strand_containing_nucl(&self, nucl: &Nucl) -> Option<usize> {
-        let e_id = self.presenter.content.nucl_collection.get_identifier(nucl)?;
+        let e_id = self
+            .presenter
+            .content
+            .nucl_collection
+            .get_identifier(nucl)?;
         self.presenter.content.strand_map.get(e_id).cloned()
     }
 

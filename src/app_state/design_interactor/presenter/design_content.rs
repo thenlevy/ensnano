@@ -34,8 +34,8 @@ mod xover_suggestions;
 use xover_suggestions::XoverSuggestions;
 
 #[derive(Default, Clone)]
-pub struct NuclCollection{
-    identifier: HashMap<Nucl, u32, RandomState>
+pub struct NuclCollection {
+    identifier: HashMap<Nucl, u32, RandomState>,
 }
 
 impl super::NuclCollection for NuclCollection {

@@ -114,7 +114,11 @@ impl Reader2D for DesignReader {
     }
 
     fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32> {
-        self.presenter.content.nucl_collection.get_identifier(nucl).cloned()
+        self.presenter
+            .content
+            .nucl_collection
+            .get_identifier(nucl)
+            .cloned()
     }
 
     fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {

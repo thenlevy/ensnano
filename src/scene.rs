@@ -152,7 +152,7 @@ impl<S: AppState> Scene<S> {
         event: &WindowEvent,
         cursor_position: PhysicalPosition<f64>,
         app_state: &S,
-    ) {
+    ) -> Option<ensnano_interactor::CursorIcon> {
         let consequence = self.controller.input(
             event,
             cursor_position,
@@ -160,6 +160,7 @@ impl<S: AppState> Scene<S> {
             app_state,
         );
         self.read_consequence(consequence, app_state);
+        self.controller.get_icon()
     }
 
     fn check_timers(&mut self, app_state: &S) {
@@ -828,7 +829,7 @@ impl<S: AppState> Application for Scene<S> {
         event: &WindowEvent,
         cursor_position: PhysicalPosition<f64>,
         app_state: &S,
-    ) {
+    ) -> Option<ensnano_interactor::CursorIcon> {
         self.input(event, cursor_position, &app_state)
     }
 

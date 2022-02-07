@@ -93,7 +93,8 @@ pub fn optimize_shift<Nc: NuclCollection>(
     chanel_reader.attach_result_chanel(result_rcv);
     chanel_reader.attach_progress_chanel(progress_rcv);
     std::thread::spawn(move || {
-        let result = get_shift_optimization_result(design.as_ref(), progress_snd, nucl_collection.as_ref());
+        let result =
+            get_shift_optimization_result(design.as_ref(), progress_snd, nucl_collection.as_ref());
         log_err!(result_snd.send(result));
     });
 }

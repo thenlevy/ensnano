@@ -345,6 +345,10 @@ impl<S: AppState> Controller<S> {
             .borrow_mut()
             .update_handle_colors(self.handles_color_system());
     }
+
+    pub fn get_icon(&self) -> Option<ensnano_interactor::CursorIcon> {
+        None
+    }
 }
 
 fn ctrl(modifiers: &ModifiersState) -> bool {
