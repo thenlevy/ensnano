@@ -19,6 +19,7 @@ use super::super::data::ClickResult;
 use super::super::view::CircleInstance;
 use super::super::{FlatHelix, FlatNucl};
 use super::*;
+use ensnano_interactor::CursorIcon;
 use std::time::Instant;
 
 const WHEEL_RADIUS: f32 = 1.5;
@@ -63,6 +64,10 @@ pub trait ControllerState<S: AppState> {
 
     fn check_timers(&mut self, _controller: &Controller<S>) -> Transition<S> {
         Transition::nothing()
+    }
+
+    fn cursor(&self) -> Option<CursorIcon> {
+        None
     }
 }
 
@@ -516,6 +521,10 @@ impl<S: AppState> ControllerState<S> for Translating {
         let helices = self.translation_pivots.iter().map(|p| p.helix).collect();
         controller.data.borrow_mut().set_selected_helices(helices)
     }
+
+    fn cursor(&self) -> Option<CursorIcon> {
+        Some(CursorIcon::Grabbing)
+    }
 }
 
 pub struct MovingCamera {
@@ -594,6 +603,10 @@ impl<S: AppState> ControllerState<S> for MovingCamera {
 
     fn transition_to(&self, _controller: &Controller<S>) {
         ()
+    }
+
+    fn cursor(&self) -> Option<CursorIcon> {
+        Some(CursorIcon::Grabbing)
     }
 }
 
@@ -1219,6 +1232,10 @@ impl<S: AppState> ControllerState<S> for Rotating {
             _ => Transition::nothing(),
         }
     }
+
+    fn cursor(&self) -> Option<CursorIcon> {
+        Some(CursorIcon::Grabbing)
+    }
 }
 
 struct AddOrXover {
@@ -1320,6 +1337,10 @@ impl<S: AppState> ControllerState<S> for AddOrXover {
             }
             _ => Transition::nothing(),
         }
+    }
+
+    fn cursor(&self) -> Option<CursorIcon> {
+        Some(CursorIcon::Grabbing)
     }
 }
 
@@ -1709,6 +1730,10 @@ impl<S: AppState> ControllerState<S> for MovingFreeEnd {
             _ => Transition::nothing(),
         }
     }
+
+    fn cursor(&self) -> Option<CursorIcon> {
+        Some(CursorIcon::Grabbing)
+    }
 }
 
 /// Elongating or shortening strands.
@@ -1808,6 +1833,10 @@ impl<S: AppState> ControllerState<S> for Building {
             _ => Transition::nothing(),
         }
     }
+
+    fn cursor(&self) -> Option<CursorIcon> {
+        Some(CursorIcon::Grabbing)
+    }
 }
 
 pub struct Crossing {
@@ -1906,6 +1935,10 @@ impl<S: AppState> ControllerState<S> for Crossing {
             }
             _ => Transition::nothing(),
         }
+    }
+
+    fn cursor(&self) -> Option<CursorIcon> {
+        Some(CursorIcon::Grabbing)
     }
 }
 
@@ -3085,6 +3118,10 @@ impl<S: AppState> ControllerState<S> for TranslatingHandle {
 
     fn transition_to(&self, _controller: &Controller<S>) {
         ()
+    }
+
+    fn cursor(&self) -> Option<CursorIcon> {
+        Some(CursorIcon::Grabbing)
     }
 }
 

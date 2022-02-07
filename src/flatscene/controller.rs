@@ -305,6 +305,6 @@ impl<S: AppState> Controller<S> {
     }
 
     pub fn get_icon(&self) -> Option<ensnano_interactor::CursorIcon> {
-        None
+        self.state.borrow().cursor()
     }
 }
