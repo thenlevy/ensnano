@@ -455,6 +455,10 @@ impl AppState {
     pub fn get_simulation_state(&self) -> ensnano_interactor::SimulationState {
         self.0.design.get_simulation_state()
     }
+
+    pub fn is_building_hyperboloid(&self) -> bool {
+        self.0.design.is_building_hyperboloid()
+    }
 }
 
 #[derive(Clone, Default)]
