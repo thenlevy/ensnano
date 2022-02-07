@@ -451,6 +451,10 @@ impl AppState {
         };
         *self.0.selection.pivot.write().unwrap() = Some(new_pivot);
     }
+
+    pub fn get_simulation_state(&self) -> ensnano_interactor::SimulationState {
+        self.0.design.get_simulation_state()
+    }
 }
 
 #[derive(Clone, Default)]
