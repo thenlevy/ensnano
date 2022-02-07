@@ -993,6 +993,16 @@ impl MainState {
 
     fn update_cursor(&mut self, multiplexer: &Multiplexer) -> bool {
         self.update_simulation_cursor();
+        // Usefull to remember to finish hyperboloid before trying to eddit
+        if self.app_state.is_building_hyperboloid() {
+            if multiplexer
+                .foccused_element()
+                .map(|e| e.is_scene())
+                .unwrap_or(false)
+            {
+                self.applications_cursor = Some(CursorIcon::NotAllowed)
+            }
+        }
         let new_cursor = if self.simulation_cursor.is_some() {
             multiplexer
                 .icon
