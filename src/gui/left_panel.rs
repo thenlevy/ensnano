@@ -1003,17 +1003,6 @@ impl iced_wgpu::button::StyleSheet for ButtonColor {
     }
 }
 
-fn target_message<S: AppState>(i: usize) -> Message<S> {
-    match i {
-        0 => Message::FixPoint(Vec3::unit_x(), Vec3::unit_y()),
-        1 => Message::FixPoint(-Vec3::unit_x(), Vec3::unit_y()),
-        2 => Message::FixPoint(Vec3::unit_y(), Vec3::unit_z()),
-        3 => Message::FixPoint(-Vec3::unit_y(), -Vec3::unit_z()),
-        4 => Message::FixPoint(Vec3::unit_z(), Vec3::unit_y()),
-        _ => Message::FixPoint(-Vec3::unit_z(), Vec3::unit_y()),
-    }
-}
-
 fn rotation_message<S: AppState>(i: usize, _xz: isize, _yz: isize, _xy: isize) -> Message<S> {
     let angle_xz = match i {
         0 => 15f32.to_radians(),
@@ -1041,17 +1030,6 @@ fn rotation_text(i: usize, ui_size: UiSize) -> Text {
         3 => icon(MaterialIcon::ArrowDownward, &ui_size),
         4 => icon(MaterialIcon::Undo, &ui_size),
         _ => icon(MaterialIcon::Redo, &ui_size),
-    }
-}
-
-fn target_text(i: usize) -> String {
-    match i {
-        0 => "Right".to_string(),
-        1 => "Left".to_string(),
-        2 => "Top".to_string(),
-        3 => "Bottom".to_string(),
-        4 => "Back".to_string(),
-        _ => "Front".to_string(),
     }
 }
 

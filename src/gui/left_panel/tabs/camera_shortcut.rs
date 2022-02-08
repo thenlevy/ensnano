@@ -17,6 +17,54 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::*;
 
+struct TargetShortcut {
+    name: &'static str,
+    target_axis: (Vec3, Vec3),
+}
+
+impl TargetShortcut {
+    fn message<S>(&self) -> Message<S> {
+        Message::FixPoint(self.target_axis.0, self.target_axis.1)
+    }
+}
+
+macro_rules! vec3 {
+    ($x: expr, $y: expr, $z: expr) => {
+        Vec3 {
+            x: $x,
+            y: $y,
+            z: $z,
+        }
+    };
+}
+
+const TARGETS: [TargetShortcut; 6] = [
+    TargetShortcut {
+        name: "Left",
+        target_axis: (vec3!(-1., 0., 0.), vec3!(0., 1., 0.)),
+    },
+    TargetShortcut {
+        name: "Right",
+        target_axis: (vec3!(1., 0., 0.), vec3!(0., 1., 0.)),
+    },
+    TargetShortcut {
+        name: "Top",
+        target_axis: (vec3!(0., 1., 0.), vec3!(0., 0., 1.)),
+    },
+    TargetShortcut {
+        name: "Back",
+        target_axis: (vec3!(0., 0., 1.), vec3!(0., 1., 0.)),
+    },
+    TargetShortcut {
+        name: "Front",
+        target_axis: (vec3!(0., 0., -1.), vec3!(0., 1., 0.)),
+    },
+    TargetShortcut {
+        name: "Bottom",
+        target_axis: (vec3!(0., -1., 0.), vec3!(0., 0., -1.)),
+    },
+];
+
 macro_rules! add_target_buttons {
     ($ret: ident, $self:ident, $ui_size: ident, $width: ident) => {
         let mut target_buttons: Vec<_> = $self
@@ -24,8 +72,8 @@ macro_rules! add_target_buttons {
             .iter_mut()
             .enumerate()
             .map(|(i, s)| {
-                Button::new(s, Text::new(target_text(i)).size($ui_size.main_text()))
-                    .on_press(target_message(i))
+                Button::new(s, Text::new(TARGETS[i].name).size($ui_size.main_text()))
+                    .on_press(TARGETS[i].message())
                     .width(Length::Units(2 * $ui_size.button()))
             })
             .collect();
