@@ -398,6 +398,10 @@ impl GuiRequests for Requests {
     fn start_twist_simulation(&mut self, grid_id: usize) {
         self.twist_simulation = Some(grid_id);
     }
+
+    fn align_horizon(&mut self) {
+        self.horizon_targeted = Some(());
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

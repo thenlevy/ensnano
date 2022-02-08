@@ -107,6 +107,7 @@ pub enum Notification {
     WindowFocusLost,
     NewStereographicCamera(Arc<(Camera3D, f32)>),
     FlipSplitViews,
+    HorizonAligned,
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

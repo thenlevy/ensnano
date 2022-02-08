@@ -537,6 +537,32 @@ impl CameraController {
         self.cam0 = camera.clone();
     }
 
+    pub fn horizon_angle(&self) -> f32 {
+        let pv_matrix = self.projection.borrow().calc_matrix() * self.camera.borrow().calc_matrix();
+        let far_dist = 1000.;
+        let mut percieved_x_far = pv_matrix
+            .transform_point3(far_dist * Vec3::unit_z() + far_dist * Vec3::unit_x())
+            - pv_matrix.transform_point3(far_dist * Vec3::unit_z());
+        percieved_x_far.x *= self.projection.borrow().get_ratio();
+        let mut percieved_z_far = pv_matrix
+            .transform_point3(far_dist * Vec3::unit_z() + far_dist * Vec3::unit_x())
+            - pv_matrix.transform_point3(far_dist * Vec3::unit_x());
+        percieved_z_far.x *= self.projection.borrow().get_ratio();
+        let mut angle = if ultraviolet::Vec2::new(percieved_x_far.x, percieved_x_far.y).mag()
+            > ultraviolet::Vec2::new(percieved_z_far.x, percieved_z_far.y).mag()
+        {
+            -percieved_x_far.y.atan2(percieved_x_far.x)
+        } else {
+            -percieved_z_far.y.atan2(percieved_z_far.x)
+        };
+        if angle > std::f32::consts::FRAC_PI_2 {
+            angle -= std::f32::consts::PI;
+        } else if angle < -std::f32::consts::FRAC_PI_2 {
+            angle += std::f32::consts::PI;
+        };
+        angle
+    }
+
     pub fn set_camera_position(&mut self, position: Vec3) {
         let mut camera = self.camera.borrow_mut();
         camera.position = position;

@@ -952,6 +952,10 @@ impl<S: AppState> Application for Scene<S> {
                 }
             }
             Notification::FlipSplitViews => (),
+            Notification::HorizonAligned => {
+                self.controller.align_horizon();
+                self.notify(SceneNotification::CameraMoved);
+            }
         }
     }
 

@@ -194,6 +194,7 @@ pub trait Requests: 'static + Send {
     fn flip_split_views(&mut self);
     fn set_rainbow_scaffold(&mut self, rainbow: bool);
     fn set_thick_helices(&mut self, thick: bool);
+    fn align_horizon(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -169,6 +169,11 @@ impl<S: AppState> Controller<S> {
         self.end_movement();
     }
 
+    pub fn align_horizon(&mut self) {
+        let angle = self.camera_controller.horizon_angle();
+        self.camera_controller.tilt_camera(angle);
+    }
+
     pub fn set_camera_position(&mut self, position: Vec3) {
         self.camera_controller.set_camera_position(position);
         self.end_movement();
