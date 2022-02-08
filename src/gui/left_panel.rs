@@ -131,7 +131,6 @@ pub enum Message<S> {
     NewHyperboloid,
     FinalizeHyperboloid,
     RollTargeted(bool),
-    AlignHorizon,
     RigidGridSimulation(bool),
     RigidHelicesSimulation(bool),
     VolumeExclusion(bool),
@@ -760,7 +759,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     self.requests.lock().unwrap().start_twist_simulation(*g_id)
                 }
             }
-            Message::AlignHorizon => self.requests.lock().unwrap().align_horizon(),
         };
         Command::none()
     }
