@@ -500,7 +500,11 @@ impl Multiplexer {
                         )
                     }
                     VirtualKeyCode::Z if ctrl(&self.modifiers) => {
-                        self.requests.lock().unwrap().undo = Some(());
+                        if self.modifiers.shift() {
+                            self.requests.lock().unwrap().redo = Some(())
+                        } else {
+                            self.requests.lock().unwrap().undo = Some(());
+                        }
                     }
                     VirtualKeyCode::R if ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().redo = Some(());
