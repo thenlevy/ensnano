@@ -131,7 +131,6 @@ pub enum Message<S> {
     NewHyperboloid,
     FinalizeHyperboloid,
     RollTargeted(bool),
-    AlignHorizon,
     RigidGridSimulation(bool),
     RigidHelicesSimulation(bool),
     VolumeExclusion(bool),
@@ -735,7 +734,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::ContextualValueChanged(kind, n, val) => {
                 self.contextual_panel.update_builder_value(kind, n, val);
             }
-            Message::AlignHorizon => self.requests.lock().unwrap().align_horizon(),
         };
         Command::none()
     }

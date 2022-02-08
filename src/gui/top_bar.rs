@@ -57,6 +57,7 @@ pub struct TopBar<R: Requests, S: AppState> {
     button_tutorial: button::State,
     button_reload: button::State,
     button_new_empty_design: button::State,
+    horizon_button: button::State,
     requests: Arc<Mutex<R>>,
     logical_size: LogicalSize<f64>,
     action_mode_state: ActionModeState,
@@ -79,6 +80,7 @@ pub struct MainState<S: AppState> {
 #[derive(Debug, Clone)]
 pub enum Message<S: AppState> {
     SceneFitRequested,
+    AlignHorizon,
     OpenFileButtonPressed,
     FileSaveRequested,
     SaveAsRequested,
@@ -105,6 +107,7 @@ impl<R: Requests, S: AppState> TopBar<R, S> {
             button_fit: Default::default(),
             button_add_file: Default::default(),
             button_save_as: Default::default(),
+            horizon_button: Default::default(),
             button_save: Default::default(),
             button_undo: Default::default(),
             button_redo: Default::default(),
@@ -190,6 +193,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
                 }
             }
             Message::FlipSplitViews => self.requests.lock().unwrap().flip_split_views(),
+            Message::AlignHorizon => self.requests.lock().unwrap().align_horizon(),
         };
         Command::none()
     }
@@ -205,20 +209,26 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
         let height = self.logical_size.cast::<u16>().height;
         let button_fit = Button::new(
             &mut self.button_fit,
-            light_icon(LightIcon::ViewInAr, self.ui_size.clone()),
+            light_icon(LightIcon::ViewInAr, self.ui_size),
         )
         .on_press(Message::SceneFitRequested)
         .height(Length::Units(height));
 
+        let button_horizon = Button::new(
+            &mut self.horizon_button,
+            light_icon(LightIcon::WbTwilight, self.ui_size),
+        )
+        .on_press(Message::AlignHorizon);
+
         let button_new_empty_design = Button::new(
             &mut self.button_new_empty_design,
-            light_icon(LightIcon::InsertDriveFile, self.ui_size.clone()),
+            light_icon(LightIcon::InsertDriveFile, self.ui_size),
         )
         .on_press(Message::ButtonNewEmptyDesignPressed);
 
         let button_add_file = Button::new(
             &mut self.button_add_file,
-            light_icon(LightIcon::FolderOpen, self.ui_size.clone()),
+            light_icon(LightIcon::FolderOpen, self.ui_size),
         )
         .on_press(Message::OpenFileButtonPressed);
 
@@ -388,6 +398,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .push(button_flip_split)
             .push(iced::Space::with_width(Length::Units(10)))
             .push(button_fit)
+            .push(button_horizon)
             .push(iced::Space::with_width(Length::Units(10)))
             .push(button_undo)
             .push(button_redo)
