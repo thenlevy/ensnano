@@ -215,6 +215,7 @@ impl DesignInteractor {
 
     pub(super) fn design_need_update(&self, suggestion_parameters: &SuggestionParameters) -> bool {
         presenter::design_need_update(&self.presenter, &self.design, suggestion_parameters)
+            || self.simulation_update.is_some()
     }
 
     pub(super) fn with_updated_design_reader(
