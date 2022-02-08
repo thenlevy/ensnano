@@ -24,40 +24,17 @@ use iced_winit::{button, Button, Color, Command, Element, Length, Program, Row};
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use super::material_icons_light;
+use super::material_icons_light::{dark_icon, light_icon, LightIcon};
 use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
-use material_icons_light::LightIcon;
 
 const ICONFONT: iced::Font = iced::Font::External {
     name: "IconFont",
     bytes: MATERIALFONT,
 };
 
-const LIGHT_ICONFONT: iced::Font = iced::Font::External {
-    name: "IconFontLight",
-    bytes: material_icons_light::MATERIAL_ICON_LIGHT,
-};
-
-const DARK_ICONFONT: iced::Font = iced::Font::External {
-    name: "IconFontDark",
-    bytes: material_icons_light::MATERIAL_ICON_DARK,
-};
-
 fn icon(icon: MaterialIcon, ui_size: UiSize) -> iced::Text {
     iced::Text::new(format!("{}", icon_to_char(icon)))
         .font(ICONFONT)
-        .size(ui_size.icon())
-}
-
-fn light_icon(icon: LightIcon, ui_size: UiSize) -> iced::Text {
-    iced::Text::new(format!("{}", material_icons_light::icon_to_char(icon)))
-        .font(LIGHT_ICONFONT)
-        .size(ui_size.icon())
-}
-
-fn dark_icon(icon: LightIcon, ui_size: UiSize) -> iced::Text {
-    iced::Text::new(format!("{}", material_icons_light::icon_to_char(icon)))
-        .font(DARK_ICONFONT)
         .size(ui_size.icon())
 }
 

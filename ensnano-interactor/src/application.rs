@@ -92,6 +92,7 @@ pub enum Notification {
     Fog(FogParameters),
     WindowFocusLost,
     FlipSplitViews,
+    HorizonAligned,
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

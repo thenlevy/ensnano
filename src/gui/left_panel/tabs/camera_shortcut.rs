@@ -159,6 +159,7 @@ macro_rules! add_camera_widgets {
 }
 pub struct CameraShortcut {
     camera_target_buttons: [button::State; 6],
+    horizon_button: button::State,
     camera_rotation_buttons: [button::State; 6],
     xz: isize,
     yz: isize,
@@ -175,6 +176,7 @@ impl CameraShortcut {
     pub fn new() -> Self {
         Self {
             camera_target_buttons: Default::default(),
+            horizon_button: Default::default(),
             camera_rotation_buttons: Default::default(),
             xz: 0,
             yz: 0,
@@ -267,6 +269,13 @@ impl CameraShortcut {
         add_target_buttons!(ret, self, ui_size, width);
 
         add_rotate_buttons!(ret, self, ui_size, width);
+        ret = ret.push(
+            Button::new(
+                &mut self.horizon_button,
+                icon(LightIcon::WbTwilight, ui_size),
+            )
+            .on_press(Message::AlignHorizon),
+        );
 
         add_custom_camera_row!(ret, self, ui_size);
 

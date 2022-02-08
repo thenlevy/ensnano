@@ -1,9 +1,32 @@
 #![allow(dead_code)]
 
+use super::UiSize;
 pub const MATERIAL_ICON_LIGHT: &[u8] =
     include_bytes!("../../font/MaterialIconsOutlined-Regular.otf");
 
 pub const MATERIAL_ICON_DARK: &[u8] = include_bytes!("../../font/MaterialIcons-Regular.ttf");
+
+const LIGHT_ICONFONT: iced::Font = iced::Font::External {
+    name: "IconFontLight",
+    bytes: MATERIAL_ICON_LIGHT,
+};
+
+pub const DARK_ICONFONT: iced::Font = iced::Font::External {
+    name: "IconFontDark",
+    bytes: MATERIAL_ICON_DARK,
+};
+
+pub fn light_icon(icon: LightIcon, ui_size: UiSize) -> iced::Text {
+    iced::Text::new(format!("{}", icon_to_char(icon)))
+        .font(LIGHT_ICONFONT)
+        .size(ui_size.icon())
+}
+
+pub fn dark_icon(icon: LightIcon, ui_size: UiSize) -> iced::Text {
+    iced::Text::new(format!("{}", icon_to_char(icon)))
+        .font(DARK_ICONFONT)
+        .size(ui_size.icon())
+}
 
 pub enum LightIcon {
     _10K,

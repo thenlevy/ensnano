@@ -821,6 +821,10 @@ impl<S: AppState> Application for Scene<S> {
             Notification::Fog(fog) => self.fog_request(fog),
             Notification::WindowFocusLost => self.controller.stop_camera_movement(),
             Notification::FlipSplitViews => (),
+            Notification::HorizonAligned => {
+                self.controller.align_horizon();
+                self.notify(SceneNotification::CameraMoved);
+            }
         }
     }
 
