@@ -23,7 +23,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use crate::consts::*;
 use iced_winit::winit;
-use ultraviolet::Vec2;
+use ultraviolet::{Rotor2, Vec2};
 use winit::{dpi::PhysicalPosition, event::MouseScrollDelta};
 pub struct Camera {
     globals: Globals,
@@ -147,26 +147,35 @@ impl Camera {
     /// Convert a *vector* in screen coordinate to a vector in world coordinate. (Does not apply
     /// the translation)
     fn transform_vec(&self, x: f32, y: f32) -> (f32, f32) {
-        (
+        let vec = Vec2::new(
             self.globals.resolution[0] * x / self.globals.zoom,
             self.globals.resolution[1] * y / self.globals.zoom,
         )
+        .rotated_by(self.rotation().reversed());
+        vec.into()
+    }
+
+    fn rotation(&self) -> Rotor2 {
+        Rotor2::from_angle(self.globals.tilt)
     }
 
     /// Convert a *point* in screen ([0, x_res] * [0, y_res]) coordinate to a point in world coordiantes.
     pub fn screen_to_world(&self, x_screen: f32, y_screen: f32) -> (f32, f32) {
         // The screen coordinates have the y axis pointed down, and so does the 2d world
         // coordinates. So we do not flip the y axis.
-        let x_ndc = 2. * x_screen / self.globals.resolution[0] - 1.;
-        let y_ndc = if self.bottom {
-            2. * (y_screen - self.globals.resolution[1]) / self.globals.resolution[1] - 1.
-        } else {
-            2. * y_screen / self.globals.resolution[1] - 1.
-        };
+        let ndc = Vec2 {
+            x: 2. * x_screen / self.globals.resolution[0] - 1.,
+            y: if self.bottom {
+                2. * (y_screen - self.globals.resolution[1]) / self.globals.resolution[1] - 1.
+            } else {
+                2. * y_screen / self.globals.resolution[1] - 1.
+            },
+        }
+        .rotated_by(self.rotation().reversed());
         (
-            x_ndc * self.globals.resolution[0] / (2. * self.globals.zoom)
+            ndc.x * self.globals.resolution[0] / (2. * self.globals.zoom)
                 + self.globals.scroll_offset[0],
-            y_ndc * self.globals.resolution[1] / (2. * self.globals.zoom)
+            ndc.y * self.globals.resolution[1] / (2. * self.globals.zoom)
                 + self.globals.scroll_offset[1],
         )
     }
@@ -193,11 +202,12 @@ impl Camera {
             x_world - self.globals.scroll_offset[0],
             y_world - self.globals.scroll_offset[1],
         );
-        let coord_ndc = (
+        let coord_ndc = Vec2::new(
             temp.0 * 2. * self.globals.zoom / self.globals.resolution[0],
             temp.1 * 2. * self.globals.zoom / self.globals.resolution[1],
-        );
-        ((coord_ndc.0 + 1.) / 2., (coord_ndc.1 + 1.) / 2.)
+        )
+        .rotated_by(self.rotation());
+        ((coord_ndc.x + 1.) / 2., (coord_ndc.y + 1.) / 2.)
     }
 
     pub fn fit(&mut self, mut rectangle: FitRectangle) {
@@ -271,8 +281,7 @@ pub struct Globals {
     pub resolution: [f32; 2],
     pub scroll_offset: [f32; 2],
     pub zoom: f32,
-    /// For word alignement
-    pub _padding: f32,
+    pub tilt: f32,
 }
 
 impl Globals {
@@ -281,7 +290,7 @@ impl Globals {
             resolution,
             scroll_offset: [10.0, 40.0],
             zoom: 16.0,
-            _padding: 0.0,
+            tilt: 0.0,
         }
     }
 }
