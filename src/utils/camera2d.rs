@@ -66,11 +66,14 @@ impl Camera {
     /// Moves the camera, according to a mouse movement expressed in *normalized screen
     /// coordinates*
     pub fn process_mouse(&mut self, delta_x: f32, delta_y: f32) -> (f32, f32) {
+        println!("input vec ({}, {})", delta_x, delta_y);
         let (x, y) = self.transform_vec(delta_x, delta_y);
+        println!("transformed vec ({}, {})", x, y);
         self.translate_by_vec(x, y);
         (x, y)
     }
 
+    /// Translate self by a vector expressed in world coordinates
     pub fn translate_by_vec(&mut self, x: f32, y: f32) {
         self.globals.scroll_offset[0] = self.old_globals.scroll_offset[0] - x;
         self.globals.scroll_offset[1] = self.old_globals.scroll_offset[1] - y;
@@ -161,23 +164,15 @@ impl Camera {
 
     /// Convert a *point* in screen ([0, x_res] * [0, y_res]) coordinate to a point in world coordiantes.
     pub fn screen_to_world(&self, x_screen: f32, y_screen: f32) -> (f32, f32) {
-        // The screen coordinates have the y axis pointed down, and so does the 2d world
-        // coordinates. So we do not flip the y axis.
-        let ndc = Vec2 {
-            x: 2. * x_screen / self.globals.resolution[0] - 1.,
-            y: if self.bottom {
-                2. * (y_screen - self.globals.resolution[1]) / self.globals.resolution[1] - 1.
-            } else {
-                2. * y_screen / self.globals.resolution[1] - 1.
-            },
-        }
-        .rotated_by(self.rotation().reversed());
+        let center_to_point_x = x_screen / self.globals.resolution[0] - 0.5;
+        let center_to_point_y = y_screen / self.globals.resolution[1] - 0.5;
+        let (x, y) = self.transform_vec(center_to_point_x, center_to_point_y);
+
         (
-            ndc.x * self.globals.resolution[0] / (2. * self.globals.zoom)
-                + self.globals.scroll_offset[0],
-            ndc.y * self.globals.resolution[1] / (2. * self.globals.zoom)
-                + self.globals.scroll_offset[1],
+            (self.globals.scroll_offset[0] + x),
+            (self.globals.scroll_offset[1] + y),
         )
+            .into()
     }
 
     pub fn norm_screen_to_world(&self, x_normed: f32, y_normed: f32) -> (f32, f32) {

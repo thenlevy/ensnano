@@ -26,7 +26,7 @@ struct Instances {
 mat2 rotation(float angle) {
    float c = cos(angle);
    float s = sin(angle);
-   return mat2(c, -s, s, c);
+   return mat2(c, s, -s, c);
 }
 layout(set=1, binding=0) 
 buffer InstancesBlock {

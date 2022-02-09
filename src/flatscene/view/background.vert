@@ -24,7 +24,7 @@ layout(location = 4) flat out float v_tilt;
 mat2 rotation(float angle) {
    float c = cos(angle);
    float s = sin(angle);
-   return mat2(c, -s, s, c);
+   return mat2(c, s, -s, c);
 }
 
 void main() {
