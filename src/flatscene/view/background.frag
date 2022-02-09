@@ -10,9 +10,15 @@ layout(location = 0) in vec2 v_position;
 layout(location = 1) flat in vec2 v_resolution;
 layout(location = 2) flat in vec2 v_scroll_offset;
 layout(location = 3) flat in float v_zoom;
+layout(location = 4) flat in float v_tilt;
 
 layout(location = 0) out vec4 out_color;
 
+mat2 rotation(float angle) {
+   float c = cos(angle);
+   float s = sin(angle);
+   return mat2(c, -s, s, c);
+}
 
 void main() {
     vec2 invert_y = vec2(1.0, -1.0);
@@ -34,7 +40,7 @@ void main() {
 
     if (v_zoom > 7.) {
 
-        vec2 pos = px_position + v_scroll_offset * v_zoom;
+        vec2 pos = rotation(-v_tilt) * (px_position + v_scroll_offset * v_zoom);
 
         if (abs(mod(pos.x, 20.0 / grid_scale * v_zoom)) <= 1.0 ||
             abs(mod(pos.y, 20.0 / grid_scale * v_zoom)) <= 1.0) {

@@ -290,7 +290,7 @@ impl Globals {
             resolution,
             scroll_offset: [10.0, 40.0],
             zoom: 16.0,
-            tilt: 0.0,
+            tilt: std::f32::consts::FRAC_PI_6,
         }
     }
 }
