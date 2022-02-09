@@ -44,14 +44,18 @@ void main() {
 
         vec2 pos = (rotation(-v_tilt) * center_to_point / v_zoom) + v_scroll_offset;
 
-        if (abs(mod(pos.x - grid_width / 2., grid_scale)) <= grid_width ||
-            abs(mod(pos.y - grid_width / 2., grid_scale)) <= grid_width) {
-            out_color /= 1.2;
-        }
+        float small_bar_coeff = min(
+            abs(mod(pos.x + grid_width / 2., grid_scale)),
+            abs(mod(pos.y + grid_width / 2., grid_scale))
+        );
+        float darken = 1.2 - 0.2 * smoothstep(grid_width * 0.9, grid_width, small_bar_coeff);
+        out_color /= darken;
 
-        if (abs(mod(pos.x - grid_width / 2., 5.0 * grid_scale)) <= grid_width ||
-            abs(mod(pos.y - grid_width / 2., 5.0 * grid_scale)) <= grid_width) {
-            out_color /= 1.2;
-        }
+        float big_bar_coeff = min(
+            abs(mod(pos.x + grid_width / 2., 5.0 * grid_scale)),
+            abs(mod(pos.y + grid_width / 2., 5.0 * grid_scale))
+        );
+        darken = 1.2 - 0.2 * smoothstep(grid_width * 0.9, grid_width, big_bar_coeff);
+        out_color /= darken;
     }
 }
