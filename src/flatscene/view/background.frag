@@ -22,7 +22,7 @@ mat2 rotation(float angle) {
 
 void main() {
     vec2 invert_y = vec2(1.0, -1.0);
-    vec2 px_position = v_position * v_resolution * 0.5 * invert_y;
+    vec2 center_to_point = v_position * v_resolution * 0.5 * invert_y;
 
     // #005fa4
     float vignette = clamp(0.7 * length(v_position), 0.0, 1.0);
@@ -33,22 +33,24 @@ void main() {
     );
 
     // TODO: properly adapt the grid while zooming in and out.
-    float grid_scale = 20.;
+    float grid_scale = 1.;
     if (v_zoom < 2.5) {
-        grid_scale = 4.;
+        grid_scale = 5.;
     }
+
+    float grid_width = grid_scale * 0.1;
 
     if (v_zoom > 7.) {
 
-        vec2 pos = rotation(-v_tilt) * (px_position + v_scroll_offset * v_zoom);
+        vec2 pos = (rotation(-v_tilt) * center_to_point / v_zoom) + v_scroll_offset;
 
-        if (abs(mod(pos.x, 20.0 / grid_scale * v_zoom)) <= 1.0 ||
-            abs(mod(pos.y, 20.0 / grid_scale * v_zoom)) <= 1.0) {
+        if (abs(mod(pos.x - grid_width / 2., grid_scale)) <= grid_width ||
+            abs(mod(pos.y - grid_width / 2., grid_scale)) <= grid_width) {
             out_color /= 1.2;
         }
 
-        if (abs(mod(pos.x, 100.0 / grid_scale * v_zoom)) <= 2.0 ||
-            abs(mod(pos.y, 100.0 / grid_scale * v_zoom)) <= 2.0) {
+        if (abs(mod(pos.x - grid_width / 2., 5.0 * grid_scale)) <= grid_width ||
+            abs(mod(pos.y - grid_width / 2., 5.0 * grid_scale)) <= grid_width) {
             out_color /= 1.2;
         }
     }

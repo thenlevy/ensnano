@@ -104,6 +104,7 @@ impl Camera {
         self.globals.scroll_offset[0] += delta.x;
         self.globals.scroll_offset[1] += delta.y;
         self.end_movement();
+        log::info!("zoom = {}", self.globals.zoom);
         self.was_updated = true;
     }
 
