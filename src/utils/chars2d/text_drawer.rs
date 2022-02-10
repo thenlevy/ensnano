@@ -25,11 +25,13 @@ pub struct TextDrawer {
 }
 
 pub struct Sentence<'a> {
-    text: &'a str,
-    size: f32,
-    z_index: i32,
-    color: Vec4,
+    pub text: &'a str,
+    pub size: f32,
+    pub z_index: i32,
+    pub color: Vec4,
 }
+
+const PX_PER_SQUARE: f32 = 50.0;
 
 impl TextDrawer {
     pub fn new(
@@ -57,26 +59,54 @@ impl TextDrawer {
         }
     }
 
+    pub fn clear(&mut self) {
+        for v in self.char_map.values_mut() {
+            v.clear();
+        }
+    }
+
+    pub fn draw<'a>(&'a mut self, render_pass: &mut RenderPass<'a>) {
+        for (c, v) in self.char_map.iter() {
+            self.char_drawers
+                .get_mut(c)
+                .unwrap()
+                .new_instances(Rc::new(v.clone()))
+        }
+        for d in self.char_drawers.values_mut() {
+            d.draw(render_pass);
+        }
+    }
+
     pub fn add_sentence(&mut self, sentence: Sentence<'_>, center_position: Vec2, bound: Line) {
         let fonts = [
             &self.char_drawers[&'A'].letter.font,
             &self.char_drawers[&'a'].letter.font,
         ];
+        let size_px = PX_PER_SQUARE * sentence.size;
         self.layout
             .reset(&fontdue::layout::LayoutSettings::default());
         self.layout.append(
             &fonts,
-            &fontdue::layout::TextStyle::new(sentence.text, 30.0, 0),
+            &fontdue::layout::TextStyle::new(sentence.text, size_px, 0),
         );
-        let rectangle = SentenceRectangle::new(self.layout.glyphs());
+        let rectangle = SentenceRectangle::new(self.layout.glyphs(), size_px);
         let shift = rectangle.shift(bound, center_position);
 
+        if rectangle.nb_char() > 3 {
+            println!("Start sentence");
+        }
         for g in rectangle.glyphs.iter() {
+            if rectangle.nb_char() > 3 {
+                println!(
+                    "{}, x {}, y {}, width {}, height {}",
+                    g.parent, g.x, g.y, g.width, g.height
+                );
+            }
             let c = g.parent;
             let pos = Vec2 {
-                x: (g.x + g.width as f32) / 2.,
-                y: (g.y + g.height as f32) / 2.,
-            };
+                x: g.x / size_px,
+                y: g.y / size_px,
+            } + shift;
             self.char_map.entry(c).or_default().push(CharInstance {
                 center: pos,
                 rotation: Mat2::identity(),
@@ -92,15 +122,16 @@ struct SentenceRectangle<'a> {
     glyphs: &'a Vec<fontdue::layout::GlyphPosition<()>>,
     top: f32,
     bottom: f32,
+    size_px: f32,
 }
 
 impl<'a> SentenceRectangle<'a> {
-    fn new(glyphs: &'a Vec<fontdue::layout::GlyphPosition<()>>) -> Self {
-        let top = glyphs
+    fn new(glyphs: &'a Vec<fontdue::layout::GlyphPosition<()>>, size_px: f32) -> Self {
+        let bottom = glyphs
             .iter()
             .map(|g| g.y)
             .fold(0.0, |x, y| if x < y { x } else { y });
-        let bottom = glyphs
+        let top = glyphs
             .iter()
             .map(|g| g.y + g.height as f32)
             .fold(0.0, |x, y| if x > y { x } else { y });
@@ -108,6 +139,7 @@ impl<'a> SentenceRectangle<'a> {
             glyphs,
             top,
             bottom,
+            size_px,
         }
     }
     fn left(&self) -> f32 {
@@ -132,11 +164,12 @@ impl<'a> SentenceRectangle<'a> {
     fn center(&self) -> Vec2 {
         (Vec2 {
             x: self.left(),
-            y: self.top(),
+            y: self.bottom(),
         } + Vec2 {
             x: self.right(),
-            y: self.bottom(),
+            y: self.top(),
         }) / 2.
+            / self.size_px
     }
 
     fn nb_char(&self) -> usize {
@@ -163,13 +196,14 @@ impl<'a> SentenceRectangle<'a> {
                 ret = shift;
             }
         }
-        center - self.center() + ret
+        //center - self.center() + ret
+        center - self.center()
     }
 }
 
 pub struct Line {
-    origin: Vec2,
-    direction: Vec2,
+    pub origin: Vec2,
+    pub direction: Vec2,
 }
 
 impl Line {

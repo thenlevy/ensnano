@@ -15,11 +15,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::super::view::{CharInstance, CircleInstance, InsertionInstance};
+use super::super::view::{CircleInstance, InsertionInstance};
 use super::super::{CameraPtr, Flat, FlatHelix, FlatIdx};
 use super::{FlatNucl, Helix2d, NuclCollection};
 use crate::consts::*;
 use crate::flatscene::view::EditionInfo;
+use crate::utils::chars2d::{Line, Sentence, TextDrawer};
 use crate::utils::instance::Instance;
 use ahash::RandomState;
 use ensnano_design::Nucl;
@@ -430,34 +431,16 @@ impl Helix {
         real_center + ((angle_sin - width) / 2.) * Vec2::unit_x() - height / 2. * Vec2::unit_y()
     }
 
-    fn char_position_top(&self, x: isize, width: f32, height: f32) -> Vec2 {
-        let center_nucl = (x as f32 + 0.5) * Vec2::unit_x();
-
-        let center_text = center_nucl - height / 2. * Vec2::unit_y();
-
-        let real_center = self
-            .isometry
+    fn char_position_top(&self, x: isize) -> Vec2 {
+        self.isometry
             .into_homogeneous_matrix()
-            .transform_point2(center_text);
-
-        let angle_sin = Vec2::unit_y().dot(Vec2::unit_x().rotated_by(self.isometry.rotation));
-
-        real_center + ((angle_sin - width) / 2.) * Vec2::unit_x() - height / 2. * Vec2::unit_y()
+            .transform_point2(x as f32 * Vec2::unit_x())
     }
 
-    fn char_position_bottom(&self, x: isize, width: f32, height: f32) -> Vec2 {
-        let center_nucl = (x as f32 + 0.5) * Vec2::unit_x();
-
-        let center_text = center_nucl + (2. + height / 2.) * Vec2::unit_y();
-
-        let real_center = self
-            .isometry
+    fn char_position_bottom(&self, x: isize) -> Vec2 {
+        self.isometry
             .into_homogeneous_matrix()
-            .transform_point2(center_text);
-
-        let angle_sin = Vec2::unit_y().dot(Vec2::unit_x().rotated_by(self.isometry.rotation));
-
-        real_center + ((angle_sin - width) / 2.) * Vec2::unit_x() - height / 2. * Vec2::unit_y()
+            .transform_point2(x as f32 * Vec2::unit_x() + 2. * Vec2::unit_y())
     }
 
     pub fn handle_circles(&self) -> Vec<CircleInstance> {
@@ -663,11 +646,36 @@ impl Helix {
         InsertionInstance::new(position, self.get_depth(), orientation, color)
     }
 
+    fn top_line(&self) -> Line {
+        Line {
+            origin: self
+                .isometry
+                .into_homogeneous_matrix()
+                .transform_point2(Vec2::zero()),
+            direction: self
+                .isometry
+                .into_homogeneous_matrix()
+                .transform_vec2(Vec2::unit_x()),
+        }
+    }
+
+    fn bottom_line(&self) -> Line {
+        Line {
+            origin: self
+                .isometry
+                .into_homogeneous_matrix()
+                .transform_point2(2. * Vec2::unit_y()),
+            direction: self
+                .isometry
+                .into_homogeneous_matrix()
+                .transform_vec2(-Vec2::unit_x()),
+        }
+    }
+
     pub fn add_char_instances(
         &self,
         camera: &CameraPtr,
-        char_map: &mut HashMap<char, Vec<CharInstance>>,
-        char_drawers: &HashMap<char, crate::utils::chars2d::CharDrawer>,
+        text_drawer: &mut TextDrawer,
         groups: &BTreeMap<usize, bool>,
         basis_map: &HashMap<Nucl, char, RandomState>,
         show_seq: bool,
@@ -683,6 +691,7 @@ impl Helix {
         let size_pos = 1.4;
         let circle = self.get_circle(camera, groups);
         if let Some(circle) = circle {
+            /*
             let nb_chars = self.real_id.to_string().len(); // ok to use len because digits are ascii
             let scale = size_id / nb_chars as f32;
             let mut advances =
@@ -706,6 +715,19 @@ impl Helix {
                     color: [0., 0., 0., 1.].into(),
                 })
             }
+            */
+            let text = self.real_id.to_string();
+            let sentence = Sentence {
+                text: &text,
+                size: size_id / text.len() as f32,
+                color: [0., 0., 0., 1.].into(),
+                z_index: self.flat_id.flat.0 as i32,
+            };
+            let line = Line {
+                origin: circle.center,
+                direction: Vec2::unit_x(),
+            };
+            text_drawer.add_sentence(sentence, circle.center, line);
         }
 
         let moving_pos = edition_info
@@ -715,6 +737,7 @@ impl Helix {
         let mut print_pos = |pos: isize| {
             let nb_chars = pos.to_string().len(); // ok to use len because digits are ascii
             let scale = size_pos;
+            /*
             let mut advances =
                 crate::utils::chars2d::char_positions_x(&pos.to_string(), char_drawers);
             let mut height = crate::utils::chars2d::height(&pos.to_string(), char_drawers);
@@ -746,6 +769,21 @@ impl Helix {
                     color,
                 })
             }
+            */
+            let color = if Some(pos) == moving_pos || candidate_pos == Some(pos) {
+                [1., 0., 0., 1.].into()
+            } else {
+                [0., 0., 0., 1.].into()
+            };
+            let text = pos.to_string();
+            let sentence = Sentence {
+                text: &text,
+                size: size_pos,
+                z_index: self.flat_id.flat.0 as i32,
+                color,
+            };
+            let line = self.top_line();
+            text_drawer.add_sentence(sentence, self.char_position_top(pos), line);
         };
 
         let mut pos = self.left;
@@ -762,6 +800,7 @@ impl Helix {
         }
 
         let mut print_info = |pos: isize, info: &str| {
+            /*
             let scale = size_pos;
             let advance_idx = info
                 .find('/')
@@ -792,7 +831,15 @@ impl Helix {
                     z_index: self.flat_id.flat.0 as i32,
                     color: [0., 0., 0., 1.].into(),
                 })
-            }
+            }*/
+            let sentence = Sentence {
+                text: info,
+                size: size_pos,
+                z_index: self.flat_id.flat.0 as i32,
+                color: [0., 0., 0., 1.].into(),
+            };
+            let line = self.top_line();
+            text_drawer.add_sentence(sentence, self.char_position_top(pos), line);
         };
 
         if let Some(building) = edition_info {
@@ -811,8 +858,9 @@ impl Helix {
             if nucl_collection.contains(&nucl) {
                 let (c, color) = basis_map
                     .get(&nucl)
-                    .map(|c| (*c, BLACK_VEC4))
-                    .unwrap_or(('?', GREY_UNKNOWN_NUCL_VEC4));
+                    .map(|c| (c.to_string(), BLACK_VEC4))
+                    .unwrap_or(('?'.to_string(), GREY_UNKNOWN_NUCL_VEC4));
+                /*
                 let advances =
                     crate::utils::chars2d::char_positions_x(&pos.to_string(), char_drawers);
                 let height = crate::utils::chars2d::height(&c.to_string(), char_drawers);
@@ -829,6 +877,18 @@ impl Helix {
                     z_index: self.flat_id.flat.0 as i32,
                     color,
                 })
+                */
+                let sentence = Sentence {
+                    text: &c,
+                    size: size_pos,
+                    z_index: self.flat_id.flat.0 as i32,
+                    color,
+                };
+                let (line, position) = if nucl.forward {
+                    (self.top_line(), self.char_position_top(nucl.position))
+                } else {
+                    (self.bottom_line(), self.char_position_bottom(nucl.position))
+                };
             }
         };
 
