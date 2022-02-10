@@ -60,7 +60,6 @@ pub struct Letter {
     pub advance: f32,
     pub advance_height: f32,
     pub font: Font,
-    pub width: f32,
     pub height: f32,
 }
 
@@ -126,7 +125,6 @@ impl Letter {
 
         let advance = metrics.advance_width / size.width as f32;
         let height = metrics.height as f32 / size.height as f32;
-        let width = metrics.width as f32 / size.width as f32;
         let advance_height = metrics.ymin as f32 / size.height as f32;
         let mut last_pixels = None;
 
@@ -256,7 +254,6 @@ impl Letter {
             index_buffer,
             bind_group_layout: texture_bind_group_layout,
             advance,
-            width,
             height,
             advance_height,
             font,

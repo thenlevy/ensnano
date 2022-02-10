@@ -78,21 +78,14 @@ impl TextDrawer {
     }
 
     pub fn add_sentence(&mut self, sentence: Sentence<'_>, center_position: Vec2, bound: Line) {
-        let fonts = [
-            &self.char_drawers[&'A'].letter.font,
-            &self.char_drawers[&'a'].letter.font,
-        ];
+        let fonts = [&self.char_drawers[&'a'].letter.font];
         self.layout
             .reset(&fontdue::layout::LayoutSettings::default());
         self.layout.append(
             &fonts,
             &fontdue::layout::TextStyle::new(sentence.text, PX_PER_SQUARE, 0),
         );
-        let rectangle = SentenceRectangle::new(
-            self.layout.glyphs(),
-            PX_PER_SQUARE / sentence.size,
-            &self.char_drawers,
-        );
+        let rectangle = SentenceRectangle::new(self.layout.glyphs(), PX_PER_SQUARE / sentence.size);
         let shift = rectangle.shift(bound, center_position);
 
         println!("Start sentence");
@@ -101,28 +94,17 @@ impl TextDrawer {
                 "{}, x {}, y {}, width {}, height {}",
                 g.parent, g.x, g.y, g.width, g.height
             );
-            println!("bottom {}", rectangle.bottom());
             let c = g.parent;
             let pos = Vec2 {
                 x: g.x / PX_PER_SQUARE * sentence.size,
                 y: g.y / PX_PER_SQUARE * sentence.size,
             } + shift;
-            let true_witdh = self.char_drawers[&c].letter.width;
-            let advance = self.char_drawers[&c].letter.advance;
-            let height = self.char_drawers[&c].letter.height;
-            println!(
-                "true {}, glyph {}, advance {} ",
-                true_witdh,
-                g.width as f32 / PX_PER_SQUARE,
-                advance
-            );
             println!("pos {:?}", pos);
             println!(
                 "glyph center: {}, {}",
-                (g.x / PX_PER_SQUARE + true_witdh / 2.) * sentence.size + shift.x,
-                (g.y / PX_PER_SQUARE + height / 2.) * sentence.size + shift.y
+                (g.x + g.width as f32 / 2.) / PX_PER_SQUARE * sentence.size + shift.x,
+                (g.y + g.height as f32 / 2.) / PX_PER_SQUARE * sentence.size + shift.y
             );
-            println!("desired: {:?}", center_position);
             self.char_map.entry(c).or_default().push(CharInstance {
                 top_left: pos,
                 rotation: Mat2::identity(),
@@ -138,41 +120,23 @@ struct SentenceRectangle<'a> {
     glyphs: &'a Vec<fontdue::layout::GlyphPosition<()>>,
     top: f32,
     bottom: f32,
-    right: f32,
     size_px: f32,
 }
 
 impl<'a> SentenceRectangle<'a> {
-    fn new(
-        glyphs: &'a Vec<fontdue::layout::GlyphPosition<()>>,
-        size_px: f32,
-        char_drawers: &HashMap<char, CharDrawer>,
-    ) -> Self {
+    fn new(glyphs: &'a Vec<fontdue::layout::GlyphPosition<()>>, size_px: f32) -> Self {
         let bottom = glyphs
             .iter()
-            .flat_map(|g| {
-                char_drawers
-                    .get(&g.parent)
-                    .map(|c| g.y + c.letter.height * PX_PER_SQUARE)
-            })
+            .map(|g| g.y + g.height as f32)
             .fold(f32::NEG_INFINITY, |x, y| if x > y { x } else { y });
         let top = glyphs
             .iter()
             .map(|g| g.y)
             .fold(f32::INFINITY, |x, y| if x < y { x } else { y });
-        let right = glyphs
-            .last()
-            .and_then(|g| {
-                char_drawers
-                    .get(&g.parent)
-                    .map(|c| g.x + c.letter.width * PX_PER_SQUARE)
-            })
-            .unwrap_or_default();
         Self {
             glyphs,
             top,
             bottom,
-            right,
             size_px,
         }
     }
@@ -181,7 +145,10 @@ impl<'a> SentenceRectangle<'a> {
     }
 
     fn right(&self) -> f32 {
-        self.right
+        self.glyphs
+            .last()
+            .map(|g| g.x + g.width as f32)
+            .unwrap_or_default()
     }
 
     fn top(&self) -> f32 {
