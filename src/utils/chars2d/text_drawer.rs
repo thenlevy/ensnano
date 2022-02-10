@@ -86,7 +86,7 @@ impl TextDrawer {
             &fontdue::layout::TextStyle::new(sentence.text, PX_PER_SQUARE, 0),
         );
         let rectangle = SentenceRectangle::new(self.layout.glyphs(), PX_PER_SQUARE / sentence.size);
-        let shift = rectangle.shift(bound, center_position);
+        let shift = rectangle.shift(bound, center_position, sentence.size);
 
         println!("Start sentence");
         for g in rectangle.glyphs.iter() {
@@ -176,52 +176,56 @@ impl<'a> SentenceRectangle<'a> {
 
     fn corners(&self) -> [Vec2; 4] {
         [
-            Vec2::new(self.top(), self.left()),
-            Vec2::new(self.top(), self.right()),
-            Vec2::new(self.bottom(), self.left()),
-            Vec2::new(self.bottom(), self.right()),
+            Vec2::new(self.left(), self.top()) / self.size_px,
+            Vec2::new(self.left(), self.bottom()) / self.size_px,
+            Vec2::new(self.right(), self.top()) / self.size_px,
+            Vec2::new(self.right(), self.bottom()) / self.size_px,
         ]
     }
 
-    fn shift(&self, line: Line, center: Vec2) -> Vec2 {
+    fn shift(&self, line: Line, center: Vec2, size: f32) -> Vec2 {
         let mut ret = Vec2::zero();
         let mut mag = 0.0;
 
         for c in self.corners().iter() {
-            let shift = line.shift(*c + center - self.center());
+            let point_no_shift = center + (*c - self.center()) * size;
+            println!("point no shift {:?}", point_no_shift);
+            let shift = line.shift(point_no_shift);
+            println!("line {:?}", line);
+            println!("point shifted {:?}", point_no_shift + shift);
             if shift.mag() > mag {
                 mag = shift.mag();
                 ret = shift;
             }
         }
-        //center - self.center() + ret
-        center - self.center()
+        center - self.center() + ret
+        //center - self.center()
     }
 }
 
+/// A 2d line given by an origin and a direction vector.
+///
+/// The equation of the line is (x - origin.x) * direction.y - (y + origin.y) * direction.x = 0
+#[derive(Debug)]
 pub struct Line {
     pub origin: Vec2,
     pub direction: Vec2,
 }
 
 impl Line {
-    fn ceil(&self) -> f32 {
-        self.origin.x * self.direction.y - self.origin.y * self.direction.x
+    fn project_point(&self, point: Vec2) -> Vec2 {
+        (point - self.origin).dot(self.direction.normalized()) * self.direction.normalized()
+            + self.origin
     }
 
-    fn signed_dist(&self, point: Vec2) -> f32 {
-        self.origin.x * point.y - self.origin.y * point.x - self.ceil()
+    fn equation(&self, point: Vec2) -> f32 {
+        (point.y - self.origin.y) * self.direction.x - (point.x - self.origin.x) * self.direction.y
     }
 
     /// Return the smallest translation to be applied to point to put in on the positive side of self
     fn shift(&self, point: Vec2) -> Vec2 {
-        let signed_dist = self.signed_dist(point);
-        if signed_dist < 0.0 {
-            signed_dist
-                * Vec2 {
-                    x: -self.direction.y,
-                    y: self.direction.x,
-                }
+        if self.equation(point) > 0.0 {
+            self.project_point(point) - point
         } else {
             Vec2::zero()
         }
