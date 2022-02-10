@@ -31,7 +31,7 @@ pub struct Sentence<'a> {
     pub color: Vec4,
 }
 
-const PX_PER_SQUARE: f32 = 50.0;
+const PX_PER_SQUARE: f32 = 512.0;
 
 impl TextDrawer {
     pub fn new(
@@ -82,33 +82,49 @@ impl TextDrawer {
             &self.char_drawers[&'A'].letter.font,
             &self.char_drawers[&'a'].letter.font,
         ];
-        let size_px = PX_PER_SQUARE * sentence.size;
         self.layout
             .reset(&fontdue::layout::LayoutSettings::default());
         self.layout.append(
             &fonts,
-            &fontdue::layout::TextStyle::new(sentence.text, size_px, 0),
+            &fontdue::layout::TextStyle::new(sentence.text, PX_PER_SQUARE, 0),
         );
-        let rectangle = SentenceRectangle::new(self.layout.glyphs(), size_px);
+        let rectangle = SentenceRectangle::new(
+            self.layout.glyphs(),
+            PX_PER_SQUARE / sentence.size,
+            &self.char_drawers,
+        );
         let shift = rectangle.shift(bound, center_position);
 
-        if rectangle.nb_char() > 3 {
-            println!("Start sentence");
-        }
+        println!("Start sentence");
         for g in rectangle.glyphs.iter() {
-            if rectangle.nb_char() > 3 {
-                println!(
-                    "{}, x {}, y {}, width {}, height {}",
-                    g.parent, g.x, g.y, g.width, g.height
-                );
-            }
+            println!(
+                "{}, x {}, y {}, width {}, height {}",
+                g.parent, g.x, g.y, g.width, g.height
+            );
+            println!("bottom {}", rectangle.bottom());
             let c = g.parent;
             let pos = Vec2 {
-                x: g.x / size_px,
-                y: g.y / size_px,
+                x: g.x / PX_PER_SQUARE * sentence.size,
+                y: g.y / PX_PER_SQUARE * sentence.size,
             } + shift;
+            let true_witdh = self.char_drawers[&c].letter.width;
+            let advance = self.char_drawers[&c].letter.advance;
+            let height = self.char_drawers[&c].letter.height;
+            println!(
+                "true {}, glyph {}, advance {} ",
+                true_witdh,
+                g.width as f32 / PX_PER_SQUARE,
+                advance
+            );
+            println!("pos {:?}", pos);
+            println!(
+                "glyph center: {}, {}",
+                (g.x / PX_PER_SQUARE + true_witdh / 2.) * sentence.size + shift.x,
+                (g.y / PX_PER_SQUARE + height / 2.) * sentence.size + shift.y
+            );
+            println!("desired: {:?}", center_position);
             self.char_map.entry(c).or_default().push(CharInstance {
-                center: pos,
+                top_left: pos,
                 rotation: Mat2::identity(),
                 z_index: sentence.z_index,
                 color: sentence.color,
@@ -122,23 +138,41 @@ struct SentenceRectangle<'a> {
     glyphs: &'a Vec<fontdue::layout::GlyphPosition<()>>,
     top: f32,
     bottom: f32,
+    right: f32,
     size_px: f32,
 }
 
 impl<'a> SentenceRectangle<'a> {
-    fn new(glyphs: &'a Vec<fontdue::layout::GlyphPosition<()>>, size_px: f32) -> Self {
+    fn new(
+        glyphs: &'a Vec<fontdue::layout::GlyphPosition<()>>,
+        size_px: f32,
+        char_drawers: &HashMap<char, CharDrawer>,
+    ) -> Self {
         let bottom = glyphs
             .iter()
-            .map(|g| g.y)
-            .fold(0.0, |x, y| if x < y { x } else { y });
+            .flat_map(|g| {
+                char_drawers
+                    .get(&g.parent)
+                    .map(|c| g.y + c.letter.height * PX_PER_SQUARE)
+            })
+            .fold(f32::NEG_INFINITY, |x, y| if x > y { x } else { y });
         let top = glyphs
             .iter()
-            .map(|g| g.y + g.height as f32)
-            .fold(0.0, |x, y| if x > y { x } else { y });
+            .map(|g| g.y)
+            .fold(f32::INFINITY, |x, y| if x < y { x } else { y });
+        let right = glyphs
+            .last()
+            .and_then(|g| {
+                char_drawers
+                    .get(&g.parent)
+                    .map(|c| g.x + c.letter.width * PX_PER_SQUARE)
+            })
+            .unwrap_or_default();
         Self {
             glyphs,
             top,
             bottom,
+            right,
             size_px,
         }
     }
@@ -147,10 +181,7 @@ impl<'a> SentenceRectangle<'a> {
     }
 
     fn right(&self) -> f32 {
-        self.glyphs
-            .last()
-            .map(|g| g.x + g.width as f32)
-            .unwrap_or_default()
+        self.right
     }
 
     fn top(&self) -> f32 {
@@ -164,10 +195,10 @@ impl<'a> SentenceRectangle<'a> {
     fn center(&self) -> Vec2 {
         (Vec2 {
             x: self.left(),
-            y: self.bottom(),
+            y: self.top(),
         } + Vec2 {
             x: self.right(),
-            y: self.top(),
+            y: self.bottom(),
         }) / 2.
             / self.size_px
     }

@@ -15,9 +15,12 @@ void main() {
 
     alpha = texture(sampler2D(t_circle, s_circle), v_tex_coords);
 
+    /*
     if (alpha.w < 0.01) {
     discard;
     }
 
     f_color = vec4(v_color.xyz, alpha.w);
+    */
+    f_color = vec4(0., 0., 0., 1.);
 }
