@@ -88,23 +88,12 @@ impl TextDrawer {
         let rectangle = SentenceRectangle::new(self.layout.glyphs(), PX_PER_SQUARE / sentence.size);
         let shift = rectangle.shift(bound, center_position, sentence.size);
 
-        println!("Start sentence");
         for g in rectangle.glyphs.iter() {
-            println!(
-                "{}, x {}, y {}, width {}, height {}",
-                g.parent, g.x, g.y, g.width, g.height
-            );
             let c = g.parent;
             let pos = Vec2 {
                 x: g.x / PX_PER_SQUARE * sentence.size,
                 y: g.y / PX_PER_SQUARE * sentence.size,
             } + shift;
-            println!("pos {:?}", pos);
-            println!(
-                "glyph center: {}, {}",
-                (g.x + g.width as f32 / 2.) / PX_PER_SQUARE * sentence.size + shift.x,
-                (g.y + g.height as f32 / 2.) / PX_PER_SQUARE * sentence.size + shift.y
-            );
             self.char_map.entry(c).or_default().push(CharInstance {
                 top_left: pos,
                 rotation: Mat2::identity(),
@@ -189,10 +178,7 @@ impl<'a> SentenceRectangle<'a> {
 
         for c in self.corners().iter() {
             let point_no_shift = center + (*c - self.center()) * size;
-            println!("point no shift {:?}", point_no_shift);
             let shift = line.shift(point_no_shift);
-            println!("line {:?}", line);
-            println!("point shifted {:?}", point_no_shift + shift);
             if shift.mag() > mag {
                 mag = shift.mag();
                 ret = shift;

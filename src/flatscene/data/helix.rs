@@ -431,16 +431,22 @@ impl Helix {
         real_center + ((angle_sin - width) / 2.) * Vec2::unit_x() - height / 2. * Vec2::unit_y()
     }
 
+    fn info_position(&self, x: isize) -> Vec2 {
+        self.isometry
+            .into_homogeneous_matrix()
+            .transform_point2((x as f32 + 0.5) * Vec2::unit_x() - Vec2::unit_y())
+    }
+
     fn char_position_top(&self, x: isize) -> Vec2 {
         self.isometry
             .into_homogeneous_matrix()
-            .transform_point2(x as f32 * Vec2::unit_x())
+            .transform_point2((x as f32 + 0.5) * Vec2::unit_x())
     }
 
     fn char_position_bottom(&self, x: isize) -> Vec2 {
         self.isometry
             .into_homogeneous_matrix()
-            .transform_point2(x as f32 * Vec2::unit_x() + 2. * Vec2::unit_y())
+            .transform_point2((x as f32 + 0.5) * Vec2::unit_x() + 2. * Vec2::unit_y())
     }
 
     pub fn handle_circles(&self) -> Vec<CircleInstance> {
@@ -646,6 +652,19 @@ impl Helix {
         InsertionInstance::new(position, self.get_depth(), orientation, color)
     }
 
+    fn info_line(&self) -> Line {
+        Line {
+            origin: self
+                .isometry
+                .into_homogeneous_matrix()
+                .transform_point2(-Vec2::unit_y()),
+            direction: self
+                .isometry
+                .into_homogeneous_matrix()
+                .transform_vec2(Vec2::unit_x()),
+        }
+    }
+
     fn top_line(&self) -> Line {
         Line {
             origin: self
@@ -724,7 +743,7 @@ impl Helix {
                 z_index: self.flat_id.flat.0 as i32,
             };
             let line = Line {
-                origin: circle.center,
+                origin: circle.center + circle.radius * Vec2::unit_y(),
                 direction: Vec2::unit_x(),
             };
             text_drawer.add_sentence(sentence, circle.center, line);
@@ -782,8 +801,12 @@ impl Helix {
                 z_index: self.flat_id.flat.0 as i32,
                 color,
             };
-            let line = self.top_line();
-            text_drawer.add_sentence(sentence, self.char_position_top(pos), line);
+            let (position, line) = if show_seq {
+                (self.info_position(pos), self.info_line())
+            } else {
+                (self.char_position_top(pos), self.top_line())
+            };
+            text_drawer.add_sentence(sentence, position, line);
         };
 
         let mut pos = self.left;
@@ -838,8 +861,8 @@ impl Helix {
                 z_index: self.flat_id.flat.0 as i32,
                 color: [0., 0., 0., 1.].into(),
             };
-            let line = self.top_line();
-            text_drawer.add_sentence(sentence, self.char_position_top(pos), line);
+            let line = self.info_line();
+            text_drawer.add_sentence(sentence, self.info_position(pos), line);
         };
 
         if let Some(building) = edition_info {
@@ -849,7 +872,6 @@ impl Helix {
         }
 
         let mut print_basis = |position: isize, forward: bool| {
-            let scale = size_pos;
             let nucl = Nucl {
                 helix: self.real_id,
                 position,
@@ -889,6 +911,7 @@ impl Helix {
                 } else {
                     (self.bottom_line(), self.char_position_bottom(nucl.position))
                 };
+                text_drawer.add_sentence(sentence, position, line);
             }
         };
 
