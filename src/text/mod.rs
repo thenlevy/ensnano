@@ -59,6 +59,7 @@ pub struct Letter {
     pub advance: f32,
     pub height: f32,
     pub advance_height: f32,
+    pub font: Font,
 }
 
 const MAX_SIZE: u32 = 9;
@@ -254,6 +255,7 @@ impl Letter {
             advance,
             height,
             advance_height,
+            font,
         }
     }
 }

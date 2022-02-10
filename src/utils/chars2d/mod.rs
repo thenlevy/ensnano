@@ -25,6 +25,8 @@ use crate::consts::*;
 use crate::text::{Letter, Vertex as CharVertex};
 use crate::utils::bindgroup_manager::DynamicBindGroup;
 use crate::utils::texture::Texture;
+mod text_drawer;
+pub use text_drawer::{Line, Sentence, TextDrawer};
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
