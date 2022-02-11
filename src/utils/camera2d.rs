@@ -205,15 +205,15 @@ impl Camera {
     pub fn world_to_norm_screen(&self, x_world: f32, y_world: f32) -> (f32, f32) {
         // The screen coordinates have the y axis pointed down, and so does the 2d world
         // coordinates. So we do not flip the y axis.
-        let temp = (
+        let temp = Vec2::new(
             x_world - self.globals.scroll_offset[0],
             y_world - self.globals.scroll_offset[1],
-        );
-        let coord_ndc = Vec2::new(
-            temp.0 * 2. * self.globals.zoom / self.globals.resolution[0],
-            temp.1 * 2. * self.globals.zoom / self.globals.resolution[1],
         )
         .rotated_by(self.rotation());
+        let coord_ndc = Vec2::new(
+            temp.x * 2. * self.globals.zoom / self.globals.resolution[0],
+            temp.y * 2. * self.globals.zoom / self.globals.resolution[1],
+        );
         ((coord_ndc.x + 1.) / 2., (coord_ndc.y + 1.) / 2.)
     }
 

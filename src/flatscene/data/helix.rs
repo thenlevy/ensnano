@@ -822,7 +822,7 @@ impl Helix {
 
     /// Return the coordinates at which self's axis intersect the screen bounds.
     fn screen_intersection(&self, camera: &CameraPtr) -> Option<(f32, f32)> {
-        self.screen_rectangle_intersection(camera, 0., 0., 1., 1., HelixLine::Middle)
+        self.screen_rectangle_intersection(camera, 0., 0.025, 1., 0.975, HelixLine::Middle)
     }
 
     /// Return the coordinates at which self's axis intersect a rectangle on the screen

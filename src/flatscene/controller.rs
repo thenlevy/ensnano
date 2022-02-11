@@ -253,7 +253,7 @@ impl<S: AppState> Controller<S> {
                 VirtualKeyCode::Left if self.modifiers.alt() => {
                     camera.borrow_mut().tilt_left();
                 }
-                VirtualKeyCode::Right  if self.modifiers.alt() => {
+                VirtualKeyCode::Right if self.modifiers.alt() => {
                     camera.borrow_mut().tilt_right();
                 }
                 VirtualKeyCode::J => {
