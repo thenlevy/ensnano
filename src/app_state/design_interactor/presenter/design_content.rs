@@ -221,9 +221,12 @@ impl DesignContent {
                 intervals: Vec::new(),
             };
             for domain in &strand.domains {
+                let mut staple_domain = None;
+                let scaffold = design.scaffold_id.and_then(|id| design.strands.get(&id));
                 if !first {
                     sequence.push(' ');
                 }
+                let helices = &design.helices;
                 first = false;
                 if let Domain::HelixDomain(dom) = domain {
                     for position in dom.iter() {
@@ -232,6 +235,7 @@ impl DesignContent {
                             forward: dom.forward,
                             helix: dom.helix,
                         };
+                        
                         let next_basis = basis_map.get(&nucl);
                         if let Some(basis) = next_basis {
                             if previous_char_is_basis == Some(false) {
@@ -246,29 +250,31 @@ impl DesignContent {
                             sequence.push('?');
                             previous_char_is_basis = Some(false);
                         }
+                        if let Some(virtual_nucl) = Nucl::map_to_virtual_nucl(nucl, helices) {
+                            if let Some(scaffold) = scaffold {
+                                let result = scaffold.locate_virtual_nucl(&virtual_nucl.compl(), helices).map(|v| ScaffoldPosition {
+                                    domain_id: v.domain_id,
+                                    scaffold_position: v.pos_on_strand,
+                                });
+                                if staple_domain.is_none() {
+                                    staple_domain = Some(StapleDomain::init(result));
+                                }
+                                let d = staple_domain.take().unwrap();
+                                match d.read_position(result) {
+                                    ReadResult::Continue(d) => staple_domain = Some(d),
+                                    ReadResult::Stop { interval, new_reader } => {
+                                        intervals.intervals.push(interval);
+                                        staple_domain = Some(new_reader);
+                                    }
+                                }
+                            }
+                        } else {
+                            log::error!("Could not map to virtual nucl");
+                        }
                     }
                 }
-                let helices = &design.helices;
-                if let Some(scaffold) = design.scaffold_id.and_then(|id| design.strands.get(&id)) {
-                    if let Some((n5, n3)) = domain
-                        .prime5_end()
-                        .and_then(|n| Nucl::map_to_virtual_nucl(n, helices))
-                        .zip(
-                            domain
-                                .prime3_end()
-                                .and_then(|n| Nucl::map_to_virtual_nucl(n, helices)),
-                        )
-                    {
-                        let a = scaffold
-                            .find_virtual_nucl(&n5.compl(), helices)
-                            .map(|n| n as isize)
-                            .unwrap_or(-1);
-                        let b = scaffold
-                            .find_virtual_nucl(&n3.compl(), helices)
-                            .map(|n| n as isize)
-                            .unwrap_or(-1);
-                        intervals.intervals.push((a, b));
-                    }
+                if let Some(d) = staple_domain {
+                    intervals.intervals.push(d.finish())
                 }
             }
             let key = if let Some((prim5, prim3)) = strand.get_5prime().zip(strand.get_3prime()) {
@@ -810,5 +816,78 @@ impl GridInstancesMaker for GridData {
             ret[grid].max_y = ret[grid].max_y.max(grid_position.y as i32 + 2);
         }
         ret
+    }
+}
+
+enum StapleDomain  {
+    ScaffoldDomain {
+        domain_id: usize,
+        first_scaffold_position: usize,
+        last_scaffold_position: usize,
+    },
+    OtherDomain {
+        length: usize
+    }
+}
+
+#[derive(Clone, Copy)]
+struct ScaffoldPosition {
+    domain_id: usize,
+    scaffold_position: usize,
+}
+
+impl StapleDomain {
+    fn init(scaffold_position: Option<ScaffoldPosition>) -> Self {
+        if let Some(pos) =  scaffold_position {
+            Self::ScaffoldDomain {
+                domain_id: pos.domain_id,
+                first_scaffold_position: pos.scaffold_position,
+                last_scaffold_position: pos.scaffold_position,
+            }
+        } else {
+            Self::OtherDomain { length: 1 }
+        }
+    }
+
+    fn finish(&self) -> (isize, isize) {
+        match self {
+            Self::OtherDomain { length } => (-1, -(*length as isize)),
+            Self::ScaffoldDomain { first_scaffold_position, last_scaffold_position, .. } => (*first_scaffold_position as isize, *last_scaffold_position as isize),
+        }
+    }
+
+    fn read_position(mut self, position: Option<ScaffoldPosition>) -> ReadResult {
+        match &mut self {
+            Self::OtherDomain { length } => {
+                if position.is_none() {
+                    *length += 1;
+                    ReadResult::Continue(self)
+                } else {
+                    ReadResult::Stop {
+                        interval: self.finish(),
+                        new_reader: Self::init(position) 
+                    }
+                }
+            }
+            Self::ScaffoldDomain { domain_id, last_scaffold_position, ..} => {
+                if let Some(pos) = position.filter(|p| p.domain_id == *domain_id) {
+                    *last_scaffold_position = pos.scaffold_position;
+                    ReadResult::Continue(self)
+                } else {
+                    ReadResult::Stop {
+                        interval: self.finish(),
+                        new_reader: Self::init(position)
+                    }
+                }
+            }
+        }
+    }
+}
+
+enum ReadResult {
+    Continue(StapleDomain),
+    Stop {
+        interval: (isize, isize),
+        new_reader: StapleDomain
     }
 }

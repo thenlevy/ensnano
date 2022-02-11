@@ -605,6 +605,22 @@ impl Strand {
         None
     }
 
+    pub fn locate_virtual_nucl(&self, nucl: &VirtualNucl, helices: &Helices) -> Option<PositionOnStrand> {
+        let mut len = 0;
+        for (d_id, d) in self.domains.iter().enumerate() {
+            if let Some(n) = d.has_virtual_nucl(nucl, helices) {
+                return Some(PositionOnStrand {
+                    domain_id: d_id,
+                    pos_on_domain: n,
+                    pos_on_strand: n + len,
+                })
+            } else {
+                len += d.length();
+            }
+        }
+        None
+    }
+
     fn add_insertion_at_dom_position(&mut self, d_id: usize, pos: usize, insertion_size: usize) {
         if let Some((prime5, prime3)) = self.domains[d_id].split(pos) {
             self.domains[d_id] = prime3;
@@ -1154,4 +1170,11 @@ impl Extremity {
             Extremity::Prime5 => Some(false),
         }
     }
+}
+
+/// The index of a nucleotide on a Strand
+pub struct PositionOnStrand {
+    pub domain_id: usize,
+    pub pos_on_domain: usize,
+    pub pos_on_strand: usize,
 }
