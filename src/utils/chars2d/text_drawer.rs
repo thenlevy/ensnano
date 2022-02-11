@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
-use fontdue::{layout::Layout, Font};
+use fontdue::layout::Layout;
 
 pub struct TextDrawer {
     char_drawers: HashMap<char, CharDrawer>,
@@ -78,7 +78,17 @@ impl TextDrawer {
     }
 
     pub fn add_sentence(&mut self, sentence: Sentence<'_>, center_position: Vec2, bound: Line) {
-        let fonts = [&self.char_drawers[&'a'].letter.font];
+        let fonts = if sentence
+            .text
+            .chars()
+            .next()
+            .map(|c| c.is_ascii_uppercase())
+            .unwrap_or_default()
+        {
+            [&self.char_drawers[&'A'].letter.font]
+        } else {
+            [&self.char_drawers[&'a'].letter.font]
+        };
         self.layout
             .reset(&fontdue::layout::LayoutSettings::default());
         self.layout.append(
@@ -86,7 +96,7 @@ impl TextDrawer {
             &fontdue::layout::TextStyle::new(sentence.text, PX_PER_SQUARE, 0),
         );
         let rectangle = SentenceRectangle::new(self.layout.glyphs(), PX_PER_SQUARE / sentence.size);
-        let shift = rectangle.shift(bound, center_position, sentence.size);
+        let shift = rectangle.shift(bound, center_position);
 
         for g in rectangle.glyphs.iter() {
             let c = g.parent;
@@ -159,10 +169,6 @@ impl<'a> SentenceRectangle<'a> {
             / self.size_px
     }
 
-    fn nb_char(&self) -> usize {
-        self.glyphs.len()
-    }
-
     fn corners(&self) -> [Vec2; 4] {
         [
             Vec2::new(self.left(), self.top()) / self.size_px,
@@ -172,12 +178,12 @@ impl<'a> SentenceRectangle<'a> {
         ]
     }
 
-    fn shift(&self, line: Line, center: Vec2, size: f32) -> Vec2 {
+    fn shift(&self, line: Line, center: Vec2) -> Vec2 {
         let mut ret = Vec2::zero();
         let mut mag = 0.0;
 
         for c in self.corners().iter() {
-            let point_no_shift = center + (*c - self.center()) * size;
+            let point_no_shift = center + (*c - self.center());
             let shift = line.shift(point_no_shift);
             if shift.mag() > mag {
                 mag = shift.mag();
