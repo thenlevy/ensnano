@@ -605,7 +605,11 @@ impl Strand {
         None
     }
 
-    pub fn locate_virtual_nucl(&self, nucl: &VirtualNucl, helices: &Helices) -> Option<PositionOnStrand> {
+    pub fn locate_virtual_nucl(
+        &self,
+        nucl: &VirtualNucl,
+        helices: &Helices,
+    ) -> Option<PositionOnStrand> {
         let mut len = 0;
         for (d_id, d) in self.domains.iter().enumerate() {
             if let Some(n) = d.has_virtual_nucl(nucl, helices) {
@@ -613,7 +617,7 @@ impl Strand {
                     domain_id: d_id,
                     pos_on_domain: n,
                     pos_on_strand: n + len,
-                })
+                });
             } else {
                 len += d.length();
             }

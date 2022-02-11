@@ -235,7 +235,7 @@ impl DesignContent {
                             forward: dom.forward,
                             helix: dom.helix,
                         };
-                        
+
                         let next_basis = basis_map.get(&nucl);
                         if let Some(basis) = next_basis {
                             if previous_char_is_basis == Some(false) {
@@ -252,17 +252,24 @@ impl DesignContent {
                         }
                         if let Some(virtual_nucl) = Nucl::map_to_virtual_nucl(nucl, helices) {
                             if let Some(scaffold) = scaffold {
-                                let result = scaffold.locate_virtual_nucl(&virtual_nucl.compl(), helices).map(|v| ScaffoldPosition {
-                                    domain_id: v.domain_id,
-                                    scaffold_position: v.pos_on_strand,
-                                });
+                                let result = scaffold
+                                    .locate_virtual_nucl(&virtual_nucl.compl(), helices)
+                                    .map(|v| ScaffoldPosition {
+                                        domain_id: v.domain_id,
+                                        scaffold_position: (v.pos_on_strand
+                                            + design.scaffold_shift.unwrap_or(0))
+                                            % scaffold.length(),
+                                    });
                                 if staple_domain.is_none() {
                                     staple_domain = Some(StapleDomain::init(result));
                                 }
                                 let d = staple_domain.take().unwrap();
                                 match d.read_position(result) {
                                     ReadResult::Continue(d) => staple_domain = Some(d),
-                                    ReadResult::Stop { interval, new_reader } => {
+                                    ReadResult::Stop {
+                                        interval,
+                                        new_reader,
+                                    } => {
                                         intervals.intervals.push(interval);
                                         staple_domain = Some(new_reader);
                                     }
@@ -819,15 +826,15 @@ impl GridInstancesMaker for GridData {
     }
 }
 
-enum StapleDomain  {
+enum StapleDomain {
     ScaffoldDomain {
         domain_id: usize,
         first_scaffold_position: usize,
         last_scaffold_position: usize,
     },
     OtherDomain {
-        length: usize
-    }
+        length: usize,
+    },
 }
 
 #[derive(Clone, Copy)]
@@ -838,7 +845,19 @@ struct ScaffoldPosition {
 
 impl StapleDomain {
     fn init(scaffold_position: Option<ScaffoldPosition>) -> Self {
-        if let Some(pos) =  scaffold_position {
+        if let Some(pos) = scaffold_position {
+            Self::ScaffoldDomain {
+                domain_id: pos.domain_id,
+                first_scaffold_position: pos.scaffold_position,
+                last_scaffold_position: pos.scaffold_position,
+            }
+        } else {
+            Self::OtherDomain { length: 0 }
+        }
+    }
+
+    fn reset(scaffold_position: Option<ScaffoldPosition>) -> Self {
+        if let Some(pos) = scaffold_position {
             Self::ScaffoldDomain {
                 domain_id: pos.domain_id,
                 first_scaffold_position: pos.scaffold_position,
@@ -852,7 +871,14 @@ impl StapleDomain {
     fn finish(&self) -> (isize, isize) {
         match self {
             Self::OtherDomain { length } => (-1, -(*length as isize)),
-            Self::ScaffoldDomain { first_scaffold_position, last_scaffold_position, .. } => (*first_scaffold_position as isize, *last_scaffold_position as isize),
+            Self::ScaffoldDomain {
+                first_scaffold_position,
+                last_scaffold_position,
+                ..
+            } => (
+                *first_scaffold_position as isize,
+                *last_scaffold_position as isize,
+            ),
         }
     }
 
@@ -865,18 +891,22 @@ impl StapleDomain {
                 } else {
                     ReadResult::Stop {
                         interval: self.finish(),
-                        new_reader: Self::init(position) 
+                        new_reader: Self::reset(position),
                     }
                 }
             }
-            Self::ScaffoldDomain { domain_id, last_scaffold_position, ..} => {
+            Self::ScaffoldDomain {
+                domain_id,
+                last_scaffold_position,
+                ..
+            } => {
                 if let Some(pos) = position.filter(|p| p.domain_id == *domain_id) {
                     *last_scaffold_position = pos.scaffold_position;
                     ReadResult::Continue(self)
                 } else {
                     ReadResult::Stop {
                         interval: self.finish(),
-                        new_reader: Self::init(position)
+                        new_reader: Self::reset(position),
                     }
                 }
             }
@@ -888,6 +918,6 @@ enum ReadResult {
     Continue(StapleDomain),
     Stop {
         interval: (isize, isize),
-        new_reader: StapleDomain
-    }
+        new_reader: StapleDomain,
+    },
 }
