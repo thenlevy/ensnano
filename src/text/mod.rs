@@ -47,6 +47,7 @@ impl Vertex {
 
 const INDICES: &[u16] = &[0, 1, 2, 3];
 
+/// A glyph whose top left of the bounding box is at (0, 0).
 pub struct Letter {
     pub texture: Texture,
     pub texture_view: TextureView,
@@ -57,8 +58,9 @@ pub struct Letter {
     pub index_buffer: wgpu::Buffer,
     pub bind_group_layout: BindGroupLayout,
     pub advance: f32,
-    pub height: f32,
     pub advance_height: f32,
+    pub font: Font,
+    pub height: f32,
 }
 
 const MAX_SIZE: u32 = 9;
@@ -93,11 +95,11 @@ impl Letter {
         let font = Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
         let (metrics, _) = font.rasterize(character, size.height as f32);
 
-        let min_x = metrics.xmin as f32 / size.width as f32;
-        let max_x = min_x + metrics.width as f32 / size.width as f32;
+        let min_x = 0.0;
+        let max_x = metrics.width as f32 / size.width as f32;
 
-        let min_y = metrics.ymin as f32 / size.height as f32;
-        let max_y = min_y + metrics.height as f32 / size.height as f32;
+        let min_y = 0.0;
+        let max_y = metrics.height as f32 / size.height as f32;
 
         let vertices: &[Vertex] = &[
             Vertex {
@@ -254,6 +256,7 @@ impl Letter {
             advance,
             height,
             advance_height,
+            font,
         }
     }
 }

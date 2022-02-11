@@ -15,11 +15,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::super::view::{CharInstance, CircleInstance, InsertionInstance};
+use super::super::view::{CircleInstance, InsertionInstance};
 use super::super::{CameraPtr, Flat, FlatHelix, FlatIdx};
 use super::{FlatNucl, Helix2d, NuclCollection};
 use crate::consts::*;
 use crate::flatscene::view::EditionInfo;
+use crate::utils::chars2d::{Line, Sentence, TextDrawer};
 use crate::utils::instance::Instance;
 use ahash::RandomState;
 use ensnano_design::Nucl;
@@ -350,42 +351,9 @@ impl Helix {
         }
     }
 
-    /*
-    pub fn translate(&mut self, translation: Vec2) {
-        self.isometry.translation = self.old_isometry.translation + translation
-    }
-    */
-
-    /*
-    /// Translate self so that the pivot ends up on position.
-    pub fn snap(&mut self, pivot: FlatNucl, translation: Vec2) {
-        let old_pos = self.get_old_pivot_position(&pivot);
-        let position = old_pos + translation;
-        let position = Vec2::new(position.x.round(), position.y.round());
-        self.translate(position - old_pos)
-    }*/
-
-    /*
-    pub fn rotate(&mut self, pivot: Vec2, angle: f32) {
-        let angle = {
-            let k = (angle / std::f32::consts::FRAC_PI_8).round();
-            k * std::f32::consts::FRAC_PI_8
-        };
-        self.isometry = self.old_isometry;
-        self.isometry.append_translation(-pivot);
-        self.isometry
-            .append_rotation(ultraviolet::Rotor2::from_angle(angle));
-        self.isometry.append_translation(pivot);
-    }*/
-
     pub fn get_pivot(&self, position: isize) -> Vec2 {
         self.isometry * (self.scale * Vec2::new(position as f32, 1.))
     }
-
-    /*
-    pub fn end_movement(&mut self) {
-        self.old_isometry = self.isometry
-    }*/
 
     pub fn set_color(&mut self, color: u32) {
         self.color = color
@@ -411,53 +379,22 @@ impl Helix {
             .transform_point2(self.scale * local_position)
     }
 
-    fn num_position_top(&self, x: isize, width: f32, height: f32, show_seq: bool) -> Vec2 {
-        let center_nucl = (x as f32 + 0.5) * Vec2::unit_x();
-
-        let center_text = if show_seq {
-            center_nucl - 3. * height / 2. * Vec2::unit_y()
-        } else {
-            center_nucl - height / 2. * Vec2::unit_y()
-        };
-
-        let real_center = self
-            .isometry
+    fn info_position(&self, x: isize) -> Vec2 {
+        self.isometry
             .into_homogeneous_matrix()
-            .transform_point2(center_text);
-
-        let angle_sin = Vec2::unit_y().dot(Vec2::unit_x().rotated_by(self.isometry.rotation));
-
-        real_center + ((angle_sin - width) / 2.) * Vec2::unit_x() - height / 2. * Vec2::unit_y()
+            .transform_point2((x as f32 + 0.5) * Vec2::unit_x() - Vec2::unit_y())
     }
 
-    fn char_position_top(&self, x: isize, width: f32, height: f32) -> Vec2 {
-        let center_nucl = (x as f32 + 0.5) * Vec2::unit_x();
-
-        let center_text = center_nucl - height / 2. * Vec2::unit_y();
-
-        let real_center = self
-            .isometry
+    fn char_position_top(&self, x: isize) -> Vec2 {
+        self.isometry
             .into_homogeneous_matrix()
-            .transform_point2(center_text);
-
-        let angle_sin = Vec2::unit_y().dot(Vec2::unit_x().rotated_by(self.isometry.rotation));
-
-        real_center + ((angle_sin - width) / 2.) * Vec2::unit_x() - height / 2. * Vec2::unit_y()
+            .transform_point2((x as f32 + 0.5) * Vec2::unit_x())
     }
 
-    fn char_position_bottom(&self, x: isize, width: f32, height: f32) -> Vec2 {
-        let center_nucl = (x as f32 + 0.5) * Vec2::unit_x();
-
-        let center_text = center_nucl + (2. + height / 2.) * Vec2::unit_y();
-
-        let real_center = self
-            .isometry
+    fn char_position_bottom(&self, x: isize) -> Vec2 {
+        self.isometry
             .into_homogeneous_matrix()
-            .transform_point2(center_text);
-
-        let angle_sin = Vec2::unit_y().dot(Vec2::unit_x().rotated_by(self.isometry.rotation));
-
-        real_center + ((angle_sin - width) / 2.) * Vec2::unit_x() - height / 2. * Vec2::unit_y()
+            .transform_point2((x as f32 + 0.5) * Vec2::unit_x() + 2. * Vec2::unit_y())
     }
 
     pub fn handle_circles(&self) -> Vec<CircleInstance> {
@@ -663,11 +600,49 @@ impl Helix {
         InsertionInstance::new(position, self.get_depth(), orientation, color)
     }
 
+    fn info_line(&self) -> Line {
+        Line {
+            origin: self
+                .isometry
+                .into_homogeneous_matrix()
+                .transform_point2(-Vec2::unit_y()),
+            direction: self
+                .isometry
+                .into_homogeneous_matrix()
+                .transform_vec2(Vec2::unit_x()),
+        }
+    }
+
+    fn top_line(&self) -> Line {
+        Line {
+            origin: self
+                .isometry
+                .into_homogeneous_matrix()
+                .transform_point2(Vec2::zero()),
+            direction: self
+                .isometry
+                .into_homogeneous_matrix()
+                .transform_vec2(Vec2::unit_x()),
+        }
+    }
+
+    fn bottom_line(&self) -> Line {
+        Line {
+            origin: self
+                .isometry
+                .into_homogeneous_matrix()
+                .transform_point2(2. * Vec2::unit_y()),
+            direction: self
+                .isometry
+                .into_homogeneous_matrix()
+                .transform_vec2(-Vec2::unit_x()),
+        }
+    }
+
     pub fn add_char_instances(
         &self,
         camera: &CameraPtr,
-        char_map: &mut HashMap<char, Vec<CharInstance>>,
-        char_drawers: &HashMap<char, crate::utils::chars2d::CharDrawer>,
+        text_drawer: &mut TextDrawer,
         groups: &BTreeMap<usize, bool>,
         basis_map: &HashMap<Nucl, char, RandomState>,
         show_seq: bool,
@@ -680,32 +655,28 @@ impl Helix {
             .map(|n| n.position);
         let show_seq = show_seq && camera.borrow().get_globals().zoom >= ZOOM_THRESHOLD;
         let size_id = 3.;
+        let zoom_font = if camera.borrow().get_globals().zoom < 7.0 {
+            2.
+        } else {
+            1.
+        };
         let size_pos = 1.4;
         let circle = self.get_circle(camera, groups);
+        let rotation = camera.borrow().rotation().reversed();
         if let Some(circle) = circle {
-            let nb_chars = self.real_id.to_string().len(); // ok to use len because digits are ascii
-            let scale = size_id / nb_chars as f32;
-            let mut advances =
-                crate::utils::chars2d::char_positions_x(&self.real_id.to_string(), char_drawers);
-            let mut height = crate::utils::chars2d::height(&self.real_id.to_string(), char_drawers);
-            if camera.borrow().get_globals().zoom < ZOOM_THRESHOLD {
-                height *= 2.;
-                for x in advances.iter_mut() {
-                    *x *= 2.;
-                }
-            }
-            let x_shift = -advances[nb_chars] / 2. * scale;
-            for (c_idx, c) in self.real_id.to_string().chars().enumerate() {
-                let instances = char_map.get_mut(&c).unwrap();
-                instances.push(CharInstance {
-                    center: circle.center + (x_shift + advances[c_idx] * scale) * Vec2::unit_x()
-                        - scale * height / 2. * Vec2::unit_y(),
-                    rotation: self.isometry.rotation.into_matrix(),
-                    size: scale,
-                    z_index: self.flat_id.flat.0 as i32,
-                    color: [0., 0., 0., 1.].into(),
-                })
-            }
+            let text = self.real_id.to_string();
+            let sentence = Sentence {
+                text: &text,
+                size: size_id / text.len() as f32 * zoom_font,
+                color: [0., 0., 0., 1.].into(),
+                z_index: self.flat_id.flat.0 as i32,
+                rotation,
+            };
+            let line = Line {
+                origin: circle.center + circle.radius * Vec2::unit_y(),
+                direction: Vec2::unit_x(),
+            };
+            text_drawer.add_sentence(sentence, circle.center, line);
         }
 
         let moving_pos = edition_info
@@ -713,39 +684,25 @@ impl Helix {
             .filter(|info| info.nucl.helix == self.flat_id)
             .map(|info| info.nucl.position);
         let mut print_pos = |pos: isize| {
-            let nb_chars = pos.to_string().len(); // ok to use len because digits are ascii
-            let scale = size_pos;
-            let mut advances =
-                crate::utils::chars2d::char_positions_x(&pos.to_string(), char_drawers);
-            let mut height = crate::utils::chars2d::height(&pos.to_string(), char_drawers);
-            if camera.borrow().get_globals().zoom < ZOOM_THRESHOLD {
-                height *= 2.;
-                for x in advances.iter_mut() {
-                    *x *= 2.;
-                }
-            }
-            let x_shift = if pos >= 0 { 0. } else { -advances[1] / 2. };
-            for (c_idx, c) in pos.to_string().chars().enumerate() {
-                let instances = char_map.get_mut(&c).unwrap();
-                let center = self.num_position_top(
-                    pos,
-                    advances[nb_chars] * scale,
-                    height * scale,
-                    show_seq,
-                );
-                let color = if Some(pos) == moving_pos || candidate_pos == Some(pos) {
-                    [1., 0., 0., 1.].into()
-                } else {
-                    [0., 0., 0., 1.].into()
-                };
-                instances.push(CharInstance {
-                    center: center + (x_shift + advances[c_idx] * scale) * Vec2::unit_x(),
-                    rotation: self.isometry.rotation.into_matrix(),
-                    size: scale,
-                    z_index: self.flat_id.flat.0 as i32,
-                    color,
-                })
-            }
+            let color = if Some(pos) == moving_pos || candidate_pos == Some(pos) {
+                [1., 0., 0., 1.].into()
+            } else {
+                [0., 0., 0., 1.].into()
+            };
+            let text = pos.to_string();
+            let sentence = Sentence {
+                text: &text,
+                size: size_pos * zoom_font,
+                z_index: self.flat_id.flat.0 as i32,
+                color,
+                rotation,
+            };
+            let (position, line) = if show_seq {
+                (self.info_position(pos), self.info_line())
+            } else {
+                (self.char_position_top(pos), self.top_line())
+            };
+            text_drawer.add_sentence(sentence, position, line);
         };
 
         let mut pos = self.left;
@@ -762,37 +719,15 @@ impl Helix {
         }
 
         let mut print_info = |pos: isize, info: &str| {
-            let scale = size_pos;
-            let advance_idx = info
-                .find('/')
-                .map(|n| 2 * n + 1)
-                .unwrap_or_else(|| info.len()); // ok to use len because the str contains only ascii chars
-            let mut advances = crate::utils::chars2d::char_positions_x(info, char_drawers);
-            let mut height = crate::utils::chars2d::height(info, char_drawers);
-            let mut pos_y = crate::utils::chars2d::char_positions_y(info, char_drawers);
-            if camera.borrow().get_globals().zoom < ZOOM_THRESHOLD {
-                height *= 2.;
-                for x in advances.iter_mut() {
-                    *x *= 2.;
-                }
-                for y in pos_y.iter_mut() {
-                    *y *= 2.;
-                }
-            }
-            for (c_idx, c) in info.chars().enumerate() {
-                let instances = char_map.get_mut(&c).unwrap();
-                let center =
-                    self.num_position_top(pos, advances[advance_idx] * scale, height * scale, true);
-                instances.push(CharInstance {
-                    center: center
-                        + (advances[c_idx] * scale) * Vec2::unit_x()
-                        + pos_y[c_idx] * Vec2::unit_y(),
-                    rotation: self.isometry.rotation.into_matrix(),
-                    size: scale,
-                    z_index: self.flat_id.flat.0 as i32,
-                    color: [0., 0., 0., 1.].into(),
-                })
-            }
+            let sentence = Sentence {
+                text: info,
+                size: size_pos * zoom_font,
+                z_index: self.flat_id.flat.0 as i32,
+                color: [0., 0., 0., 1.].into(),
+                rotation,
+            };
+            let line = self.info_line();
+            text_drawer.add_sentence(sentence, self.info_position(pos), line);
         };
 
         if let Some(building) = edition_info {
@@ -802,7 +737,6 @@ impl Helix {
         }
 
         let mut print_basis = |position: isize, forward: bool| {
-            let scale = size_pos;
             let nucl = Nucl {
                 helix: self.real_id,
                 position,
@@ -811,24 +745,21 @@ impl Helix {
             if nucl_collection.contains(&nucl) {
                 let (c, color) = basis_map
                     .get(&nucl)
-                    .map(|c| (*c, BLACK_VEC4))
-                    .unwrap_or(('?', GREY_UNKNOWN_NUCL_VEC4));
-                let advances =
-                    crate::utils::chars2d::char_positions_x(&pos.to_string(), char_drawers);
-                let height = crate::utils::chars2d::height(&c.to_string(), char_drawers);
-                let center = if forward {
-                    self.char_position_top(position, advances[1] * scale, height * scale)
-                } else {
-                    self.char_position_bottom(position, advances[1] * scale, height * scale)
-                };
-                let instances = char_map.get_mut(&c).unwrap();
-                instances.push(CharInstance {
-                    center,
-                    rotation: self.isometry.rotation.into_matrix(),
-                    size: scale,
+                    .map(|c| (c.to_string(), BLACK_VEC4))
+                    .unwrap_or(('?'.to_string(), GREY_UNKNOWN_NUCL_VEC4));
+                let sentence = Sentence {
+                    text: &c,
+                    size: size_pos * zoom_font,
                     z_index: self.flat_id.flat.0 as i32,
                     color,
-                })
+                    rotation,
+                };
+                let (line, position) = if nucl.forward {
+                    (self.top_line(), self.char_position_top(nucl.position))
+                } else {
+                    (self.bottom_line(), self.char_position_bottom(nucl.position))
+                };
+                text_drawer.add_sentence(sentence, position, line);
             }
         };
 
@@ -891,7 +822,7 @@ impl Helix {
 
     /// Return the coordinates at which self's axis intersect the screen bounds.
     fn screen_intersection(&self, camera: &CameraPtr) -> Option<(f32, f32)> {
-        self.screen_rectangle_intersection(camera, 0., 0., 1., 1., HelixLine::Middle)
+        self.screen_rectangle_intersection(camera, 0., 0.025, 1., 0.975, HelixLine::Middle)
     }
 
     /// Return the coordinates at which self's axis intersect a rectangle on the screen

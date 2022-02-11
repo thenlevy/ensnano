@@ -85,6 +85,7 @@ pub enum Consequence {
     InitRotation(RotationMode, f64, f64, WidgetTarget),
     InitTranslation(f64, f64, WidgetTarget),
     Swing(f64, f64),
+    Tilt(f64, f64),
     Nothing,
     ToggleWidget,
     BuildEnded,
@@ -399,6 +400,10 @@ impl<S: AppState> Controller<S> {
         self.camera_controller.rotate_camera(xz, yz, pivot);
         self.camera_controller.tilt_camera(xy);
         self.shift_cam();
+    }
+
+    pub fn continuous_tilt(&mut self, angle: f32) {
+        self.camera_controller.continuous_tilt(angle);
     }
 
     fn shift_cam(&mut self) {

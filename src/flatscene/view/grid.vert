@@ -5,6 +5,7 @@ uniform Globals {
     vec2 u_resolution;
     vec2 u_scroll_offset;
     float u_zoom;
+    float u_tilt;
 };
 
 struct Model {
@@ -25,6 +26,12 @@ layout(location = 3) in uint a_is_background;
 
 layout(location = 0) out vec4 v_color;
 
+mat2 rotation(float angle) {
+   float c = cos(angle);
+   float s = sin(angle);
+   return mat2(c, s, -s, c);
+}
+
 void main() {
     uint id = a_model_id;
     Model model = models[id];
@@ -34,7 +41,7 @@ void main() {
     vec2 zoom_factor = u_zoom / (vec2(0.5, 0.5) * u_resolution);
     vec2 local_pos = model.rotate * (a_position + a_normal * model.width / max(zoom_factor, 0.3));
     vec2 world_pos = local_pos - u_scroll_offset + model.translate;
-    vec2 transformed_pos = world_pos * zoom_factor * invert_y;
+    vec2 transformed_pos = (rotation(u_tilt) * world_pos) * zoom_factor * invert_y;
 
     float background_depth = a_is_background > 0 ? 0.5 : 0.25;
     float z = (float(model.z_index * 1000 + a_model_id) + background_depth);

@@ -23,7 +23,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use crate::consts::*;
 use iced_winit::winit;
-use ultraviolet::Vec2;
+use ultraviolet::{Rotor2, Vec2};
 use winit::{dpi::PhysicalPosition, event::MouseScrollDelta};
 pub struct Camera {
     globals: Globals,
@@ -48,6 +48,16 @@ impl Camera {
         self.was_updated
     }
 
+    pub fn tilt_left(&mut self) {
+        self.globals.tilt += std::f32::consts::PI / 12.;
+        self.end_movement();
+    }
+
+    pub fn tilt_right(&mut self) {
+        self.globals.tilt -= std::f32::consts::PI / 12.;
+        self.end_movement();
+    }
+
     /// Return the globals
     pub fn get_globals(&self) -> &Globals {
         &self.globals
@@ -66,11 +76,14 @@ impl Camera {
     /// Moves the camera, according to a mouse movement expressed in *normalized screen
     /// coordinates*
     pub fn process_mouse(&mut self, delta_x: f32, delta_y: f32) -> (f32, f32) {
+        println!("input vec ({}, {})", delta_x, delta_y);
         let (x, y) = self.transform_vec(delta_x, delta_y);
+        println!("transformed vec ({}, {})", x, y);
         self.translate_by_vec(x, y);
         (x, y)
     }
 
+    /// Translate self by a vector expressed in world coordinates
     pub fn translate_by_vec(&mut self, x: f32, y: f32) {
         self.globals.scroll_offset[0] = self.old_globals.scroll_offset[0] - x;
         self.globals.scroll_offset[1] = self.old_globals.scroll_offset[1] - y;
@@ -101,6 +114,7 @@ impl Camera {
         self.globals.scroll_offset[0] += delta.x;
         self.globals.scroll_offset[1] += delta.y;
         self.end_movement();
+        log::info!("zoom = {}", self.globals.zoom);
         self.was_updated = true;
     }
 
@@ -125,6 +139,7 @@ impl Camera {
     /// Notify the camera that the current movement is over.
     pub fn end_movement(&mut self) {
         self.old_globals = self.globals;
+        self.was_updated = true;
     }
 
     /// Notify the camera that the size of the drawing area has been modified
@@ -147,28 +162,29 @@ impl Camera {
     /// Convert a *vector* in screen coordinate to a vector in world coordinate. (Does not apply
     /// the translation)
     fn transform_vec(&self, x: f32, y: f32) -> (f32, f32) {
-        (
+        let vec = Vec2::new(
             self.globals.resolution[0] * x / self.globals.zoom,
             self.globals.resolution[1] * y / self.globals.zoom,
         )
+        .rotated_by(self.rotation().reversed());
+        vec.into()
+    }
+
+    pub fn rotation(&self) -> Rotor2 {
+        Rotor2::from_angle(self.globals.tilt)
     }
 
     /// Convert a *point* in screen ([0, x_res] * [0, y_res]) coordinate to a point in world coordiantes.
     pub fn screen_to_world(&self, x_screen: f32, y_screen: f32) -> (f32, f32) {
-        // The screen coordinates have the y axis pointed down, and so does the 2d world
-        // coordinates. So we do not flip the y axis.
-        let x_ndc = 2. * x_screen / self.globals.resolution[0] - 1.;
-        let y_ndc = if self.bottom {
-            2. * (y_screen - self.globals.resolution[1]) / self.globals.resolution[1] - 1.
-        } else {
-            2. * y_screen / self.globals.resolution[1] - 1.
-        };
+        let center_to_point_x = x_screen / self.globals.resolution[0] - 0.5;
+        let center_to_point_y = y_screen / self.globals.resolution[1] - 0.5;
+        let (x, y) = self.transform_vec(center_to_point_x, center_to_point_y);
+
         (
-            x_ndc * self.globals.resolution[0] / (2. * self.globals.zoom)
-                + self.globals.scroll_offset[0],
-            y_ndc * self.globals.resolution[1] / (2. * self.globals.zoom)
-                + self.globals.scroll_offset[1],
+            (self.globals.scroll_offset[0] + x),
+            (self.globals.scroll_offset[1] + y),
         )
+            .into()
     }
 
     pub fn norm_screen_to_world(&self, x_normed: f32, y_normed: f32) -> (f32, f32) {
@@ -189,15 +205,16 @@ impl Camera {
     pub fn world_to_norm_screen(&self, x_world: f32, y_world: f32) -> (f32, f32) {
         // The screen coordinates have the y axis pointed down, and so does the 2d world
         // coordinates. So we do not flip the y axis.
-        let temp = (
+        let temp = Vec2::new(
             x_world - self.globals.scroll_offset[0],
             y_world - self.globals.scroll_offset[1],
+        )
+        .rotated_by(self.rotation());
+        let coord_ndc = Vec2::new(
+            temp.x * 2. * self.globals.zoom / self.globals.resolution[0],
+            temp.y * 2. * self.globals.zoom / self.globals.resolution[1],
         );
-        let coord_ndc = (
-            temp.0 * 2. * self.globals.zoom / self.globals.resolution[0],
-            temp.1 * 2. * self.globals.zoom / self.globals.resolution[1],
-        );
-        ((coord_ndc.0 + 1.) / 2., (coord_ndc.1 + 1.) / 2.)
+        ((coord_ndc.x + 1.) / 2., (coord_ndc.y + 1.) / 2.)
     }
 
     pub fn fit(&mut self, mut rectangle: FitRectangle) {
@@ -271,8 +288,7 @@ pub struct Globals {
     pub resolution: [f32; 2],
     pub scroll_offset: [f32; 2],
     pub zoom: f32,
-    /// For word alignement
-    pub _padding: f32,
+    pub tilt: f32,
 }
 
 impl Globals {
@@ -281,7 +297,7 @@ impl Globals {
             resolution,
             scroll_offset: [10.0, 40.0],
             zoom: 16.0,
-            _padding: 0.0,
+            tilt: std::f32::consts::FRAC_PI_6,
         }
     }
 }

@@ -5,6 +5,7 @@ uniform Globals {
     vec2 u_resolution;
     vec2 u_scroll_offset;
     float u_zoom;
+    float u_tilt;
 };
 
 layout(location = 0) in vec2 a_position;
@@ -16,6 +17,12 @@ layout(location = 4) in float a_width;
 
 layout(location = 0) out vec4 v_color;
 
+mat2 rotation(float angle) {
+   float c = cos(angle);
+   float s = sin(angle);
+   return mat2(c, s, -s, c);
+}
+
 void main() {
     vec2 invert_y = vec2(1.0, -1.0);
 
@@ -24,7 +31,7 @@ void main() {
 
     vec2 local_pos = a_position + a_normal * cst * a_width;
     vec2 world_pos = local_pos - u_scroll_offset;
-    vec2 transformed_pos = world_pos * u_zoom / (vec2(0.5, 0.5) * u_resolution) * invert_y;
+    vec2 transformed_pos = (rotation(u_tilt) * world_pos) * u_zoom / (vec2(0.5, 0.5) * u_resolution) * invert_y;
 
 // formula for the grid:
 //float z = (float(model.z_index * 1000 + a_model_id) + background_depth);

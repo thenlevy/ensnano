@@ -329,6 +329,25 @@ impl<S: AppState> Scene<S> {
                 self.controller.swing(-x, -y);
                 self.notify(SceneNotification::CameraMoved);
             }
+            Consequence::Tilt(x, _) => {
+                let mut pivot: Option<FiniteVec3> = self
+                    .data
+                    .borrow()
+                    .get_pivot_position()
+                    .and_then(|p| p.try_into().ok());
+                if pivot.is_none() {
+                    self.data.borrow_mut().try_update_pivot_position(app_state);
+                    pivot = self
+                        .data
+                        .borrow()
+                        .get_pivot_position()
+                        .and_then(|p| p.try_into().ok());
+                }
+                self.controller.set_pivot_point(pivot);
+                let angle = x as f32 * std::f32::consts::TAU;
+                self.controller.continuous_tilt(angle);
+                self.notify(SceneNotification::CameraMoved);
+            }
             Consequence::ToggleWidget => self.requests.lock().unwrap().toggle_widget_basis(),
             Consequence::BuildEnded => self.requests.lock().unwrap().suspend_op(),
             Consequence::Undo => self.requests.lock().unwrap().undo(),

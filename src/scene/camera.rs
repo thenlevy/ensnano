@@ -664,6 +664,18 @@ impl CameraController {
         self.cam0.rotor = new_rotor;
     }
 
+    pub fn continuous_tilt(&mut self, angle_xy: f32) {
+        let target = self
+            .pivot_point
+            .map(|p| self.camera.borrow().save_target(p.0));
+        let rotation = Rotor3::from_rotation_xy(angle_xy);
+        let new_rotor = rotation * self.cam0.rotor;
+        self.camera.borrow_mut().rotor = new_rotor;
+        if let Some(target) = target {
+            self.camera.borrow_mut().apply_target(target)
+        }
+    }
+
     pub fn shift(&mut self) {
         let vec = 0.01 * self.camera.borrow().right_vec() + 0.01 * self.camera.borrow().up_vec();
         self.camera.borrow_mut().position += vec;
@@ -683,4 +695,36 @@ impl CameraController {
 struct Plane {
     origin: Vec3,
     normal: Vec3,
+}
+
+struct RotationCenter {
+    center: Vec3,
+    dir: f32,
+    right: f32,
+    up: f32,
+}
+
+impl Camera {
+    fn save_target(&self, point: Vec3) -> RotationCenter {
+        let to_point = point - self.position;
+        let up = to_point.dot(self.up_vec());
+        let right = to_point.dot(self.right_vec());
+        let dir = to_point.dot(self.direction());
+        RotationCenter {
+            center: point,
+            dir,
+            up,
+            right,
+        }
+    }
+
+    fn apply_target(&mut self, target: RotationCenter) {
+        let new_direction = self.direction();
+        let new_up = self.up_vec();
+        let new_right = self.right_vec();
+        self.position = target.center
+            - target.dir * new_direction
+            - target.up * new_up
+            - target.right * new_right
+    }
 }

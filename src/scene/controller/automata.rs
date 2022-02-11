@@ -390,6 +390,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 new_state: Some(Box::new(RotatingCamera {
                     clicked_position: position,
                     button_pressed: MouseButton::Middle,
+                    tilting: false,
                 })),
                 consequences: Consequence::Nothing,
             },
@@ -505,6 +506,7 @@ impl<S: AppState> ControllerState<S> for SettingPivot {
                         new_state: Some(Box::new(RotatingCamera {
                             clicked_position: self.clicked_position,
                             button_pressed: MouseButton::Right,
+                            tilting: controller.current_modifiers.shift(),
                         })),
                         consequences: Consequence::Nothing,
                     }
@@ -551,6 +553,7 @@ impl<S: AppState> ControllerState<S> for SettingPivot {
 struct RotatingCamera {
     clicked_position: PhysicalPosition<f64>,
     button_pressed: MouseButton,
+    tilting: bool,
 }
 
 impl<S: AppState> ControllerState<S> for RotatingCamera {
@@ -580,7 +583,11 @@ impl<S: AppState> ControllerState<S> for RotatingCamera {
                     (position.x - self.clicked_position.x) / controller.area_size.width as f64;
                 let mouse_dy =
                     (position.y - self.clicked_position.y) / controller.area_size.height as f64;
-                Transition::consequence(Consequence::Swing(mouse_dx, mouse_dy))
+                if self.tilting {
+                    Transition::consequence(Consequence::Tilt(mouse_dx, mouse_dy))
+                } else {
+                    Transition::consequence(Consequence::Swing(mouse_dx, mouse_dy))
+                }
             }
             WindowEvent::MouseInput {
                 state: ElementState::Released,
