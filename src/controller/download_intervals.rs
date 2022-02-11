@@ -16,14 +16,17 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::{messages, MainState, NormalState, State, TransitionMessage};
+use super::{
+    messages, DownloadStappleError, DownloadStappleOk, MainState, NormalState, StaplesDownloader,
+    State, TransitionMessage,
+};
 
 use crate::dialog;
 use dialog::{MustAckMessage, PathInput};
 use std::path::{Path, PathBuf};
 
 #[derive(Default)]
-pub(super) struct DownloadStaples {
+pub(super) struct DownloadIntervals {
     step: Step,
 }
 
@@ -47,7 +50,7 @@ impl Default for Step {
     }
 }
 
-impl State for DownloadStaples {
+impl State for DownloadIntervals {
     fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         let downloader = main_state.get_staple_downloader();
         match self.step {
@@ -94,10 +97,10 @@ fn get_design_providing_staples(downlader: &dyn StaplesDownloader) -> Box<dyn St
 fn ask_path<P: AsRef<Path>>(
     mut state: AskingPath_,
     starting_diectory: Option<P>,
-) -> Box<DownloadStaples> {
+) -> Box<DownloadIntervals> {
     if let Some(must_ack) = state.warning_ack.as_ref() {
         if !must_ack.was_ack() {
-            return Box::new(DownloadStaples {
+            return Box::new(DownloadIntervals {
                 step: Step::AskingPath(state),
             });
         }
@@ -106,8 +109,8 @@ fn ask_path<P: AsRef<Path>>(
         let must_ack = dialog::blocking_message(msg.into(), rfd::MessageLevel::Warning);
         state.with_ack(must_ack)
     } else {
-        let path_input = dialog::save("xlsx", starting_diectory, None);
-        Box::new(DownloadStaples {
+        let path_input = dialog::save(crate::consts::ORIGAMI_EXTENSION, starting_diectory, None);
+        Box::new(DownloadIntervals {
             step: Step::PathAsked {
                 path_input,
                 design_id: state.design_id,
@@ -123,13 +126,13 @@ struct AskingPath_ {
 }
 
 impl AskingPath_ {
-    fn to_state(self) -> Box<DownloadStaples> {
-        Box::new(DownloadStaples {
+    fn to_state(self) -> Box<DownloadIntervals> {
+        Box::new(DownloadIntervals {
             step: Step::AskingPath(self),
         })
     }
 
-    fn with_ack(mut self, ack: MustAckMessage) -> Box<DownloadStaples> {
+    fn with_ack(mut self, ack: MustAckMessage) -> Box<DownloadIntervals> {
         self.warning_ack = Some(ack);
         self.to_state()
     }
@@ -138,7 +141,7 @@ impl AskingPath_ {
 fn poll_path(path_input: PathInput, design_id: usize) -> Box<dyn State> {
     if let Some(result) = path_input.get() {
         if let Some(path) = result {
-            Box::new(DownloadStaples {
+            Box::new(DownloadIntervals {
                 step: Step::Downloading { path, design_id },
             })
         } else {
@@ -149,7 +152,7 @@ fn poll_path(path_input: PathInput, design_id: usize) -> Box<dyn State> {
             )
         }
     } else {
-        Box::new(DownloadStaples {
+        Box::new(DownloadIntervals {
             step: Step::PathAsked {
                 path_input,
                 design_id,
@@ -163,28 +166,7 @@ fn download_staples(
     _design_id: usize,
     path: PathBuf,
 ) -> Box<dyn State> {
-    downlader.write_staples_xlsx(&path);
+    downlader.write_intervals(&path);
     let msg = messages::successfull_staples_export_msg(&path);
     TransitionMessage::new(msg, rfd::MessageLevel::Error, Box::new(NormalState))
-}
-
-pub trait StaplesDownloader {
-    fn download_staples(&self) -> Result<DownloadStappleOk, DownloadStappleError>;
-    fn write_staples_xlsx(&self, xlsx_path: &PathBuf);
-    fn write_intervals(&self, origami_path: &PathBuf);
-    fn default_shift(&self) -> Option<usize>;
-}
-
-pub enum DownloadStappleError {
-    /// There are several designs and none is selected.
-    #[allow(dead_code)]
-    SeveralDesignNoneSelected,
-    /// No strand is set as the scaffold
-    NoScaffoldSet,
-    /// There is no sequence set for the scaffold
-    ScaffoldSequenceNotSet,
-}
-
-pub struct DownloadStappleOk {
-    pub warnings: Vec<String>,
 }

@@ -140,6 +140,7 @@ pub enum Message<S> {
     UiSizeChanged(UiSize),
     UiSizePicked(UiSize),
     StapplesRequested,
+    OrigamisRequested,
     ToggleText(bool),
     #[allow(dead_code)]
     CleanRequested,
@@ -759,6 +760,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     self.requests.lock().unwrap().start_twist_simulation(*g_id)
                 }
             }
+            Message::OrigamisRequested => self.requests.lock().unwrap().download_origamis(),
         };
         Command::none()
     }

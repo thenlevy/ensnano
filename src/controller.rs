@@ -19,6 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! This modules defines the `Controller` struct which handles windows and dialog interactions.
 
 use ensnano_design::Nucl;
+mod download_intervals;
 mod download_staples;
 use download_staples::*;
 pub use download_staples::{DownloadStappleError, DownloadStappleOk, StaplesDownloader};

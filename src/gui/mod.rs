@@ -195,6 +195,7 @@ pub trait Requests: 'static + Send {
     fn set_rainbow_scaffold(&mut self, rainbow: bool);
     fn set_thick_helices(&mut self, thick: bool);
     fn align_horizon(&mut self);
+    fn download_origamis(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]

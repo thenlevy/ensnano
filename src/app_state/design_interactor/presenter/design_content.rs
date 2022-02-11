@@ -23,6 +23,7 @@ use ensnano_design::elements::DnaElement;
 use ensnano_design::grid::{GridObject, GridPosition, HelixGridPosition};
 use ensnano_design::*;
 use ensnano_interactor::ObjectType;
+use serde::Serialize;
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
@@ -215,6 +216,10 @@ impl DesignContent {
             let mut sequence = String::new();
             let mut first = true;
             let mut previous_char_is_basis = None;
+            let mut intervals = StapleIntervals {
+                staple_id: *s_id,
+                intervals: Vec::new(),
+            };
             for domain in &strand.domains {
                 if !first {
                     sequence.push(' ');
@@ -243,6 +248,28 @@ impl DesignContent {
                         }
                     }
                 }
+                let helices = &design.helices;
+                if let Some(scaffold) = design.scaffold_id.and_then(|id| design.strands.get(&id)) {
+                    if let Some((n5, n3)) = domain
+                        .prime5_end()
+                        .and_then(|n| Nucl::map_to_virtual_nucl(n, helices))
+                        .zip(
+                            domain
+                                .prime3_end()
+                                .and_then(|n| Nucl::map_to_virtual_nucl(n, helices)),
+                        )
+                    {
+                        let a = scaffold
+                            .find_virtual_nucl(&n5.compl(), helices)
+                            .map(|n| n as isize)
+                            .unwrap_or(-1);
+                        let b = scaffold
+                            .find_virtual_nucl(&n3.compl(), helices)
+                            .map(|n| n as isize)
+                            .unwrap_or(-1);
+                        intervals.intervals.push((a, b));
+                    }
+                }
             }
             let key = if let Some((prim5, prim3)) = strand.get_5prime().zip(strand.get_3prime()) {
                 (prim5.helix, prim5.position, prim3.helix, prim3.position)
@@ -260,6 +287,7 @@ impl DesignContent {
                     length: strand.length(),
                     color: strand.color & 0xFFFFFF,
                     group_names: presenter.get_name_of_group_having_strand(*s_id),
+                    intervals,
                 },
             );
         }
@@ -296,6 +324,7 @@ impl DesignContent {
                     .split_once("=")
                     .map(|split| split.1.to_string())
                     .unwrap_or(staple_info.domain_decomposition.clone()),
+                intervals: staple_info.intervals.clone(),
             });
         }
         ret
@@ -357,6 +386,13 @@ pub struct Staple {
     pub groups_name_str: String,
     pub domain_decomposition: String,
     pub length_str: String,
+    pub intervals: StapleIntervals,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct StapleIntervals {
+    pub staple_id: usize,
+    pub intervals: Vec<(isize, isize)>,
 }
 
 struct StapleInfo {
@@ -367,6 +403,7 @@ struct StapleInfo {
     group_names: Vec<String>,
     domain_decomposition: String,
     length: usize,
+    intervals: StapleIntervals,
 }
 
 #[derive(Clone)]

@@ -176,6 +176,7 @@ programer to investigate bugs.\n
 pub const RGB_HANDLE_COLORS: [u32; 3] = [0xFF0000, 0xFF00, 0xFF];
 pub const CYM_HANDLE_COLORS: [u32; 3] = [0x00FFFF, 0xFF00FF, 0xFFFF00];
 
+pub const ORIGAMI_EXTENSION: &'static str = "origami";
 pub const ENS_EXTENSION: &'static str = "ens";
 pub const ENS_BACKUP_EXTENSION: &'static str = "ensbackup";
 pub const ENS_UNAMED_FILE_NAME: &'static str = "Unamed_design";

@@ -402,6 +402,10 @@ impl GuiRequests for Requests {
     fn align_horizon(&mut self) {
         self.horizon_targeted = Some(());
     }
+
+    fn download_origamis(&mut self) {
+        self.keep_proceed.push_back(Action::DownloadOrigamiRequest);
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

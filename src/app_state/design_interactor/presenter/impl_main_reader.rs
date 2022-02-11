@@ -18,6 +18,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use crate::controller::{DownloadStappleError, DownloadStappleOk, StaplesDownloader};
+use serde::Serialize;
+use std::io::Write;
 use std::path::PathBuf;
 
 impl StaplesDownloader for DesignReader {
@@ -117,6 +119,38 @@ impl StaplesDownloader for DesignReader {
         wb.close().expect("close excel error!");
     }
 
+    fn write_intervals(&self, origami_path: &PathBuf) {
+        let stapples = self
+            .presenter
+            .content
+            .get_staples(&self.presenter.current_design, &self.presenter);
+        let origami = Origami {
+            scaffold_sequence: self
+                .presenter
+                .current_design
+                .scaffold_sequence
+                .clone()
+                .unwrap_or("NO SEQUENCE".to_string()),
+            intervals: stapples
+                .iter()
+                .map(|s| (s.intervals.staple_id, s.intervals.intervals.clone()))
+                .collect(),
+        };
+        let mut origamis = Origamis(BTreeMap::new());
+        origamis.0.insert(1, origami);
+        if let Ok(json_content) = serde_json::to_string_pretty(&origamis) {
+            if let Ok(mut f) = std::fs::File::create(origami_path) {
+                if let Err(e) = f.write_all(json_content.as_bytes()) {
+                    log::error!("Could not write to file {}", e);
+                }
+            } else {
+                log::error!("Could not open file");
+            }
+        } else {
+            log::error!("Serialization error");
+        }
+    }
+
     fn default_shift(&self) -> Option<usize> {
         self.presenter.current_design.scaffold_shift
     }
@@ -177,4 +211,14 @@ impl MainReader for DesignReader {
             .get(&s_id)
             .map(|s| s.domain_ends())
     }
+}
+
+use std::collections::BTreeMap;
+#[derive(Serialize)]
+struct Origamis(BTreeMap<usize, Origami>);
+
+#[derive(Serialize)]
+struct Origami {
+    scaffold_sequence: String,
+    intervals: BTreeMap<usize, Vec<(isize, isize)>>,
 }

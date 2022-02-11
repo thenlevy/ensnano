@@ -16,6 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use super::download_intervals::DownloadIntervals;
 use super::*;
 use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::Nucl;
@@ -41,6 +42,7 @@ impl State for NormalState {
                     }
                 }
                 Action::DownloadStaplesRequest => Box::new(DownloadStaples::default()),
+                Action::DownloadOrigamiRequest => Box::new(DownloadIntervals::default()),
                 Action::SetScaffoldSequence { shift } => Box::new(SetScaffoldSequence::init(shift)),
                 Action::Exit => Quit::quit(main_state.need_save()),
                 Action::ToggleSplit(mode) => {
@@ -371,6 +373,7 @@ pub enum Action {
     SaveAs,
     QuickSave,
     DownloadStaplesRequest,
+    DownloadOrigamiRequest,
     /// Trigger the sequence of action that will set the scaffold of the sequence.
     SetScaffoldSequence {
         shift: usize,
