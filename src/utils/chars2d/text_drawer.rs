@@ -204,7 +204,7 @@ impl<'a> SentenceRectangle<'a> {
                 ret = shift;
             }
         }
-        center - self.center() + ret
+        center - self.center().rotated_by(self.rotation) + ret
         //center - self.center()
     }
 }

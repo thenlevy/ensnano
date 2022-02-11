@@ -48,6 +48,16 @@ impl Camera {
         self.was_updated
     }
 
+    pub fn tilt_left(&mut self) {
+        self.globals.tilt += std::f32::consts::PI / 12.;
+        self.end_movement();
+    }
+
+    pub fn tilt_right(&mut self) {
+        self.globals.tilt -= std::f32::consts::PI / 12.;
+        self.end_movement();
+    }
+
     /// Return the globals
     pub fn get_globals(&self) -> &Globals {
         &self.globals
@@ -129,6 +139,7 @@ impl Camera {
     /// Notify the camera that the current movement is over.
     pub fn end_movement(&mut self) {
         self.old_globals = self.globals;
+        self.was_updated = true;
     }
 
     /// Notify the camera that the size of the drawing area has been modified

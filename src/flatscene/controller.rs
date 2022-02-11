@@ -47,6 +47,7 @@ pub struct Controller<S: AppState> {
     state: RefCell<Box<dyn ControllerState<S>>>,
     action_mode: ActionMode,
     modifiers: ModifiersState,
+    mouse_position: PhysicalPosition<f64>,
 }
 
 #[derive(Debug)]
@@ -112,6 +113,7 @@ impl<S: AppState> Controller<S> {
             splited,
             action_mode: ActionMode::Normal,
             modifiers: ModifiersState::empty(),
+            mouse_position: PhysicalPosition::from((0., 0.)),
         }
     }
 
@@ -195,6 +197,7 @@ impl<S: AppState> Controller<S> {
         app_state: &S,
     ) -> Consequence {
         self.update_hovered_nucl(position);
+        self.mouse_position = position;
         let transition = if let WindowEvent::Focused(false) = event {
             Transition {
                 new_state: Some(Box::new(NormalState {
@@ -245,16 +248,14 @@ impl<S: AppState> Controller<S> {
             ..
         } = event
         {
+            let camera = self.get_camera(self.mouse_position.y);
             match *key {
-                // ZOOMING in and out is temporarilly disabled because of split view
-                /*
-                VirtualKeyCode::Up => {
-                    self.camera.borrow_mut().zoom_in();
+                VirtualKeyCode::Left if self.modifiers.alt() => {
+                    camera.borrow_mut().tilt_left();
                 }
-                VirtualKeyCode::Down => {
-                    self.camera.borrow_mut().zoom_out();
+                VirtualKeyCode::Right  if self.modifiers.alt() => {
+                    camera.borrow_mut().tilt_right();
                 }
-                */
                 VirtualKeyCode::J => {
                     self.data.borrow_mut().move_helix_backward();
                 }
