@@ -10,7 +10,7 @@
 - Treat unpaired nucleotide as seperate domains during staples export
 - Show a question mark in place of letter for nucleotide with no basis in 2D view
 - Use cursor icons to indicate that actions are being performed in the 2D/3D views
-- Make it possible to shift the 3D view with shift + RClick
+- Make it possible to tilt the 3D view with shift + RClick, and the 2D view with alt + Left/Right
 
 ## 0.4.0
 - Remaps mouse buttons in the 2D view.
