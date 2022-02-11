@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::*;
 use fontdue::layout::Layout;
+use ultraviolet::Rotor2;
 
 pub struct TextDrawer {
     char_drawers: HashMap<char, CharDrawer>,
@@ -29,6 +30,7 @@ pub struct Sentence<'a> {
     pub size: f32,
     pub z_index: i32,
     pub color: Vec4,
+    pub rotation: Rotor2,
 }
 
 const PX_PER_SQUARE: f32 = 512.0;
@@ -95,7 +97,11 @@ impl TextDrawer {
             &fonts,
             &fontdue::layout::TextStyle::new(sentence.text, PX_PER_SQUARE, 0),
         );
-        let rectangle = SentenceRectangle::new(self.layout.glyphs(), PX_PER_SQUARE / sentence.size);
+        let rectangle = SentenceRectangle::new(
+            self.layout.glyphs(),
+            PX_PER_SQUARE / sentence.size,
+            sentence.rotation,
+        );
         let shift = rectangle.shift(bound, center_position);
 
         for g in rectangle.glyphs.iter() {
@@ -103,7 +109,9 @@ impl TextDrawer {
             let pos = Vec2 {
                 x: g.x / PX_PER_SQUARE * sentence.size,
                 y: g.y / PX_PER_SQUARE * sentence.size,
-            } + shift;
+            }
+            .rotated_by(sentence.rotation)
+                + shift;
             self.char_map.entry(c).or_default().push(CharInstance {
                 top_left: pos,
                 rotation: Mat2::identity(),
@@ -120,10 +128,15 @@ struct SentenceRectangle<'a> {
     top: f32,
     bottom: f32,
     size_px: f32,
+    rotation: Rotor2,
 }
 
 impl<'a> SentenceRectangle<'a> {
-    fn new(glyphs: &'a Vec<fontdue::layout::GlyphPosition<()>>, size_px: f32) -> Self {
+    fn new(
+        glyphs: &'a Vec<fontdue::layout::GlyphPosition<()>>,
+        size_px: f32,
+        rotation: Rotor2,
+    ) -> Self {
         let bottom = glyphs
             .iter()
             .map(|g| g.y + g.height as f32)
@@ -137,6 +150,7 @@ impl<'a> SentenceRectangle<'a> {
             top,
             bottom,
             size_px,
+            rotation,
         }
     }
     fn left(&self) -> f32 {
@@ -183,7 +197,7 @@ impl<'a> SentenceRectangle<'a> {
         let mut mag = 0.0;
 
         for c in self.corners().iter() {
-            let point_no_shift = center + (*c - self.center());
+            let point_no_shift = center + (*c - self.center()).rotated_by(self.rotation);
             let shift = line.shift(point_no_shift);
             if shift.mag() > mag {
                 mag = shift.mag();

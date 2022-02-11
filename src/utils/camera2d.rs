@@ -159,7 +159,7 @@ impl Camera {
         vec.into()
     }
 
-    fn rotation(&self) -> Rotor2 {
+    pub fn rotation(&self) -> Rotor2 {
         Rotor2::from_angle(self.globals.tilt)
     }
 
