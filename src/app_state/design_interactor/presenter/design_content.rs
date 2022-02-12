@@ -256,8 +256,8 @@ impl DesignContent {
                                     .locate_virtual_nucl(&virtual_nucl.compl(), helices)
                                     .map(|v| ScaffoldPosition {
                                         domain_id: v.domain_id,
-                                        scaffold_position: (v.pos_on_strand
-                                            + design.scaffold_shift.unwrap_or(0))
+                                        scaffold_position: (v.pos_on_strand + scaffold.length()
+                                            - design.scaffold_shift.unwrap_or(0))
                                             % scaffold.length(),
                                     });
                                 if staple_domain.is_none() {

@@ -613,7 +613,10 @@ impl Strand {
         let mut len = 0;
         for (mut d_id, d) in self.domains.iter().enumerate() {
             if let Some(n) = d.has_virtual_nucl(nucl, helices) {
-                if self.cyclic && d_id == self.domains.len() - 1 && d.half_helix() == self.domains[0].half_helix() {
+                if self.cyclic
+                    && d_id == self.domains.len() - 1
+                    && d.half_helix() == self.domains[0].half_helix()
+                {
                     d_id = 0;
                 }
                 return Some(PositionOnStrand {
