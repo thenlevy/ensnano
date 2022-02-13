@@ -178,8 +178,8 @@ impl Camera {
 
     /// Convert a *point* in screen ([0, x_res] * [0, y_res]) coordinate to a point in world coordiantes.
     pub fn screen_to_world(&self, x_screen: f32, y_screen: f32) -> (f32, f32) {
-        let center_to_point_x =  x_screen / self.globals.resolution[0] - 0.5;
-        let center_to_point_y =  y_screen / self.globals.resolution[1] - 0.5;
+        let center_to_point_x = x_screen / self.globals.resolution[0] - 0.5;
+        let center_to_point_y = y_screen / self.globals.resolution[1] - 0.5;
         let (x, y) = self.transform_vec(center_to_point_x, center_to_point_y);
 
         (
@@ -208,15 +208,15 @@ impl Camera {
         // The screen coordinates have the y axis pointed down, and so does the 2d world
         // coordinates. So we do not flip the y axis.
         let temp = Vec2::new(
-            x_world  - self.globals.scroll_offset[0],
-            y_world  - self.globals.scroll_offset[1],
+            x_world - self.globals.scroll_offset[0],
+            y_world - self.globals.scroll_offset[1],
         )
         .rotated_by(self.rotation());
         let coord_ndc = Vec2::new(
             temp.x * 2. * self.globals.zoom / self.globals.resolution[0] * self.globals.symetry.x,
             temp.y * 2. * self.globals.zoom / self.globals.resolution[1] * self.globals.symetry.y,
         );
-        ((coord_ndc.x + 1.) / 2., (coord_ndc.y + 1.) / 2. )
+        ((coord_ndc.x + 1.) / 2., (coord_ndc.y + 1.) / 2.)
     }
 
     pub fn fit(&mut self, mut rectangle: FitRectangle) {

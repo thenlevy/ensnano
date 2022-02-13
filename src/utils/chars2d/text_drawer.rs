@@ -31,6 +31,7 @@ pub struct Sentence<'a> {
     pub z_index: i32,
     pub color: Vec4,
     pub rotation: Rotor2,
+    pub symetry: Vec2,
 }
 
 const PX_PER_SQUARE: f32 = 512.0;
@@ -101,16 +102,17 @@ impl TextDrawer {
             self.layout.glyphs(),
             PX_PER_SQUARE / sentence.size,
             sentence.rotation,
+            sentence.symetry,
         );
         let shift = rectangle.shift(bound, center_position);
 
         for g in rectangle.glyphs.iter() {
             let c = g.parent;
-            let pos = Vec2 {
+            let pos = (Vec2 {
                 x: g.x / PX_PER_SQUARE * sentence.size,
                 y: g.y / PX_PER_SQUARE * sentence.size,
-            }
-            .rotated_by(sentence.rotation)
+            } * sentence.symetry)
+                .rotated_by(sentence.rotation)
                 + shift;
             self.char_map.entry(c).or_default().push(CharInstance {
                 top_left: pos,
@@ -129,6 +131,7 @@ struct SentenceRectangle<'a> {
     bottom: f32,
     size_px: f32,
     rotation: Rotor2,
+    symetry: Vec2,
 }
 
 impl<'a> SentenceRectangle<'a> {
@@ -136,6 +139,7 @@ impl<'a> SentenceRectangle<'a> {
         glyphs: &'a Vec<fontdue::layout::GlyphPosition<()>>,
         size_px: f32,
         rotation: Rotor2,
+        symetry: Vec2,
     ) -> Self {
         let bottom = glyphs
             .iter()
@@ -151,6 +155,7 @@ impl<'a> SentenceRectangle<'a> {
             bottom,
             size_px,
             rotation,
+            symetry,
         }
     }
     fn left(&self) -> f32 {
@@ -197,14 +202,15 @@ impl<'a> SentenceRectangle<'a> {
         let mut mag = 0.0;
 
         for c in self.corners().iter() {
-            let point_no_shift = center + (*c - self.center()).rotated_by(self.rotation);
+            let point_no_shift =
+                center + ((*c - self.center()) * self.symetry).rotated_by(self.rotation);
             let shift = line.shift(point_no_shift);
             if shift.mag() > mag {
                 mag = shift.mag();
                 ret = shift;
             }
         }
-        center - self.center().rotated_by(self.rotation) + ret
+        center - (self.center() * self.symetry).rotated_by(self.rotation) + ret
         //center - self.center()
     }
 }
