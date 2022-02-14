@@ -18,12 +18,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use std::rc::Rc;
 
 use super::{Device, DrawArea, DrawType, Queue, ViewPtr};
-use crate::utils;
 use ensnano_interactor::{phantom_helix_decoder, PhantomElement};
+use ensnano_utils as utils;
 use futures::executor;
-use iced_wgpu::wgpu;
-use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize};
 use std::convert::TryInto;
+use utils::wgpu;
+use utils::winit::dpi::{PhysicalPosition, PhysicalSize};
 use utils::BufferDimensions;
 
 pub struct ElementSelector {

@@ -21,9 +21,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! matrix. The `Camera` struct modifies a `Globals` attribute and perform some view <-> world
 //! coordinate conversion.
 
-use crate::consts::*;
+use ensnano_design::{Rotor2, Vec2};
+use ensnano_interactor::consts::*;
 use iced_winit::winit;
-use ultraviolet::{Rotor2, Vec2};
 use winit::{dpi::PhysicalPosition, event::MouseScrollDelta};
 pub struct Camera {
     globals: Globals,

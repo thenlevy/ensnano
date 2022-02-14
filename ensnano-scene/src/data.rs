@@ -20,7 +20,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::view::{GridDisc, HandleColors, RawDnaInstance};
 use super::{
-    HandleOrientation, HandlesDescriptor, LetterInstance, RotationWidgetDescriptor,
+    ultraviolet, HandleOrientation, HandlesDescriptor, LetterInstance, RotationWidgetDescriptor,
     RotationWidgetOrientation, SceneElement, View, ViewUpdate,
 };
 use std::cell::RefCell;
@@ -30,8 +30,8 @@ use std::rc::Rc;
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
-use crate::consts::*;
 use ensnano_design::Nucl;
+use ensnano_interactor::consts::*;
 use ensnano_interactor::{
     ActionMode, CenterOfSelection, ObjectType, PhantomElement, Referential, Selection,
     SelectionMode,

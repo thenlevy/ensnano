@@ -23,7 +23,7 @@ use ensnano_interactor::CursorIcon;
 use std::time::Instant;
 
 const WHEEL_RADIUS: f32 = 1.5;
-use crate::consts::*;
+use ensnano_interactor::consts::*;
 
 pub struct Transition<S: AppState> {
     pub new_state: Option<Box<dyn ControllerState<S>>>,

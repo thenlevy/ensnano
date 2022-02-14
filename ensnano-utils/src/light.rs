@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use crate::utils::create_buffer_with_data;
+use crate::create_buffer_with_data;
 use iced_wgpu::wgpu;
 use ultraviolet::Vec3;
 use wgpu::{BindGroup, BindGroupLayout, Device};

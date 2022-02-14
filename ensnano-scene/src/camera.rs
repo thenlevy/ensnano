@@ -17,7 +17,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::maths_3d;
 use super::{ClickMode, PhySize};
-use iced_winit::winit;
+use ensnano_design::ultraviolet;
+use ensnano_utils::winit;
 use std::cell::RefCell;
 use std::f32::consts::{FRAC_PI_2, PI};
 use std::rc::Rc;

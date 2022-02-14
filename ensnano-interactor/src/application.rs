@@ -22,7 +22,7 @@ use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::Nucl;
 use iced_wgpu::wgpu;
 use iced_winit::winit;
-use std::time::Duration;
+pub use std::time::Duration;
 use ultraviolet::{Rotor3, Vec3};
 pub use winit::window::CursorIcon;
 use winit::{

@@ -21,9 +21,9 @@ use lyon::tessellation;
 use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
 
 const TEXTURE_SIZE: u32 = 512;
-use crate::consts::*;
+use ensnano_interactor::consts::*;
 
-use iced_wgpu::wgpu;
+use ensnano_utils::wgpu;
 use wgpu::util::DeviceExt;
 use wgpu::{Device, Sampler, Texture, TextureView};
 
@@ -55,7 +55,7 @@ impl SquareTexture {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: crate::TEXTURE_FORMAT,
+            format: ensnano_utils::TEXTURE_FORMAT,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
             label: Some("square texture"),
         });
@@ -101,13 +101,13 @@ fn fill_square_texture(target: &TextureView, device: &Device, encoder: &mut wgpu
         a: 0.4, // this will be usefull to discard fragments that are not on the grid
     };
 
-    let texture_size = iced_winit::winit::dpi::PhysicalSize {
+    let texture_size = ensnano_utils::winit::dpi::PhysicalSize {
         width: TEXTURE_SIZE,
         height: TEXTURE_SIZE,
     };
 
     let msaa_texture = if SAMPLE_COUNT > 1 {
-        Some(crate::utils::texture::Texture::create_msaa_texture(
+        Some(ensnano_utils::texture::Texture::create_msaa_texture(
             device,
             &texture_size,
             SAMPLE_COUNT,
@@ -197,7 +197,7 @@ impl HonneyTexture {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: crate::TEXTURE_FORMAT,
+            format: ensnano_utils::TEXTURE_FORMAT,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
             label: Some("honneycomb texture"),
         });
@@ -247,13 +247,13 @@ fn fill_honneycomb_texture(
         a: 0.4, // this will be usefull to discard fragments that are not on the grid
     };
 
-    let texture_size = iced_winit::winit::dpi::PhysicalSize {
+    let texture_size = ensnano_utils::winit::dpi::PhysicalSize {
         width: TEXTURE_SIZE,
         height: TEXTURE_SIZE,
     };
 
     let msaa_texture = if SAMPLE_COUNT > 1 {
-        Some(crate::utils::texture::Texture::create_msaa_texture(
+        Some(ensnano_utils::texture::Texture::create_msaa_texture(
             device,
             &texture_size,
             SAMPLE_COUNT,

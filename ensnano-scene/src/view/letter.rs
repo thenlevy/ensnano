@@ -15,12 +15,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use iced_wgpu::wgpu;
-use ultraviolet::{Vec2, Vec3, Vec4};
+use ensnano_design::ultraviolet::{Vec2, Vec3, Vec4};
+use ensnano_utils::wgpu;
 use wgpu::{include_spirv, Device};
 
 use super::instances_drawer::{Instanciable, RessourceProvider, Vertexable};
-use crate::text::Letter;
+use ensnano_utils::text::Letter;
 
 #[derive(Debug, Clone)]
 pub struct LetterInstance {
@@ -72,7 +72,7 @@ impl RessourceProvider for Letter {
     where
         Self: Sized,
     {
-        Some(crate::text::Vertex::desc())
+        Some(ensnano_utils::text::Vertex::desc())
     }
 
     fn ressources(&self) -> Vec<wgpu::BindGroupEntry> {

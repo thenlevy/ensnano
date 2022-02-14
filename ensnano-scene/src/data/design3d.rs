@@ -20,14 +20,14 @@ use super::super::view::{
     ConeInstance, Instanciable, RawDnaInstance, SphereInstance, TubeInstance,
 };
 use super::super::GridInstance;
-use super::{LetterInstance, SceneElement};
-use crate::consts::*;
-use crate::utils::instance::Instance;
+use super::{ultraviolet, LetterInstance, SceneElement};
 use ensnano_design::{grid::GridPosition, Nucl};
+use ensnano_interactor::consts::*;
 use ensnano_interactor::{
     phantom_helix_encoder_bound, phantom_helix_encoder_nucl, ObjectType, PhantomElement,
     Referential, PHANTOM_RANGE,
 };
+use ensnano_utils::instance::Instance;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use ultraviolet::{Mat4, Rotor3, Vec3};

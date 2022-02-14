@@ -20,9 +20,9 @@ use std::rc::Rc;
 use ultraviolet::Vec2;
 use wgpu::{include_spirv, BindGroupLayout, Device, Queue, RenderPass, RenderPipeline};
 
-use crate::consts::*;
-use crate::utils::bindgroup_manager::DynamicBindGroup;
-use crate::utils::texture::Texture;
+use crate::bindgroup_manager::DynamicBindGroup;
+use crate::texture::Texture;
+use ensnano_interactor::consts::*;
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]

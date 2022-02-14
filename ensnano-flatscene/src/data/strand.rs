@@ -18,12 +18,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::super::view::InsertionInstance;
 use super::helix::{Helix, Shift};
 use super::{CameraPtr, FlatNucl};
+use ensnano_design::ultraviolet::Vec2;
 use lyon::math::Point;
 use lyon::path::path::BuilderWithAttributes;
 use lyon::path::Path;
 use lyon::tessellation;
 use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
-use ultraviolet::Vec2;
 
 type Vertices = lyon::tessellation::VertexBuffers<StrandVertex, u16>;
 
@@ -63,9 +63,9 @@ impl Strand {
 
     fn get_path_color(&self) -> [f32; 4] {
         let color = if self.highlight {
-            crate::utils::instance::Instance::color_from_au32(self.color)
+            ensnano_utils::instance::Instance::color_from_au32(self.color)
         } else {
-            crate::utils::instance::Instance::color_from_u32(self.color)
+            ensnano_utils::instance::Instance::color_from_u32(self.color)
         };
         [color.x, color.y, color.z, color.w]
     }

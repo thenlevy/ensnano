@@ -19,11 +19,11 @@ use super::{
     maths_3d, CameraPtr, Drawable, Drawer, GroupPivot, HandleColors, ProjectionPtr, Vertex,
 };
 
-use crate::consts::*;
-use iced_wgpu::wgpu;
+use ensnano_design::ultraviolet::{Rotor3, Vec3};
+use ensnano_interactor::consts::*;
+use ensnano_utils::wgpu;
 use std::f32::consts::PI;
 use std::rc::Rc;
-use ultraviolet::{Rotor3, Vec3};
 use wgpu::Device;
 
 #[derive(Debug, Clone, Copy)]
@@ -268,8 +268,8 @@ impl RotationWidgetDescriptor {
         let length = self.size * dist * (projection.borrow().get_fovy() / 2.).tan() * 1.1;
         let filter = if self.only_right { 0f32 } else { 1f32 };
         let colors = match self.colors {
-            HandleColors::Cym => crate::consts::CYM_HANDLE_COLORS,
-            HandleColors::Rgb => crate::consts::RGB_HANDLE_COLORS,
+            HandleColors::Cym => ensnano_interactor::consts::CYM_HANDLE_COLORS,
+            HandleColors::Rgb => ensnano_interactor::consts::RGB_HANDLE_COLORS,
         };
         [
             Circle::new(self.origin, length, up, dir, colors[0], RIGHT_CIRCLE_ID),

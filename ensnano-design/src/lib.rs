@@ -41,6 +41,9 @@ pub type EnsnTree = OrganizerTree<DnaElementKey>;
 pub mod group_attributes;
 use group_attributes::GroupAttribute;
 
+/// Re-export ultraviolet for linear algebra
+pub use ultraviolet::*;
+
 mod formating;
 #[cfg(test)]
 mod tests;

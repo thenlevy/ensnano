@@ -16,10 +16,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::instances_drawer::{Instanciable, RessourceProvider, Vertexable};
-use iced_wgpu::wgpu;
+use ensnano_design::ultraviolet::{Vec2, Vec3};
+use ensnano_utils::wgpu;
 use std::convert::TryInto;
 use std::rc::Rc;
-use ultraviolet::{Vec2, Vec3};
 use wgpu::{Device, Queue};
 
 #[repr(C)]
@@ -302,7 +302,7 @@ impl DirectionTexture {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: crate::TEXTURE_FORMAT,
+            format: ensnano_utils::TEXTURE_FORMAT,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
         });
 

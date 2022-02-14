@@ -37,8 +37,8 @@ use ensnano_design::{
     CameraId,
 };
 use ensnano_interactor::{
-    graphics::{Background3D, RenderingMode},
-    ActionMode, SelectionConversion, SelectionMode, SuggestionParameters,
+    graphics::{Background3D, FogParameters as Fog, RenderingMode},
+    ActionMode, SelectionConversion, SuggestionParameters,
 };
 
 use super::{
@@ -47,10 +47,10 @@ use super::{
         dark_icon as icon, icon_to_char, LightIcon as MaterialIcon, DARK_ICONFONT as ICONFONT,
     },
     slider_style::DesactivatedSlider,
-    text_btn, AppState, DesignReader, FogParameters as Fog, OverlayType, Requests, UiSize,
+    text_btn, AppState, DesignReader, OverlayType, Requests, UiSize,
 };
 
-use ensnano_design::grid::GridTypeDescr;
+use ensnano_design::{grid::GridTypeDescr, ultraviolet};
 mod color_picker;
 use color_picker::ColorPicker;
 mod sequence_input;

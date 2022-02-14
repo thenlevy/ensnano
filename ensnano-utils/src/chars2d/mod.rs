@@ -21,10 +21,10 @@ use std::rc::Rc;
 use ultraviolet::{Mat2, Vec2, Vec4};
 use wgpu::{include_spirv, BindGroupLayout, Device, Queue, RenderPass, RenderPipeline};
 
-use crate::consts::*;
+use crate::bindgroup_manager::DynamicBindGroup;
 use crate::text::{Letter, Vertex as CharVertex};
-use crate::utils::bindgroup_manager::DynamicBindGroup;
-use crate::utils::texture::Texture;
+use crate::texture::Texture;
+use ensnano_interactor::consts::*;
 mod text_drawer;
 pub use text_drawer::{Line, Sentence, TextDrawer};
 

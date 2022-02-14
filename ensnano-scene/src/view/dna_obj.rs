@@ -18,8 +18,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! This modules defines the meshes that are used to draw DNA.
 
 use super::instances_drawer::{Instanciable, Vertexable};
-use crate::consts::*;
-use iced_wgpu::wgpu;
+use ensnano_design::ultraviolet;
+use ensnano_interactor::consts::*;
+use ensnano_utils::wgpu;
 use std::f32::consts::PI;
 use ultraviolet::{Mat4, Rotor3, Vec3, Vec4};
 

@@ -15,9 +15,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use iced_wgpu::wgpu;
-use iced_winit::winit::dpi::{PhysicalPosition, PhysicalSize, Pixel};
+pub use iced_wgpu::wgpu;
+pub use iced_winit::winit;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
+pub use winit::dpi::{PhysicalPosition, PhysicalSize, Pixel};
 
 pub mod bindgroup_manager;
 pub mod camera2d;
@@ -27,7 +28,11 @@ pub mod id_generator;
 pub mod instance;
 pub mod light;
 pub mod mesh;
+pub mod text;
 pub mod texture;
+
+pub type PhySize = PhysicalSize<u32>;
+pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
 pub fn create_buffer_with_data(
     device: &wgpu::Device,

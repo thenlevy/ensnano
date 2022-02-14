@@ -26,7 +26,7 @@ pub trait BuilderMessage: Clone + 'static {
     fn value_submitted(kind: ValueKind) -> Self;
 }
 
-use ultraviolet::{Bivec3, Mat3, Rotor3, Vec3};
+use crate::ultraviolet::{Bivec3, Mat3, Rotor3, Vec3};
 
 macro_rules! type_builder {
     ($builder_name:ident, $initializer:tt, $internal:tt, $convert_in:path, $convert_out:path, $($param: ident: $param_type: tt %$formatter:path) , *) => {

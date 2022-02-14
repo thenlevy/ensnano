@@ -17,30 +17,31 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 //! This module handles the 2D view
 
-//use crate::design::{DesignNotification, DesignNotificationContent, Nucl, StrandBuilder};
-use crate::{utils::camera2d::FitRectangle, DrawArea, Duration, PhySize, WindowEvent};
 use ensnano_design::Nucl;
 use ensnano_interactor::{
-    application::{AppId, Application, Notification},
+    application::{AppId, Application, Duration, Notification},
+    graphics::DrawArea,
     operation::*,
     ActionMode, DesignOperation, PhantomElement, Selection, SelectionMode, StrandBuilder,
     StrandBuildingStatus,
 };
-use iced_wgpu::wgpu;
-use iced_winit::winit;
+use ensnano_utils::wgpu;
+use ensnano_utils::winit;
+use ensnano_utils::PhySize;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
+use winit::event::WindowEvent;
 
-use crate::utils::camera2d as camera;
+use ensnano_utils::camera2d as camera;
 mod controller;
 mod data;
 mod flattypes;
 mod view;
-use camera::{Camera, Globals};
+use camera::{Camera, FitRectangle, Globals};
 use controller::Controller;
 use data::Data;
 pub use data::{DesignReader, NuclCollection};
@@ -612,7 +613,7 @@ pub trait AppState: Clone {
     fn get_building_state(&self) -> Option<StrandBuildingStatus>;
 }
 
-use ultraviolet::Isometry2;
+use ensnano_design::ultraviolet::Isometry2;
 pub trait Requests {
     fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize);
     fn request_center_selection(&mut self, selection: Selection, app_id: AppId);

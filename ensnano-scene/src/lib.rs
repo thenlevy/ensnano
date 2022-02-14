@@ -15,31 +15,32 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use iced_wgpu::wgpu;
-use iced_winit::winit;
+use ensnano_design::ultraviolet;
+use ensnano_utils::wgpu;
+use ensnano_utils::winit;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
-use crate::scene::camera::FiniteVec3;
-use crate::utils;
-use crate::{DrawArea, PhySize, WindowEvent};
 use ensnano_design::{group_attributes::GroupPivot, Nucl};
 use ensnano_interactor::{
     application::{AppId, Application, Notification},
+    graphics::DrawArea,
     operation::*,
     ActionMode, CenterOfSelection, DesignOperation, Selection, SelectionMode, StrandBuilder,
     WidgetBasis,
 };
+use ensnano_utils::{instance, PhySize};
 use instance::Instance;
-use utils::instance;
 use wgpu::{Device, Queue};
 use winit::dpi::PhysicalPosition;
+use winit::event::WindowEvent;
 
 /// Computation of the view and projection matrix.
 mod camera;
+use camera::FiniteVec3;
 /// Display of the scene
 mod view;
 use view::{
