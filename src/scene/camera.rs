@@ -125,7 +125,6 @@ impl Projection {
 
 pub struct CameraController {
     speed: f32,
-    pub sensitivity: f32,
     amount_up: f32,
     amount_down: f32,
     amount_left: f32,
@@ -173,10 +172,9 @@ impl From<FiniteVec3> for Vec3 {
 }
 
 impl CameraController {
-    pub fn new(speed: f32, sensitivity: f32, camera: CameraPtr, projection: ProjectionPtr) -> Self {
+    pub fn new(speed: f32, camera: CameraPtr, projection: ProjectionPtr) -> Self {
         Self {
             speed,
-            sensitivity,
             amount_left: 0.0,
             amount_right: 0.0,
             amount_up: 0.0,
@@ -312,8 +310,10 @@ impl CameraController {
         self.y_scroll = y_cursor;
         self.scroll = match delta {
             // I'm assuming a line is about 100 pixels
-            MouseScrollDelta::LineDelta(_, scroll) => scroll.min(1.).max(-1.) * 10.,
-            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => *scroll as f32,
+            MouseScrollDelta::LineDelta(_, scroll) => scroll.min(1.).max(-1.),
+            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => {
+                scroll.signum() as f32
+            }
         };
     }
 
@@ -408,17 +408,17 @@ impl CameraController {
                 .dot(self.camera.borrow().direction().normalized());
             if score < 0. {
                 self.camera.borrow().direction()
-            } else if (pivot - self.camera.borrow().position).mag() > 0.1 {
-                to_pivot
+            } else if (pivot - self.camera.borrow().position).mag() < 0.1 {
+                1.1 * to_pivot
             } else {
-                self.camera.borrow().direction()
+                to_pivot.normalized()
             }
         } else {
-            10. * self.camera.borrow().direction()
+            self.camera.borrow().direction()
         };
         {
             let mut camera = self.camera.borrow_mut();
-            camera.position += scrollward * self.scroll * self.speed * self.sensitivity * 33e-3;
+            camera.position += scrollward * self.scroll * self.speed * 3.0;
         }
         self.cam0 = self.camera.borrow().clone();
         self.scroll = 0.;

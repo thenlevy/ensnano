@@ -124,12 +124,7 @@ impl<S: AppState> Controller<S> {
     ) -> Self {
         let camera_controller = {
             let view = view.borrow();
-            CameraController::new(
-                4.0,
-                BASE_SCROLL_SENSITIVITY,
-                view.get_camera(),
-                view.get_projection(),
-            )
+            CameraController::new(4.0, view.get_camera(), view.get_projection())
         };
         Self {
             view,
@@ -315,7 +310,7 @@ impl<S: AppState> Controller<S> {
     }
 
     pub fn change_sensitivity(&mut self, sensitivity: f32) {
-        self.camera_controller.sensitivity = 10f32.powf(sensitivity / 10.) * BASE_SCROLL_SENSITIVITY
+        //self.camera_controller.sensitivity = 10f32.powf(sensitivity / 10.) * BASE_SCROLL_SENSITIVITY
     }
 
     pub fn set_camera_target(&mut self, target: Vec3, up: Vec3, pivot: Option<Vec3>) {
