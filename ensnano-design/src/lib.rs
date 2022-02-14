@@ -55,6 +55,9 @@ pub mod utils;
 mod parameters;
 pub use parameters::Parameters;
 
+/// Re-export ultraviolet for linear algebra
+pub use ultraviolet::*;
+
 #[cfg(test)]
 mod tests;
 

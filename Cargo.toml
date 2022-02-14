@@ -1,5 +1,5 @@
 [workspace]
-members = [ "ensnano-design", "ensnano-interactor", "ensnano-organizer", "ensnano-scene", "ensnano-flatscene", "ensnano-gui"]
+members = [ "ensnano-design", "ensnano-interactor", "ensnano-organizer", "ensnano-scene", "ensnano-flatscene", "ensnano-gui", "ensnano-utils"]
 
 [package]
 name = "ensnano"
@@ -18,42 +18,35 @@ iced_graphics = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f
 iced_winit = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
 iced_native = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
 ultraviolet = { git = "https://github.com/termhn/ultraviolet", rev = "b2fb29e" , features = ["bytemuck", "f64", "serde"] }
-bytemuck = "1.2.0"
 failure = "0.1.8"
 env_logger = "0.7"
 serde_json = "1.0.57"
 futures = "0.3.5"
 serde = "1.0.116"
 serde_derive = "1.0.116"
-color_space = "0.5.2"
-fontdue = "0.6.4"
-lyon = { git = "https://github.com/nical/lyon", rev = "ea6d904c6c9ec0445c5653c119a48c43ea76cee9" }
 chrono = "0.4"
-image = "0.23"
 simple_excel_writer = "0.1.7"
 regex = "1.4.2"
-ahash = "0.6.2"
 mathru = "0.8.4"
 rand = "0.8.3"
 rand_distr = "0.4.0"
 ordered-float = { version = "2.0", features = ["serde"] }
 rfd = "0.4"
-material-icons = "0.1.0"
 ensnano_organizer = { path = "ensnano-organizer" }
-iced_aw = { git = "https://github.com/thenlevy/iced_aw", rev = "4ee0a6ac70633" , features = ["tab_bar"]}
 num_enum = "0.5.1"
 cadnano-format = "0.1.0"
-open = "1"
 ensnano_design = { path = "ensnano-design" }
 ensnano_interactor = { path = "ensnano-interactor" }
 ensnano_scene = { path = "ensnano-scene" }
 ensnano_flatscene = { path = "ensnano-flatscene" }
 ensnano_gui = { path = "ensnano-gui" }
+ensnano_utils = {path = "ensnano-utils" }
 log = "0.4"
 pretty_env_logger = "0.4"
-paste = "1.0.5"
 dirs = "4.0"
 derivative = "2.2.0"
+ahash = "0.6.2"
+color_space = "0.5.2"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = "0.3.2"

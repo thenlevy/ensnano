@@ -19,13 +19,14 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! frame to be displayed, or on a "fake texture" that is used to map pixels to objects.
 
 use super::camera;
-use crate::consts::*;
-use crate::utils::{bindgroup_manager, texture};
 use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
 use ensnano_design::group_attributes::GroupPivot;
+use ensnano_design::ultraviolet;
 use ensnano_design::Axis;
-use iced_wgpu::wgpu;
+use ensnano_interactor::consts::*;
+use ensnano_utils::wgpu;
+use ensnano_utils::{bindgroup_manager, text, texture};
 use std::cell::RefCell;
 use std::rc::Rc;
 use texture::Texture;
@@ -50,7 +51,6 @@ mod letter;
 mod rotation_widget;
 
 use super::maths_3d::{self, distance_to_cursor_with_penalty};
-use crate::text::Letter;
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use direction_cube::*;
 pub use dna_obj::{
@@ -69,6 +69,7 @@ pub use letter::LetterInstance;
 use maths_3d::unproject_point_on_line;
 use rotation_widget::RotationWidget;
 pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidgetOrientation};
+use text::Letter;
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
 
@@ -211,7 +212,7 @@ impl View {
         let fake_depth_texture =
             texture::Texture::create_depth_texture(device.as_ref(), &window_size, 1);
         let msaa_texture = if SAMPLE_COUNT > 1 {
-            Some(crate::utils::texture::Texture::create_msaa_texture(
+            Some(ensnano_utils::texture::Texture::create_msaa_texture(
                 device.clone().as_ref(),
                 &area_size,
                 SAMPLE_COUNT,
@@ -396,7 +397,7 @@ impl View {
                     let mut instances = instances.as_ref().clone();
                     for i in instances.iter_mut() {
                         if i.scale.z <= 1. {
-                            i.scale *= crate::consts::SELECT_SCALE_FACTOR;
+                            i.scale *= ensnano_interactor::consts::SELECT_SCALE_FACTOR;
                         }
                     }
                     self.dna_drawers
@@ -440,7 +441,7 @@ impl View {
                 Texture::create_depth_texture(self.device.as_ref(), &area.size, SAMPLE_COUNT);
             self.fake_depth_texture = Texture::create_depth_texture(self.device.as_ref(), &size, 1);
             self.msaa_texture = if SAMPLE_COUNT > 1 {
-                Some(crate::utils::texture::Texture::create_msaa_texture(
+                Some(ensnano_utils::texture::Texture::create_msaa_texture(
                     self.device.clone().as_ref(),
                     &area.size,
                     SAMPLE_COUNT,

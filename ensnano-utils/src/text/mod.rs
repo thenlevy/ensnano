@@ -88,9 +88,9 @@ impl Letter {
         });
 
         let font: &[u8] = if character.is_ascii_uppercase() {
-            include_bytes!("../../font/DejaVuSansMono.ttf")
+            include_bytes!("../../../font/DejaVuSansMono.ttf")
         } else {
-            include_bytes!("../../font/Inconsolata-Regular.ttf")
+            include_bytes!("../../../font/Inconsolata-Regular.ttf")
         };
         let font = Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
         let (metrics, _) = font.rasterize(character, size.height as f32);

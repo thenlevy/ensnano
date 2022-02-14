@@ -80,8 +80,6 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-pub type PhySize = iced_winit::winit::dpi::PhysicalSize<u32>;
-const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
 use ensnano_design::{Camera, Nucl};
@@ -108,9 +106,6 @@ use winit::{
 #[macro_use]
 extern crate pretty_env_logger;
 
-#[macro_use]
-extern crate paste;
-
 #[cfg(not(target_env = "msvc"))]
 use jemallocator::Jemalloc;
 
@@ -118,26 +113,25 @@ use jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-mod consts;
 /// Design handling
 //mod design;
 /// Graphical interface drawing
-mod gui;
+use ensnano_gui as gui;
+use ensnano_interactor::consts;
 //use design::Design;
 //mod mediator;
 /// Separation of the window into drawing regions
 mod multiplexer;
-/// 3D scene drawing
-mod scene;
+use ensnano_flatscene as flatscene;
 use ensnano_interactor::{
-    graphics::{DrawArea, ElementType, SplitMode},
+    graphics::{ElementType, SplitMode},
     operation::Operation,
     ActionMode, CheckXoversParameter, Selection, SelectionMode,
 };
-mod flatscene;
+/// 3D scene drawing
+use ensnano_scene as scene;
 mod scheduler;
-mod text;
-mod utils;
+use ensnano_utils as utils;
 use scheduler::Scheduler;
 
 #[cfg(test)]
@@ -162,6 +156,7 @@ use flatscene::FlatScene;
 use gui::{ColorOverlay, Gui, IcedMessages, OverlayType, UiSize};
 use multiplexer::{Multiplexer, Overlay};
 use scene::Scene;
+use utils::{PhySize, TEXTURE_FORMAT};
 
 fn convert_size(size: PhySize) -> Size<f32> {
     Size::new(size.width as f32, size.height as f32)

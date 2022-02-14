@@ -16,9 +16,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::{CameraPtr, Drawable, Drawer, ProjectionPtr, Vertex};
-use crate::consts::*;
 use ensnano_design::group_attributes::GroupPivot;
-use iced_wgpu::wgpu;
+use ensnano_design::ultraviolet;
+use ensnano_interactor::consts::*;
+use ensnano_utils::wgpu;
 use std::rc::Rc;
 use ultraviolet::{Rotor3, Vec3};
 use wgpu::Device;
@@ -55,8 +56,8 @@ impl HandlesDescriptor {
         let (right, up, dir) = self.make_axis();
         let length = self.size * dist * (projection.borrow().get_fovy() / 2.).tan();
         let colors = match self.colors {
-            HandleColors::Cym => crate::consts::CYM_HANDLE_COLORS,
-            HandleColors::Rgb => crate::consts::RGB_HANDLE_COLORS,
+            HandleColors::Cym => ensnano_interactor::consts::CYM_HANDLE_COLORS,
+            HandleColors::Rgb => ensnano_interactor::consts::RGB_HANDLE_COLORS,
         };
         [
             Handle::new(self.origin, right, up, colors[0], RIGHT_HANDLE_ID, length),

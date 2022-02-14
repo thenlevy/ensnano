@@ -25,18 +25,6 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use super::material_icons_light::{dark_icon, light_icon, LightIcon};
-use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
-
-const ICONFONT: iced::Font = iced::Font::External {
-    name: "IconFont",
-    bytes: MATERIALFONT,
-};
-
-fn icon(icon: MaterialIcon, ui_size: UiSize) -> iced::Text {
-    iced::Text::new(format!("{}", icon_to_char(icon)))
-        .font(ICONFONT)
-        .size(ui_size.icon())
-}
 
 use super::{Requests, SplitMode};
 
@@ -268,7 +256,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
         let button_save = if self.application_state.need_save {
             Button::new(
                 &mut self.button_save,
-                icon(MaterialIcon::Save, self.ui_size.clone()),
+                dark_icon(LightIcon::Save, self.ui_size.clone()),
             )
             .on_press(save_message)
         } else {
@@ -295,7 +283,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
 
         let mut button_undo = Button::new(
             &mut self.button_undo,
-            icon(MaterialIcon::Undo, self.ui_size.clone()),
+            dark_icon(LightIcon::Undo, self.ui_size.clone()),
         );
         if self.application_state.can_undo {
             button_undo = button_undo.on_press(Message::Undo)
@@ -303,7 +291,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
 
         let mut button_redo = Button::new(
             &mut self.button_redo,
-            icon(MaterialIcon::Redo, self.ui_size.clone()),
+            dark_icon(LightIcon::Redo, self.ui_size.clone()),
         );
         if self.application_state.can_redo {
             button_redo = button_redo.on_press(Message::Redo)

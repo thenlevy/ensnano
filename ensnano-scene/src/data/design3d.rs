@@ -20,12 +20,12 @@ use super::super::view::{
     ConeInstance, Ellipsoid, Instanciable, RawDnaInstance, SphereInstance, TubeInstance,
 };
 use super::super::GridInstance;
-use super::{LetterInstance, SceneElement};
-use crate::consts::*;
-use crate::utils::instance::Instance;
+use ensnano_utils::instance::Instance;
 use ensnano_design::grid::{GridObject, GridPosition};
 use ensnano_design::{grid::HelixGridPosition, Nucl};
 use ensnano_design::{CubicBezierConstructor, CurveDescriptor};
+use super::{ultraviolet, LetterInstance, SceneElement};
+use ensnano_interactor::consts::*;
 use ensnano_interactor::{
     phantom_helix_encoder_bound, phantom_helix_encoder_nucl, BezierControlPoint, ObjectType,
     PhantomElement, Referential, PHANTOM_RANGE,

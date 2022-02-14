@@ -37,17 +37,18 @@ pub use ensnano_design::{Camera, CameraId};
 pub use status_bar::{CurentOpState, StrandBuildingStatus};
 mod consts;
 
-mod consts;
+#[macro_use]
+extern crate paste;
 mod icon;
 
 use status_bar::StatusBar;
 
-use crate::scene::FogParameters;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElement, DnaElementKey},
     grid::GridTypeDescr,
-    Nucl, Parameters,
+    ultraviolet, Nucl, Parameters,
 };
+use ensnano_interactor::graphics::FogParameters;
 use ensnano_interactor::{
     graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
     CheckXoversParameter, Selection, SimulationState, SuggestionParameters, WidgetBasis,
@@ -572,7 +573,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         let mut renderer = Renderer::new(Backend::new(
             device.as_ref(),
             settings.clone(),
-            crate::TEXTURE_FORMAT,
+            ensnano_utils::TEXTURE_FORMAT,
         ));
         let mut elements = HashMap::new();
         let top_bar_state = top_bar_main_state(state, main_state);
@@ -764,7 +765,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         let renderer = Renderer::new(Backend::new(
             self.device.as_ref(),
             settings.clone(),
-            crate::TEXTURE_FORMAT,
+            ensnano_utils::TEXTURE_FORMAT,
         ));
         self.settings = settings;
         self.renderer = renderer;

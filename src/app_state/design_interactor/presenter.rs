@@ -36,7 +36,6 @@ mod impl_reader3d;
 mod impl_readergui;
 mod oxdna;
 use crate::scene::{HBond, HalfHBond};
-use ahash::AHashMap;
 use design_content::DesignContent;
 use std::collections::{BTreeMap, HashSet};
 

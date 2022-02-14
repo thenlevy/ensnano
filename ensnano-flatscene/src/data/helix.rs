@@ -18,12 +18,15 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::super::view::{CircleInstance, InsertionInstance};
 use super::super::{CameraPtr, Flat, FlatHelix, FlatIdx};
 use super::{FlatNucl, Helix2d, NuclCollection};
-use crate::consts::*;
-use crate::flatscene::view::EditionInfo;
-use crate::utils::chars2d::{Line, Sentence, TextDrawer};
-use crate::utils::instance::Instance;
+use crate::view::EditionInfo;
 use ahash::RandomState;
+use ensnano_design::ultraviolet;
 use ensnano_design::Nucl;
+use ensnano_interactor::consts::*;
+use ensnano_utils::{
+    chars2d::{Line, Sentence, TextDrawer},
+    instance::Instance,
+};
 use lyon::math::{rect, Point};
 use lyon::path::builder::{BorderRadii, PathBuilder};
 use lyon::path::Path;

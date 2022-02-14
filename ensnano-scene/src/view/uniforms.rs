@@ -16,8 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::camera::{CameraPtr, ProjectionPtr};
+use ensnano_design::ultraviolet::{Mat4, Vec3, Vec4, Rotor3};
 pub use ensnano_interactor::graphics::FogParameters;
-use ultraviolet::{Mat4, Rotor3, Vec3, Vec4};
 
 #[repr(C)] // We need this for Rust to store our data correctly for the shaders
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)] // This is so we can store this in a buffer

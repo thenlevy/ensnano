@@ -206,7 +206,7 @@ impl Reader2D for DesignReader {
     }
 }
 
-impl<T: super::NuclCollection> crate::flatscene::NuclCollection for T {
+impl crate::flatscene::NuclCollection for super::design_content::NuclCollection {
     fn contains(&self, nucl: &Nucl) -> bool {
         self.contains_nucl(nucl)
     }

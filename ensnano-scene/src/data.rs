@@ -22,7 +22,7 @@ use super::view::{
     GridDisc, HandleColors, Instanciable, RawDnaInstance, StereographicSphereAndPlane,
 };
 use super::{
-    Camera3D, HandleOrientation, HandlesDescriptor, LetterInstance, RotationWidgetDescriptor,
+    ultraviolet, HandleOrientation, HandlesDescriptor, LetterInstance, RotationWidgetDescriptor, Camera3D,
     RotationWidgetOrientation, SceneElement, View, ViewUpdate,
 };
 use std::cell::RefCell;
@@ -34,8 +34,8 @@ use ensnano_design::grid::GridObject;
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
-use crate::consts::*;
 use ensnano_design::{grid::GridPosition, Nucl};
+use ensnano_interactor::consts::*;
 use ensnano_interactor::{
     ActionMode, CenterOfSelection, ObjectType, PhantomElement, Referential, Selection,
     SelectionMode,

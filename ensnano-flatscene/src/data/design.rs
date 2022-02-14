@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex};
 use super::super::{FlatHelix, FlatIdx, FlatNucl, Requests};
 use super::{Flat, HelixVec, Nucl, Strand};
 use ahash::RandomState;
-use ensnano_design::{Extremity, Helix as DesignHelix, HelixCollection, Strand as StrandDesign};
+use ensnano_design::{Extremity, Helix as DesignHelix, HelixCollection, Strand as StrandDesign, ultraviolet};
 use ensnano_interactor::{torsion::Torsion, Referential};
 use ultraviolet::{Isometry2, Rotor2, Vec2, Vec3};
 
@@ -103,7 +103,7 @@ impl<R: DesignReader> Design2d<R> {
         self.pasted_strands = nucls_opt
             .iter()
             .map(|nucls| {
-                let color = crate::consts::CANDIDATE_COLOR;
+                let color = ensnano_interactor::consts::CANDIDATE_COLOR;
                 for nucl in nucls.iter() {
                     self.read_nucl(nucl)
                 }

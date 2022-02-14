@@ -56,7 +56,7 @@ pub fn bezier_widget_id(helix_id: u32, control_point: BezierControlPoint) -> u32
     (helix_id << 8) | bezier_id
 }
 
-use ensnano_interactor::BezierControlPoint;
+use crate::BezierControlPoint;
 pub fn widget_id_to_bezier(id: u32) -> Option<(usize, BezierControlPoint)> {
     use std::convert::TryInto;
     let control = match id & 0xFF {

@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::wgpu;
 use super::Rc;
-use crate::utils::Ndc;
+use ensnano_utils::Ndc;
 
 use wgpu::util::DeviceExt;
 use wgpu::{Device, Queue, RenderPipeline};
@@ -116,7 +116,7 @@ impl Rectangle {
             primitive,
             depth_stencil,
             multisample: wgpu::MultisampleState {
-                count: crate::consts::SAMPLE_COUNT,
+                count: ensnano_interactor::consts::SAMPLE_COUNT,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },

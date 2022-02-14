@@ -17,7 +17,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::maths_3d;
 use super::{ClickMode, PhySize, Stereography};
-use iced_winit::winit;
+use ensnano_design::ultraviolet;
+use ensnano_utils::winit;
 use std::cell::RefCell;
 use std::f32::consts::{FRAC_PI_2, PI};
 use std::rc::Rc;
@@ -94,7 +95,7 @@ impl Projection {
             fovy,
             znear,
             zfar,
-            stereographic_zoom: crate::consts::DEFAULT_STEREOGRAPHIC_ZOOM,
+            stereographic_zoom: ensnano_interactor::consts::DEFAULT_STEREOGRAPHIC_ZOOM,
         }
     }
 
@@ -332,7 +333,7 @@ impl CameraController {
             }
         };
         self.projection.borrow_mut().stereographic_zoom *=
-            crate::consts::STEREOGRAPHIC_ZOOM_STEP.powf(direction);
+            ensnano_interactor::consts::STEREOGRAPHIC_ZOOM_STEP.powf(direction);
     }
 
     /// Rotate the head of the camera on its yz plane and xz plane according to the values of
@@ -691,34 +692,3 @@ struct Plane {
     normal: Vec3,
 }
 
-struct RotationCenter {
-    center: Vec3,
-    dir: f32,
-    right: f32,
-    up: f32,
-}
-
-impl Camera {
-    fn save_target(&self, point: Vec3) -> RotationCenter {
-        let to_point = point - self.position;
-        let up = to_point.dot(self.up_vec());
-        let right = to_point.dot(self.right_vec());
-        let dir = to_point.dot(self.direction());
-        RotationCenter {
-            center: point,
-            dir,
-            up,
-            right,
-        }
-    }
-
-    fn apply_target(&mut self, target: RotationCenter) {
-        let new_direction = self.direction();
-        let new_up = self.up_vec();
-        let new_right = self.right_vec();
-        self.position = target.center
-            - target.dir * new_direction
-            - target.up * new_up
-            - target.right * new_right
-    }
-}

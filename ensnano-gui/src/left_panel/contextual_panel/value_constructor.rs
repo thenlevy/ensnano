@@ -26,7 +26,7 @@ pub trait BuilderMessage: Clone + 'static {
     fn value_submitted(kind: ValueKind) -> Self;
 }
 
-use ultraviolet::{Bivec3, Mat3, Rotor3, Vec3};
+use crate::ultraviolet::{Bivec3, Mat3, Rotor3, Vec3};
 
 macro_rules! type_builder {
     ($builder_name:ident, $initializer:tt, $internal:tt, $convert_in:path, $convert_out:path, $($param: ident: $param_type: tt %$formatter:path) , *) => {
@@ -270,7 +270,7 @@ impl GridBuilder {
         app_state: &S,
         selection: &Selection,
     ) -> Option<Element<'a, super::Message<S>, Renderer>> {
-        use crate::gui::consts;
+        use crate::consts;
         if let Selection::Grid(_, g_id) = selection {
             if let Some(nb_turn) = app_state.get_reader().get_grid_nb_turn(*g_id) {
                 let row = Row::new()
