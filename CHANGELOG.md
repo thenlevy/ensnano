@@ -11,6 +11,7 @@
 - Show a question mark in place of letter for nucleotide with no basis in 2D view
 - Use cursor icons to indicate that actions are being performed in the 2D/3D views
 - Make it possible to tilt the 3D view with shift + RClick, and the 2D view with alt + Left/Right
+- Make it possible to apply a symetry transformation to the 2d view by pressing ctrl/⌘ + Left/Up/Right/Down
 
 ## 0.4.0
 - Remaps mouse buttons in the 2D view.

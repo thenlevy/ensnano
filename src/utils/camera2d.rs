@@ -48,13 +48,27 @@ impl Camera {
         self.was_updated
     }
 
-    pub fn tilt_left(&mut self) {
-        self.globals.tilt += std::f32::consts::PI / 12.;
+    fn rotation_sign(&self) -> f32 {
+        self.globals.symetry.x * self.globals.symetry.y
+    }
+
+    pub fn apply_symettry_x(&mut self) {
+        self.globals.symetry.x *= -1.0;
+        self.end_movement();
+    }
+
+    pub fn apply_symettry_y(&mut self) {
+        self.globals.symetry.y *= -1.0;
         self.end_movement();
     }
 
     pub fn tilt_right(&mut self) {
-        self.globals.tilt -= std::f32::consts::PI / 12.;
+        self.globals.tilt -= std::f32::consts::PI / 12. * self.rotation_sign();
+        self.end_movement();
+    }
+
+    pub fn tilt_left(&mut self) {
+        self.globals.tilt += std::f32::consts::PI / 12. * self.rotation_sign();
         self.end_movement();
     }
 
@@ -76,9 +90,7 @@ impl Camera {
     /// Moves the camera, according to a mouse movement expressed in *normalized screen
     /// coordinates*
     pub fn process_mouse(&mut self, delta_x: f32, delta_y: f32) -> (f32, f32) {
-        println!("input vec ({}, {})", delta_x, delta_y);
         let (x, y) = self.transform_vec(delta_x, delta_y);
-        println!("transformed vec ({}, {})", x, y);
         self.translate_by_vec(x, y);
         (x, y)
     }
