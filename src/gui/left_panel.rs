@@ -42,8 +42,12 @@ use ensnano_interactor::{
 };
 
 use super::{
-    icon_btn, slider_style::DesactivatedSlider, text_btn, AppState, DesignReader,
-    FogParameters as Fog, OverlayType, Requests, UiSize,
+    icon_btn,
+    material_icons_light::{
+        dark_icon as icon, icon_to_char, LightIcon as MaterialIcon, DARK_ICONFONT as ICONFONT,
+    },
+    slider_style::DesactivatedSlider,
+    text_btn, AppState, DesignReader, FogParameters as Fog, OverlayType, Requests, UiSize,
 };
 
 use ensnano_design::grid::GridTypeDescr;
@@ -60,26 +64,14 @@ mod contextual_panel;
 use contextual_panel::{ContextualPanel, ValueKind};
 
 use ensnano_interactor::HyperboloidRequest;
-use material_icons::{icon_to_char, Icon as MaterialIcon, FONT as MATERIALFONT};
 use tabs::{
     CameraShortcut, CameraTab, EditionTab, GridTab, ParametersTab, SequenceTab, SimulationTab,
-};
-
-const ICONFONT: iced::Font = iced::Font::External {
-    name: "IconFont",
-    bytes: MATERIALFONT,
 };
 
 pub(super) const ENSNANO_FONT: iced::Font = iced::Font::External {
     name: "EnsNanoFont",
     bytes: include_bytes!("../../font/ensnano.ttf"),
 };
-
-fn icon(icon: MaterialIcon, ui_size: &UiSize) -> iced::Text {
-    iced::Text::new(format!("{}", icon_to_char(icon)))
-        .font(ICONFONT)
-        .size(ui_size.icon())
-}
 
 const CHECKBOXSPACING: u16 = 5;
 
@@ -1003,17 +995,6 @@ impl iced_wgpu::button::StyleSheet for ButtonColor {
     }
 }
 
-fn target_message<S: AppState>(i: usize) -> Message<S> {
-    match i {
-        0 => Message::FixPoint(Vec3::unit_x(), Vec3::unit_y()),
-        1 => Message::FixPoint(-Vec3::unit_x(), Vec3::unit_y()),
-        2 => Message::FixPoint(Vec3::unit_y(), Vec3::unit_z()),
-        3 => Message::FixPoint(-Vec3::unit_y(), -Vec3::unit_z()),
-        4 => Message::FixPoint(Vec3::unit_z(), Vec3::unit_y()),
-        _ => Message::FixPoint(-Vec3::unit_z(), Vec3::unit_y()),
-    }
-}
-
 fn rotation_message<S: AppState>(i: usize, _xz: isize, _yz: isize, _xy: isize) -> Message<S> {
     let angle_xz = match i {
         0 => 15f32.to_radians(),
@@ -1035,23 +1016,12 @@ fn rotation_message<S: AppState>(i: usize, _xz: isize, _yz: isize, _xy: isize) -
 
 fn rotation_text(i: usize, ui_size: UiSize) -> Text {
     match i {
-        0 => icon(MaterialIcon::ArrowBack, &ui_size),
-        1 => icon(MaterialIcon::ArrowForward, &ui_size),
-        2 => icon(MaterialIcon::ArrowUpward, &ui_size),
-        3 => icon(MaterialIcon::ArrowDownward, &ui_size),
-        4 => icon(MaterialIcon::Undo, &ui_size),
-        _ => icon(MaterialIcon::Redo, &ui_size),
-    }
-}
-
-fn target_text(i: usize) -> String {
-    match i {
-        0 => "Right".to_string(),
-        1 => "Left".to_string(),
-        2 => "Top".to_string(),
-        3 => "Bottom".to_string(),
-        4 => "Back".to_string(),
-        _ => "Front".to_string(),
+        0 => icon(MaterialIcon::ArrowBack, ui_size),
+        1 => icon(MaterialIcon::ArrowForward, ui_size),
+        2 => icon(MaterialIcon::ArrowUpward, ui_size),
+        3 => icon(MaterialIcon::ArrowDownward, ui_size),
+        4 => icon(MaterialIcon::Undo, ui_size),
+        _ => icon(MaterialIcon::Redo, ui_size),
     }
 }
 

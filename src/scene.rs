@@ -152,7 +152,7 @@ impl<S: AppState> Scene<S> {
         event: &WindowEvent,
         cursor_position: PhysicalPosition<f64>,
         app_state: &S,
-    ) {
+    ) -> Option<ensnano_interactor::CursorIcon> {
         let consequence = self.controller.input(
             event,
             cursor_position,
@@ -160,6 +160,7 @@ impl<S: AppState> Scene<S> {
             app_state,
         );
         self.read_consequence(consequence, app_state);
+        self.controller.get_icon()
     }
 
     fn check_timers(&mut self, app_state: &S) {
@@ -284,6 +285,25 @@ impl<S: AppState> Scene<S> {
                 }
                 self.controller.set_pivot_point(pivot);
                 self.controller.swing(-x, -y);
+                self.notify(SceneNotification::CameraMoved);
+            }
+            Consequence::Tilt(x, _) => {
+                let mut pivot: Option<FiniteVec3> = self
+                    .data
+                    .borrow()
+                    .get_pivot_position()
+                    .and_then(|p| p.try_into().ok());
+                if pivot.is_none() {
+                    self.data.borrow_mut().try_update_pivot_position(app_state);
+                    pivot = self
+                        .data
+                        .borrow()
+                        .get_pivot_position()
+                        .and_then(|p| p.try_into().ok());
+                }
+                self.controller.set_pivot_point(pivot);
+                let angle = x as f32 * -std::f32::consts::TAU;
+                self.controller.continuous_tilt(angle);
                 self.notify(SceneNotification::CameraMoved);
             }
             Consequence::ToggleWidget => self.requests.lock().unwrap().toggle_widget_basis(),
@@ -820,6 +840,10 @@ impl<S: AppState> Application for Scene<S> {
             Notification::Fog(fog) => self.fog_request(fog),
             Notification::WindowFocusLost => self.controller.stop_camera_movement(),
             Notification::FlipSplitViews => (),
+            Notification::HorizonAligned => {
+                self.controller.align_horizon();
+                self.notify(SceneNotification::CameraMoved);
+            }
         }
     }
 
@@ -828,7 +852,7 @@ impl<S: AppState> Application for Scene<S> {
         event: &WindowEvent,
         cursor_position: PhysicalPosition<f64>,
         app_state: &S,
-    ) {
+    ) -> Option<ensnano_interactor::CursorIcon> {
         self.input(event, cursor_position, &app_state)
     }
 

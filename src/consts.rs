@@ -15,6 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+use ultraviolet::Vec4;
 pub const VIEWER_BINDING_ID: u32 = 0;
 pub const INSTANCES_BINDING_ID: u32 = 1;
 pub const LIGHT_BINDING_ID: u32 = 2;
@@ -93,6 +94,11 @@ pub const ALT: &'static str = if cfg!(target_os = "macos") {
     "alt"
 };
 
+pub const KEY_RIGHT: char = '\u{2192}';
+pub const KEY_LEFT: char = '\u{2190}';
+pub const KEY_UP: char = '\u{2191}';
+pub const KEY_DOWN: char = '\u{2193}';
+
 pub const BACKSPACECHAR: char = '\u{232b}';
 pub const SUPPRCHAR: char = '\u{2326}';
 pub const SELECTCHAR: char = '\u{e90c}';
@@ -130,6 +136,7 @@ pub const NO_DESIGN_TITLE: &'static str = "New file";
 
 pub const SEC_BETWEEN_BACKUPS: u64 = 60;
 pub const SEC_PER_YEAR: u64 = 31_536_000;
+
 pub const COLOR_ADENOSINE: u32 = 0x00_CC0000;
 pub const COLOR_THYMINE: u32 = 0x00_0000CC;
 pub const COLOR_GUANINE: u32 = 0x00_00CC00;
@@ -150,4 +157,18 @@ pub const BASIS_SCALE: ultraviolet::Vec3 = ultraviolet::Vec3 {
     x: 0.33 / SPHERE_RADIUS,
     y: BOUND_RADIUS / SPHERE_RADIUS,
     z: 2. * BOUND_RADIUS / SPHERE_RADIUS,
+};
+
+pub const BLACK_VEC4: Vec4 = Vec4 {
+    x: 0.,
+    y: 0.,
+    z: 0.,
+    w: 1.,
+};
+const GREY_UNKNOWN_NUCL: f32 = 0.3;
+pub const GREY_UNKNOWN_NUCL_VEC4: Vec4 = Vec4 {
+    x: GREY_UNKNOWN_NUCL,
+    y: GREY_UNKNOWN_NUCL,
+    z: GREY_UNKNOWN_NUCL,
+    w: 1.,
 };

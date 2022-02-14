@@ -43,13 +43,13 @@ mod view;
 use camera::{Camera, Globals};
 use controller::Controller;
 use data::Data;
-pub use data::DesignReader;
+pub use data::{DesignReader, NuclCollection};
 use flattypes::*;
 use std::time::Instant;
 use view::View;
 
 type ViewPtr = Rc<RefCell<View>>;
-type DataPtr = Rc<RefCell<Data>>;
+type DataPtr<R> = Rc<RefCell<Data<R>>>;
 type CameraPtr = Rc<RefCell<Camera>>;
 
 /// A Flatscene handles one design at a time
@@ -57,7 +57,7 @@ pub struct FlatScene<S: AppState> {
     /// Handle the data to send to the GPU
     view: Vec<ViewPtr>,
     /// Handle the data representing the design
-    data: Vec<DataPtr>,
+    data: Vec<DataPtr<S::Reader>>,
     /// Handle the inputs
     controller: Vec<Controller<S>>,
     /// The area on which the flatscene is displayed
@@ -175,10 +175,14 @@ impl<S: AppState> FlatScene<S> {
         event: &WindowEvent,
         cursor_position: PhysicalPosition<f64>,
         app_state: &S,
-    ) {
+    ) -> Option<ensnano_interactor::CursorIcon> {
         if let Some(controller) = self.controller.get_mut(self.selected_design) {
             let consequence = controller.input(event, cursor_position, app_state);
+            let icon = controller.get_icon();
             self.read_consequence(consequence, Some(app_state));
+            icon
+        } else {
+            None
         }
     }
 
@@ -551,6 +555,7 @@ impl<S: AppState> Application for FlatScene<S> {
             Notification::WindowFocusLost => (),
             Notification::TeleportCamera(_, _) => (),
             Notification::FlipSplitViews => self.controller[0].flip_split_views(),
+            Notification::HorizonAligned => (),
         }
     }
 
@@ -558,7 +563,12 @@ impl<S: AppState> Application for FlatScene<S> {
         self.resize(window_size, area)
     }
 
-    fn on_event(&mut self, event: &WindowEvent, cursor_position: PhysicalPosition<f64>, state: &S) {
+    fn on_event(
+        &mut self,
+        event: &WindowEvent,
+        cursor_position: PhysicalPosition<f64>,
+        state: &S,
+    ) -> Option<ensnano_interactor::CursorIcon> {
         self.input(event, cursor_position, state)
     }
 

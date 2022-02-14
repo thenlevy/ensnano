@@ -352,6 +352,12 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         requests.keep_proceed.push_back(Action::SuspendOp);
     }
 
+    if requests.horizon_targeted.take().is_some() {
+        main_state
+            .pending_actions
+            .push_back(Action::NotifyApps(Notification::HorizonAligned))
+    }
+
     if let Some(all_helices) = requests.redim_2d_helices.take() {
         main_state
             .pending_actions

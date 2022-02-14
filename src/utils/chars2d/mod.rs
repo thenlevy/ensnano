@@ -25,11 +25,14 @@ use crate::consts::*;
 use crate::text::{Letter, Vertex as CharVertex};
 use crate::utils::bindgroup_manager::DynamicBindGroup;
 use crate::utils::texture::Texture;
+mod text_drawer;
+pub use text_drawer::{Line, Sentence, TextDrawer};
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CharInstance {
-    pub center: Vec2,
+    /// The top left of the glyph's bounding box
+    pub top_left: Vec2,
     pub rotation: Mat2,
     pub size: f32,
     pub z_index: i32,
@@ -61,7 +64,7 @@ impl CharDrawer {
         let char_texture = Rc::new(Letter::new(character, device.clone(), queue.clone()));
 
         let new_instances = vec![CharInstance {
-            center: Vec2::zero(),
+            top_left: Vec2::zero(),
             rotation: Mat2::identity(),
             z_index: -1,
             size: 1.,

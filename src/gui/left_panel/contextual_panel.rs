@@ -486,8 +486,12 @@ fn view_3d_help() -> Vec<(String, String)> {
             "Rotate camera around pivot".to_owned(),
         ),
         (
-            format!("{}+{} Drag", CTRL, LCLICK),
+            format!("{}+{} Drag", CTRL, MCLICK),
             "Rotate camera around pivot".to_owned(),
+        ),
+        (
+            format!("{}+{} Drag", CTRL, RCLICK),
+            "Tilt camera".to_owned(),
         ),
         (String::new(), String::new()),
         (format!("{} Drag", LCLICK), "Edit strand".to_owned()),
@@ -544,6 +548,17 @@ fn view_2d_help() -> Vec<(String, String)> {
         (
             format!("{} + {} Drag", ALT, LCLICK),
             "Translate camera".to_owned(),
+        ),
+        (
+            format!("{} + {}/{}", ALT, KEY_LEFT, KEY_RIGHT),
+            "Tilt camera".to_owned(),
+        ),
+        (
+            format!(
+                "{} + {}/{}/{}/{}",
+                CTRL, KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN
+            ),
+            "Apply symetry to view".to_owned(),
         ),
         (String::new(), String::new()),
         (format!("{}", LCLICK), "Select".to_owned()),

@@ -118,4 +118,5 @@ pub struct Requests {
     pub new_double_strand_parameters: Option<Option<(isize, usize)>>,
     pub new_center_of_selection: Option<Option<CenterOfSelection>>,
     pub new_suggestion_parameters: Option<SuggestionParameters>,
+    pub horizon_targeted: Option<()>,
 }

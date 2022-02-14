@@ -75,6 +75,7 @@ pub enum Consequence {
     InitRotation(RotationMode, f64, f64, WidgetTarget),
     InitTranslation(f64, f64, WidgetTarget),
     Swing(f64, f64),
+    Tilt(f64, f64),
     Nothing,
     ToggleWidget,
     BuildEnded,
@@ -150,6 +151,11 @@ impl<S: AppState> Controller<S> {
     pub fn teleport_camera(&mut self, position: Vec3, rotation: Rotor3) {
         self.camera_controller.teleport_camera(position, rotation);
         self.end_movement();
+    }
+
+    pub fn align_horizon(&mut self) {
+        let angle = self.camera_controller.horizon_angle();
+        self.camera_controller.tilt_camera(angle);
     }
 
     pub fn set_camera_position(&mut self, position: Vec3) {
@@ -328,6 +334,10 @@ impl<S: AppState> Controller<S> {
         self.shift_cam();
     }
 
+    pub fn continuous_tilt(&mut self, angle: f32) {
+        self.camera_controller.continuous_tilt(angle);
+    }
+
     fn shift_cam(&mut self) {
         self.camera_controller.shift()
     }
@@ -344,6 +354,10 @@ impl<S: AppState> Controller<S> {
         self.data
             .borrow_mut()
             .update_handle_colors(self.handles_color_system());
+    }
+
+    pub fn get_icon(&self) -> Option<ensnano_interactor::CursorIcon> {
+        self.state.borrow().cursor()
     }
 }
 
