@@ -49,7 +49,7 @@ impl Camera {
     }
 
     fn rotation_sign(&self) -> f32 {
-        self.globals.symetry.x * self.globals.symetry.y
+        self.globals.symetry.x * self.globals.symetry.y * -1.0
     }
 
     pub fn apply_symettry_x(&mut self) {
