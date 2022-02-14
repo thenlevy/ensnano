@@ -313,7 +313,7 @@ impl Globals {
             scroll_offset: [10.0, 40.0],
             zoom: 16.0,
             tilt: 0.0,
-            symetry: [-1., 1.].into(),
+            symetry: [1., 1.].into(),
         }
     }
 }
