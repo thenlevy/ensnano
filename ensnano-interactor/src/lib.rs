@@ -35,6 +35,7 @@ pub mod operation;
 mod strand_builder;
 pub use strand_builder::*;
 pub mod torsion;
+pub mod consts;
 use ensnano_organizer::GroupId;
 mod operation_labels;
 
