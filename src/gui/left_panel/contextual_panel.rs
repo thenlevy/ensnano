@@ -554,7 +554,10 @@ fn view_2d_help() -> Vec<(String, String)> {
             "Tilt camera".to_owned(),
         ),
         (
-            format!("{} + {}/{}/{}/{}", CTRL, KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN),
+            format!(
+                "{} + {}/{}/{}/{}",
+                CTRL, KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN
+            ),
             "Apply symetry to view".to_owned(),
         ),
         (String::new(), String::new()),
