@@ -48,13 +48,27 @@ impl Camera {
         self.was_updated
     }
 
-    pub fn tilt_left(&mut self) {
-        self.globals.tilt += std::f32::consts::PI / 12.;
+    fn rotation_sign(&self) -> f32 {
+        self.globals.symetry.x * self.globals.symetry.y * -1.0
+    }
+
+    pub fn apply_symettry_x(&mut self) {
+        self.globals.symetry.x *= -1.0;
+        self.end_movement();
+    }
+
+    pub fn apply_symettry_y(&mut self) {
+        self.globals.symetry.y *= -1.0;
         self.end_movement();
     }
 
     pub fn tilt_right(&mut self) {
-        self.globals.tilt -= std::f32::consts::PI / 12.;
+        self.globals.tilt -= std::f32::consts::PI / 12. * self.rotation_sign();
+        self.end_movement();
+    }
+
+    pub fn tilt_left(&mut self) {
+        self.globals.tilt += std::f32::consts::PI / 12. * self.rotation_sign();
         self.end_movement();
     }
 
@@ -76,9 +90,7 @@ impl Camera {
     /// Moves the camera, according to a mouse movement expressed in *normalized screen
     /// coordinates*
     pub fn process_mouse(&mut self, delta_x: f32, delta_y: f32) -> (f32, f32) {
-        println!("input vec ({}, {})", delta_x, delta_y);
         let (x, y) = self.transform_vec(delta_x, delta_y);
-        println!("transformed vec ({}, {})", x, y);
         self.translate_by_vec(x, y);
         (x, y)
     }
@@ -161,7 +173,9 @@ impl Camera {
 
     /// Convert a *vector* in screen coordinate to a vector in world coordinate. (Does not apply
     /// the translation)
-    fn transform_vec(&self, x: f32, y: f32) -> (f32, f32) {
+    fn transform_vec(&self, mut x: f32, mut y: f32) -> (f32, f32) {
+        x *= self.globals.symetry.x;
+        y *= self.globals.symetry.y;
         let vec = Vec2::new(
             self.globals.resolution[0] * x / self.globals.zoom,
             self.globals.resolution[1] * y / self.globals.zoom,
@@ -211,8 +225,8 @@ impl Camera {
         )
         .rotated_by(self.rotation());
         let coord_ndc = Vec2::new(
-            temp.x * 2. * self.globals.zoom / self.globals.resolution[0],
-            temp.y * 2. * self.globals.zoom / self.globals.resolution[1],
+            temp.x * 2. * self.globals.zoom / self.globals.resolution[0] * self.globals.symetry.x,
+            temp.y * 2. * self.globals.zoom / self.globals.resolution[1] * self.globals.symetry.y,
         );
         ((coord_ndc.x + 1.) / 2., (coord_ndc.y + 1.) / 2.)
     }
@@ -289,6 +303,7 @@ pub struct Globals {
     pub scroll_offset: [f32; 2],
     pub zoom: f32,
     pub tilt: f32,
+    pub symetry: Vec2,
 }
 
 impl Globals {
@@ -298,6 +313,7 @@ impl Globals {
             scroll_offset: [10.0, 40.0],
             zoom: 16.0,
             tilt: 0.0,
+            symetry: [-1., 1.].into(),
         }
     }
 }

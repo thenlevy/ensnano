@@ -149,6 +149,11 @@ pub const ALT: &'static str = if cfg!(target_os = "macos") {
     "alt"
 };
 
+pub const KEY_RIGHT: char = '\u{2192}';
+pub const KEY_LEFT: char = '\u{2190}';
+pub const KEY_UP: char = '\u{2191}';
+pub const KEY_DOWN: char = '\u{2193}';
+
 pub const BACKSPACECHAR: char = '\u{232b}';
 pub const SUPPRCHAR: char = '\u{2326}';
 pub const SELECTCHAR: char = '\u{e90c}';

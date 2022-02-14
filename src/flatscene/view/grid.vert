@@ -6,6 +6,7 @@ uniform Globals {
     vec2 u_scroll_offset;
     float u_zoom;
     float u_tilt;
+    vec2 u_symetry;
 };
 
 struct Model {
@@ -41,7 +42,7 @@ void main() {
     vec2 zoom_factor = u_zoom / (vec2(0.5, 0.5) * u_resolution);
     vec2 local_pos = model.rotate * (a_position + a_normal * model.width / max(zoom_factor, 0.3));
     vec2 world_pos = local_pos - u_scroll_offset + model.translate;
-    vec2 transformed_pos = (rotation(u_tilt) * world_pos) * zoom_factor * invert_y;
+    vec2 transformed_pos = (rotation(u_tilt) * world_pos) * zoom_factor * invert_y * u_symetry;
 
     float background_depth = a_is_background > 0 ? 0.5 : 0.25;
     float z = (float(model.z_index * 1000 + a_model_id) + background_depth);

@@ -665,15 +665,9 @@ impl CameraController {
     }
 
     pub fn continuous_tilt(&mut self, angle_xy: f32) {
-        let target = self
-            .pivot_point
-            .map(|p| self.camera.borrow().save_target(p.0));
         let rotation = Rotor3::from_rotation_xy(angle_xy);
         let new_rotor = rotation * self.cam0.rotor;
         self.camera.borrow_mut().rotor = new_rotor;
-        if let Some(target) = target {
-            self.camera.borrow_mut().apply_target(target)
-        }
     }
 
     pub fn shift(&mut self) {

@@ -344,7 +344,7 @@ impl<S: AppState> Scene<S> {
                         .and_then(|p| p.try_into().ok());
                 }
                 self.controller.set_pivot_point(pivot);
-                let angle = x as f32 * std::f32::consts::TAU;
+                let angle = x as f32 * -std::f32::consts::TAU;
                 self.controller.continuous_tilt(angle);
                 self.notify(SceneNotification::CameraMoved);
             }

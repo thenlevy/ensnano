@@ -32,7 +32,7 @@ use std::cell::RefCell;
 use ultraviolet::Vec2;
 
 mod automata;
-use automata::{ControllerState, NormalState, Transition};
+use automata::{ctrl, ControllerState, NormalState, Transition};
 
 pub struct Controller<S: AppState> {
     #[allow(dead_code)]
@@ -256,6 +256,12 @@ impl<S: AppState> Controller<S> {
                 }
                 VirtualKeyCode::Right if self.modifiers.alt() => {
                     camera.borrow_mut().tilt_right();
+                }
+                VirtualKeyCode::Left | VirtualKeyCode::Right if ctrl(&self.modifiers) => {
+                    camera.borrow_mut().apply_symettry_x()
+                }
+                VirtualKeyCode::Up | VirtualKeyCode::Down if ctrl(&self.modifiers) => {
+                    camera.borrow_mut().apply_symettry_y()
                 }
                 VirtualKeyCode::J => {
                     self.data.borrow_mut().move_helix_backward();

@@ -663,6 +663,7 @@ impl Helix {
         let size_pos = 1.4;
         let circle = self.get_circle(camera, groups);
         let rotation = camera.borrow().rotation().reversed();
+        let symetry = camera.borrow().get_globals().symetry;
         if let Some(circle) = circle {
             let text = self.real_id.to_string();
             let sentence = Sentence {
@@ -671,6 +672,7 @@ impl Helix {
                 color: [0., 0., 0., 1.].into(),
                 z_index: self.flat_id.flat.0 as i32,
                 rotation,
+                symetry,
             };
             let line = Line {
                 origin: circle.center + circle.radius * Vec2::unit_y(),
@@ -696,6 +698,7 @@ impl Helix {
                 z_index: self.flat_id.flat.0 as i32,
                 color,
                 rotation,
+                symetry,
             };
             let (position, line) = if show_seq {
                 (self.info_position(pos), self.info_line())
@@ -725,6 +728,7 @@ impl Helix {
                 z_index: self.flat_id.flat.0 as i32,
                 color: [0., 0., 0., 1.].into(),
                 rotation,
+                symetry,
             };
             let line = self.info_line();
             text_drawer.add_sentence(sentence, self.info_position(pos), line);
@@ -753,6 +757,7 @@ impl Helix {
                     z_index: self.flat_id.flat.0 as i32,
                     color,
                     rotation,
+                    symetry,
                 };
                 let (line, position) = if nucl.forward {
                     (self.top_line(), self.char_position_top(nucl.position))

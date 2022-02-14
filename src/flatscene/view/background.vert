@@ -11,6 +11,7 @@ layout(set = 0, binding = 0) uniform Globals {
     vec2 u_scroll_offset;
     float u_zoom;
     float u_tilt;
+    vec2 u_symetry;
 };
 
 layout(location = 0) in vec2 a_position;
@@ -29,7 +30,7 @@ mat2 rotation(float angle) {
 
 void main() {
     gl_Position = vec4(a_position,1. - 0.0000001, 1.0);
-    v_position = a_position;
+    v_position = a_position * u_symetry;
     v_resolution = u_resolution;
     v_scroll_offset = u_scroll_offset;
     v_zoom = u_zoom;

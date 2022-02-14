@@ -10,6 +10,7 @@ uniform Globals {
     vec2 u_scroll_offset;
     float u_zoom;
     float u_tilt;
+    vec2 u_symetry;
 };
 
 struct Instances {
@@ -57,7 +58,7 @@ void main() {
     vec2 local_pos = instances[gl_InstanceIndex].center + position[gl_VertexIndex] * radius;
     vec2 world_pos = local_pos - u_scroll_offset; 
     vec2 zoom_factor = u_zoom / (vec2(0.5, 0.5) * u_resolution);
-    vec2 transformed_pos = rotation(u_tilt) * world_pos * zoom_factor * vec2(1., -1);
+    vec2 transformed_pos = rotation(u_tilt) * world_pos * zoom_factor * vec2(1., -1) * u_symetry;
     float z_index = float(instances[gl_InstanceIndex].z_index) + 0.5;
     float z = z_index >= 0 ? z_index / 10000. : 1e-7;
 

@@ -3129,7 +3129,7 @@ fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f6
     (a.x - b.x).abs().max((a.y - b.y).abs())
 }
 
-fn ctrl(modifiers: &ModifiersState) -> bool {
+pub(super) fn ctrl(modifiers: &ModifiersState) -> bool {
     if cfg!(target_os = "macos") {
         modifiers.logo()
     } else {
