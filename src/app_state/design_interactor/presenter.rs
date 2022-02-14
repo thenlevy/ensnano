@@ -146,6 +146,7 @@ impl Presenter {
             new_content.nucl_collection.as_ref(),
             &mut new_content.space_position,
         );
+        self.collect_h_bonds();
         self.content = AddressPointer::new(new_content);
     }
 
