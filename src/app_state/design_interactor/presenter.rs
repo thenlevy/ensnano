@@ -270,6 +270,11 @@ impl Presenter {
         forward_nucl: Nucl,
         backward_nucl: Nucl,
     ) -> Option<HBond> {
+        if self.invisible_nucls.contains(&forward_nucl)
+            && self.invisible_nucls.contains(&backward_nucl)
+        {
+            return None;
+        }
         let pos_forward: Vec3 = self
             .content
             .space_position
