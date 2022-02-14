@@ -85,7 +85,7 @@ impl Presenter {
     pub fn can_start_builder_at(&self, nucl: Nucl) -> bool {
         let left = self.current_design.get_neighbour_nucl(nucl.left());
         let right = self.current_design.get_neighbour_nucl(nucl.right());
-        if self.content.identifier_nucl.contains_key(&nucl) {
+        if self.content.nucl_collection.contains_nucl(&nucl) {
             if let Some(desc) = self.current_design.get_neighbour_nucl(nucl) {
                 let filter = |d: &NeighbourDescriptor| d.identifier != desc.identifier;
                 !left.filter(filter).and(right.filter(filter)).is_some()
@@ -143,7 +143,7 @@ impl Presenter {
     fn apply_simulation_update(&mut self, update: impl AsRef<dyn SimulationUpdate>) {
         let mut new_content = self.content.clone_inner();
         update.as_ref().update_positions(
-            &new_content.identifier_nucl,
+            new_content.nucl_collection.as_ref(),
             &mut new_content.space_position,
         );
         self.content = AddressPointer::new(new_content);
@@ -215,7 +215,7 @@ impl Presenter {
                                     &self.current_design.helices,
                                 ) {
                                     if let Some(real_compl) =
-                                        self.content.virtual_nucl_map.get(&virtual_compl)
+                                        self.content.nucl_collection.virtual_to_real(&virtual_compl)
                                     {
                                         basis_map.insert(*real_compl, basis_compl);
                                     }
@@ -238,7 +238,8 @@ impl Presenter {
     }
 
     fn collect_h_bonds(&mut self) {
-        let mut bonds = Vec::with_capacity(self.content.identifier_nucl.len());
+        let collections = self.content.nucl_collection.as_ref();
+        let mut bonds = Vec::with_capacity(nucl_collection.nb_nucl());
         for (forward_nucl, virtual_nucl_forward, forward_id) in self
             .content
             .identifier_nucl
@@ -331,7 +332,7 @@ impl Presenter {
     }
 
     fn selection_contains_nucl(&self, selection: &[Selection], nucl: Nucl) -> bool {
-        let identifier_nucl = if let Some(id) = self.content.identifier_nucl.get(&nucl) {
+        let identifier_nucl = if let Some(id) = self.content.nucl_collection.get_identifier(&nucl) {
             id
         } else {
             return false;
@@ -395,8 +396,8 @@ impl Presenter {
             .and_then(|s| s.domains.get(d_id))
     }
 
-    pub(super) fn get_virtual_nucl_map(&self) -> AHashMap<VirtualNucl, Nucl> {
-        self.content.virtual_nucl_map.clone().into()
+    pub(super) fn get_owned_nucl_collection(&self) -> Arc<impl NuclCollection> {
+        self.content.nucl_collection.clone()
     }
 
     fn whole_selection_is_visible(&self, selection: &[Selection], compl: bool) -> bool {
@@ -464,13 +465,13 @@ impl Presenter {
         let (n1, n2) = self.junctions_ids.get_element(xover_id)?;
         let pos1 = self
             .content
-            .identifier_nucl
-            .get(&n1)
+            .nucl_collection
+            .get_identifier(&n1)
             .and_then(|id| self.content.space_position.get(id))?;
         let pos2 = self
             .content
-            .identifier_nucl
-            .get(&n2)
+            .nucl_collection
+            .get_identifier(&n2)
             .and_then(|id| self.content.space_position.get(id))?;
         Some((Vec3::from(pos1) - Vec3::from(pos2)).mag())
     }
@@ -592,7 +593,11 @@ impl DesignReader {
     }
 
     pub(super) fn get_id_of_strand_containing_nucl(&self, nucl: &Nucl) -> Option<usize> {
-        let e_id = self.presenter.content.identifier_nucl.get(nucl)?;
+        let e_id = self
+            .presenter
+            .content
+            .nucl_collection
+            .get_identifier(nucl)?;
         self.presenter.content.strand_map.get(e_id).cloned()
     }
 
@@ -695,7 +700,7 @@ impl HelixPresenter for Presenter {
     }
 
     fn get_identifier(&self, nucl: &Nucl) -> Option<u32> {
-        self.content.identifier_nucl.get(nucl).cloned()
+        self.content.nucl_collection.get_identifier(nucl).cloned()
     }
 
     fn get_space_position(&self, nucl: &Nucl) -> Option<Vec3> {
@@ -704,7 +709,7 @@ impl HelixPresenter for Presenter {
     }
 
     fn has_nucl(&self, nucl: &Nucl) -> bool {
-        self.content.identifier_nucl.contains_key(nucl)
+        self.content.nucl_collection.contains_nucl(nucl)
     }
 }
 
@@ -752,12 +757,19 @@ use std::collections::HashMap;
 pub trait SimulationUpdate: Send + Sync {
     fn update_positions(
         &self,
-        _identifier_nucl: &HashMap<Nucl, u32, ahash::RandomState>,
+        _identifier_nucl: &dyn NuclCollection,
         _space_position: &mut HashMap<u32, [f32; 3], ahash::RandomState>,
     ) {
     }
 
     fn update_design(&self, design: &mut Design);
+}
+
+pub trait NuclCollection: Send + Sync + 'static {
+    fn iter_nucls_ids<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Nucl, &'a u32)> + 'a>;
+    fn contains_nucl(&self, nucl: &Nucl) -> bool;
+    fn iter_nucls<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a>;
+    fn virtual_to_real(&self, virtual_nucl: &VirtualNucl) -> Option<&Nucl>;
 }
 
 #[derive(Clone)]

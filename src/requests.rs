@@ -124,4 +124,5 @@ pub struct Requests {
     pub set_invert_y_scroll: Option<bool>,
     pub set_thick_helices: Option<bool>,
     pub twist_simulation: Option<usize>,
+    pub horizon_targeted: Option<()>,
 }

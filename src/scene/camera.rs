@@ -537,6 +537,32 @@ impl CameraController {
         self.cam0 = camera.clone();
     }
 
+    pub fn horizon_angle(&self) -> f32 {
+        let pv_matrix = self.projection.borrow().calc_matrix() * self.camera.borrow().calc_matrix();
+        let far_dist = 1000.;
+        let mut percieved_x_far = pv_matrix
+            .transform_point3(far_dist * Vec3::unit_z() + far_dist * Vec3::unit_x())
+            - pv_matrix.transform_point3(far_dist * Vec3::unit_z());
+        percieved_x_far.x *= self.projection.borrow().get_ratio();
+        let mut percieved_z_far = pv_matrix
+            .transform_point3(far_dist * Vec3::unit_z() + far_dist * Vec3::unit_x())
+            - pv_matrix.transform_point3(far_dist * Vec3::unit_x());
+        percieved_z_far.x *= self.projection.borrow().get_ratio();
+        let mut angle = if ultraviolet::Vec2::new(percieved_x_far.x, percieved_x_far.y).mag()
+            > ultraviolet::Vec2::new(percieved_z_far.x, percieved_z_far.y).mag()
+        {
+            -percieved_x_far.y.atan2(percieved_x_far.x)
+        } else {
+            -percieved_z_far.y.atan2(percieved_z_far.x)
+        };
+        if angle > std::f32::consts::FRAC_PI_2 {
+            angle -= std::f32::consts::PI;
+        } else if angle < -std::f32::consts::FRAC_PI_2 {
+            angle += std::f32::consts::PI;
+        };
+        angle
+    }
+
     pub fn set_camera_position(&mut self, position: Vec3) {
         let mut camera = self.camera.borrow_mut();
         camera.position = position;
@@ -638,6 +664,12 @@ impl CameraController {
         self.cam0.rotor = new_rotor;
     }
 
+    pub fn continuous_tilt(&mut self, angle_xy: f32) {
+        let rotation = Rotor3::from_rotation_xy(angle_xy);
+        let new_rotor = rotation * self.cam0.rotor;
+        self.camera.borrow_mut().rotor = new_rotor;
+    }
+
     pub fn shift(&mut self) {
         let vec = 0.01 * self.camera.borrow().right_vec() + 0.01 * self.camera.borrow().up_vec();
         self.camera.borrow_mut().position += vec;
@@ -657,4 +689,36 @@ impl CameraController {
 struct Plane {
     origin: Vec3,
     normal: Vec3,
+}
+
+struct RotationCenter {
+    center: Vec3,
+    dir: f32,
+    right: f32,
+    up: f32,
+}
+
+impl Camera {
+    fn save_target(&self, point: Vec3) -> RotationCenter {
+        let to_point = point - self.position;
+        let up = to_point.dot(self.up_vec());
+        let right = to_point.dot(self.right_vec());
+        let dir = to_point.dot(self.direction());
+        RotationCenter {
+            center: point,
+            dir,
+            up,
+            right,
+        }
+    }
+
+    fn apply_target(&mut self, target: RotationCenter) {
+        let new_direction = self.direction();
+        let new_up = self.up_vec();
+        let new_right = self.right_vec();
+        self.position = target.center
+            - target.dir * new_direction
+            - target.up * new_up
+            - target.right * new_right
+    }
 }

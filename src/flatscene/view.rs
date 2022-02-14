@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::data::{
     FlatTorsion, FreeEnd, GpuVertex, Helix, HelixModel, Shift, Strand, StrandVertex,
 };
-use super::{CameraPtr, FlatIdx, FlatNucl};
+use super::{CameraPtr, FlatIdx, FlatNucl, NuclCollection};
 use crate::utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
 use crate::utils::texture::Texture;
 use crate::utils::Ndc;
@@ -38,8 +38,7 @@ use crate::consts::SAMPLE_COUNT;
 use crate::utils::{chars2d as chars, circles2d as circles};
 use ahash::RandomState;
 use background::Background;
-use chars::CharDrawer;
-pub use chars::CharInstance;
+pub use chars::TextDrawer;
 pub use circles::CircleInstance;
 use circles::{CircleDrawer, CircleKind};
 use iced_winit::winit::dpi::PhysicalPosition;
@@ -81,10 +80,8 @@ pub struct View {
     nucl_highlighter_bottom: CircleDrawer,
     rotation_widget: CircleDrawer,
     insertion_drawer: InsertionDrawer,
-    char_drawers_top: HashMap<char, CharDrawer>,
-    char_drawers_bottom: HashMap<char, CharDrawer>,
-    char_map_top: HashMap<char, Vec<CharInstance>>,
-    char_map_bottom: HashMap<char, Vec<CharInstance>>,
+    text_drawer_top: TextDrawer,
+    text_drawer_bottom: TextDrawer,
     show_sec: bool,
     suggestions: Vec<(FlatNucl, FlatNucl)>,
     suggestions_view: Vec<StrandView>,
@@ -100,8 +97,19 @@ pub struct View {
     rectangle: Rectangle,
     groups: Arc<BTreeMap<usize, bool>>,
     basis_map: Arc<HashMap<Nucl, char, RandomState>>,
+    nucl_collection: Arc<dyn NuclCollection>,
     edition_info: Option<EditionInfo>,
     hovered_nucl: Option<FlatNucl>,
+}
+
+impl NuclCollection for () {
+    fn contains(&self, _nucl: &Nucl) -> bool {
+        false
+    }
+
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a> {
+        Box::new([].iter())
+    }
 }
 
 pub struct EditionInfo {
@@ -192,24 +200,21 @@ impl View {
         let rectangle = Rectangle::new(&device, queue.clone());
         let chars = [
             'A', 'T', 'G', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', 'n', 't',
-            'm', '.', '/', ' ', '(', ')',
+            'm', '.', '/', ' ', '(', ')', '?',
         ];
-        let mut char_drawers_top = HashMap::new();
-        let mut char_map_top = HashMap::new();
-        let mut char_drawers_bottom = HashMap::new();
-        let mut char_map_bottom = HashMap::new();
-        for c in chars.iter() {
-            char_drawers_top.insert(
-                *c,
-                CharDrawer::new(device.clone(), queue.clone(), globals_top.get_layout(), *c),
-            );
-            char_drawers_bottom.insert(
-                *c,
-                CharDrawer::new(device.clone(), queue.clone(), globals_top.get_layout(), *c),
-            );
-            char_map_top.insert(*c, Vec::new());
-            char_map_bottom.insert(*c, Vec::new());
-        }
+
+        let text_drawer_top = TextDrawer::new(
+            &chars,
+            device.clone(),
+            queue.clone(),
+            globals_top.get_layout(),
+        );
+        let text_drawer_bottom = TextDrawer::new(
+            &chars,
+            device.clone(),
+            queue.clone(),
+            globals_bottom.get_layout(),
+        );
 
         let insertion_drawer = InsertionDrawer::new(
             device.clone(),
@@ -245,10 +250,8 @@ impl View {
             nucl_highlighter_top,
             nucl_highlighter_bottom,
             rotation_widget,
-            char_drawers_top,
-            char_map_top,
-            char_drawers_bottom,
-            char_map_bottom,
+            text_drawer_bottom,
+            text_drawer_top,
             show_sec: false,
             suggestions: vec![],
             suggestions_view: vec![],
@@ -263,6 +266,7 @@ impl View {
             insertion_drawer,
             groups: Default::default(),
             basis_map: Default::default(),
+            nucl_collection: Arc::new(()),
             edition_info: Default::default(),
             selected_nucl: vec![],
             candidate_nucl: vec![],
@@ -719,9 +723,7 @@ impl View {
         render_pass.set_bind_group(0, self.globals_top.get_bindgroup(), &[]);
         render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
         self.circle_drawer_top.draw(&mut render_pass);
-        for drawer in self.char_drawers_top.values_mut() {
-            drawer.draw(&mut render_pass);
-        }
+        self.text_drawer_top.draw(&mut render_pass);
         self.insertion_drawer.draw(&mut render_pass);
         render_pass.set_pipeline(&self.strand_pipeline);
         for strand in self.strands.iter() {
@@ -888,9 +890,7 @@ impl View {
             render_pass.set_bind_group(0, self.globals_bottom.get_bindgroup(), &[]);
             render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
             self.circle_drawer_bottom.draw(&mut render_pass);
-            for drawer in self.char_drawers_bottom.values_mut() {
-                drawer.draw(&mut render_pass);
-            }
+            self.text_drawer_bottom.draw(&mut render_pass);
             self.insertion_drawer.draw(&mut render_pass);
             render_pass.set_pipeline(&self.strand_pipeline);
             for strand in self.strands.iter() {
@@ -1165,47 +1165,30 @@ impl View {
     }
 
     fn generate_char_instances(&mut self) {
-        for v in self.char_map_top.values_mut() {
-            v.clear();
-        }
-        for v in self.char_map_bottom.values_mut() {
-            v.clear();
-        }
+        self.text_drawer_top.clear();
+        self.text_drawer_bottom.clear();
 
         for h in self.helices.iter() {
             h.add_char_instances(
                 &self.camera_top,
-                &mut self.char_map_top,
-                &self.char_drawers_top,
+                &mut self.text_drawer_top,
                 self.groups.as_ref(),
                 self.basis_map.as_ref(),
                 self.show_sec,
                 &self.edition_info,
                 &self.hovered_nucl,
+                self.nucl_collection.as_ref(),
             );
             h.add_char_instances(
                 &self.camera_bottom,
-                &mut self.char_map_bottom,
-                &self.char_drawers_bottom,
+                &mut self.text_drawer_bottom,
                 self.groups.as_ref(),
                 self.basis_map.as_ref(),
                 self.show_sec,
                 &self.edition_info,
                 &self.hovered_nucl,
+                self.nucl_collection.as_ref(),
             )
-        }
-
-        for (c, v) in self.char_map_top.iter() {
-            self.char_drawers_top
-                .get_mut(c)
-                .unwrap()
-                .new_instances(Rc::new(v.clone()))
-        }
-        for (c, v) in self.char_map_bottom.iter() {
-            self.char_drawers_bottom
-                .get_mut(c)
-                .unwrap()
-                .new_instances(Rc::new(v.clone()))
         }
     }
 
@@ -1218,10 +1201,12 @@ impl View {
         &mut self,
         groups: Arc<BTreeMap<usize, bool>>,
         basis_map: Arc<HashMap<Nucl, char, RandomState>>,
+        nucl_collection: Arc<dyn NuclCollection>,
     ) {
         self.was_updated = true;
         self.groups = groups;
         self.basis_map = basis_map;
+        self.nucl_collection = nucl_collection;
     }
 }
 

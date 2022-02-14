@@ -15,6 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+use ultraviolet::Vec4;
 pub const VIEWER_BINDING_ID: u32 = 0;
 pub const INSTANCES_BINDING_ID: u32 = 1;
 pub const LIGHT_BINDING_ID: u32 = 2;
@@ -148,6 +149,11 @@ pub const ALT: &'static str = if cfg!(target_os = "macos") {
     "alt"
 };
 
+pub const KEY_RIGHT: char = '\u{2192}';
+pub const KEY_LEFT: char = '\u{2190}';
+pub const KEY_UP: char = '\u{2191}';
+pub const KEY_DOWN: char = '\u{2193}';
+
 pub const BACKSPACECHAR: char = '\u{232b}';
 pub const SUPPRCHAR: char = '\u{2326}';
 pub const SELECTCHAR: char = '\u{e90c}';
@@ -175,6 +181,7 @@ programer to investigate bugs.\n
 pub const RGB_HANDLE_COLORS: [u32; 3] = [0xFF0000, 0xFF00, 0xFF];
 pub const CYM_HANDLE_COLORS: [u32; 3] = [0x00FFFF, 0xFF00FF, 0xFFFF00];
 
+pub const ORIGAMI_EXTENSION: &'static str = "origami";
 pub const ENS_EXTENSION: &'static str = "ens";
 pub const ENS_BACKUP_EXTENSION: &'static str = "ensbackup";
 pub const ENS_UNAMED_FILE_NAME: &'static str = "Unamed_design";
@@ -191,6 +198,7 @@ pub const BEZIER_CONTROL1_COLOR: u32 = 0xFF_37_85_30;
 pub const BEZIER_CONTROL2_COLOR: u32 = 0xFF_1A_15_70;
 pub const SEC_BETWEEN_BACKUPS: u64 = 60;
 pub const SEC_PER_YEAR: u64 = 31_536_000;
+
 pub const DEFAULT_STEREOGRAPHIC_ZOOM: f32 = 3.0;
 pub const STEREOGRAPHIC_ZOOM_STEP: f32 = 1.1;
 pub const PIECEWISE_BEZIER_COLOR: u32 = 0xFF_66_CD_AA; // Medium Aquamarine
@@ -216,4 +224,18 @@ pub const BASIS_SCALE: ultraviolet::Vec3 = ultraviolet::Vec3 {
     x: 0.33 / SPHERE_RADIUS,
     y: BOUND_RADIUS / SPHERE_RADIUS,
     z: 2. * BOUND_RADIUS / SPHERE_RADIUS,
+};
+
+pub const BLACK_VEC4: Vec4 = Vec4 {
+    x: 0.,
+    y: 0.,
+    z: 0.,
+    w: 1.,
+};
+const GREY_UNKNOWN_NUCL: f32 = 0.3;
+pub const GREY_UNKNOWN_NUCL_VEC4: Vec4 = Vec4 {
+    x: GREY_UNKNOWN_NUCL,
+    y: GREY_UNKNOWN_NUCL,
+    z: GREY_UNKNOWN_NUCL,
+    w: 1.,
 };

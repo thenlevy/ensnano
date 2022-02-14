@@ -26,7 +26,7 @@ use ensnano_interactor::{
 mod presenter;
 use ensnano_organizer::GroupId;
 pub use presenter::SimulationUpdate;
-use presenter::{apply_simulation_update, update_presenter, Presenter};
+use presenter::{apply_simulation_update, update_presenter, NuclCollection, Presenter};
 pub(super) mod controller;
 use controller::Controller;
 pub use controller::{
@@ -69,10 +69,10 @@ impl DesignInteractor {
         &self,
         reader: &mut dyn ShiftOptimizerReader,
     ) -> Result<InteractorResult, ErrOperation> {
-        let nucl_map = self.presenter.get_virtual_nucl_map().clone();
+        let nucl_map = self.presenter.get_owned_nucl_collection();
         let result = self
             .controller
-            .optimize_shift(reader, Arc::new(nucl_map), &self.design);
+            .optimize_shift(reader, nucl_map, &self.design);
         self.handle_operation_result(result)
     }
 
@@ -215,6 +215,7 @@ impl DesignInteractor {
 
     pub(super) fn design_need_update(&self, suggestion_parameters: &SuggestionParameters) -> bool {
         presenter::design_need_update(&self.presenter, &self.design, suggestion_parameters)
+            || self.simulation_update.is_some()
     }
 
     pub(super) fn with_updated_design_reader(

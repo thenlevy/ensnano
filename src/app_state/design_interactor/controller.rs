@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::SimulationUpdate;
+use super::{NuclCollection, SimulationUpdate};
 use crate::app_state::AddressPointer;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
@@ -26,7 +26,7 @@ use ensnano_design::{
     },
     group_attributes::GroupPivot,
     mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix,
-    HelixCollection, Nucl, Strand, Strands, UpToDateDesign, VirtualNucl,
+    HelixCollection, Nucl, Strand, Strands, UpToDateDesign,
 };
 use ensnano_interactor::{
     operation::Operation, BezierControlPoint, HyperboloidOperation, SimulationState,
@@ -54,7 +54,6 @@ use clipboard::Clipboard;
 pub use clipboard::CopyOperation;
 
 mod shift_optimization;
-use ahash::AHashMap;
 pub use shift_optimization::{ShiftOptimizationResult, ShiftOptimizerReader};
 
 mod simulations;
@@ -793,10 +792,10 @@ impl Controller {
         }
     }
 
-    pub(super) fn optimize_shift(
+    pub(super) fn optimize_shift<Nc: NuclCollection>(
         &self,
         chanel_reader: &mut dyn ShiftOptimizerReader,
-        virtual_nucl_map: Arc<AHashMap<VirtualNucl, Nucl>>,
+        nucl_collection: Arc<Nc>,
         design: &Design,
     ) -> Result<(OkOperation, Self), ErrOperation> {
         if let OperationCompatibility::Incompatible =
@@ -805,21 +804,21 @@ impl Controller {
             return Err(ErrOperation::IncompatibleState);
         }
         Ok(self.ok_no_op(
-            |c, d| c.start_shift_optimization(d, chanel_reader, virtual_nucl_map),
+            |c, d| c.start_shift_optimization(d, chanel_reader, nucl_collection),
             design,
         ))
     }
 
-    fn start_shift_optimization(
+    fn start_shift_optimization<Nc: NuclCollection>(
         &mut self,
         design: &Design,
         chanel_reader: &mut dyn ShiftOptimizerReader,
-        virtual_nucl_map: Arc<AHashMap<VirtualNucl, Nucl>>,
+        nucl_collection: Arc<Nc>,
     ) {
         self.state = ControllerState::OptimizingScaffoldPosition;
         shift_optimization::optimize_shift(
             Arc::new(design.clone()),
-            virtual_nucl_map,
+            nucl_collection,
             chanel_reader,
         );
     }

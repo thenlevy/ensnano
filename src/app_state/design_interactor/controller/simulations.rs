@@ -16,6 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::app_state::design_interactor::presenter::NuclCollection;
+
 use super::*;
 
 use ensnano_design::{grid::Grid, Parameters};
@@ -1371,7 +1373,7 @@ impl SimulationUpdate for RigidHelixState {
 
     fn update_positions(
         &self,
-        identifier_nucl: &HashMap<Nucl, u32, ahash::RandomState>,
+        identifier_nucl: &dyn NuclCollection,
         space_position: &mut HashMap<u32, [f32; 3], ahash::RandomState>,
     ) {
         let helices: Vec<Helix> = (0..self.constants.nb_helices)
@@ -1384,7 +1386,7 @@ impl SimulationUpdate for RigidHelixState {
                 h
             })
             .collect();
-        for (nucl, id) in identifier_nucl.iter() {
+        for (nucl, id) in identifier_nucl.iter_nucls_ids() {
             let free_nucl = self.constants.nucl_maps[nucl];
             if let Some(n) = free_nucl.helix {
                 space_position.insert(

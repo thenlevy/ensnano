@@ -87,7 +87,8 @@ use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
 use ensnano_design::{Camera, Nucl};
 use ensnano_interactor::application::{Application, Notification};
 use ensnano_interactor::{
-    CenterOfSelection, DesignOperation, DesignReader, RigidBodyConstants, SuggestionParameters,
+    CenterOfSelection, CursorIcon, DesignOperation, DesignReader, RigidBodyConstants,
+    SuggestionParameters,
 };
 use iced_native::Event as IcedEvent;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
@@ -364,7 +365,6 @@ fn main() {
     // Run event loop
     let mut last_render_time = std::time::Instant::now();
     let mut mouse_interaction = iced::mouse::Interaction::Pointer;
-    let mut multiplexer_cursor = None;
 
     main_state
         .applications
@@ -485,6 +485,7 @@ fn main() {
                             main_state.focussed_element = Some(area);
                             main_state.update_candidates(vec![]);
                         }
+                        main_state.applications_cursor = None;
                         match area {
                             area if area.is_gui() => {
                                 let event = iced_winit::conversion::window_event(
@@ -509,7 +510,8 @@ fn main() {
                             area if area.is_scene() => {
                                 let cursor_position = multiplexer.get_cursor_position();
                                 let state = main_state.get_app_state();
-                                scheduler.forward_event(&event, area, cursor_position, state);
+                                main_state.applications_cursor =
+                                    scheduler.forward_event(&event, area, cursor_position, state);
                                 if matches!(event, winit::event::WindowEvent::MouseInput { .. }) {
                                     gui.clear_foccus();
                                 }
@@ -521,9 +523,8 @@ fn main() {
             }
             Event::MainEventsCleared => {
                 scale_factor_changed |= multiplexer.check_scale_factor(&window);
-                let mut redraw =
-                    resized || scale_factor_changed || multiplexer.icon != multiplexer_cursor;
-                multiplexer_cursor = multiplexer.icon.clone();
+                let mut redraw = resized || scale_factor_changed;
+                redraw |= main_state.update_cursor(&multiplexer);
                 redraw |= gui.fetch_change(&window, &multiplexer);
 
                 // When there is no more event to deal with
@@ -722,8 +723,10 @@ fn main() {
                     frame.present();
 
                     // And update the mouse cursor
-                    let iced_icon = iced_winit::conversion::mouse_interaction(mouse_interaction);
-                    window.set_cursor_icon(multiplexer.icon.unwrap_or(iced_icon));
+                    main_state.gui_cursor =
+                        iced_winit::conversion::mouse_interaction(mouse_interaction);
+                    main_state.update_cursor(&multiplexer);
+                    window.set_cursor_icon(main_state.cursor);
                     local_pool
                         .spawner()
                         .spawn(staging_belt.recall())
@@ -952,6 +955,10 @@ pub(crate) struct MainState {
     wants_fit: bool,
     last_backup_date: Instant,
     last_backed_up_state: AppState,
+    simulation_cursor: Option<CursorIcon>,
+    applications_cursor: Option<CursorIcon>,
+    gui_cursor: CursorIcon,
+    cursor: CursorIcon,
 }
 
 struct MainStateConstructor {
@@ -977,6 +984,46 @@ impl MainState {
             wants_fit: false,
             last_backup_date: Instant::now(),
             last_backed_up_state: app_state.clone(),
+            simulation_cursor: None,
+            applications_cursor: None,
+            gui_cursor: Default::default(),
+            cursor: Default::default(),
+        }
+    }
+
+    fn update_cursor(&mut self, multiplexer: &Multiplexer) -> bool {
+        self.update_simulation_cursor();
+        // Usefull to remember to finish hyperboloid before trying to eddit
+        if self.app_state.is_building_hyperboloid() {
+            if multiplexer
+                .foccused_element()
+                .map(|e| e.is_scene())
+                .unwrap_or(false)
+            {
+                self.applications_cursor = Some(CursorIcon::NotAllowed)
+            }
+        }
+        let new_cursor = if self.simulation_cursor.is_some() {
+            multiplexer
+                .icon
+                .or(Some(self.gui_cursor).filter(|c| c != &Default::default()))
+                .or(self.simulation_cursor)
+                .unwrap_or_default()
+        } else {
+            self.applications_cursor
+                .or(multiplexer.icon)
+                .unwrap_or(self.gui_cursor)
+        };
+        let ret = self.cursor != new_cursor;
+        self.cursor = new_cursor;
+        ret
+    }
+
+    fn update_simulation_cursor(&mut self) {
+        self.simulation_cursor = if self.app_state.get_simulation_state().is_runing() {
+            Some(CursorIcon::Progress)
+        } else {
+            None
         }
     }
 

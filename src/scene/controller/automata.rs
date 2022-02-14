@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::*;
 use ensnano_design::grid::GridObject;
-use ensnano_interactor::ActionMode;
+use ensnano_interactor::{ActionMode, CursorIcon};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::time::Instant;
@@ -98,6 +98,9 @@ pub(super) trait ControllerState<S: AppState> {
 
     fn notify_scroll(&mut self) {
         ()
+    }
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        None
     }
 }
 
@@ -387,6 +390,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 new_state: Some(Box::new(RotatingCamera {
                     clicked_position: position,
                     button_pressed: MouseButton::Middle,
+                    tilting: false,
                 })),
                 consequences: Consequence::Nothing,
             },
@@ -471,6 +475,10 @@ impl<S: AppState> ControllerState<S> for TranslatingCamera {
             _ => Transition::nothing(),
         }
     }
+
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Crosshair)
+    }
 }
 
 struct SettingPivot {
@@ -498,6 +506,7 @@ impl<S: AppState> ControllerState<S> for SettingPivot {
                         new_state: Some(Box::new(RotatingCamera {
                             clicked_position: self.clicked_position,
                             button_pressed: MouseButton::Right,
+                            tilting: controller.current_modifiers.shift(),
                         })),
                         consequences: Consequence::Nothing,
                     }
@@ -544,6 +553,7 @@ impl<S: AppState> ControllerState<S> for SettingPivot {
 struct RotatingCamera {
     clicked_position: PhysicalPosition<f64>,
     button_pressed: MouseButton,
+    tilting: bool,
 }
 
 impl<S: AppState> ControllerState<S> for RotatingCamera {
@@ -573,7 +583,11 @@ impl<S: AppState> ControllerState<S> for RotatingCamera {
                     (position.x - self.clicked_position.x) / controller.area_size.width as f64;
                 let mouse_dy =
                     (position.y - self.clicked_position.y) / controller.area_size.height as f64;
-                Transition::consequence(Consequence::Swing(mouse_dx, mouse_dy))
+                if self.tilting {
+                    Transition::consequence(Consequence::Tilt(mouse_dx, mouse_dy))
+                } else {
+                    Transition::consequence(Consequence::Swing(mouse_dx, mouse_dy))
+                }
             }
             WindowEvent::MouseInput {
                 state: ElementState::Released,
@@ -587,6 +601,10 @@ impl<S: AppState> ControllerState<S> for RotatingCamera {
             },
             _ => Transition::nothing(),
         }
+    }
+
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::AllScroll)
     }
 }
 
@@ -823,6 +841,10 @@ impl<S: AppState> ControllerState<S> for TranslatingWidget {
             _ => Transition::nothing(),
         }
     }
+
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Grabbing)
+    }
 }
 
 struct TranslatingGridObject {
@@ -887,6 +909,10 @@ impl<S: AppState> ControllerState<S> for TranslatingGridObject {
             _ => Transition::nothing(),
         }
     }
+
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Grabbing)
+    }
 }
 
 struct RotatingWidget {
@@ -945,6 +971,10 @@ impl<S: AppState> ControllerState<S> for RotatingWidget {
             controller.data.borrow_mut().stop_rotating_pivot();
         }
         TransistionConsequence::Nothing
+    }
+
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Grabbing)
     }
 }
 
@@ -1030,6 +1060,10 @@ impl<S: AppState> ControllerState<S> for BuildingStrand {
             _ => Transition::nothing(),
         }
     }
+
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Grabbing)
+    }
 }
 
 struct Xovering {
@@ -1091,6 +1125,10 @@ impl<S: AppState> ControllerState<S> for Xovering {
             }
             _ => Transition::nothing(),
         }
+    }
+
+    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Grabbing)
     }
 }
 

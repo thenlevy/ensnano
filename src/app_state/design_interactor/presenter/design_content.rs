@@ -23,6 +23,7 @@ use ensnano_design::elements::DnaElement;
 use ensnano_design::grid::{GridObject, GridPosition, HelixGridPosition};
 use ensnano_design::*;
 use ensnano_interactor::ObjectType;
+use serde::Serialize;
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
@@ -32,6 +33,48 @@ use ensnano_design::grid::GridData;
 
 mod xover_suggestions;
 use xover_suggestions::XoverSuggestions;
+
+#[derive(Default, Clone)]
+pub struct NuclCollection {
+    identifier: HashMap<Nucl, u32, RandomState>,
+    virtual_nucl_map: HashMap<VirtualNucl, Nucl, RandomState>,
+}
+
+impl super::NuclCollection for NuclCollection {
+    fn iter_nucls_ids<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Nucl, &'a u32)> + 'a> {
+        Box::new(self.identifier.iter())
+    }
+
+    fn contains_nucl(&self, nucl: &Nucl) -> bool {
+        self.identifier.contains_key(nucl)
+    }
+
+    fn iter_nucls<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a> {
+        Box::new(self.identifier.keys())
+    }
+
+    fn virtual_to_real(&self, virtual_nucl: &VirtualNucl) -> Option<&Nucl> {
+        self.virtual_nucl_map.get(virtual_nucl)
+    }
+}
+
+impl NuclCollection {
+    pub fn get_identifier(&self, nucl: &Nucl) -> Option<&u32> {
+        self.identifier.get(nucl)
+    }
+
+    pub fn contains_nucl(&self, nucl: &Nucl) -> bool {
+        self.identifier.contains_key(nucl)
+    }
+
+    fn insert(&mut self, key: Nucl, id: u32) -> Option<u32> {
+        self.identifier.insert(key, id)
+    }
+
+    fn insert_virtual(&mut self, virtual_nucl: VirtualNucl, nucl: Nucl) -> Option<Nucl> {
+        self.virtual_nucl_map.insert(virtual_nucl, nucl)
+    }
+}
 
 #[derive(Default, Clone)]
 pub(super) struct DesignContent {
@@ -44,7 +87,7 @@ pub(super) struct DesignContent {
     /// Maps identifier of element to their position in the Model's coordinates
     pub space_position: HashMap<u32, [f32; 3], RandomState>,
     /// Maps a Nucl object to its identifier
-    pub identifier_nucl: HashMap<Nucl, u32, RandomState>,
+    pub nucl_collection: Arc<NuclCollection>,
     /// Maps a pair of nucleotide forming a bound to the identifier of the bound
     pub identifier_bound: HashMap<(Nucl, Nucl), u32, RandomState>,
     /// Maps the identifier of a element to the identifier of the strands to which it belongs
@@ -58,7 +101,6 @@ pub(super) struct DesignContent {
     pub elements: Vec<DnaElement>,
     pub suggestions: Vec<(Nucl, Nucl)>,
     pub(super) grid_manager: GridData,
-    pub virtual_nucl_map: HashMap<VirtualNucl, Nucl, RandomState>,
 }
 
 impl DesignContent {
@@ -174,10 +216,17 @@ impl DesignContent {
             let mut sequence = String::new();
             let mut first = true;
             let mut previous_char_is_basis = None;
+            let mut intervals = StapleIntervals {
+                staple_id: *s_id,
+                intervals: Vec::new(),
+            };
             for domain in &strand.domains {
+                let mut staple_domain = None;
+                let scaffold = design.scaffold_id.and_then(|id| design.strands.get(&id));
                 if !first {
                     sequence.push(' ');
                 }
+                let helices = &design.helices;
                 first = false;
                 if let Domain::HelixDomain(dom) = domain {
                     for position in dom.iter() {
@@ -186,6 +235,7 @@ impl DesignContent {
                             forward: dom.forward,
                             helix: dom.helix,
                         };
+
                         let next_basis = basis_map.get(&nucl);
                         if let Some(basis) = next_basis {
                             if previous_char_is_basis == Some(false) {
@@ -200,7 +250,38 @@ impl DesignContent {
                             sequence.push('?');
                             previous_char_is_basis = Some(false);
                         }
+                        if let Some(virtual_nucl) = Nucl::map_to_virtual_nucl(nucl, helices) {
+                            if let Some(scaffold) = scaffold {
+                                let result = scaffold
+                                    .locate_virtual_nucl(&virtual_nucl.compl(), helices)
+                                    .map(|v| ScaffoldPosition {
+                                        domain_id: v.domain_id,
+                                        scaffold_position: (v.pos_on_strand + scaffold.length()
+                                            - design.scaffold_shift.unwrap_or(0))
+                                            % scaffold.length(),
+                                    });
+                                if staple_domain.is_none() {
+                                    staple_domain = Some(StapleDomain::init(result));
+                                }
+                                let d = staple_domain.take().unwrap();
+                                match d.read_position(result) {
+                                    ReadResult::Continue(d) => staple_domain = Some(d),
+                                    ReadResult::Stop {
+                                        interval,
+                                        new_reader,
+                                    } => {
+                                        intervals.intervals.push(interval);
+                                        staple_domain = Some(new_reader);
+                                    }
+                                }
+                            }
+                        } else {
+                            log::error!("Could not map to virtual nucl");
+                        }
                     }
+                }
+                if let Some(d) = staple_domain {
+                    intervals.intervals.push(d.finish())
                 }
             }
             let key = if let Some((prim5, prim3)) = strand.get_5prime().zip(strand.get_3prime()) {
@@ -219,6 +300,7 @@ impl DesignContent {
                     length: strand.length(),
                     color: strand.color & 0xFFFFFF,
                     group_names: presenter.get_name_of_group_having_strand(*s_id),
+                    intervals,
                 },
             );
         }
@@ -255,6 +337,7 @@ impl DesignContent {
                     .split_once("=")
                     .map(|split| split.1.to_string())
                     .unwrap_or(staple_info.domain_decomposition.clone()),
+                intervals: staple_info.intervals.clone(),
             });
         }
         ret
@@ -316,6 +399,13 @@ pub struct Staple {
     pub groups_name_str: String,
     pub domain_decomposition: String,
     pub length_str: String,
+    pub intervals: StapleIntervals,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct StapleIntervals {
+    pub staple_id: usize,
+    pub intervals: Vec<(isize, isize)>,
 }
 
 struct StapleInfo {
@@ -326,6 +416,7 @@ struct StapleInfo {
     group_names: Vec<String>,
     domain_decomposition: String,
     length: usize,
+    intervals: StapleIntervals,
 }
 
 #[derive(Clone)]
@@ -344,7 +435,7 @@ impl DesignContent {
         let groups = design.groups.clone();
         let mut object_type = HashMap::default();
         let mut space_position = HashMap::default();
-        let mut identifier_nucl = HashMap::default();
+        let mut nucl_collection = NuclCollection::default();
         let mut identifier_bound = HashMap::default();
         let mut nucleotides_involved = HashMap::default();
         let mut nucleotide = HashMap::default();
@@ -360,7 +451,6 @@ impl DesignContent {
         let mut prime3_set = Vec::new();
         let mut new_junctions: JunctionsIds = Default::default();
         let mut suggestion_maker = XoverSuggestions::default();
-        let mut virtual_nucl_map = HashMap::default();
         xover_ids.agree_on_next_id(&mut new_junctions);
         let rainbow_strand = design.scaffold_id.filter(|_| design.rainbow_scaffold);
         let grid_manager = design.get_updated_grid_data().clone();
@@ -421,7 +511,7 @@ impl DesignContent {
                         };
                         let virtual_nucl = Nucl::map_to_virtual_nucl(nucl, &design.helices);
                         if let Some(v_nucl) = virtual_nucl {
-                            let previous = virtual_nucl_map.insert(v_nucl, nucl);
+                            let previous = nucl_collection.insert_virtual(v_nucl, nucl);
                             if previous.is_some() && previous != Some(nucl) {
                                 log::error!("NUCLEOTIDE CONFLICTS: nucls {:?} and {:?} are mapped to the same virtual postition {:?}", previous, nucl, v_nucl);
                             }
@@ -438,7 +528,7 @@ impl DesignContent {
                         id += 1;
                         object_type.insert(nucl_id, ObjectType::Nucleotide(nucl_id));
                         nucleotide.insert(nucl_id, nucl);
-                        identifier_nucl.insert(nucl, nucl_id);
+                        nucl_collection.insert(nucl, nucl_id);
                         strand_map.insert(nucl_id, *s_id);
                         let color = rainbow_iterator.next().unwrap_or(color);
                         color_map.insert(nucl_id, color);
@@ -492,7 +582,7 @@ impl DesignContent {
             }
             if strand.cyclic {
                 let nucl = strand.get_5prime().unwrap();
-                let prime5_id = identifier_nucl.get(&nucl).unwrap();
+                let prime5_id = nucl_collection.get_identifier(&nucl).unwrap();
                 let bound_id = id;
                 id += 1;
                 let bound = (old_nucl.unwrap(), nucl);
@@ -553,7 +643,7 @@ impl DesignContent {
             object_type,
             nucleotide,
             nucleotides_involved,
-            identifier_nucl,
+            nucl_collection: Arc::new(nucl_collection),
             identifier_bound,
             strand_map,
             space_position,
@@ -564,7 +654,6 @@ impl DesignContent {
             elements,
             grid_manager,
             suggestions: vec![],
-            virtual_nucl_map,
         };
         let suggestions = suggestion_maker.get_suggestions(&design, suggestion_parameters);
         ret.suggestions = suggestions;
@@ -613,7 +702,7 @@ impl DesignContent {
     }
 
     pub fn read_simualtion_update(&mut self, update: &dyn SimulationUpdate) {
-        update.update_positions(&self.identifier_nucl, &mut self.space_position)
+        update.update_positions(self.nucl_collection.as_ref(), &mut self.space_position)
     }
 }
 
@@ -735,4 +824,100 @@ impl GridInstancesMaker for GridData {
         }
         ret
     }
+}
+
+enum StapleDomain {
+    ScaffoldDomain {
+        domain_id: usize,
+        first_scaffold_position: usize,
+        last_scaffold_position: usize,
+    },
+    OtherDomain {
+        length: usize,
+    },
+}
+
+#[derive(Clone, Copy)]
+struct ScaffoldPosition {
+    domain_id: usize,
+    scaffold_position: usize,
+}
+
+impl StapleDomain {
+    fn init(scaffold_position: Option<ScaffoldPosition>) -> Self {
+        if let Some(pos) = scaffold_position {
+            Self::ScaffoldDomain {
+                domain_id: pos.domain_id,
+                first_scaffold_position: pos.scaffold_position,
+                last_scaffold_position: pos.scaffold_position,
+            }
+        } else {
+            Self::OtherDomain { length: 0 }
+        }
+    }
+
+    fn reset(scaffold_position: Option<ScaffoldPosition>) -> Self {
+        if let Some(pos) = scaffold_position {
+            Self::ScaffoldDomain {
+                domain_id: pos.domain_id,
+                first_scaffold_position: pos.scaffold_position,
+                last_scaffold_position: pos.scaffold_position,
+            }
+        } else {
+            Self::OtherDomain { length: 1 }
+        }
+    }
+
+    fn finish(&self) -> (isize, isize) {
+        match self {
+            Self::OtherDomain { length } => (-1, -(*length as isize)),
+            Self::ScaffoldDomain {
+                first_scaffold_position,
+                last_scaffold_position,
+                ..
+            } => (
+                *first_scaffold_position as isize,
+                *last_scaffold_position as isize,
+            ),
+        }
+    }
+
+    fn read_position(mut self, position: Option<ScaffoldPosition>) -> ReadResult {
+        match &mut self {
+            Self::OtherDomain { length } => {
+                if position.is_none() {
+                    *length += 1;
+                    ReadResult::Continue(self)
+                } else {
+                    ReadResult::Stop {
+                        interval: self.finish(),
+                        new_reader: Self::reset(position),
+                    }
+                }
+            }
+            Self::ScaffoldDomain {
+                domain_id,
+                last_scaffold_position,
+                ..
+            } => {
+                if let Some(pos) = position.filter(|p| p.domain_id == *domain_id) {
+                    *last_scaffold_position = pos.scaffold_position;
+                    ReadResult::Continue(self)
+                } else {
+                    ReadResult::Stop {
+                        interval: self.finish(),
+                        new_reader: Self::reset(position),
+                    }
+                }
+            }
+        }
+    }
+}
+
+enum ReadResult {
+    Continue(StapleDomain),
+    Stop {
+        interval: (isize, isize),
+        new_reader: StapleDomain,
+    },
 }

@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::scadnano::*;
-use super::{codenano, Nucl};
+use super::{codenano, Helices, HelixCollection, Nucl, VirtualNucl};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 mod formating;
@@ -486,6 +486,17 @@ impl Strand {
         None
     }
 
+    pub fn find_virtual_nucl(&self, nucl: &VirtualNucl, helices: &Helices) -> Option<usize> {
+        let mut ret = 0;
+        for d in self.domains.iter() {
+            if let Some(n) = d.has_virtual_nucl(nucl, helices) {
+                return Some(ret + n);
+            }
+            ret += d.length()
+        }
+        None
+    }
+
     pub fn get_insertions(&self) -> Vec<Nucl> {
         let mut last_nucl = None;
         let mut ret = Vec::with_capacity(self.domains.len());
@@ -589,6 +600,32 @@ impl Strand {
         for (d_id, d) in self.domains.iter().enumerate() {
             if let Some(n) = d.has_nucl(nucl) {
                 return Some((d_id, n));
+            }
+        }
+        None
+    }
+
+    pub fn locate_virtual_nucl(
+        &self,
+        nucl: &VirtualNucl,
+        helices: &Helices,
+    ) -> Option<PositionOnStrand> {
+        let mut len = 0;
+        for (mut d_id, d) in self.domains.iter().enumerate() {
+            if let Some(n) = d.has_virtual_nucl(nucl, helices) {
+                if self.cyclic
+                    && d_id == self.domains.len() - 1
+                    && d.half_helix() == self.domains[0].half_helix()
+                {
+                    d_id = 0;
+                }
+                return Some(PositionOnStrand {
+                    domain_id: d_id,
+                    pos_on_domain: n,
+                    pos_on_strand: n + len,
+                });
+            } else {
+                len += d.length();
             }
         }
         None
@@ -805,6 +842,40 @@ impl Domain {
                             Some((nucl.position - *start) as usize)
                         } else {
                             Some((*end - 1 - nucl.position) as usize)
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    pub fn has_virtual_nucl(&self, nucl: &VirtualNucl, helices: &Helices) -> Option<usize> {
+        match self {
+            Self::Insertion(_) => None,
+            Self::HelixDomain(HelixInterval {
+                forward,
+                start,
+                end,
+                helix,
+                ..
+            }) => {
+                let shift = helices.get(helix).map(|h| h.initial_nt_index).unwrap_or(0);
+                let helix = helices
+                    .get(helix)
+                    .and_then(|h| h.support_helix)
+                    .unwrap_or(*helix);
+                let start = start + shift;
+                let end = end + shift;
+                if helix == nucl.0.helix && *forward == nucl.0.forward {
+                    if nucl.0.position >= start && nucl.0.position <= end - 1 {
+                        if *forward {
+                            Some((nucl.0.position - start) as usize)
+                        } else {
+                            Some((end - 1 - nucl.0.position) as usize)
                         }
                     } else {
                         None
@@ -1109,4 +1180,11 @@ impl Extremity {
             Extremity::Prime5 => Some(false),
         }
     }
+}
+
+/// The index of a nucleotide on a Strand
+pub struct PositionOnStrand {
+    pub domain_id: usize,
+    pub pos_on_domain: usize,
+    pub pos_on_strand: usize,
 }

@@ -32,12 +32,12 @@ use std::cell::RefCell;
 use ultraviolet::Vec2;
 
 mod automata;
-use automata::{ControllerState, NormalState, Transition};
+use automata::{ctrl, ControllerState, NormalState, Transition};
 
 pub struct Controller<S: AppState> {
     #[allow(dead_code)]
     view: ViewPtr,
-    data: DataPtr,
+    data: DataPtr<S::Reader>,
     #[allow(dead_code)]
     window_size: PhySize,
     area_size: PhySize,
@@ -47,6 +47,7 @@ pub struct Controller<S: AppState> {
     state: RefCell<Box<dyn ControllerState<S>>>,
     action_mode: ActionMode,
     modifiers: ModifiersState,
+    mouse_position: PhysicalPosition<f64>,
 }
 
 #[derive(Debug)]
@@ -92,7 +93,7 @@ pub enum Consequence {
 impl<S: AppState> Controller<S> {
     pub fn new(
         view: ViewPtr,
-        data: DataPtr,
+        data: DataPtr<S::Reader>,
         window_size: PhySize,
         area_size: PhySize,
         camera_top: CameraPtr,
@@ -112,6 +113,7 @@ impl<S: AppState> Controller<S> {
             splited,
             action_mode: ActionMode::Normal,
             modifiers: ModifiersState::empty(),
+            mouse_position: PhysicalPosition::from((0., 0.)),
         }
     }
 
@@ -196,6 +198,7 @@ impl<S: AppState> Controller<S> {
         app_state: &S,
     ) -> Consequence {
         self.update_hovered_nucl(position);
+        self.mouse_position = position;
         let transition = if let WindowEvent::Focused(false) = event {
             Transition {
                 new_state: Some(Box::new(NormalState {
@@ -246,16 +249,20 @@ impl<S: AppState> Controller<S> {
             ..
         } = event
         {
+            let camera = self.get_camera(self.mouse_position.y);
             match *key {
-                // ZOOMING in and out is temporarilly disabled because of split view
-                /*
-                VirtualKeyCode::Up => {
-                    self.camera.borrow_mut().zoom_in();
+                VirtualKeyCode::Left if self.modifiers.alt() => {
+                    camera.borrow_mut().tilt_left();
                 }
-                VirtualKeyCode::Down => {
-                    self.camera.borrow_mut().zoom_out();
+                VirtualKeyCode::Right if self.modifiers.alt() => {
+                    camera.borrow_mut().tilt_right();
                 }
-                */
+                VirtualKeyCode::Left | VirtualKeyCode::Right if ctrl(&self.modifiers) => {
+                    camera.borrow_mut().apply_symettry_x()
+                }
+                VirtualKeyCode::Up | VirtualKeyCode::Down if ctrl(&self.modifiers) => {
+                    camera.borrow_mut().apply_symettry_y()
+                }
                 VirtualKeyCode::J => {
                     self.data.borrow_mut().move_helix_backward();
                 }
@@ -303,5 +310,9 @@ impl<S: AppState> Controller<S> {
         self.camera_bottom
             .borrow_mut()
             .swap(&mut self.camera_top.borrow_mut())
+    }
+
+    pub fn get_icon(&self) -> Option<ensnano_interactor::CursorIcon> {
+        self.state.borrow().cursor()
     }
 }
