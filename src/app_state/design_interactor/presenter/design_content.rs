@@ -67,6 +67,10 @@ impl NuclCollection {
         self.identifier.contains_key(nucl)
     }
 
+    pub fn nb_nucls(&self) -> usize {
+        self.identifier.len()
+    }
+
     fn insert(&mut self, key: Nucl, id: u32) -> Option<u32> {
         self.identifier.insert(key, id)
     }

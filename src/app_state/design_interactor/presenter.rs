@@ -238,12 +238,10 @@ impl Presenter {
     }
 
     fn collect_h_bonds(&mut self) {
-        let collections = self.content.nucl_collection.as_ref();
-        let mut bonds = Vec::with_capacity(nucl_collection.nb_nucl());
-        for (forward_nucl, virtual_nucl_forward, forward_id) in self
-            .content
-            .identifier_nucl
-            .iter()
+        let nucl_collection = self.content.nucl_collection.as_ref();
+        let mut bonds = Vec::with_capacity(nucl_collection.nb_nucls());
+        for (forward_nucl, virtual_nucl_forward, forward_id) in nucl_collection
+            .iter_nucls_ids()
             .filter(|(n, _)| n.forward)
             .filter_map(|(n, id)| {
                 Nucl::map_to_virtual_nucl(*n, &self.current_design.helices)
@@ -251,8 +249,8 @@ impl Presenter {
             })
         {
             let virtual_nucl_backward = virtual_nucl_forward.compl();
-            if let Some(backward_nucl) = self.content.virtual_nucl_map.get(&virtual_nucl_backward) {
-                if let Some(backward_id) = self.content.identifier_nucl.get(backward_nucl) {
+            if let Some(backward_nucl) = nucl_collection.virtual_to_real(&virtual_nucl_backward) {
+                if let Some(backward_id) = nucl_collection.get_identifier(backward_nucl) {
                     if let Some(bond) =
                         self.h_bond(forward_id, *backward_id, forward_nucl, *backward_nucl)
                     {

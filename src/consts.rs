@@ -204,6 +204,7 @@ pub const STEREOGRAPHIC_ZOOM_STEP: f32 = 1.1;
 pub const PIECEWISE_BEZIER_COLOR: u32 = 0xFF_66_CD_AA; // Medium Aquamarine
 
 pub const UPDATE_VISIBILITY_SIEVE_LABEL: &'static str = "Update visibility sieve";
+
 pub const COLOR_ADENOSINE: u32 = 0x00_CC0000;
 pub const COLOR_THYMINE: u32 = 0x00_0000CC;
 pub const COLOR_GUANINE: u32 = 0x00_00CC00;
