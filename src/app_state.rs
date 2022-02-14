@@ -387,6 +387,10 @@ impl AppState {
         self.with_updated_parameters(|p| p.show_stereography = show)
     }
 
+    pub fn with_show_h_bonds(&self, show: bool) -> Self {
+        self.with_updated_parameters(|p| p.show_h_bonds = show)
+    }
+
     pub fn with_thick_helices(&self, thick: bool) -> Self {
         self.with_updated_parameters(|p| p.thick_helices = thick)
     }
@@ -556,6 +560,7 @@ struct AppStateParameters {
     thick_helices: bool,
     scroll_sensitivity: f32,
     inverted_y_scroll: bool,
+    show_h_bonds: bool,
 }
 
 #[derive(Clone, Default)]

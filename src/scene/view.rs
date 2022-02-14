@@ -132,6 +132,7 @@ pub struct DrawOptions {
     pub background3d: Background3D,
     pub show_stereographic_camera: bool,
     pub thick_helices: bool,
+    pub h_bonds: bool,
 }
 
 impl View {
@@ -555,10 +556,7 @@ impl View {
                         self.models.get_bindgroup(),
                     );
                 }
-                for drawer in self.dna_drawers.reals(
-                    draw_options.rendering_mode,
-                    draw_options.show_stereographic_camera,
-                ) {
+                for drawer in self.dna_drawers.reals(&draw_options) {
                     drawer.draw(
                         &mut render_pass,
                         viewer.get_bindgroup(),
@@ -1072,15 +1070,12 @@ impl DnaDrawers {
 
     pub fn reals(
         &mut self,
-        rendering_mode: RenderingMode,
-        show_stereographic_camera: bool,
+        draw_options: &DrawOptions,
     ) -> Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> {
         let mut ret: Vec<&mut dyn RawDrawer<RawInstance = RawDnaInstance>> = vec![
             &mut self.sphere,
             &mut self.tube,
             &mut self.prime3_cones,
-            &mut self.hbond,
-            &mut self.base_ellipsoid,
             &mut self.candidate_sphere,
             &mut self.candidate_tube,
             &mut self.selected_sphere,
@@ -1097,18 +1092,24 @@ impl DnaDrawers {
             &mut self.bezier_squelton,
             &mut self.bezier_controll_points,
         ];
-        let last_solid_item = 4;
-        if rendering_mode == RenderingMode::Cartoon {
+        let mut last_solid_item = 2;
+        if draw_options.h_bonds {
+            ret.insert(last_solid_item + 1, &mut self.hbond);
+            ret.insert(last_solid_item + 2, &mut self.base_ellipsoid);
+            last_solid_item = 4;
+        }
+        if draw_options.rendering_mode == RenderingMode::Cartoon {
             ret.insert(last_solid_item + 1, &mut self.outline_tube);
             ret.insert(last_solid_item + 2, &mut self.outline_sphere);
             ret.insert(last_solid_item + 3, &mut self.outline_prime3_cones);
-            ret.insert(last_solid_item + 4, &mut self.outline_hbond);
-            ret.insert(last_solid_item + 5, &mut self.outline_base_ellipsoid);
+            if draw_options.h_bonds {
+                ret.insert(last_solid_item + 4, &mut self.outline_hbond);
+                ret.insert(last_solid_item + 5, &mut self.outline_base_ellipsoid);
+            }
         }
-        if show_stereographic_camera {
+        if draw_options.show_stereographic_camera {
             ret.push(&mut self.stereographic_sphere)
         }
-
         ret
     }
 

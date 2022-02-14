@@ -127,6 +127,10 @@ impl GuiState for AppState {
         self.0.parameters.show_stereography
     }
 
+    fn show_h_bonds(&self) -> bool {
+        self.0.parameters.show_h_bonds
+    }
+
     fn get_scroll_sensitivity(&self) -> f32 {
         self.0.parameters.scroll_sensitivity
     }

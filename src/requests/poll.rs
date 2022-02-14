@@ -401,6 +401,10 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.set_show_stereographic_camera(b);
     }
 
+    if let Some(b) = requests.set_show_h_bonds.take() {
+        main_state.set_show_h_bonds(b);
+    }
+
     if let Some(b) = requests.set_thick_helices.take() {
         main_state.set_thick_helices(b);
     }

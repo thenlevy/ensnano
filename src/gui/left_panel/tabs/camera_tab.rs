@@ -85,6 +85,12 @@ impl CameraTab {
         ret = ret.push(self.fog.view(&ui_size));
 
         ret = ret.push(right_checkbox(
+            app_state.show_h_bonds(),
+            "Show H-bonds",
+            Message::ShowHBonds,
+            ui_size,
+        ));
+        ret = ret.push(right_checkbox(
             app_state.show_stereographic_camera(),
             "Show stereographic camera",
             Message::ShowStereographicCamera,

@@ -1424,6 +1424,10 @@ impl MainState {
         self.modify_state(|s| s.with_show_stereographic_camera(show), None)
     }
 
+    fn set_show_h_bonds(&mut self, show: bool) {
+        self.modify_state(|s| s.with_show_h_bonds(show), None)
+    }
+
     fn set_thick_helices(&mut self, thick: bool) {
         self.modify_state(|s| s.with_thick_helices(thick), None)
     }

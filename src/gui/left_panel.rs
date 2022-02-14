@@ -179,6 +179,7 @@ pub enum Message<S> {
     CheckXoversParameter(CheckXoversParameter),
     FollowStereographicCamera(bool),
     ShowStereographicCamera(bool),
+    ShowHBonds(bool),
     RainbowScaffold(bool),
     StopSimulation,
     StartTwist,
@@ -750,6 +751,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .lock()
                     .unwrap()
                     .set_show_stereographic_camera(b);
+            }
+            Message::ShowHBonds(b) => {
+                self.requests.lock().unwrap().set_show_h_bonds(b);
             }
             Message::RainbowScaffold(b) => self.requests.lock().unwrap().set_rainbow_scaffold(b),
             Message::StopSimulation => self.requests.lock().unwrap().stop_simulations(),
