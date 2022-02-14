@@ -77,11 +77,6 @@ pub const ICON_SQUARE_GRID: char = '\u{e90e}';
 pub const ICON_HONEYCOMB_GRID: char = '\u{e907}';
 pub const ICON_NANOTUBE: char = '\u{e914}';
 
-use iced::Color;
-pub const fn innactive_color() -> Color {
-    Color::from_rgb(0.6, 0.6, 0.6)
-}
-
 pub const CTRL: &'static str = if cfg!(target_os = "macos") {
     "\u{2318}"
 } else {

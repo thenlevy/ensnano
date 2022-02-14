@@ -1,0 +1,12 @@
+[package]
+name = "ensnano_scene"
+version = "0.4.0"
+authors = ["thenlevy <nicolaspierrelevy@gmail.com>"]
+edition = "2018"
+license = "GPL-3.0-or-later"
+
+[dependencies]
+iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3", features = ["spirv"] }
+iced_winit = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
+ensnano_design = { path = "../ensnano-design" }
+ensnano_interactor = { path = "../ensnano-interactor" }
