@@ -48,11 +48,19 @@ impl SceneRequests for Requests {
         self.keep_proceed.push_back(Action::ApplyPaste);
     }
 
+    fn paste_candidate_on_grid(&mut self, position: GridPosition) {
+        self.keep_proceed
+            .push_back(Action::PasteCandidate(Some(PastePosition::GridPosition(
+                position,
+            ))));
+    }
+
     fn attempt_paste_on_grid(&mut self, position: GridPosition) {
         self.keep_proceed
             .push_back(Action::PasteCandidate(Some(PastePosition::GridPosition(
                 position,
             ))));
+        self.keep_proceed.push_back(Action::ApplyPaste);
     }
 
     fn xover_request(&mut self, source: Nucl, target: Nucl, _design_id: usize) {

@@ -534,11 +534,19 @@ impl Controller {
             | ControllerState::PositioningStrandDuplicationPoint { .. } => {
                 self.apply_paste_strands(design)
             }
+            ControllerState::PositioningHelicesPastingPoint { .. } => {
+                self.apply_paste_helices(design)
+            }
             _ => Err(ErrOperation::IncompatibleState),
         }
     }
 
     fn apply_paste_xovers(&mut self, design: Design) -> Result<Design, ErrOperation> {
+        self.state = ControllerState::Normal;
+        Ok(design)
+    }
+
+    fn apply_paste_helices(&mut self, design: Design) -> Result<Design, ErrOperation> {
         self.state = ControllerState::Normal;
         Ok(design)
     }

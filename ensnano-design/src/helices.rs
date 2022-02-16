@@ -360,6 +360,7 @@ impl Helix {
                 instanciated_curve: None,
                 instanciated_descriptor: None,
                 grid_position,
+                isometry2d: None,
                 curve: new_curve_descriptor.map(|c| Arc::new(c)),
                 ..self.clone()
             })

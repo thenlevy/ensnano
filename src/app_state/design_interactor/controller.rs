@@ -356,10 +356,13 @@ impl Controller {
             CopyOperation::Duplicate => {
                 self.apply(|c, d| c.apply_duplication(d), up_to_date_design.design)
             }
-            CopyOperation::Paste => self.make_undoable(
-                self.apply(|c, d| c.apply_paste(d), up_to_date_design.design),
-                "Paste".into(),
-            ),
+            CopyOperation::Paste => {
+                println!("nb helices {}", up_to_date_design.design.helices.len());
+                self.make_undoable(
+                    self.apply(|c, d| c.apply_paste(d), up_to_date_design.design),
+                    "Paste".into(),
+                )
+            }
             CopyOperation::InitXoverDuplication(xovers) => self.apply_no_op(
                 |c, d| {
                     c.copy_xovers(xovers.clone())?;

@@ -540,8 +540,8 @@ impl<S: AppState> Scene<S> {
 
     fn pasting_candidate(&self, element: Option<SceneElement>) {
         if let Some(SceneElement::GridCircle(_, gp)) = element {
-            log::info!("Attempt past on {:?}", gp);
-            self.requests.lock().unwrap().attempt_paste_on_grid(gp);
+            log::info!("Paste candidate on {:?}", gp);
+            self.requests.lock().unwrap().paste_candidate_on_grid(gp);
         } else {
             let nucl = self.data.borrow().element_to_nucl(&element, false);
             self.requests
@@ -1081,6 +1081,7 @@ pub trait Requests {
         selection: Vec<Selection>,
         center_of_selection: Option<CenterOfSelection>,
     );
+    fn paste_candidate_on_grid(&mut self, position: GridPosition);
     fn attempt_paste_on_grid(&mut self, position: GridPosition);
     fn attempt_paste(&mut self, nucl: Option<Nucl>);
     fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize);

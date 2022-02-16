@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::AddressPointer;
-use ensnano_design::{group_attributes::GroupAttribute, Design, Parameters};
+use ensnano_design::{group_attributes::GroupAttribute, Design, HelixCollection, Parameters};
 use ensnano_interactor::{
     operation::Operation, DesignOperation, RigidBodyConstants, Selection, SimulationState,
     StrandBuilder, SuggestionParameters,
@@ -90,8 +90,10 @@ impl DesignInteractor {
         &mut self,
         operation: CopyOperation,
     ) -> Result<InteractorResult, ErrOperation> {
+        println!("nb helices {}", self.design.helices.len());
         let tried_up_to_date = self.design.try_get_up_to_date();
         if let Some(up_to_date) = tried_up_to_date {
+            println!("up to date helices {}", up_to_date.design.helices.len());
             let result = self.controller.apply_copy_operation(up_to_date, operation);
             self.handle_operation_result(result)
         } else {

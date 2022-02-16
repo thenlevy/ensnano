@@ -1289,7 +1289,7 @@ impl MainState {
         match self.app_state.is_pasting() {
             PastingStatus::Copy => self.apply_copy_operation(CopyOperation::Paste),
             PastingStatus::Duplication => self.apply_copy_operation(CopyOperation::Duplicate),
-            _ => (),
+            _ => log::info!("Not pasting"),
         }
     }
 
