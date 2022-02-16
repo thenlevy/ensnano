@@ -343,10 +343,11 @@ impl Helix {
     }
 
     pub fn translated_by(&self, edge: crate::grid::Edge, grid_data: &GridData) -> Option<Self> {
+        log::debug!("attempt to translate helix");
         let grid_position = self
             .grid_position
             .as_ref()
-            .map(|gp| grid_data.translate_by_edge(gp, &edge))?;
+            .and_then(|gp| grid_data.translate_by_edge(gp, &edge));
         let new_curve_descriptor = self
             .curve
             .as_ref()

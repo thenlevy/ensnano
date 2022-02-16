@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
+use crate::PastePosition;
 
 use ensnano_interactor::{application::Notification, HyperboloidOperation, SelectionConversion};
 
@@ -378,7 +379,15 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     if let Some(candidate) = requests.new_paste_candiate.take() {
         main_state
             .pending_actions
-            .push_back(Action::PasteCandidate(candidate))
+            .push_back(Action::PasteCandidate(candidate.map(PastePosition::Nucl)))
+    }
+
+    if let Some(candidate) = requests.new_grid_paste_candidate.take() {
+        main_state
+            .pending_actions
+            .push_back(Action::PasteCandidate(Some(PastePosition::GridPosition(
+                candidate,
+            ))))
     }
 
     for action in requests.keep_proceed.drain(..) {

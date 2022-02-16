@@ -748,6 +748,9 @@ impl GridData {
                         position.to_helix_pos(),
                     );
                     pos_to_object.insert(*position, GridObject::BezierPoint { n, helix_id: *h_id });
+                    if n == 0 {
+                        object_to_pos.insert(GridObject::Helix(*h_id), position.to_helix_pos());
+                    }
                 }
             }
         }
@@ -1018,6 +1021,7 @@ impl GridData {
         pos1: &HelixGridPosition,
         edge: &Edge,
     ) -> Option<HelixGridPosition> {
+        log::debug!("translate by edge {:?} {:?}", pos1, edge);
         let position = self
             .grids
             .get(pos1.grid)

@@ -518,10 +518,15 @@ impl CurveDescriptor {
                 t_max,
                 t_min,
             } => {
+                log::debug!("translating {:?}", points);
                 let translated_points: Option<Vec<_>> = points
                     .clone()
                     .into_iter()
-                    .map(|p| p.translated_by(edge, grid_reader))
+                    .map(|p| {
+                        let ret = p.clone().translated_by(edge, grid_reader);
+                        log::debug!("{:?} -> {:?}", p, ret);
+                        ret
+                    })
                     .collect();
                 Some(Self::PiecewiseBezier {
                     points: translated_points?,

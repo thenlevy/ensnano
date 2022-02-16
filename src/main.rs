@@ -1274,6 +1274,8 @@ impl MainState {
             self.apply_copy_operation(CopyOperation::CopyXovers(xover_ids))
         } else if let Some(grid_ids) = ensnano_interactor::extract_only_grids(selection.as_ref()) {
             self.apply_copy_operation(CopyOperation::CopyGrids(grid_ids))
+        } else if let Some((_, helices)) = ensnano_interactor::list_of_helices(selection.as_ref()) {
+            self.apply_copy_operation(CopyOperation::CopyHelices(helices))
         } else {
             let strand_ids = ensnano_interactor::extract_strands_from_selection(
                 self.app_state.get_selection().as_ref(),
@@ -1674,11 +1676,9 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.request_duplication();
     }
 
-    fn request_pasting_candidate(&mut self, candidate: Option<Nucl>) {
+    fn request_pasting_candidate(&mut self, candidate: Option<PastePosition>) {
         self.main_state
-            .apply_copy_operation(CopyOperation::PositionPastingPoint(
-                candidate.map(PastePosition::Nucl),
-            ))
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(candidate))
     }
 
     fn delete_selection(&mut self) {

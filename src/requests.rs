@@ -30,7 +30,7 @@ use ultraviolet::Vec3;
 
 use super::gui::OrganizerTree;
 use super::scene::FogParameters;
-use ensnano_design::grid::GridTypeDescr;
+use ensnano_design::grid::{GridPosition, GridTypeDescr};
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     Nucl,
@@ -115,6 +115,7 @@ pub struct Requests {
     pub toggle_widget_basis: Option<()>,
     pub stop_roll: Option<()>,
     pub new_paste_candiate: Option<Option<Nucl>>,
+    pub new_grid_paste_candidate: Option<GridPosition>,
     pub new_double_strand_parameters: Option<Option<(isize, usize)>>,
     pub new_center_of_selection: Option<Option<CenterOfSelection>>,
     pub new_suggestion_parameters: Option<SuggestionParameters>,

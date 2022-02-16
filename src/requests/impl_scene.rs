@@ -18,6 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use crate::scene::Requests as SceneRequests;
+use crate::PastePosition;
 
 impl SceneRequests for Requests {
     fn update_opperation(&mut self, op: Arc<dyn Operation>) {
@@ -42,8 +43,16 @@ impl SceneRequests for Requests {
     }
 
     fn attempt_paste(&mut self, nucl: Option<Nucl>) {
-        self.keep_proceed.push_back(Action::PasteCandidate(nucl));
+        self.keep_proceed
+            .push_back(Action::PasteCandidate(nucl.map(PastePosition::Nucl)));
         self.keep_proceed.push_back(Action::ApplyPaste);
+    }
+
+    fn attempt_paste_on_grid(&mut self, position: GridPosition) {
+        self.keep_proceed
+            .push_back(Action::PasteCandidate(Some(PastePosition::GridPosition(
+                position,
+            ))));
     }
 
     fn xover_request(&mut self, source: Nucl, target: Nucl, _design_id: usize) {

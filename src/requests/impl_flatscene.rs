@@ -43,7 +43,8 @@ impl FlatSceneRequests for Requests {
     }
 
     fn attempt_paste(&mut self, nucl: Option<Nucl>) {
-        self.keep_proceed.push_back(Action::PasteCandidate(nucl));
+        self.keep_proceed
+            .push_back(Action::PasteCandidate(nucl.map(PastePosition::Nucl)));
         self.keep_proceed.push_back(Action::ApplyPaste);
     }
 

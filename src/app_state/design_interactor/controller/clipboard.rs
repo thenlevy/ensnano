@@ -313,7 +313,9 @@ impl Controller {
             }
             Clipboard::Empty => Err(ErrOperation::EmptyClipboard),
             Clipboard::Helices(helices) => {
-                self.position_helices_copy(&mut design, helices.clone(), position)?;
+                let helices = helices.clone();
+                log::info!("positioning helices copy");
+                self.position_helices_copy(&mut design, helices, position)?;
                 Ok(design)
             }
         }
@@ -768,6 +770,9 @@ impl Controller {
             ControllerState::PastingXovers { pasting_point, .. } => {
                 Some(pasting_point.map(|p| PastePosition::Nucl(p.clone())))
             }
+            ControllerState::PositioningHelicesPastingPoint { pasting_point, .. } => {
+                Some(pasting_point.map(|p| PastePosition::GridPosition(p.clone())))
+            }
             _ => None,
         }
     }
@@ -781,10 +786,22 @@ impl Controller {
         Ok(())
     }
 
+    pub(super) fn copy_helices(&mut self, helices: Vec<usize>) -> Result<(), ErrOperation> {
+        if helices.len() > 0 {
+            self.clipboard = AddressPointer::new(Clipboard::Helices(helices))
+        } else {
+            self.clipboard = Default::default()
+        }
+        Ok(())
+    }
+
     pub(super) fn get_design_before_pasting_xovers(&self) -> Option<&AddressPointer<Design>> {
         match &self.state {
             ControllerState::PastingXovers { initial_design, .. } => Some(initial_design),
             ControllerState::DoingFirstXoversDuplication { initial_design, .. } => {
+                Some(initial_design)
+            }
+            ControllerState::PositioningHelicesPastingPoint { initial_design, .. } => {
                 Some(initial_design)
             }
             _ => None,
@@ -799,22 +816,33 @@ impl Controller {
     ) -> Result<(), ErrOperation> {
         let data = design.get_updated_grid_data();
         let h_id0 = helices.get(0).ok_or(ErrOperation::EmptyClipboard)?;
+        log::info!("position = {:?}", position);
+        log::info!(
+            "source position = {:?}",
+            data.get_helix_grid_position(*h_id0)
+        );
         let edge = data
             .get_helix_grid_position(*h_id0)
             .as_ref()
             .zip(position.and_then(PastePosition::to_grid_position).as_ref())
-            .and_then(|(source, dest)| data.get_edge(source, &dest.to_helix_pos()));
+            .and_then(|(source, dest)| {
+                log::info!("source {:?}, dest {:?}", source, dest);
+                data.get_edge(source, &dest.to_helix_pos())
+            });
+        log::info!("edge = {:?}", edge);
         let grid_data = data.clone();
         drop(data);
         self.state
             .update_helices_pasting_position(position, edge, design)?;
         if let Some(edge) = edge {
+            log::info!("edge is some");
             let mut helices_mut = design.helices.make_mut();
             for h_id in helices {
                 let h = helices_mut
                     .get(&h_id)
                     .ok_or(ErrOperation::HelixDoesNotExists(h_id))?;
                 if let Some(copy) = h.translated_by(edge, &grid_data) {
+                    log::info!("adding helix");
                     helices_mut.push_helix(copy);
                 }
             }
@@ -885,6 +913,7 @@ pub enum CopyOperation {
     CopyGrids(Vec<usize>),
     CopyStrands(Vec<usize>),
     CopyXovers(Vec<(Nucl, Nucl)>),
+    CopyHelices(Vec<usize>),
     InitStrandsDuplication(Vec<usize>),
     InitXoverDuplication(Vec<(Nucl, Nucl)>),
     PositionPastingPoint(Option<PastePosition>),

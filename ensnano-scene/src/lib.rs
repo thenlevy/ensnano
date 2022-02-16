@@ -526,19 +526,29 @@ impl<S: AppState> Scene<S> {
     }
 
     fn attempt_paste(&mut self, element: Option<SceneElement>) {
-        let nucl = self.data.borrow().element_to_nucl(&element, false);
-        self.requests
-            .lock()
-            .unwrap()
-            .attempt_paste(nucl.map(|n| n.0));
+        if let Some(SceneElement::GridCircle(_, gp)) = element {
+            log::info!("Attempt past on {:?}", gp);
+            self.requests.lock().unwrap().attempt_paste_on_grid(gp);
+        } else {
+            let nucl = self.data.borrow().element_to_nucl(&element, false);
+            self.requests
+                .lock()
+                .unwrap()
+                .attempt_paste(nucl.map(|n| n.0));
+        }
     }
 
     fn pasting_candidate(&self, element: Option<SceneElement>) {
-        let nucl = self.data.borrow().element_to_nucl(&element, false);
-        self.requests
-            .lock()
-            .unwrap()
-            .set_paste_candidate(nucl.map(|n| n.0));
+        if let Some(SceneElement::GridCircle(_, gp)) = element {
+            log::info!("Attempt past on {:?}", gp);
+            self.requests.lock().unwrap().attempt_paste_on_grid(gp);
+        } else {
+            let nucl = self.data.borrow().element_to_nucl(&element, false);
+            self.requests
+                .lock()
+                .unwrap()
+                .set_paste_candidate(nucl.map(|n| n.0));
+        }
     }
 
     fn set_candidate(&mut self, element: Option<SceneElement>, app_state: &S) {
@@ -1071,6 +1081,7 @@ pub trait Requests {
         selection: Vec<Selection>,
         center_of_selection: Option<CenterOfSelection>,
     );
+    fn attempt_paste_on_grid(&mut self, position: GridPosition);
     fn attempt_paste(&mut self, nucl: Option<Nucl>);
     fn xover_request(&mut self, source: Nucl, target: Nucl, design_id: usize);
     fn suspend_op(&mut self);

@@ -323,6 +323,9 @@ impl Controller {
             CopyOperation::CopyXovers(xovers) => {
                 self.apply_no_op(|c, _d| c.copy_xovers(xovers), up_to_date_design.design)
             }
+            CopyOperation::CopyHelices(helices) => {
+                self.apply_no_op(|c, _d| c.copy_helices(helices), up_to_date_design.design)
+            }
             CopyOperation::PositionPastingPoint(nucl) => {
                 if self.get_pasting_point() == Some(nucl) {
                     Ok((OkOperation::NoOp, self.clone()))
@@ -834,6 +837,10 @@ impl Controller {
             ControllerState::PositioningStrandDuplicationPoint { .. } => PastingStatus::Duplication,
             ControllerState::PastingXovers { .. } => PastingStatus::Copy,
             ControllerState::DoingFirstXoversDuplication { .. } => PastingStatus::Duplication,
+            ControllerState::PositioningHelicesPastingPoint { .. } => PastingStatus::Copy,
+            ControllerState::PositioningHelicesDuplicationPoint { .. } => {
+                PastingStatus::Duplication
+            }
             _ => PastingStatus::None,
         }
     }

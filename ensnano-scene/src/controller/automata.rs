@@ -121,6 +121,22 @@ impl<S: AppState> ControllerState<S> for NormalState {
             WindowEvent::CursorMoved { .. } if app_state.is_pasting() => {
                 self.mouse_position = position;
                 let element = pixel_reader.set_selected_id(position);
+                let element = if let Some(SceneElement::Grid(d_id, _)) = element {
+                    let mouse_x = position.x / controller.area_size.width as f64;
+                    let mouse_y = position.y / controller.area_size.height as f64;
+                    log::info!("Attempt past on {:?}", element);
+                    if let Some(intersection) = controller
+                        .view
+                        .borrow()
+                        .grid_intersection(mouse_x as f32, mouse_y as f32)
+                    {
+                        Some(SceneElement::GridCircle(d_id, intersection.grid_position()))
+                    } else {
+                        element
+                    }
+                } else {
+                    element
+                };
                 Transition::consequence(Consequence::PasteCandidate(element))
             }
             WindowEvent::CursorMoved { .. } => {

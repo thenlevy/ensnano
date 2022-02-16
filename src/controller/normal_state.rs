@@ -16,6 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::app_state::PastePosition;
+
 use super::download_intervals::DownloadIntervals;
 use super::*;
 use ensnano_design::group_attributes::GroupPivot;
@@ -404,7 +406,7 @@ pub enum Action {
     StopSimulation,
     RollHelices(f32),
     Copy,
-    PasteCandidate(Option<Nucl>),
+    PasteCandidate(Option<PastePosition>),
     InitPaste,
     ApplyPaste,
     Duplicate,

@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 //! This modules defines the `Controller` struct which handles windows and dialog interactions.
 
-use ensnano_design::Nucl;
+use crate::PastePosition;
 mod download_intervals;
 mod download_staples;
 use download_staples::*;
@@ -198,7 +198,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn get_grid_creation_position(&self) -> Option<(Vec3, Rotor3)>;
     fn finish_operation(&mut self);
     fn request_copy(&mut self);
-    fn request_pasting_candidate(&mut self, candidate: Option<Nucl>);
+    fn request_pasting_candidate(&mut self, candidate: Option<PastePosition>);
     fn init_paste(&mut self);
     fn apply_paste(&mut self);
     fn duplicate(&mut self);
