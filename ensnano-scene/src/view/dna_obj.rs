@@ -235,10 +235,12 @@ impl Instanciable for StereographicSphereAndPlane {
 
     fn to_raw_instance(&self) -> Self::RawInstance {
         use ensnano_utils::instance::Instance;
-        let color = Instance::color_from_au32(ensnano_interactor::consts::STEREOGRAPHIC_SPHERE_COLOR);
+        let color =
+            Instance::color_from_au32(ensnano_interactor::consts::STEREOGRAPHIC_SPHERE_COLOR);
         let model = Mat4::from_translation(self.position)
             * self.orientation.into_matrix().into_homogeneous();
-        let scale = ensnano_interactor::consts::STEREOGRAPHIC_SPHERE_RADIUS / ensnano_interactor::consts::SPHERE_RADIUS
+        let scale = ensnano_interactor::consts::STEREOGRAPHIC_SPHERE_RADIUS
+            / ensnano_interactor::consts::SPHERE_RADIUS
             * Vec3::new(self.ratio, 1., 1.);
         RawDnaInstance {
             model,

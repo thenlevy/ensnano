@@ -92,7 +92,7 @@ pub fn attach_object_to_grid(
                     };
                 if let Some(CurveDescriptor::PiecewiseBezier { points, .. }) = desc {
                     if let Some(point) = points.get_mut(n) {
-                        *point = GridPosition { grid, x, y };
+                        point.position = GridPosition { grid, x, y };
                     } else {
                         return Err(ErrOperation::NotEnoughBezierPoints);
                     }

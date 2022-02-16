@@ -22,8 +22,8 @@ use super::view::{
     GridDisc, HandleColors, Instanciable, RawDnaInstance, StereographicSphereAndPlane,
 };
 use super::{
-    ultraviolet, HandleOrientation, HandlesDescriptor, LetterInstance, RotationWidgetDescriptor, Camera3D,
-    RotationWidgetOrientation, SceneElement, View, ViewUpdate,
+    ultraviolet, Camera3D, HandleOrientation, HandlesDescriptor, LetterInstance,
+    RotationWidgetDescriptor, RotationWidgetOrientation, SceneElement, View, ViewUpdate,
 };
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};

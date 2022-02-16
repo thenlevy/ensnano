@@ -22,6 +22,8 @@ const DISCRETISATION_STEP: usize = 100;
 const DELTA_MAX: f64 = 256.0;
 use crate::grid::GridPosition;
 
+use self::bezier::InstanciatedPiecewiseBeizer;
+
 use super::{Helix, Parameters};
 use std::sync::Arc;
 mod bezier;
@@ -29,9 +31,8 @@ mod sphere_like_spiral;
 mod torus;
 mod twist;
 use super::GridDescriptor;
-pub use bezier::{
-    BezierControlPoint, BezierEnd, CubicBezierConstructor, CubicBezierControlPoint, PiecewiseBezier,
-};
+use bezier::InstanciatedBeizerEnd;
+pub use bezier::{BezierControlPoint, BezierEnd, CubicBezierConstructor, CubicBezierControlPoint};
 pub use sphere_like_spiral::SphereLikeSpiral;
 use std::collections::HashMap;
 pub use torus::Torus;
@@ -431,18 +432,20 @@ pub enum CurveDescriptor {
         t_min: Option<f64>,
         #[serde(skip_serializing_if = "Option::is_none", default)]
         t_max: Option<f64>,
-        points: Vec<GridPosition>,
-        tengents: Vec<Vec3>,
+        points: Vec<BezierEnd>,
     },
 }
 
+const NO_BEZIER: &'static [BezierEnd] = &[];
+
 impl CurveDescriptor {
-    pub fn grid_positions_involved(&self) -> &[GridPosition] {
-        if let Self::PiecewiseBezier { points, .. } = self {
+    pub fn grid_positions_involved(&self) -> impl Iterator<Item = &GridPosition> {
+        let points = if let Self::PiecewiseBezier { points, .. } = self {
             points.as_slice()
         } else {
-            &[]
-        }
+            &NO_BEZIER
+        };
+        points.iter().map(|p| &p.position)
     }
     pub fn set_t_min(&mut self, new_t_min: f64) -> bool {
         match self {
@@ -517,6 +520,11 @@ pub(super) trait GridPositionProvider {
     fn position(&self, position: GridPosition) -> Vec3;
     fn orientation(&self, grid: usize) -> Rotor3;
     fn source(&self) -> Arc<Vec<GridDescriptor>>;
+    fn get_tengents_between_two_points(
+        &self,
+        p0: GridPosition,
+        p1: GridPosition,
+    ) -> Option<(Vec3, Vec3)>;
 }
 
 impl InstanciatedCurveDescriptor {
@@ -534,13 +542,11 @@ impl InstanciatedCurveDescriptor {
             }
             CurveDescriptor::PiecewiseBezier {
                 points,
-                tengents,
                 t_min,
                 t_max,
             } => {
                 let instanciated = InstanciatedPiecewiseBezierDescriptor::instanciate(
                     &points,
-                    &tengents,
                     grid_reader,
                     *t_min,
                     *t_max,
@@ -609,11 +615,24 @@ impl InstanciatedCurveDescriptor {
             }
             InsanciatedCurveDescriptor_::PiecewiseBezier(desc) => {
                 let desc = &desc.desc;
-                desc.ends
+                let mut ret: Vec<_> = desc
+                    .ends
                     .iter()
-                    .map(|b| vec![b.position - b.vector, b.position + b.vector].into_iter())
+                    .zip(desc.ends.iter().skip(1))
+                    .map(|(p1, p2)| {
+                        vec![
+                            p1.position,
+                            p1.position + p1.vector_out,
+                            p2.position - p2.vector_out,
+                        ]
+                        .into_iter()
+                    })
                     .flatten()
-                    .collect()
+                    .collect();
+                if let Some(last_point) = desc.ends.iter().last() {
+                    ret.push(last_point.position);
+                }
+                ret
             }
             _ => vec![],
         }
@@ -635,33 +654,60 @@ enum InsanciatedCurveDescriptor_ {
 #[derive(Clone, Debug)]
 pub struct InstanciatedPiecewiseBezierDescriptor {
     /// The instanciated descriptor
-    desc: PiecewiseBezier,
+    desc: InstanciatedPiecewiseBeizer,
     /// The data that was used to map grid positions to space position
     grids: Arc<Vec<GridDescriptor>>,
 }
 
 impl InstanciatedPiecewiseBezierDescriptor {
     fn instanciate(
-        points: &[GridPosition],
-        tengents: &[Vec3],
+        points: &[BezierEnd],
         grid_reader: &dyn GridPositionProvider,
         t_min: Option<f64>,
         t_max: Option<f64>,
     ) -> Self {
-        log::debug!("Instanciating {:?}, {:?}", points, tengents);
+        log::debug!("Instanciating {:?}", points);
+        let mut tengents = Vec::with_capacity(2 * (points.len()));
+
+        // Add fake vector in for first point
+        tengents.push(Vec3::zero());
+
+        // Add vectors in and out
+        for (p0, p1) in points.iter().zip(points.iter().skip(1)) {
+            let grid_pos_start = p0.position;
+            let grid_pos_end = p1.position;
+            if let Some((mut vec_start, mut vec_end)) =
+                grid_reader.get_tengents_between_two_points(grid_pos_start, grid_pos_end)
+            {
+                vec_start *= p0.outward_coeff;
+                vec_end *= p1.inward_coeff;
+                tengents.push(vec_start);
+                tengents.push(vec_end);
+            } else {
+                tengents.push(Vec3::unit_x());
+                tengents.push(-Vec3::unit_x());
+                log::error!("Could not get tengent");
+            }
+        }
+
+        // Add fake vector out for last point
+        tengents.push(Vec3::zero());
         let bezier_ends = points
             .iter()
-            .zip(tengents)
-            .map(|(p, t)| {
-                let position = grid_reader.position(*p);
-                BezierEnd {
+            .enumerate()
+            .map(|(i, p)| {
+                let position = grid_reader.position(p.position);
+                let tengent_in = tengents[2 * i];
+                let tengent_out = tengents[2 * i + 1];
+                InstanciatedBeizerEnd {
                     position,
                     // recall that the tengents are expressed in the grid's coordinates
-                    vector: t.rotated_by(grid_reader.orientation(p.grid)),
+                    vector_in: tengent_in.rotated_by(grid_reader.orientation(p.position.grid)),
+                    vector_out: tengent_out.rotated_by(grid_reader.orientation(p.position.grid)),
                 }
             })
             .collect();
-        let desc = PiecewiseBezier {
+        let desc = InstanciatedPiecewiseBeizer {
             ends: bezier_ends,
             t_min,
             t_max,

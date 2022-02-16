@@ -742,7 +742,7 @@ impl GridData {
                 pos_to_object.insert(grid_position.light(), GridObject::Helix(*h_id));
             }
             if let Some(curve) = h.curve.as_ref() {
-                for (n, position) in curve.grid_positions_involved().iter().enumerate() {
+                for (n, position) in curve.grid_positions_involved().enumerate() {
                     object_to_pos.insert(
                         GridObject::BezierPoint { n, helix_id: *h_id },
                         position.to_helix_pos(),
@@ -1275,6 +1275,14 @@ impl GridPositionProvider for GridData {
             Rotor3::identity()
         }
     }
+
+    fn get_tengents_between_two_points(
+        &self,
+        p0: GridPosition,
+        p1: GridPosition,
+    ) -> Option<(Vec3, Vec3)> {
+        self.get_tengents_between_two_points(p0, p1)
+    }
 }
 
 impl GridData {
@@ -1337,6 +1345,7 @@ impl GridData {
                 } else {
                     None
                 }?
+                .position
                 .grid;
                 let grid = self.grids.get(grid_id)?;
                 let ret = if n % 2 == 0 {

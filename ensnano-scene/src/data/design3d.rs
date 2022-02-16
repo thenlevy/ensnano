@@ -20,16 +20,16 @@ use super::super::view::{
     ConeInstance, Ellipsoid, Instanciable, RawDnaInstance, SphereInstance, TubeInstance,
 };
 use super::super::GridInstance;
-use ensnano_utils::instance::Instance;
+use super::{ultraviolet, LetterInstance, SceneElement};
 use ensnano_design::grid::{GridObject, GridPosition};
 use ensnano_design::{grid::HelixGridPosition, Nucl};
 use ensnano_design::{CubicBezierConstructor, CurveDescriptor};
-use super::{ultraviolet, LetterInstance, SceneElement};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::{
     phantom_helix_encoder_bound, phantom_helix_encoder_nucl, BezierControlPoint, ObjectType,
     PhantomElement, Referential, PHANTOM_RANGE,
 };
+use ensnano_utils::instance::Instance;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use ultraviolet::{Mat4, Rotor3, Vec3};
@@ -973,21 +973,11 @@ impl<R: DesignReader> Design3D<R> {
             BezierControlPoint::CubicBezier(_) => None,
             BezierControlPoint::PiecewiseBezier(n) => {
                 let descriptor = self.design.get_curve_descriptor(h_id)?;
-                if let CurveDescriptor::PiecewiseBezier {
-                    points, tengents, ..
-                } = descriptor
-                {
+                if let CurveDescriptor::PiecewiseBezier { points, .. } = descriptor {
                     // There are two control points per bezier grid position
-                    let g_id = points.get(n / 2).map(|pos| pos.grid)?;
+                    let g_id = points.get(n / 2).map(|point| point.position.grid)?;
                     let grid_orientation = self.design.get_grid_basis(g_id)?;
-                    tengents.get(n / 2).map(|t| {
-                        let world_tengent = t.normalized().rotated_by(grid_orientation);
-                        if world_tengent.dot(Vec3::unit_x()) > -0.999 {
-                            Rotor3::from_rotation_between(Vec3::unit_x(), world_tengent)
-                        } else {
-                            Rotor3::identity()
-                        }
-                    })
+                    Some(grid_orientation)
                 } else {
                     None
                 }

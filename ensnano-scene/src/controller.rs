@@ -17,15 +17,15 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::view::HandleColors;
 use super::{
-    camera, ultraviolet, Duration, ElementSelector, HandleDir, SceneElement, ViewPtr, Stereography,
+    camera, ultraviolet, Duration, ElementSelector, HandleDir, SceneElement, Stereography, ViewPtr,
     WidgetRotationMode as RotationMode,
 };
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use ensnano_design::grid::{GridObject, GridPosition, HelixGridPosition};
 use ensnano_design::Nucl;
+use ensnano_interactor::consts::*;
 use ensnano_interactor::DesignReader;
 use ensnano_interactor::Selection;
-use ensnano_interactor::consts::*;
 use ensnano_utils::winit::event::*;
 use std::cell::RefCell;
 use ultraviolet::{Rotor3, Vec3};

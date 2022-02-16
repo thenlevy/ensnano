@@ -21,7 +21,9 @@ use std::sync::{Arc, Mutex};
 use super::super::{FlatHelix, FlatIdx, FlatNucl, Requests};
 use super::{Flat, HelixVec, Nucl, Strand};
 use ahash::RandomState;
-use ensnano_design::{Extremity, Helix as DesignHelix, HelixCollection, Strand as StrandDesign, ultraviolet};
+use ensnano_design::{
+    ultraviolet, Extremity, Helix as DesignHelix, HelixCollection, Strand as StrandDesign,
+};
 use ensnano_interactor::{torsion::Torsion, Referential};
 use ultraviolet::{Isometry2, Rotor2, Vec2, Vec3};
 

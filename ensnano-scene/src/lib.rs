@@ -15,6 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+use ensnano_design::grid::HelixGridPosition;
 use ensnano_design::ultraviolet;
 use ensnano_utils::wgpu;
 use ensnano_utils::winit;
@@ -23,7 +24,6 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use ultraviolet::{Mat4, Rotor3, Vec3};
-use ensnano_design::grid::HelixGridPosition;
 
 use camera::FiniteVec3;
 use ensnano_design::{grid::GridPosition, group_attributes::GroupPivot, Nucl};

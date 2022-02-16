@@ -691,4 +691,3 @@ struct Plane {
     origin: Vec3,
     normal: Vec3,
 }
-

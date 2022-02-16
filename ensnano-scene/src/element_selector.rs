@@ -267,7 +267,9 @@ impl SceneElement {
 
     pub fn transform_into_bezier(self) -> Self {
         if let Self::WidgetElement(id) = self {
-            if let Some((helix_id, bezier_control)) = ensnano_interactor::consts::widget_id_to_bezier(id) {
+            if let Some((helix_id, bezier_control)) =
+                ensnano_interactor::consts::widget_id_to_bezier(id)
+            {
                 Self::BezierControl {
                     bezier_control,
                     helix_id,

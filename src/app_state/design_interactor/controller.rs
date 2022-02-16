@@ -25,8 +25,8 @@ use ensnano_design::{
         Hyperboloid,
     },
     group_attributes::GroupPivot,
-    mutate_in_arc, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix,
-    HelixCollection, Nucl, Strand, Strands, UpToDateDesign,
+    mutate_in_arc, BezierEnd, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helices,
+    Helix, HelixCollection, Nucl, Strand, Strands, UpToDateDesign,
 };
 use ensnano_interactor::{
     operation::Operation, BezierControlPoint, HyperboloidOperation, SimulationState,
@@ -2098,13 +2098,16 @@ impl Controller {
                     } else {
                         None
                     };
-                if let Some(CurveDescriptor::PiecewiseBezier {
-                    points, tengents, ..
-                }) = desc
-                {
+                if let Some(CurveDescriptor::PiecewiseBezier { points, .. }) = desc {
                     let insertion_point = if append { n + 1 } else { n };
-                    points.insert(insertion_point, point);
-                    tengents.insert(insertion_point, tengent);
+                    points.insert(
+                        insertion_point,
+                        BezierEnd {
+                            position: point,
+                            inward_coeff: 1.,
+                            outward_coeff: 1.,
+                        },
+                    );
                     drop(helices_mut);
                     Ok(design)
                 } else {

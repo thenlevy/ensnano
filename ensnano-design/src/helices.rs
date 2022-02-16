@@ -428,6 +428,7 @@ impl Helix {
         bezier_point: BezierControlPoint,
         translation: GridAwareTranslation,
     ) -> Result<(), ErrOperation> {
+        /*
         let point = match bezier_point {
             BezierControlPoint::PiecewiseBezier(n) => {
                 if let Some(CurveDescriptor::PiecewiseBezier { tengents, .. }) =
@@ -445,6 +446,8 @@ impl Helix {
         }
         .ok_or(ErrOperation::NotEnoughBezierPoints)?;
         *point += translation.0;
+        */
+        log::error!("Translation of cubic bezier point not implemented");
         Ok(())
     }
 
@@ -464,12 +467,18 @@ impl Helix {
         let position = grid_manager
             .pos_to_space(grid_pos_start.light())
             .ok_or(ErrOperation::GridDoesNotExist(grid_pos_start.grid))?;
-        let (vec_start, vec_end) = grid_manager
-            .get_tengents_between_two_points(grid_pos_start.light(), grid_pos_end.light())
-            .ok_or(ErrOperation::GridDoesNotExist(grid_pos_end.grid))?;
+        let point_start = BezierEnd {
+            position: grid_pos_start.light(),
+            inward_coeff: 1.,
+            outward_coeff: 1.,
+        };
+        let point_end = BezierEnd {
+            position: grid_pos_end.light(),
+            inward_coeff: 1.,
+            outward_coeff: 1.,
+        };
         let constructor = CurveDescriptor::PiecewiseBezier {
-            points: vec![grid_pos_start.light(), grid_pos_end.light()],
-            tengents: vec![vec_start, vec_end],
+            points: vec![point_start, point_end],
             t_max: None,
             t_min: None,
         };

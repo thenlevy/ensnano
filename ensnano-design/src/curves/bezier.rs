@@ -16,6 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::grid::GridPosition;
 use crate::utils::vec_to_dvec;
 use ultraviolet::{DVec3, Vec3};
 
@@ -212,17 +213,22 @@ impl super::Curved for CubicBezier {
 
 /// A curve that is the concatenation of several cubic bezier curves.
 ///
-/// Let (p_i, u_i)_{0 <= i < n} be the end points, the curve is defined on [0, n] by
-/// C(t) = B_i({t}) where i = 1 -  ⌊t⌋ and {t} = t - ⌊t⌋ and B_i is the bezier curve with extremities
-/// p_i and p_{i + 1} and control points (p_i + u_i) and p_{i + 1} - u_{i + 1}
+/// The process to derive a curve from `ends` is decribed in [BezierEnd](The documentation on `BezierEnd`).
 #[derive(Clone, Debug)]
-pub struct PiecewiseBezier {
-    pub ends: Vec<BezierEnd>,
+pub(super) struct InstanciatedPiecewiseBeizer {
+    pub ends: Vec<InstanciatedBeizerEnd>,
     pub t_min: Option<f64>,
     pub t_max: Option<f64>,
 }
 
-impl PiecewiseBezier {
+#[derive(Clone, Debug)]
+pub(super) struct InstanciatedBeizerEnd {
+    pub position: Vec3,
+    pub vector_in: Vec3,
+    pub vector_out: Vec3,
+}
+
+impl InstanciatedPiecewiseBeizer {
     fn t_to_i(&self, t: f64) -> usize {
         if t < 0.0 {
             0
@@ -236,26 +242,31 @@ impl PiecewiseBezier {
         CubicBezier::new(CubicBezierConstructor {
             start: self.ends[i].position,
             end: self.ends[i + 1].position,
-            control1: self.ends[i].position + self.ends[i].vector,
-            control2: self.ends[i + 1].position - self.ends[i + 1].vector,
+            control1: self.ends[i].position + self.ends[i].vector_out,
+            control2: self.ends[i + 1].position - self.ends[i + 1].vector_in,
         })
     }
 }
 
 /// An endpoint of a piecewise bezier curve.
 ///
-/// Let (p_i, u_i)_{0 <= i < n} be the end points, the curve is defined on [0, n] by
+/// Let (p_i, c-_i, c+_i)_{0 <= i < n} be the end points, the curve is defined on [0, n] by
 /// C(t) = B_i({t}) where i = 1 -  ⌊t⌋ and {t} = t - ⌊t⌋ and B_i is the bezier curve with extremities
-/// p_i and p_{i + 1} and control points (p_i + u_i) and p_{i + 1} - u_{i + 1}
-#[derive(Clone, Debug)]
+/// p_i and p_{i + 1} and whose tengents at positions p_i and p_{i +1} is proportional to c+_i and
+/// c-_{i+1}
+///
+/// Note that c-_0 and c+_{n - 1} are never used
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BezierEnd {
     /// The position of the end point, denoted p_i in the above definition
-    pub position: Vec3,
-    /// The control vector, denoted u_i in the above definition
-    pub vector: Vec3,
+    pub position: GridPosition,
+    /// The inward derivative coeffcient, denoted c-_i in the above definition
+    pub inward_coeff: f32,
+    /// The outward derivative coefficient, denoted c+_i in the above definition
+    pub outward_coeff: f32,
 }
 
-impl super::Curved for PiecewiseBezier {
+impl super::Curved for InstanciatedPiecewiseBeizer {
     fn t_max(&self) -> f64 {
         let n = self.ends.len() as f64 - 1.0;
         if let Some(tmax) = self.t_max {
