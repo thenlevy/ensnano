@@ -16,6 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use super::{Edge, GridPositionProvider};
 use crate::grid::GridPosition;
 use crate::utils::vec_to_dvec;
 use ultraviolet::{DVec3, Vec3};
@@ -264,6 +265,20 @@ pub struct BezierEnd {
     pub inward_coeff: f32,
     /// The outward derivative coefficient, denoted c+_i in the above definition
     pub outward_coeff: f32,
+}
+
+impl BezierEnd {
+    pub(super) fn translated_by(
+        self,
+        edge: Edge,
+        grid_reader: &dyn GridPositionProvider,
+    ) -> Option<Self> {
+        if let Some(position) = grid_reader.translate_by_edge(self.position, edge) {
+            Some(Self { position, ..self })
+        } else {
+            None
+        }
+    }
 }
 
 impl super::Curved for InstanciatedPiecewiseBeizer {

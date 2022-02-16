@@ -20,7 +20,7 @@ use ultraviolet::{DMat3, DVec3, Rotor3, Vec3};
 const EPSILON: f64 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
 const DELTA_MAX: f64 = 256.0;
-use crate::grid::GridPosition;
+use crate::grid::{Edge, GridPosition};
 
 use self::bezier::InstanciatedPiecewiseBeizer;
 
@@ -506,6 +506,32 @@ impl CurveDescriptor {
             _ => None,
         }
     }
+
+    pub(crate) fn translate(
+        &self,
+        edge: Edge,
+        grid_reader: &dyn GridPositionProvider,
+    ) -> Option<Self> {
+        match self {
+            Self::PiecewiseBezier {
+                points,
+                t_max,
+                t_min,
+            } => {
+                let translated_points: Option<Vec<_>> = points
+                    .clone()
+                    .into_iter()
+                    .map(|p| p.translated_by(edge, grid_reader))
+                    .collect();
+                Some(Self::PiecewiseBezier {
+                    points: translated_points?,
+                    t_max: t_max.clone(),
+                    t_min: t_min.clone(),
+                })
+            }
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -525,6 +551,7 @@ pub(super) trait GridPositionProvider {
         p0: GridPosition,
         p1: GridPosition,
     ) -> Option<(Vec3, Vec3)>;
+    fn translate_by_edge(&self, position: GridPosition, edge: Edge) -> Option<GridPosition>;
 }
 
 impl InstanciatedCurveDescriptor {

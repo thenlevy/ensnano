@@ -341,6 +341,29 @@ impl Helix {
             support_helix: None,
         })
     }
+
+    pub fn translated_by(&self, edge: crate::grid::Edge, grid_data: &GridData) -> Option<Self> {
+        let grid_position = self
+            .grid_position
+            .as_ref()
+            .map(|gp| grid_data.translate_by_edge(gp, &edge))?;
+        let new_curve_descriptor = self
+            .curve
+            .as_ref()
+            .and_then(|c| c.translate(edge, grid_data));
+
+        if self.curve.is_some() != new_curve_descriptor.is_some() {
+            None
+        } else {
+            Some(Self {
+                instanciated_curve: None,
+                instanciated_descriptor: None,
+                grid_position,
+                curve: new_curve_descriptor.map(|c| Arc::new(c)),
+                ..self.clone()
+            })
+        }
+    }
 }
 
 impl Helix {

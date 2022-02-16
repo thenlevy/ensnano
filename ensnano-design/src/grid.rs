@@ -1283,6 +1283,11 @@ impl GridPositionProvider for GridData {
     ) -> Option<(Vec3, Vec3)> {
         self.get_tengents_between_two_points(p0, p1)
     }
+
+    fn translate_by_edge(&self, position: GridPosition, edge: Edge) -> Option<GridPosition> {
+        self.translate_by_edge(&position.to_helix_pos(), &edge)
+            .map(|h| h.light())
+    }
 }
 
 impl GridData {
