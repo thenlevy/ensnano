@@ -632,7 +632,7 @@ impl HelixGridPosition {
 }
 
 impl GridPosition {
-    fn to_helix_pos(self) -> HelixGridPosition {
+    pub fn to_helix_pos(self) -> HelixGridPosition {
         HelixGridPosition::from_grid_id_x_y(self.grid, self.x, self.y)
     }
 }

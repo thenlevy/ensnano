@@ -312,16 +312,11 @@ impl Controller {
                 Ok(design)
             }
             Clipboard::Empty => Err(ErrOperation::EmptyClipboard),
-            Clipboard::Helices(_) => Err(ErrOperation::NotImplemented),
+            Clipboard::Helices(helices) => {
+                self.position_helices_copy(&mut design, helices.clone(), position)?;
+                Ok(design)
+            }
         }
-    }
-
-    pub fn position_helices_copy(
-        &mut self,
-        mut design: Design,
-        helices: Vec<usize>,
-        position: Option<GridPosition>,
-    ) {
     }
 
     pub(super) fn position_strand_copies(
@@ -794,6 +789,37 @@ impl Controller {
             }
             _ => None,
         }
+    }
+
+    fn position_helices_copy(
+        &mut self,
+        design: &mut Design,
+        helices: Vec<usize>,
+        position: Option<PastePosition>,
+    ) -> Result<(), ErrOperation> {
+        let data = design.get_updated_grid_data();
+        let h_id0 = helices.get(0).ok_or(ErrOperation::EmptyClipboard)?;
+        let edge = data
+            .get_helix_grid_position(*h_id0)
+            .as_ref()
+            .zip(position.and_then(PastePosition::to_grid_position).as_ref())
+            .and_then(|(source, dest)| data.get_edge(source, &dest.to_helix_pos()));
+        let grid_data = data.clone();
+        drop(data);
+        self.state
+            .update_helices_pasting_position(position, edge, design)?;
+        if let Some(edge) = edge {
+            let mut helices_mut = design.helices.make_mut();
+            for h_id in helices {
+                let h = helices_mut
+                    .get(&h_id)
+                    .ok_or(ErrOperation::HelixDoesNotExists(h_id))?;
+                if let Some(copy) = h.translated_by(edge, &grid_data) {
+                    helices_mut.push_helix(copy);
+                }
+            }
+        }
+        Ok(())
     }
 
     fn position_xover_copies(

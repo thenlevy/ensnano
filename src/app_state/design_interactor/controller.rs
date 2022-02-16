@@ -2669,11 +2669,11 @@ enum ControllerState {
     },
     PositioningHelicesPastingPoint {
         pasting_point: Option<GridPosition>,
-        pasted_helices: Vec<Helix>,
+        initial_design: AddressPointer<Design>,
     },
     PositioningHelicesDuplicationPoint {
         pasting_point: Option<GridPosition>,
-        pasted_helices: Vec<Helix>,
+        initial_design: AddressPointer<Design>,
         duplication_edge: Option<Edge>,
         clipboard: Vec<Helix>,
     },
@@ -2801,17 +2801,28 @@ impl ControllerState {
         position: Option<PastePosition>,
         edge: Option<Edge>,
         design: &Design,
-        pasted_helices: Vec<Helix>,
     ) -> Result<(), ErrOperation> {
         match self {
+            Self::PositioningHelicesPastingPoint { pasting_point, .. } => {
+                *pasting_point = position.and_then(PastePosition::to_grid_position);
+                Ok(())
+            }
+            Self::PositioningHelicesDuplicationPoint {
+                pasting_point,
+                duplication_edge,
+                ..
+            } => {
+                *pasting_point = position.and_then(PastePosition::to_grid_position);
+                *duplication_edge = edge;
+                Ok(())
+            }
             Self::Normal
             | Self::WithPendingOp { .. }
             | Self::WithPendingStrandDuplication { .. }
-            | Self::WithPendingXoverDuplication { .. }
-            | Self::PositioningHelicesPastingPoint { .. } => {
+            | Self::WithPendingXoverDuplication { .. } => {
                 *self = Self::PositioningHelicesPastingPoint {
                     pasting_point: position.and_then(PastePosition::to_grid_position),
-                    pasted_helices,
+                    initial_design: AddressPointer::new(design.clone()),
                 };
                 Ok(())
             }
