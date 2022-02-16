@@ -316,6 +316,14 @@ impl Controller {
         }
     }
 
+    pub fn position_helices_copy(
+        &mut self,
+        mut design: Design,
+        helices: Vec<usize>,
+        position: Option<GridPosition>,
+    ) {
+    }
+
     pub(super) fn position_strand_copies(
         &mut self,
         data: &mut MutStrandAndData<'_>,

@@ -2667,6 +2667,21 @@ enum ControllerState {
         duplication_edge: Option<(Edge, isize)>,
         clipboard: StrandClipboard,
     },
+    PositioningHelicesPastingPoint {
+        pasting_point: Option<GridPosition>,
+        pasted_helices: Vec<Helix>,
+    },
+    PositioningHelicesDuplicationPoint {
+        pasting_point: Option<GridPosition>,
+        pasted_helices: Vec<Helix>,
+        duplication_edge: Option<Edge>,
+        clipboard: Vec<Helix>,
+    },
+    WithPendingHelicesDuplication {
+        last_pasting_point: GridPosition,
+        duplication_edge: Edge,
+        clipboard: Vec<Helix>,
+    },
     WithPendingStrandDuplication {
         last_pasting_point: Nucl,
         duplication_edge: (Edge, isize),
@@ -2743,6 +2758,11 @@ impl ControllerState {
             Self::SettingRollHelices => "SettingRollHelices",
             Self::ChangingStrandName { .. } => "ChangingStrandName",
             Self::Twisting { .. } => "Twisting",
+            Self::PositioningHelicesPastingPoint { .. } => "Positioning strand pasting point",
+            Self::WithPendingHelicesDuplication { .. } => "With pending helices duplication",
+            Self::PositioningHelicesDuplicationPoint { .. } => {
+                "Positioning helices duplication point"
+            }
         }
     }
     fn update_pasting_position(
@@ -2754,6 +2774,8 @@ impl ControllerState {
         match self {
             Self::PositioningStrandPastingPoint { .. }
             | Self::Normal
+            | Self::WithPendingHelicesDuplication { .. }
+            | Self::WithPendingXoverDuplication { .. }
             | Self::WithPendingOp { .. } => {
                 *self = Self::PositioningStrandPastingPoint {
                     pasting_point: point.and_then(PastePosition::to_nucl),
@@ -2767,6 +2789,29 @@ impl ControllerState {
                     pasted_strands: strands,
                     duplication_edge,
                     clipboard: clipboard.clone(),
+                };
+                Ok(())
+            }
+            _ => Err(ErrOperation::IncompatibleState),
+        }
+    }
+
+    fn update_helices_pasting_position(
+        &mut self,
+        position: Option<PastePosition>,
+        edge: Option<Edge>,
+        design: &Design,
+        pasted_helices: Vec<Helix>,
+    ) -> Result<(), ErrOperation> {
+        match self {
+            Self::Normal
+            | Self::WithPendingOp { .. }
+            | Self::WithPendingStrandDuplication { .. }
+            | Self::WithPendingXoverDuplication { .. }
+            | Self::PositioningHelicesPastingPoint { .. } => {
+                *self = Self::PositioningHelicesPastingPoint {
+                    pasting_point: position.and_then(PastePosition::to_grid_position),
+                    pasted_helices,
                 };
                 Ok(())
             }
@@ -2796,6 +2841,7 @@ impl ControllerState {
             }
             Self::Normal
             | Self::WithPendingOp { .. }
+            | Self::WithPendingHelicesDuplication { .. }
             | Self::WithPendingStrandDuplication { .. } => {
                 *self = Self::PastingXovers {
                     pasting_point: point,
@@ -2844,6 +2890,9 @@ impl ControllerState {
             Self::SettingRollHelices => Self::Normal,
             Self::Twisting { .. } => Self::Normal,
             Self::ChangingStrandName { .. } => Self::Normal,
+            Self::PositioningHelicesPastingPoint { .. } => self.clone(),
+            Self::PositioningHelicesDuplicationPoint { .. } => self.clone(),
+            Self::WithPendingHelicesDuplication { .. } => self.clone(),
         }
     }
 
@@ -2851,6 +2900,8 @@ impl ControllerState {
         if let Self::WithPendingStrandDuplication { .. } = self {
             Self::Normal
         } else if let Self::WithPendingXoverDuplication { .. } = self {
+            Self::Normal
+        } else if let Self::WithPendingHelicesDuplication { .. } = self {
             Self::Normal
         } else {
             self.clone()
