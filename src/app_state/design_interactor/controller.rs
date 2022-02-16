@@ -51,7 +51,7 @@ use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 
 mod clipboard;
 use clipboard::Clipboard;
-pub use clipboard::CopyOperation;
+pub use clipboard::{CopyOperation, PastePosition};
 
 mod shift_optimization;
 pub use shift_optimization::{ShiftOptimizationResult, ShiftOptimizerReader};
@@ -340,7 +340,7 @@ impl Controller {
                 |c, _d| {
                     c.set_templates(&up_to_date_design, strand_ids)?;
                     let clipboard = c.clipboard.as_ref().get_strand_clipboard()?;
-                    c.state = ControllerState::PositioningDuplicationPoint {
+                    c.state = ControllerState::PositioningStrandDuplicationPoint {
                         pasted_strands: vec![],
                         duplication_edge: None,
                         pasting_point: None,
@@ -783,7 +783,7 @@ impl Controller {
     }
 
     pub fn can_iterate_duplication(&self) -> bool {
-        if let ControllerState::WithPendingDuplication { .. } = self.state {
+        if let ControllerState::WithPendingStrandDuplication { .. } = self.state {
             true
         } else if let ControllerState::WithPendingXoverDuplication { .. } = self.state {
             true
@@ -830,8 +830,8 @@ impl Controller {
 
     pub fn is_pasting(&self) -> PastingStatus {
         match self.state {
-            ControllerState::PositioningPastingPoint { .. } => PastingStatus::Copy,
-            ControllerState::PositioningDuplicationPoint { .. } => PastingStatus::Duplication,
+            ControllerState::PositioningStrandPastingPoint { .. } => PastingStatus::Copy,
+            ControllerState::PositioningStrandDuplicationPoint { .. } => PastingStatus::Duplication,
             ControllerState::PastingXovers { .. } => PastingStatus::Copy,
             ControllerState::DoingFirstXoversDuplication { .. } => PastingStatus::Duplication,
             _ => PastingStatus::None,
@@ -864,7 +864,9 @@ impl Controller {
                 }
             }
             ControllerState::WithPendingOp { .. } => OperationCompatibility::Compatible,
-            ControllerState::WithPendingDuplication { .. } => OperationCompatibility::Compatible,
+            ControllerState::WithPendingStrandDuplication { .. } => {
+                OperationCompatibility::Compatible
+            }
             ControllerState::ChangingColor => {
                 if let DesignOperation::ChangeColor { .. } = operation {
                     OperationCompatibility::Compatible
@@ -952,7 +954,7 @@ impl Controller {
         match self.state {
             ControllerState::Normal => StatePersitance::Persistant,
             ControllerState::WithPendingOp { .. } => StatePersitance::Persistant,
-            ControllerState::WithPendingDuplication { .. } => StatePersitance::Persistant,
+            ControllerState::WithPendingStrandDuplication { .. } => StatePersitance::Persistant,
             ControllerState::WithPendingXoverDuplication { .. } => StatePersitance::Persistant,
             ControllerState::WithPausedSimulation { .. } => StatePersitance::Persistant,
             ControllerState::SettingRollHelices { .. } => StatePersitance::NeedFinish,
@@ -2655,17 +2657,17 @@ enum ControllerState {
         design: AddressPointer<Design>,
         operation: Option<Arc<dyn Operation>>,
     },
-    PositioningPastingPoint {
+    PositioningStrandPastingPoint {
         pasting_point: Option<Nucl>,
         pasted_strands: Vec<PastedStrand>,
     },
-    PositioningDuplicationPoint {
+    PositioningStrandDuplicationPoint {
         pasting_point: Option<Nucl>,
         pasted_strands: Vec<PastedStrand>,
         duplication_edge: Option<(Edge, isize)>,
         clipboard: StrandClipboard,
     },
-    WithPendingDuplication {
+    WithPendingStrandDuplication {
         last_pasting_point: Nucl,
         duplication_edge: (Edge, isize),
         clipboard: StrandClipboard,
@@ -2727,9 +2729,9 @@ impl ControllerState {
             Self::ChangingColor => "ChangingColor",
             Self::WithPendingOp { .. } => "WithPendingOp",
             Self::ApplyingOperation { .. } => "ApplyingOperation",
-            Self::PositioningPastingPoint { .. } => "PositioningPastingPoint",
-            Self::PositioningDuplicationPoint { .. } => "PositioningDuplicationPoint",
-            Self::WithPendingDuplication { .. } => "WithPendingDuplication",
+            Self::PositioningStrandPastingPoint { .. } => "PositioningStrandPastingPoint",
+            Self::PositioningStrandDuplicationPoint { .. } => "PositioningStrandDuplicationPoint",
+            Self::WithPendingStrandDuplication { .. } => "WithPendingDuplication",
             Self::WithPendingXoverDuplication { .. } => "WithPendingXoverDuplication",
             Self::PastingXovers { .. } => "PastingXovers",
             Self::DoingFirstXoversDuplication { .. } => "DoingFirstXoversDuplication",
@@ -2745,21 +2747,23 @@ impl ControllerState {
     }
     fn update_pasting_position(
         &mut self,
-        point: Option<Nucl>,
+        point: Option<PastePosition>,
         strands: Vec<PastedStrand>,
         duplication_edge: Option<(Edge, isize)>,
     ) -> Result<(), ErrOperation> {
         match self {
-            Self::PositioningPastingPoint { .. } | Self::Normal | Self::WithPendingOp { .. } => {
-                *self = Self::PositioningPastingPoint {
-                    pasting_point: point,
+            Self::PositioningStrandPastingPoint { .. }
+            | Self::Normal
+            | Self::WithPendingOp { .. } => {
+                *self = Self::PositioningStrandPastingPoint {
+                    pasting_point: point.and_then(PastePosition::to_nucl),
                     pasted_strands: strands,
                 };
                 Ok(())
             }
-            Self::PositioningDuplicationPoint { clipboard, .. } => {
-                *self = Self::PositioningDuplicationPoint {
-                    pasting_point: point,
+            Self::PositioningStrandDuplicationPoint { clipboard, .. } => {
+                *self = Self::PositioningStrandDuplicationPoint {
+                    pasting_point: point.and_then(PastePosition::to_nucl),
                     pasted_strands: strands,
                     duplication_edge,
                     clipboard: clipboard.clone(),
@@ -2790,7 +2794,9 @@ impl ControllerState {
                 *duplication_edge = edge;
                 Ok(())
             }
-            Self::Normal | Self::WithPendingOp { .. } | Self::WithPendingDuplication { .. } => {
+            Self::Normal
+            | Self::WithPendingOp { .. }
+            | Self::WithPendingStrandDuplication { .. } => {
                 *self = Self::PastingXovers {
                     pasting_point: point,
                     initial_design: AddressPointer::new(design.clone()),
@@ -2824,9 +2830,9 @@ impl ControllerState {
                 design: design.clone(),
             },
             Self::ApplyingOperation { .. } => Self::Normal,
-            Self::PositioningPastingPoint { .. } => self.clone(),
-            Self::PositioningDuplicationPoint { .. } => self.clone(),
-            Self::WithPendingDuplication { .. } => self.clone(),
+            Self::PositioningStrandPastingPoint { .. } => self.clone(),
+            Self::PositioningStrandDuplicationPoint { .. } => self.clone(),
+            Self::WithPendingStrandDuplication { .. } => self.clone(),
             Self::WithPendingXoverDuplication { .. } => self.clone(),
             Self::PastingXovers { .. } => self.clone(),
             Self::DoingFirstXoversDuplication { .. } => self.clone(),
@@ -2842,7 +2848,7 @@ impl ControllerState {
     }
 
     fn acknowledge_new_selection(&self) -> Self {
-        if let Self::WithPendingDuplication { .. } = self {
+        if let Self::WithPendingStrandDuplication { .. } = self {
             Self::Normal
         } else if let Self::WithPendingXoverDuplication { .. } = self {
             Self::Normal
@@ -2854,7 +2860,8 @@ impl ControllerState {
     /// Return true if the operation is undoable only when going from this state to normal
     fn is_undoable_once(&self) -> bool {
         match self {
-            Self::PositioningDuplicationPoint { .. } | Self::PositioningPastingPoint { .. } => true,
+            Self::PositioningStrandDuplicationPoint { .. }
+            | Self::PositioningStrandPastingPoint { .. } => true,
             _ => false,
         }
     }

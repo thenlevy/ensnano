@@ -21,7 +21,7 @@ use super::{
     HelixInterval, Nucl, Strand,
 };
 use ensnano_design::{
-    grid::{Edge, GridData},
+    grid::{Edge, GridData, GridPosition},
     Helices, HelixCollection, MutStrandAndData, Parameters, Strands, UpToDateDesign,
 };
 use ultraviolet::Vec3;
@@ -31,6 +31,31 @@ pub(super) enum Clipboard {
     Strands(StrandClipboard),
     Xovers(Vec<(Nucl, Nucl)>),
     Grids(Vec<usize>),
+    Helices(Vec<usize>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+pub enum PastePosition {
+    Nucl(Nucl),
+    GridPosition(GridPosition),
+}
+
+impl PastePosition {
+    pub fn to_nucl(self) -> Option<Nucl> {
+        if let Self::Nucl(n) = self {
+            Some(n)
+        } else {
+            None
+        }
+    }
+
+    pub fn to_grid_position(self) -> Option<GridPosition> {
+        if let Self::GridPosition(gp) = self {
+            Some(gp)
+        } else {
+            None
+        }
+    }
 }
 
 impl Clipboard {
@@ -41,6 +66,7 @@ impl Clipboard {
             Self::Strands(strand_clipboard) => strand_clipboard.templates.len(),
             Self::Xovers(xovers) => xovers.len(),
             Self::Grids(grids) => grids.len(),
+            Self::Helices(helices) => helices.len(),
         }
     }
 
@@ -50,6 +76,7 @@ impl Clipboard {
             Self::Strands(strand_clipboard) => Ok(strand_clipboard.clone()),
             Self::Xovers(_) => Err(ErrOperation::WrongClipboard),
             Self::Grids(_) => Err(ErrOperation::WrongClipboard),
+            Self::Helices(_) => Err(ErrOperation::WrongClipboard),
         }
     }
 
@@ -266,16 +293,16 @@ impl Controller {
     pub(super) fn position_copy(
         &mut self,
         mut design: Design,
-        nucl: Option<Nucl>,
+        position: Option<PastePosition>,
     ) -> Result<Design, ErrOperation> {
         let mut data = design.mut_strand_and_data();
         match self.clipboard.as_ref() {
             Clipboard::Strands(_) => {
-                self.position_strand_copies(&mut data, nucl)?;
+                self.position_strand_copies(&mut data, position.and_then(PastePosition::to_nucl))?;
                 Ok(design)
             }
             Clipboard::Xovers(_) => {
-                self.position_xover_copies(&mut design, nucl)?;
+                self.position_xover_copies(&mut design, position.and_then(PastePosition::to_nucl))?;
                 Ok(design)
             }
             Clipboard::Grids(grid_ids) => {
@@ -285,6 +312,7 @@ impl Controller {
                 Ok(design)
             }
             Clipboard::Empty => Err(ErrOperation::EmptyClipboard),
+            Clipboard::Helices(_) => Err(ErrOperation::NotImplemented),
         }
     }
 
@@ -301,8 +329,11 @@ impl Controller {
         if let Some(nucl) = nucl {
             let (pasted_strands, duplication_edge) =
                 self.paste_clipboard(&strand_clipboard, nucl, data)?;
-            self.state
-                .update_pasting_position(Some(nucl), pasted_strands, duplication_edge)
+            self.state.update_pasting_position(
+                Some(PastePosition::Nucl(nucl)),
+                pasted_strands,
+                duplication_edge,
+            )
         } else {
             self.state.update_pasting_position(None, vec![], None)
         }
@@ -494,8 +525,8 @@ impl Controller {
             | ControllerState::DoingFirstXoversDuplication { .. } => {
                 self.apply_paste_xovers(design)
             }
-            ControllerState::PositioningPastingPoint { .. }
-            | ControllerState::PositioningDuplicationPoint { .. } => {
+            ControllerState::PositioningStrandPastingPoint { .. }
+            | ControllerState::PositioningStrandDuplicationPoint { .. } => {
                 self.apply_paste_strands(design)
             }
             _ => Err(ErrOperation::IncompatibleState),
@@ -509,8 +540,10 @@ impl Controller {
 
     fn apply_paste_strands(&mut self, mut design: Design) -> Result<Design, ErrOperation> {
         let pasted_strands = match &self.state {
-            ControllerState::PositioningPastingPoint { pasted_strands, .. } => Ok(pasted_strands),
-            ControllerState::PositioningDuplicationPoint { pasted_strands, .. } => {
+            ControllerState::PositioningStrandPastingPoint { pasted_strands, .. } => {
+                Ok(pasted_strands)
+            }
+            ControllerState::PositioningStrandDuplicationPoint { pasted_strands, .. } => {
                 Ok(pasted_strands)
             }
             _ => Err(ErrOperation::IncompatibleState),
@@ -555,7 +588,7 @@ impl Controller {
     pub(super) fn apply_duplication(&mut self, mut design: Design) -> Result<Design, ErrOperation> {
         let state = &mut self.state;
         match state.clone() {
-            ControllerState::PositioningDuplicationPoint {
+            ControllerState::PositioningStrandDuplicationPoint {
                 pasted_strands,
                 pasting_point,
                 duplication_edge,
@@ -568,7 +601,7 @@ impl Controller {
                         &mut design,
                         &pasted_strands,
                     )?;
-                    *state = ControllerState::WithPendingDuplication {
+                    *state = ControllerState::WithPendingStrandDuplication {
                         last_pasting_point: nucl,
                         duplication_edge,
                         clipboard,
@@ -579,7 +612,7 @@ impl Controller {
                 }
                 Ok(design)
             }
-            ControllerState::WithPendingDuplication {
+            ControllerState::WithPendingStrandDuplication {
                 last_pasting_point,
                 duplication_edge,
                 clipboard,
@@ -602,7 +635,7 @@ impl Controller {
                     &mut design,
                     &pasted_strands,
                 )?;
-                self.state = ControllerState::WithPendingDuplication {
+                self.state = ControllerState::WithPendingStrandDuplication {
                     last_pasting_point: new_duplication_point,
                     duplication_edge,
                     clipboard,
@@ -672,13 +705,13 @@ impl Controller {
 
     pub fn get_pasted_position(&self) -> Vec<(Vec<Vec3>, bool)> {
         match self.state {
-            ControllerState::PositioningPastingPoint {
+            ControllerState::PositioningStrandPastingPoint {
                 ref pasted_strands, ..
             } => pasted_strands
                 .iter()
                 .map(|s| (s.nucl_position.clone(), s.pastable))
                 .collect(),
-            ControllerState::PositioningDuplicationPoint {
+            ControllerState::PositioningStrandDuplicationPoint {
                 ref pasted_strands, ..
             } => pasted_strands
                 .iter()
@@ -690,10 +723,10 @@ impl Controller {
 
     pub fn get_copy_points(&self) -> Vec<Vec<Nucl>> {
         let pasted_strands = match self.state {
-            ControllerState::PositioningPastingPoint {
+            ControllerState::PositioningStrandPastingPoint {
                 ref pasted_strands, ..
             } => pasted_strands,
-            ControllerState::PositioningDuplicationPoint {
+            ControllerState::PositioningStrandDuplicationPoint {
                 ref pasted_strands, ..
             } => pasted_strands,
             _ => return vec![],
@@ -718,18 +751,20 @@ impl Controller {
         ret
     }
 
-    pub(super) fn get_pasting_point(&self) -> Option<Option<Nucl>> {
+    pub(super) fn get_pasting_point(&self) -> Option<Option<PastePosition>> {
         match self.state {
-            ControllerState::PositioningPastingPoint { pasting_point, .. } => {
-                Some(pasting_point.clone())
+            ControllerState::PositioningStrandPastingPoint { pasting_point, .. } => {
+                Some(pasting_point.map(|p| PastePosition::Nucl(p.clone())))
             }
-            ControllerState::PositioningDuplicationPoint { pasting_point, .. } => {
-                Some(pasting_point.clone())
+            ControllerState::PositioningStrandDuplicationPoint { pasting_point, .. } => {
+                Some(pasting_point.map(|p| PastePosition::Nucl(p.clone())))
             }
             ControllerState::DoingFirstXoversDuplication { pasting_point, .. } => {
-                Some(pasting_point.clone())
+                Some(pasting_point.map(|p| PastePosition::Nucl(p.clone())))
             }
-            ControllerState::PastingXovers { pasting_point, .. } => Some(pasting_point.clone()),
+            ControllerState::PastingXovers { pasting_point, .. } => {
+                Some(pasting_point.map(|p| PastePosition::Nucl(p.clone())))
+            }
             _ => None,
         }
     }
@@ -818,7 +853,7 @@ pub enum CopyOperation {
     CopyXovers(Vec<(Nucl, Nucl)>),
     InitStrandsDuplication(Vec<usize>),
     InitXoverDuplication(Vec<(Nucl, Nucl)>),
-    PositionPastingPoint(Option<Nucl>),
+    PositionPastingPoint(Option<PastePosition>),
     Paste,
     Duplicate,
 }

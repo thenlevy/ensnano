@@ -141,8 +141,8 @@ mod main_tests;
 mod app_state;
 mod controller;
 use app_state::{
-    AppState, AppStateTransition, CopyOperation, ErrOperation, OkOperation, PastingStatus,
-    SimulationTarget, TransitionLabel,
+    AppState, AppStateTransition, CopyOperation, ErrOperation, OkOperation, PastePosition,
+    PastingStatus, SimulationTarget, TransitionLabel,
 };
 use controller::Action;
 use controller::Controller;
@@ -1676,7 +1676,9 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn request_pasting_candidate(&mut self, candidate: Option<Nucl>) {
         self.main_state
-            .apply_copy_operation(CopyOperation::PositionPastingPoint(candidate))
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(
+                candidate.map(PastePosition::Nucl),
+            ))
     }
 
     fn delete_selection(&mut self) {
