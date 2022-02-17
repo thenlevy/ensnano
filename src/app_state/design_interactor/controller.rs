@@ -983,6 +983,7 @@ impl Controller {
             ControllerState::WithPendingOp { .. } => StatePersitance::Persistant,
             ControllerState::WithPendingStrandDuplication { .. } => StatePersitance::Persistant,
             ControllerState::WithPendingXoverDuplication { .. } => StatePersitance::Persistant,
+            ControllerState::WithPendingHelicesDuplication { .. } => StatePersitance::Persistant,
             ControllerState::WithPausedSimulation { .. } => StatePersitance::Persistant,
             ControllerState::SettingRollHelices { .. } => StatePersitance::NeedFinish,
             ControllerState::ChangingStrandName { .. } => StatePersitance::NeedFinish,
@@ -2846,7 +2847,8 @@ impl ControllerState {
             Self::Normal
             | Self::WithPendingOp { .. }
             | Self::WithPendingStrandDuplication { .. }
-            | Self::WithPendingXoverDuplication { .. } => {
+            | Self::WithPendingXoverDuplication { .. }
+            | Self::WithPendingHelicesDuplication { .. } => {
                 *self = Self::PositioningHelicesPastingPoint {
                     pasting_point: position.and_then(PastePosition::to_grid_position),
                     initial_design: AddressPointer::new(design.clone()),
@@ -2938,6 +2940,8 @@ impl ControllerState {
         if let Self::WithPendingStrandDuplication { .. } = self {
             Self::Normal
         } else if let Self::WithPendingXoverDuplication { .. } = self {
+            Self::Normal
+        } else if let Self::WithPendingHelicesDuplication { .. } = self {
             Self::Normal
         } else if let Self::WithPendingHelicesDuplication { .. } = self {
             Self::Normal

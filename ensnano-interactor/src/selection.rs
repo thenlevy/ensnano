@@ -324,7 +324,6 @@ pub fn list_of_helices(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
                 }
                 helices.insert(*h_id as usize);
             }
-            s if s.get_design() == Some(design_id) => (),
             _ => return None,
         }
     }
