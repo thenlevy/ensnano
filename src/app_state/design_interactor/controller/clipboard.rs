@@ -534,7 +534,8 @@ impl Controller {
             | ControllerState::PositioningStrandDuplicationPoint { .. } => {
                 self.apply_paste_strands(design)
             }
-            ControllerState::PositioningHelicesPastingPoint { .. } => {
+            ControllerState::PositioningHelicesPastingPoint { .. }
+            | ControllerState::PositioningHelicesDuplicationPoint { .. } => {
                 self.apply_paste_helices(design)
             }
             _ => Err(ErrOperation::IncompatibleState),
@@ -712,6 +713,60 @@ impl Controller {
                 };
                 Ok(design)
             }
+            ControllerState::WithPendingHelicesDuplication {
+                last_pasting_point,
+                duplication_edge,
+                helices,
+            } => {
+                let data = design.get_updated_grid_data().clone();
+                let new_duplication_point = data
+                    .translate_by_edge(&last_pasting_point.to_helix_pos(), &duplication_edge)
+                    .ok_or(ErrOperation::CannotPasteHere)?;
+                let h_id0 = helices.get(0).ok_or(ErrOperation::EmptyClipboard)?;
+                let edge = data
+                    .get_helix_grid_position(*h_id0)
+                    .as_ref()
+                    .zip(Some(new_duplication_point))
+                    .and_then(|(source, dest)| {
+                        log::info!("source {:?}, dest {:?}", source, dest);
+                        data.get_edge(source, &dest)
+                    })
+                    .ok_or(ErrOperation::CannotPasteHere)?;
+                let mut helices_mut = design.helices.make_mut();
+                for h_id in helices.iter() {
+                    let h = helices_mut
+                        .get(h_id)
+                        .ok_or(ErrOperation::HelixDoesNotExists(*h_id))?;
+                    if let Some(copy) = h.translated_by(edge, &data) {
+                        log::info!("adding helix");
+                        helices_mut.push_helix(copy);
+                    }
+                }
+                self.state = ControllerState::WithPendingHelicesDuplication {
+                    last_pasting_point: new_duplication_point.light(),
+                    duplication_edge,
+                    helices,
+                };
+                drop(helices_mut);
+                Ok(design)
+            }
+            ControllerState::PositioningHelicesDuplicationPoint {
+                pasting_point,
+                duplication_edge,
+                helices,
+                ..
+            } => {
+                if let Some((grid_pos, duplication_edge)) = pasting_point.zip(duplication_edge) {
+                    self.state = ControllerState::WithPendingHelicesDuplication {
+                        last_pasting_point: grid_pos,
+                        duplication_edge,
+                        helices,
+                    };
+                } else {
+                    self.state = ControllerState::Normal
+                }
+                Ok(design)
+            }
             _ => Err(ErrOperation::IncompatibleState),
         }
     }
@@ -803,13 +858,16 @@ impl Controller {
         Ok(())
     }
 
-    pub(super) fn get_design_before_pasting_xovers(&self) -> Option<&AddressPointer<Design>> {
+    pub(super) fn get_design_beign_pasted_on(&self) -> Option<&AddressPointer<Design>> {
         match &self.state {
             ControllerState::PastingXovers { initial_design, .. } => Some(initial_design),
             ControllerState::DoingFirstXoversDuplication { initial_design, .. } => {
                 Some(initial_design)
             }
             ControllerState::PositioningHelicesPastingPoint { initial_design, .. } => {
+                Some(initial_design)
+            }
+            ControllerState::PositioningHelicesDuplicationPoint { initial_design, .. } => {
                 Some(initial_design)
             }
             _ => None,
@@ -924,6 +982,7 @@ pub enum CopyOperation {
     CopyHelices(Vec<usize>),
     InitStrandsDuplication(Vec<usize>),
     InitXoverDuplication(Vec<(Nucl, Nucl)>),
+    InitHelicesDuplication(Vec<usize>),
     PositionPastingPoint(Option<PastePosition>),
     Paste,
     Duplicate,

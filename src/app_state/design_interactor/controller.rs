@@ -330,8 +330,7 @@ impl Controller {
                 if self.get_pasting_point() == Some(nucl) {
                     Ok((OkOperation::NoOp, self.clone()))
                 } else {
-                    let design_pasted_on = if let Some(p) = self.get_design_before_pasting_xovers()
-                    {
+                    let design_pasted_on = if let Some(p) = self.get_design_beign_pasted_on() {
                         p.as_ref()
                     } else {
                         up_to_date_design.design
@@ -371,6 +370,19 @@ impl Controller {
                         duplication_edge: None,
                         pasting_point: None,
                         xovers,
+                    };
+                    Ok(())
+                },
+                up_to_date_design.design,
+            ),
+            CopyOperation::InitHelicesDuplication(helices) => self.apply_no_op(
+                |c, d| {
+                    c.copy_helices(helices.clone())?;
+                    c.state = ControllerState::PositioningHelicesDuplicationPoint {
+                        pasting_point: None,
+                        duplication_edge: None,
+                        initial_design: AddressPointer::new(d.clone()),
+                        helices,
                     };
                     Ok(())
                 },
@@ -793,6 +805,8 @@ impl Controller {
             true
         } else if let ControllerState::WithPendingXoverDuplication { .. } = self.state {
             true
+        } else if let ControllerState::WithPendingHelicesDuplication { .. } = self.state {
+            true
         } else {
             false
         }
@@ -875,6 +889,9 @@ impl Controller {
             }
             ControllerState::WithPendingOp { .. } => OperationCompatibility::Compatible,
             ControllerState::WithPendingStrandDuplication { .. } => {
+                OperationCompatibility::Compatible
+            }
+            ControllerState::WithPendingHelicesDuplication { .. } => {
                 OperationCompatibility::Compatible
             }
             ControllerState::ChangingColor => {
@@ -2685,12 +2702,12 @@ enum ControllerState {
         pasting_point: Option<GridPosition>,
         initial_design: AddressPointer<Design>,
         duplication_edge: Option<Edge>,
-        clipboard: Vec<Helix>,
+        helices: Vec<usize>,
     },
     WithPendingHelicesDuplication {
         last_pasting_point: GridPosition,
         duplication_edge: Edge,
-        clipboard: Vec<Helix>,
+        helices: Vec<usize>,
     },
     WithPendingStrandDuplication {
         last_pasting_point: Nucl,

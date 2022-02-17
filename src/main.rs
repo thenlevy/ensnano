@@ -1302,6 +1302,10 @@ impl MainState {
                 &self.app_state.get_design_reader(),
             ) {
                 self.apply_copy_operation(CopyOperation::InitXoverDuplication(nucl_pairs))
+            } else if let Some((_, helices)) =
+                ensnano_interactor::list_of_helices(self.app_state.get_selection().as_ref())
+            {
+                self.apply_copy_operation(CopyOperation::InitHelicesDuplication(helices))
             } else {
                 let strand_ids = ensnano_interactor::extract_strands_from_selection(
                     self.app_state.get_selection().as_ref(),
