@@ -391,7 +391,7 @@ impl DesignContent {
             let strand_seq = strand.sequence.as_ref().filter(|s| s.is_ascii());
             let color = strand.color;
             let mut last_xover_junction: Option<&mut DomainJunction> = None;
-            for (i, domain) in strand.domains.iter().enumerate() {
+            for (i, domain) in strand.domains.iter_mut().enumerate() {
                 if let Some((prime5, prime3)) = old_nucl.clone().zip(domain.prime5_end()) {
                     Self::update_junction(
                         &mut new_junctions,
@@ -471,12 +471,11 @@ impl DesignContent {
                         old_nucl_id = Some(nucl_id);
                     }
                     if strand.junctions.len() <= i {
-                        log::debug!("{:?}", strand.domains);
                         log::debug!("{:?}", strand.junctions);
                     }
                     last_xover_junction = Some(&mut strand.junctions[i]);
-                } else if let Domain::Insertion(n) = domain {
-                    strand_position += n;
+                } else if let Domain::Insertion { nb_nucl, .. } = domain {
+                    strand_position += *nb_nucl;
                     last_xover_junction = Some(&mut strand.junctions[i]);
                 }
             }

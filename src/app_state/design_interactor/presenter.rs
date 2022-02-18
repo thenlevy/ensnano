@@ -214,8 +214,8 @@ impl Presenter {
                                 }
                             }
                         }
-                    } else if let ensnano_design::Domain::Insertion(n) = domain {
-                        for _ in 0..*n {
+                    } else if let ensnano_design::Domain::Insertion { nb_nucl, .. } = domain {
+                        for _ in 0..*nb_nucl {
                             sequence.next();
                         }
                     }

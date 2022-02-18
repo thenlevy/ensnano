@@ -44,6 +44,8 @@ use group_attributes::GroupAttribute;
 /// Re-export ultraviolet for linear algebra
 pub use ultraviolet::*;
 
+mod insertions;
+use insertions::InstanciatedInsertion;
 mod formating;
 #[cfg(test)]
 mod tests;
@@ -556,11 +558,14 @@ pub fn sanitize_domains(domains: &[Domain], cyclic: bool) -> Vec<Domain> {
         match d {
             Domain::HelixDomain(_) => {
                 if let Some(n) = current_insertion.take() {
-                    ret.push(Domain::Insertion(n));
+                    ret.push(Domain::Insertion {
+                        nb_nucl: n,
+                        instanciation: None,
+                    });
                 }
                 ret.push(d.clone());
             }
-            Domain::Insertion(m) => {
+            Domain::Insertion { nb_nucl: m, .. } => {
                 if let Some(n) = current_insertion {
                     current_insertion = Some(n + m);
                 } else {
@@ -572,18 +577,27 @@ pub fn sanitize_domains(domains: &[Domain], cyclic: bool) -> Vec<Domain> {
 
     if let Some(mut n) = current_insertion {
         if cyclic {
-            if let Domain::Insertion(k) = ret[0].clone() {
+            if let Domain::Insertion { nb_nucl: k, .. } = ret[0].clone() {
                 ret.remove(0);
                 n += k;
             }
-            ret.push(Domain::Insertion(n));
+            ret.push(Domain::Insertion {
+                nb_nucl: n,
+                instanciation: None,
+            });
         } else {
-            ret.push(Domain::Insertion(n));
+            ret.push(Domain::Insertion {
+                nb_nucl: n,
+                instanciation: None,
+            });
         }
     } else if cyclic {
-        if let Domain::Insertion(k) = ret[0].clone() {
+        if let Domain::Insertion { nb_nucl: k, .. } = ret[0].clone() {
             ret.remove(0);
-            ret.push(Domain::Insertion(k));
+            ret.push(Domain::Insertion {
+                nb_nucl: k,
+                instanciation: None,
+            });
         }
     }
     ret
@@ -664,7 +678,7 @@ impl Strand {
     pub fn get_5prime(&self) -> Option<Nucl> {
         for domain in self.domains.iter() {
             match domain {
-                Domain::Insertion(_) => (),
+                Domain::Insertion { .. } => (),
                 Domain::HelixDomain(h) => {
                     let position = if h.forward { h.start } else { h.end - 1 };
                     return Some(Nucl {
@@ -681,7 +695,7 @@ impl Strand {
     pub fn get_3prime(&self) -> Option<Nucl> {
         for domain in self.domains.iter().rev() {
             match domain {
-                Domain::Insertion(_) => (),
+                Domain::Insertion { .. } => (),
                 Domain::HelixDomain(h) => {
                     let position = if h.forward { h.end - 1 } else { h.start };
                     return Some(Nucl {
@@ -781,12 +795,12 @@ impl Strand {
         let mut ret = Vec::with_capacity(self.domains.len());
         for d in self.domains.iter() {
             match d {
-                Domain::Insertion(n) if *n > 0 => {
+                Domain::Insertion { nb_nucl: n, .. } if *n > 0 => {
                     if let Some(nucl) = last_nucl {
                         ret.push(nucl);
                     }
                 }
-                Domain::Insertion(_) => (),
+                Domain::Insertion { nb_nucl: n, .. } => (),
                 Domain::HelixDomain(_) => {
                     last_nucl = d.prime3_end();
                 }
@@ -835,13 +849,13 @@ impl Strand {
             None
         };
         for (d1, d2) in self.domains.iter().zip(self.domains.iter().skip(1)) {
-            if let Domain::Insertion(_) = d1 {
+            if let Domain::Insertion { .. } = d1 {
                 ret.push((prev_prime3, d2.prime5_end()))
             } else {
                 prev_prime3 = d1.prime3_end()
             }
         }
-        if let Some(Domain::Insertion(_)) = self.domains.last() {
+        if let Some(Domain::Insertion { .. }) = self.domains.last() {
             if self.cyclic {
                 ret.push((
                     prev_prime3,
@@ -856,7 +870,7 @@ impl Strand {
 
     pub fn has_insertions(&self) -> bool {
         for d in self.domains.iter() {
-            if let Domain::Insertion(_) = d {
+            if let Domain::Insertion { .. } = d {
                 return true;
             }
         }
@@ -887,7 +901,13 @@ impl Strand {
     fn add_insertion_at_dom_position(&mut self, d_id: usize, pos: usize, insertion_size: usize) {
         if let Some((prime5, prime3)) = self.domains[d_id].split(pos) {
             self.domains[d_id] = prime3;
-            self.domains.insert(d_id, Domain::Insertion(insertion_size));
+            self.domains.insert(
+                d_id,
+                Domain::Insertion {
+                    nb_nucl: insertion_size,
+                    instanciation: None,
+                },
+            );
             self.domains.insert(d_id, prime5);
         } else {
             println!("Could not split");
@@ -921,7 +941,11 @@ pub enum Domain {
     /// An interval of nucleotides on an helix
     HelixDomain(HelixInterval),
     /// A set of nucleotides not on an helix.
-    Insertion(usize),
+    Insertion {
+        nb_nucl: usize,
+        #[serde(skip)]
+        instanciation: Option<Arc<InstanciatedInsertion>>,
+    },
 }
 
 #[derive(Default, Clone, Serialize, Deserialize)]
@@ -983,6 +1007,13 @@ impl HelixInterval {
 }
 
 impl Domain {
+    pub fn new_insertion(nb_nucl: usize) -> Self {
+        Self::Insertion {
+            nb_nucl,
+            instanciation: None,
+        }
+    }
+
     pub fn from_codenano<Dl>(codenano_domain: &codenano::Domain<Dl>) -> Self {
         let interval = HelixInterval {
             helix: codenano_domain.helix as usize,
@@ -1025,7 +1056,7 @@ impl Domain {
                                 forward: *forward,
                                 sequence: None,
                             }));
-                            ret.push(Self::Insertion(nb_insertion as usize));
+                            ret.push(Self::Insertion{nb_nucl: nb_insertion as usize, instanciation: None});
                             left = right;
                         }
                         ret.push(Self::HelixDomain(HelixInterval {
@@ -1049,7 +1080,7 @@ impl Domain {
                                 forward: *forward,
                                 sequence: None,
                             }));
-                            ret.push(Self::Insertion(nb_insertion as usize));
+                            ret.push(Self::Insertion{nb_nucl: nb_insertion as usize, instanciation: None});
                             right = left;
                         }
                         ret.push(Self::HelixDomain(HelixInterval {
@@ -1074,20 +1105,20 @@ impl Domain {
                     })]
                 }
             }
-            ScadnanoDomain::Loopout{ loopout: n } => vec![Self::Insertion(*n)]
+            ScadnanoDomain::Loopout{ loopout: n } => vec![Self::Insertion{ nb_nucl: *n, instanciation: None}]
         }
     }
 
     pub fn length(&self) -> usize {
         match self {
-            Self::Insertion(n) => *n,
+            Self::Insertion { nb_nucl, .. } => *nb_nucl,
             Self::HelixDomain(interval) => (interval.end - interval.start).max(0) as usize,
         }
     }
 
     pub fn other_end(&self, nucl: Nucl) -> Option<isize> {
         match self {
-            Self::Insertion(_) => None,
+            Self::Insertion { .. } => None,
             Self::HelixDomain(interval) => {
                 if interval.helix == nucl.helix && nucl.forward == interval.forward {
                     if interval.start == nucl.position {
@@ -1106,7 +1137,7 @@ impl Domain {
 
     pub fn prime5_end(&self) -> Option<Nucl> {
         match self {
-            Self::Insertion(_) => None,
+            Self::Insertion { .. } => None,
             Self::HelixDomain(interval) => {
                 let position = if interval.forward {
                     interval.start
@@ -1124,7 +1155,7 @@ impl Domain {
 
     pub fn prime3_end(&self) -> Option<Nucl> {
         match self {
-            Self::Insertion(_) => None,
+            Self::Insertion { .. } => None,
             Self::HelixDomain(interval) => {
                 let position = if interval.forward {
                     interval.end - 1
@@ -1142,7 +1173,7 @@ impl Domain {
 
     pub fn has_nucl(&self, nucl: &Nucl) -> Option<usize> {
         match self {
-            Self::Insertion(_) => None,
+            Self::Insertion { .. } => None,
             Self::HelixDomain(HelixInterval {
                 forward,
                 start,
@@ -1170,7 +1201,7 @@ impl Domain {
     /// Split self at position `n`, putting `n` on the 5' prime half of the split
     pub fn split(&self, n: usize) -> Option<(Self, Self)> {
         match self {
-            Self::Insertion(_) => None,
+            Self::Insertion { .. } => None,
             Self::HelixDomain(HelixInterval {
                 forward,
                 start,
@@ -1238,14 +1269,14 @@ impl Domain {
     pub fn helix(&self) -> Option<usize> {
         match self {
             Domain::HelixDomain(domain) => Some(domain.helix),
-            Domain::Insertion(_) => None,
+            Domain::Insertion { .. } => None,
         }
     }
 
     pub fn half_helix(&self) -> Option<(usize, bool)> {
         match self {
             Domain::HelixDomain(domain) => Some((domain.helix, domain.forward)),
-            Domain::Insertion(_) => None,
+            Domain::Insertion { .. } => None,
         }
     }
 
@@ -1855,7 +1886,7 @@ fn add_juction<'b, 'a: 'b>(
     i: usize,
 ) {
     match next {
-        Domain::Insertion(_) => {
+        Domain::Insertion { .. } => {
             junctions.push(DomainJunction::Adjacent);
             if let Domain::HelixDomain(_) = current {
                 *previous_domain = current;
@@ -1865,7 +1896,7 @@ fn add_juction<'b, 'a: 'b>(
         }
         Domain::HelixDomain(prime3) => {
             match current {
-                Domain::Insertion(_) => {
+                Domain::Insertion { .. } => {
                     if i == 0 && !cyclic {
                         // The first domain IS an insertion
                         junctions.push(DomainJunction::Adjacent);

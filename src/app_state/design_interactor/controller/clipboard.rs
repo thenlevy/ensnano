@@ -177,7 +177,9 @@ impl Controller {
         let mut previous_position = None;
         for domain in strand.domains.iter() {
             match domain {
-                Domain::Insertion(n) => domains.push(DomainTemplate::Insertion(*n)),
+                Domain::Insertion { nb_nucl, .. } => {
+                    domains.push(DomainTemplate::Insertion(*nb_nucl))
+                }
                 Domain::HelixDomain(dom) => {
                     if let Some(ref pos1) = previous_position {
                         let helix = design
@@ -380,7 +382,7 @@ impl Controller {
         };
         for domain in template.domains.iter() {
             match domain {
-                DomainTemplate::Insertion(n) => ret.push(Domain::Insertion(*n)),
+                DomainTemplate::Insertion(n) => ret.push(Domain::new_insertion(*n)),
                 DomainTemplate::HelixInterval {
                     start,
                     end,

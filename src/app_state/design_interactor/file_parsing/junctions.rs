@@ -71,9 +71,9 @@ impl StrandJunction for Strand {
                             let prime3 = d2.prime5();
                             let id = xover_ids.insert((prime5, prime3));
                             *s = DomainJunction::IdentifiedXover(id);
-                        } else if let Domain::Insertion(_) = next {
+                        } else if let Domain::Insertion { .. } = next {
                             panic!("UnindentifiedXover before an insertion");
-                        } else if let Domain::Insertion(_) = previous_domain {
+                        } else if let Domain::Insertion { .. } = previous_domain {
                             panic!("Invariant violated: [SaneDomains]");
                         } else {
                             unreachable!("Unexhastive match");
@@ -93,9 +93,9 @@ impl StrandJunction for Strand {
                             let prime5 = d1.prime3();
                             let prime3 = d2.prime5();
                             xover_ids.insert_at((prime5, prime3), *id);
-                        } else if let Domain::Insertion(_) = next {
+                        } else if let Domain::Insertion { .. } = next {
                             panic!("UnindentifiedXover before an insertion");
-                        } else if let Domain::Insertion(_) = previous_domain {
+                        } else if let Domain::Insertion { .. } = previous_domain {
                             panic!("Invariant violated: [SaneDomains]");
                         } else {
                             unreachable!("Unexhastive match");
@@ -142,7 +142,7 @@ fn add_juction<'b, 'a: 'b>(
     i: usize,
 ) {
     match next {
-        Domain::Insertion(_) => {
+        Domain::Insertion { .. } => {
             junctions.push(DomainJunction::Adjacent);
             if let Domain::HelixDomain(_) = current {
                 *previous_domain = current;
@@ -152,7 +152,7 @@ fn add_juction<'b, 'a: 'b>(
         }
         Domain::HelixDomain(prime3) => {
             match current {
-                Domain::Insertion(_) => {
+                Domain::Insertion { .. } => {
                     if i == 0 && !cyclic {
                         // The first domain IS an insertion
                         junctions.push(DomainJunction::Adjacent);

@@ -70,8 +70,8 @@ fn read_scaffold_seq(
                         }
                     }
                 }
-            } else if let Domain::Insertion(n) = domain {
-                for _ in 0..*n {
+            } else if let Domain::Insertion { nb_nucl, .. } = domain {
+                for _ in 0..*nb_nucl {
                     sequence.next();
                 }
             }

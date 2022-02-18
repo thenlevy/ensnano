@@ -170,7 +170,10 @@ impl Design {
             .ok_or(GridCopyError::StrandDoesNotExist(s_id))?;
         for d in source_strand.domains.iter() {
             match d {
-                Domain::Insertion(n) => new_strand_domains.push(Domain::Insertion(*n)),
+                Domain::Insertion { nb_nucl, .. } => new_strand_domains.push(Domain::Insertion {
+                    nb_nucl: *nb_nucl,
+                    instanciation: None,
+                }),
                 Domain::HelixDomain(HelixInterval {
                     helix,
                     start,
