@@ -21,15 +21,31 @@ use rand::Rng;
 use rand_distr::StandardNormal;
 use std::f32::consts::{SQRT_2, TAU};
 
+const EPSILON_DESC: f32 = 0.05;
+
 struct InsertionDescriptor {
     source: Vec3,
     dest: Vec3,
     nb_nucl: usize,
 }
 
+impl InsertionDescriptor {
+    fn is_up_to_date(&self, other: &Self) -> bool {
+        self.nb_nucl == other.nb_nucl
+            && (self.source - other.source).mag() < EPSILON_DESC
+            && (self.dest - other.dest).mag() < EPSILON_DESC
+    }
+}
+
 pub struct InstanciatedInsertion {
     descriptor: InsertionDescriptor,
     instanciation: Vec<Vec3>,
+}
+
+impl InstanciatedInsertion {
+    pub fn pos(&self) -> &[Vec3] {
+        self.instanciation.as_slice()
+    }
 }
 
 const NB_STEP: usize = 100;
@@ -75,6 +91,76 @@ impl InsertionDescriptor {
         }
 
         ret
+    }
+}
+
+impl Strand {
+    pub fn update_insertions(
+        &mut self,
+        helices: &BTreeMap<usize, Arc<Helix>>,
+        parameters: &Parameters,
+    ) {
+        let mut to_be_updated = Vec::new();
+        let nb_domain = self.domains.len();
+        for (d_prev, ((d_id, d), d_next)) in self.domains.iter().cycle().skip(nb_domain - 1).zip(
+            self.domains
+                .iter()
+                .enumerate()
+                .zip(self.domains.iter().cycle().skip(1)),
+        ) {
+            if let Domain::Insertion { .. } = d {
+                if let Some((prime_5, prime_3)) = d_prev.prime3_end().zip(d_next.prime5_end()) {
+                    let pos_prime5 = helices
+                        .get(&prime_5.helix)
+                        .map(|h| h.space_pos(parameters, prime_5.position, prime_5.forward));
+                    let pos_prime3 = helices
+                        .get(&prime_3.helix)
+                        .map(|h| h.space_pos(parameters, prime_3.position, prime_3.forward));
+                    if let Some((pos_prime5, pos_prime3)) = pos_prime5.zip(pos_prime3) {
+                        to_be_updated.push((d_id, pos_prime5, pos_prime3));
+                    } else {
+                        log::error!("Could not get space pos for insertion");
+                    }
+                } else {
+                    log::error!("two insertions next to eachother");
+                }
+            }
+        }
+        for (d_id, pos_prime5, pos_prime3) in to_be_updated.into_iter() {
+            self.update_insertion(d_id, pos_prime5, pos_prime3, parameters);
+        }
+    }
+
+    fn update_insertion(
+        &mut self,
+        d_id: usize,
+        pos_prime5: Vec3,
+        pos_prime3: Vec3,
+        parameters: &Parameters,
+    ) {
+        if let Some(Domain::Insertion {
+            nb_nucl,
+            instanciation,
+        }) = self.domains.get_mut(d_id)
+        {
+            let descriptor = InsertionDescriptor {
+                nb_nucl: *nb_nucl,
+                source: pos_prime5,
+                dest: pos_prime3,
+            };
+            let up_to_date = instanciation
+                .as_ref()
+                .map(|i| i.descriptor.is_up_to_date(&descriptor))
+                .unwrap_or(false);
+            if !up_to_date {
+                *instanciation = Some(Arc::new(InstanciatedInsertion {
+                    instanciation: descriptor.instanciate(parameters),
+                    descriptor,
+                }))
+            }
+        } else {
+            log::error!("Wrong domain id");
+        }
     }
 }
 

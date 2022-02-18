@@ -91,6 +91,8 @@ pub(super) struct DesignContent {
     pub elements: Vec<DnaElement>,
     pub suggestions: Vec<(Nucl, Nucl)>,
     pub(super) grid_manager: GridManager,
+    pub loopout_nucls: Vec<(Vec3, u32)>,
+    pub loopout_bonds: Vec<(Vec3, Vec3, u32)>,
 }
 
 impl DesignContent {
@@ -371,10 +373,13 @@ impl DesignContent {
         let mut color_map = HashMap::default();
         let mut helix_map = HashMap::default();
         let mut basis_map = HashMap::default();
+        let mut loopout_bonds = Vec::new();
+        let mut loopout_nucls = Vec::new();
         let mut id = 0u32;
         let mut nucl_id;
         let mut old_nucl: Option<Nucl> = None;
         let mut old_nucl_id = None;
+        let mut old_pos: Option<Vec3> = None;
         let mut elements = Vec::new();
         let mut prime3_set = Vec::new();
         let mut new_junctions: JunctionsIds = Default::default();
@@ -387,6 +392,8 @@ impl DesignContent {
         }
         for (s_id, strand) in design.strands.iter_mut() {
             elements.push(elements::DnaElement::Strand { id: *s_id });
+            let parameters = design.parameters.unwrap_or_default();
+            strand.update_insertions(design.helices.as_ref(), &parameters);
             let mut strand_position = 0;
             let strand_seq = strand.sequence.as_ref().filter(|s| s.is_ascii());
             let color = strand.color;
@@ -466,6 +473,8 @@ impl DesignContent {
                             color_map.insert(bound_id, color);
                             strand_map.insert(bound_id, *s_id);
                             helix_map.insert(bound_id, nucl.helix);
+                        } else if let Some(prev_pos) = old_pos {
+                            loopout_bonds.push((prev_pos, position.into(), color));
                         }
                         old_nucl = Some(nucl);
                         old_nucl_id = Some(nucl_id);
@@ -474,7 +483,22 @@ impl DesignContent {
                         log::debug!("{:?}", strand.junctions);
                     }
                     last_xover_junction = Some(&mut strand.junctions[i]);
-                } else if let Domain::Insertion { nb_nucl, .. } = domain {
+                } else if let Domain::Insertion {
+                    nb_nucl,
+                    instanciation,
+                } = domain
+                {
+                    if let Some(instanciation) = instanciation.as_ref() {
+                        for pos in instanciation.as_ref().pos().iter() {
+                            loopout_nucls.push((*pos, color));
+                            if let Some(prev_pos) = old_pos.take() {
+                                loopout_bonds.push((prev_pos, *pos, color));
+                            }
+                            old_pos = Some(*pos);
+                        }
+                    }
+                    old_nucl = None;
+                    old_nucl_id = None;
                     strand_position += *nb_nucl;
                     last_xover_junction = Some(&mut strand.junctions[i]);
                 }
@@ -553,6 +577,8 @@ impl DesignContent {
             elements,
             grid_manager,
             suggestions: vec![],
+            loopout_bonds,
+            loopout_nucls,
         };
         let suggestions = suggestion_maker.get_suggestions(&design, suggestion_parameters);
         ret.suggestions = suggestions;
