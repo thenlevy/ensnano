@@ -72,13 +72,16 @@ impl Parameters {
     /// Value used for RNA designs
     /// Taken from "Design Principles for Single-Stranded RNA Origami Structures, Geary & Andersen
     /// 2014
-    pub const GEARY_2014_RNA: Parameters = Parameters {
-        helix_radius: 0.87,
-        z_step: 0.281,
-        inclination: -0.745,
-        groove_angle: 139.9 / 180.0 * std::f32::consts::PI,
-        bases_per_turn: 11.0,
-        inter_helix_gap: 0.65,
+    pub const GEARY_2014_RNA: Parameters = {
+        let helix_radius = 0.87;
+        Parameters {
+            helix_radius,
+            z_step: 0.281,
+            inclination: -0.745,
+            groove_angle: 139.9 / 180.0 * std::f32::consts::PI,
+            bases_per_turn: 11.0,
+            inter_helix_gap: 2. * (INTER_CENTER_GAP - helix_radius),
+        }
     };
 
     pub const DEFAULT: Self = Self::GEARY_2014_DNA;
