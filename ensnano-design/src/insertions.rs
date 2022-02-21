@@ -40,11 +40,11 @@ struct CircleArc {
 impl CircleArc {
     fn position(&self, t: f32) -> Vec3 {
         let angle = if self.bigger_than_half_circle {
-            (PI - self.start_angle) * (1. - t) + t * (PI + self.start_angle)
+            (PI - self.start_angle) * (1. - t) + t * (-PI - self.start_angle)
         } else {
-            (-self.start_angle) * (1. - t) + t * self.start_angle
+            (self.start_angle) * (1. - t) - t * self.start_angle
         };
-        self.center + self.radius * (self.up * angle.cos() + self.right * angle.sin())
+        self.center + self.radius * (self.up * angle.cos() - self.right * angle.sin())
     }
 }
 
@@ -174,8 +174,8 @@ impl InsertionDescriptor {
             let gx: f32 = rnd.sample(StandardNormal);
             let gy: f32 = rnd.sample(StandardNormal);
             let gz: f32 = rnd.sample(StandardNormal);
-            let rand_vec = Vec3::new(gx, gy, gz) * parameters.dist_ac() / 3f32.sqrt();
-            let t = ((i + 1) as f32) / ((self.nb_nucl + 2) as f32);
+            let rand_vec = Vec3::new(gx, gy, gz) * parameters.dist_ac() / 3f32.sqrt() / 10.0;
+            let t = ((i + 1) as f32) / ((self.nb_nucl + 1) as f32);
             let initial_pos = if let Some(arc) = circle_arc.as_ref() {
                 arc.position(t)
             } else {
@@ -184,6 +184,7 @@ impl InsertionDescriptor {
             ret.push(initial_pos);
         }
 
+        /*
         let mut speed = vec![Vec3::zero(); self.nb_nucl];
         for _ in 0..NB_STEP {
             let mut forces: Vec<Vec3> = speed.iter().map(|s| -*s * FRICTION / MASS_NUCL).collect();
@@ -214,6 +215,7 @@ impl InsertionDescriptor {
                 *pos_a += speed[a_id] * DT_STEP
             }
         }
+        */
 
         ret
     }
