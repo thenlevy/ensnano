@@ -72,7 +72,7 @@ impl ParametersTab {
         ));
 
         extra_jump!(10, ret);
-        section!(ret, ui_size, "DNA parameters");
+        section!(ret, ui_size, "P-stick model");
         for line in app_state.get_dna_parameters().formated_string().lines() {
             ret = ret.push(Text::new(line));
         }

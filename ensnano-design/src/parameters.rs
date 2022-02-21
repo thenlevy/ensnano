@@ -94,15 +94,11 @@ impl Parameters {
     pub fn formated_string(&self) -> String {
         use std::fmt::Write;
         let mut ret = String::new();
-        writeln!(&mut ret, "  Z step: {:.3} nm", self.z_step).unwrap_or_default();
-        writeln!(&mut ret, "  Helix radius: {:.2} nm", self.helix_radius).unwrap_or_default();
-        writeln!(&mut ret, "  #Bases per turn: {:.2}", self.bases_per_turn).unwrap_or_default();
-        writeln!(
-            &mut ret,
-            "  Minor groove angle: {:.1}°",
-            self.groove_angle.to_degrees()
-        )
-        .unwrap_or_default();
+        writeln!(&mut ret, "  Radius: {:.3} nm", self.helix_radius).unwrap_or_default();
+        writeln!(&mut ret, "  Rise: {:.3} nm", self.z_step).unwrap_or_default();
+        writeln!(&mut ret, "  Inclination {:.3} nm", self.inclination).unwrap_or_default();
+        writeln!(&mut ret, "  Helicity: {:.2} bp", self.bases_per_turn).unwrap_or_default();
+        writeln!(&mut ret, "  Axis: {:.1}°", self.groove_angle.to_degrees()).unwrap_or_default();
         writeln!(
             &mut ret,
             "  Inter helix gap: {:.2} nm",
@@ -149,7 +145,34 @@ impl Parameters {
     pub fn dist_ac2(&self) -> f32 {
         SQRT_2 * (1. - self.angle_aoc2().cos()).sqrt() * self.helix_radius
     }
+
+    pub fn name(&self) -> &'static str {
+        let mut best_name = "Unamed parameters";
+        let mut best_delta = f32::INFINITY;
+        for (name, p) in NAMED_DNA_PARAMETERS.iter() {
+            let delta = self.delta_model(p);
+            if delta < best_delta {
+                best_name = name;
+                best_delta = delta;
+            }
+        }
+        best_name
+    }
+
+    fn delta_model(&self, other: &Self) -> f32 {
+        (self.inclination - other.inclination).abs()
+            + (self.helix_radius - other.helix_radius).abs()
+            + (self.inter_helix_gap - other.inter_helix_gap).abs()
+            + (self.groove_angle - other.groove_angle).abs()
+            + (self.z_step - other.z_step).abs()
+            + (self.bases_per_turn - other.bases_per_turn).abs()
+    }
 }
+
+pub const NAMED_DNA_PARAMETERS: [(&'static str, Parameters); 2] = [
+    ("Old ENSnano", Parameters::OLD_ENSNANO),
+    ("Geary 2014", Parameters::GEARY_2014_DNA),
+];
 
 #[cfg(test)]
 mod tests {
