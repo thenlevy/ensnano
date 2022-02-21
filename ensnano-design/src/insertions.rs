@@ -40,7 +40,7 @@ struct CircleArc {
 impl CircleArc {
     fn position(&self, t: f32) -> Vec3 {
         let angle = if self.bigger_than_half_circle {
-            (PI - self.start_angle) * (1. - t) + t * (-PI - self.start_angle)
+            (PI - self.start_angle) * (1. - t) + t * (-PI + self.start_angle)
         } else {
             (self.start_angle) * (1. - t) - t * self.start_angle
         };
@@ -78,11 +78,11 @@ impl InsertionDescriptor {
                 let (mut a, mut b, increasing) = if objective_len > PI * edge_direction.mag() {
                     let a = 0.0;
                     let b = ((2. * objective_len).powi(2) - d.powi(2)).sqrt();
-                    (a, b, true)
+                    (a, 2. * b, true)
                 } else {
                     let a = 0.0;
                     let b = 10. * d;
-                    if arc_length(a, b, false) > objective_len {
+                    if cord_length(a, b, false, self.nb_nucl) > parameters.dist_ac() {
                         // the objective_len is very close to the length of the straight line
                         // between the to exremities
                         return None;
@@ -91,7 +91,9 @@ impl InsertionDescriptor {
                 };
                 let mut c = (b + a) / 2.;
                 while b - a > 1e-3 {
-                    if (arc_length(d, c, increasing) > objective_len) == increasing {
+                    if (cord_length(d, c, increasing, self.nb_nucl) > parameters.dist_ac())
+                        == increasing
+                    {
                         // decrease the length
                         b = c;
                     } else {
@@ -119,14 +121,15 @@ impl InsertionDescriptor {
     }
 }
 
-fn arc_length(d: f32, h: f32, increasing: bool) -> f32 {
+fn cord_length(d: f32, h: f32, increasing: bool, nb_nucl: usize) -> f32 {
     let r = (d * d + h * h).sqrt();
-    let angle = if increasing {
+    let total_angle = if increasing {
         TAU - 2. * (d / h).atan()
     } else {
         2. * (d / h).atan()
     };
-    r * angle
+    let small_angle = total_angle / (nb_nucl as f32 + 1.);
+    2. * r * (small_angle / 2.).sin()
 }
 struct InsertionEdge {
     prime_5: InsertionEnd,
@@ -177,14 +180,13 @@ impl InsertionDescriptor {
             let rand_vec = Vec3::new(gx, gy, gz) * parameters.dist_ac() / 3f32.sqrt() / 10.0;
             let t = ((i + 1) as f32) / ((self.nb_nucl + 1) as f32);
             let initial_pos = if let Some(arc) = circle_arc.as_ref() {
-                arc.position(t)
+                arc.position(t) + rand_vec
             } else {
                 self.dest_pos() * t + self.source_pos() * (1. - t) + rand_vec
             };
             ret.push(initial_pos);
         }
 
-        /*
         let mut speed = vec![Vec3::zero(); self.nb_nucl];
         for _ in 0..NB_STEP {
             let mut forces: Vec<Vec3> = speed.iter().map(|s| -*s * FRICTION / MASS_NUCL).collect();
@@ -215,7 +217,6 @@ impl InsertionDescriptor {
                 *pos_a += speed[a_id] * DT_STEP
             }
         }
-        */
 
         ret
     }
