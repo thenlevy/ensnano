@@ -473,11 +473,12 @@ impl DesignContent {
                             color_map.insert(bound_id, color);
                             strand_map.insert(bound_id, *s_id);
                             helix_map.insert(bound_id, nucl.helix);
-                        } else if let Some(prev_pos) = old_pos {
+                        } else if let Some(prev_pos) = old_pos.take() {
                             loopout_bonds.push((prev_pos, position.into(), color));
                         }
                         old_nucl = Some(nucl);
                         old_nucl_id = Some(nucl_id);
+                        old_pos = Some(position.into());
                     }
                     if strand.junctions.len() <= i {
                         log::debug!("{:?}", strand.junctions);
@@ -490,6 +491,7 @@ impl DesignContent {
                 {
                     if let Some(instanciation) = instanciation.as_ref() {
                         for pos in instanciation.as_ref().pos().iter() {
+                            println!("Pushing loopout nucl {:?}", pos);
                             loopout_nucls.push((*pos, color));
                             if let Some(prev_pos) = old_pos.take() {
                                 loopout_bonds.push((prev_pos, *pos, color));
@@ -547,6 +549,7 @@ impl DesignContent {
             }
             old_nucl = None;
             old_nucl_id = None;
+            old_pos = None;
         }
         for g_id in 0..grid_manager.grids.len() {
             elements.push(DnaElement::Grid {

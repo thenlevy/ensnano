@@ -312,6 +312,14 @@ impl Reader3D for DesignReader {
             false
         }
     }
+
+    fn get_all_loopout_nucl(&self) -> &[(Vec3, u32)] {
+        &self.presenter.content.loopout_nucls
+    }
+
+    fn get_all_loopout_bonds(&self) -> &[(Vec3, Vec3, u32)] {
+        &self.presenter.content.loopout_bonds
+    }
 }
 
 impl Presenter {}

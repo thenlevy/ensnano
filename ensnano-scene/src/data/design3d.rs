@@ -86,7 +86,19 @@ impl<R: DesignReader> Design3D<R> {
     /// Return the list of raw sphere instances to be displayed to represent the design
     pub fn get_spheres_raw(&self) -> Rc<Vec<RawDnaInstance>> {
         let ids = self.design.get_all_visible_nucl_ids();
-        Rc::new(self.id_to_raw_instances(ids))
+        let mut ret = self.id_to_raw_instances(ids);
+        for (pos, color) in self.design.get_all_loopout_nucl() {
+            ret.push(
+                SphereInstance {
+                    position: *pos,
+                    color: Instance::color_from_u32(*color),
+                    id: 0,
+                    radius: 1.,
+                }
+                .to_raw_instance(),
+            );
+        }
+        Rc::new(ret)
     }
 
     pub fn get_pasted_strand(&self) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
@@ -153,7 +165,11 @@ impl<R: DesignReader> Design3D<R> {
     /// Return the list of tube instances to be displayed to represent the design
     pub fn get_tubes_raw(&self) -> Rc<Vec<RawDnaInstance>> {
         let ids = self.design.get_all_visible_bound_ids();
-        Rc::new(self.id_to_raw_instances(ids))
+        let mut ret = self.id_to_raw_instances(ids);
+        for (a, b, color) in self.design.get_all_loopout_bonds() {
+            ret.push(create_dna_bound(*a, *b, *color, 0, false).to_raw_instance())
+        }
+        Rc::new(ret)
     }
 
     pub fn get_model_matrix(&self) -> Mat4 {
@@ -904,4 +920,6 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)>;
+    fn get_all_loopout_nucl(&self) -> &[(Vec3, u32)];
+    fn get_all_loopout_bonds(&self) -> &[(Vec3, Vec3, u32)];
 }
