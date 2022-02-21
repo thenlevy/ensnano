@@ -49,18 +49,24 @@ pub struct Parameters {
     pub inclination: f32,
 }
 
+const INTER_CENTER_GAP: f32 =
+    Parameters::OLD_ENSNANO.helix_radius + Parameters::OLD_ENSNANO.inter_helix_gap / 2.;
+
 impl Parameters {
     /// Value used for versions >= 0.4.1.
     /// Taken from "Design Principles for Single-Stranded RNA Origami Structures, Geary & Andersen
     /// 2014
-    pub const GEARY_2014_DNA: Parameters = Parameters {
-        z_step: 0.34,
-        helix_radius: 0.93,
-        bases_per_turn: 10.44,
-        groove_angle: 170.4 / 180.0 * std::f32::consts::PI,
-        inclination: 0.375,
-        // From Paul's paper.
-        inter_helix_gap: 0.65,
+    pub const GEARY_2014_DNA: Parameters = {
+        let helix_radius = 0.93;
+        Parameters {
+            z_step: 0.34,
+            helix_radius,
+            bases_per_turn: 10.44,
+            groove_angle: 170.4 / 180.0 * std::f32::consts::PI,
+            inclination: 0.375,
+            // From Paul's paper.
+            inter_helix_gap: 2. * (INTER_CENTER_GAP - helix_radius),
+        }
     };
 
     pub const DEFAULT: Self = Self::GEARY_2014_DNA;

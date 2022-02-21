@@ -1527,7 +1527,7 @@ impl Helix {
             -p.inclination / 2.
         };
         let mut ret = Vec3::new(
-            n as f32 * p.z_step + delta_inclination,
+            n as f32 * p.z_step - delta_inclination,
             theta.sin() * p.helix_radius,
             theta.cos() * p.helix_radius,
         );
