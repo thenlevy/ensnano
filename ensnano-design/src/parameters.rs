@@ -98,12 +98,7 @@ impl Parameters {
         writeln!(&mut ret, "  Rise: {:.3} nm", self.z_step).unwrap_or_default();
         writeln!(&mut ret, "  Inclination {:.3} nm", self.inclination).unwrap_or_default();
         writeln!(&mut ret, "  Helicity: {:.2} bp", self.bases_per_turn).unwrap_or_default();
-        writeln!(
-            &mut ret,
-            "  Axis: {:.1}°",
-            self.groove_angle.to_degrees()
-        )
-        .unwrap_or_default();
+        writeln!(&mut ret, "  Axis: {:.1}°", self.groove_angle.to_degrees()).unwrap_or_default();
         writeln!(
             &mut ret,
             "  Inter helix gap: {:.2} nm",
@@ -165,7 +160,7 @@ impl Parameters {
     }
 
     fn delta_model(&self, other: &Self) -> f32 {
-        (self.inclination - other.inclination).abs() 
+        (self.inclination - other.inclination).abs()
             + (self.helix_radius - other.helix_radius).abs()
             + (self.inter_helix_gap - other.inter_helix_gap).abs()
             + (self.groove_angle - other.groove_angle).abs()
@@ -174,7 +169,10 @@ impl Parameters {
     }
 }
 
-pub const NAMED_DNA_PARAMETERS: [(&'static str, Parameters); 2] = [("Old ENSnano", Parameters::OLD_ENSNANO), ("Geary 2014", Parameters::GEARY_2014_DNA)];
+pub const NAMED_DNA_PARAMETERS: [(&'static str, Parameters); 2] = [
+    ("Old ENSnano", Parameters::OLD_ENSNANO),
+    ("Geary 2014", Parameters::GEARY_2014_DNA),
+];
 
 #[cfg(test)]
 mod tests {
