@@ -283,6 +283,13 @@ impl Controller {
                 },
                 design,
             )),
+            DesignOperation::SetDnaParameters { parameters } => Ok(self.ok_apply(
+                |_, mut d| {
+                    d.parameters = Some(parameters);
+                    d
+                },
+                design,
+            )),
         };
         if let Ok(ret) = &mut ret {
             ret.0.set_label(label);

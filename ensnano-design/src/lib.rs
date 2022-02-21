@@ -53,7 +53,7 @@ pub mod design_operations;
 pub mod utils;
 
 mod parameters;
-pub use parameters::Parameters;
+pub use parameters::*;
 
 /// Re-export ultraviolet for linear algebra
 pub use ultraviolet::*;
