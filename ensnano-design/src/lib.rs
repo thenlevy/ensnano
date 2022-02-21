@@ -42,7 +42,7 @@ pub mod group_attributes;
 use group_attributes::GroupAttribute;
 
 mod parameters;
-pub use parameters::Parameters;
+pub use parameters::*;
 
 /// Re-export ultraviolet for linear algebra
 pub use ultraviolet::*;

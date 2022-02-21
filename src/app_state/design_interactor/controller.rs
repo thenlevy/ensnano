@@ -253,6 +253,13 @@ impl Controller {
                 |c, d| c.set_grid_orientation(d, grid_id, orientation),
                 design,
             ),
+            DesignOperation::SetDnaParameters { parameters } => Ok(self.ok_apply(
+                |_, mut d| {
+                    d.parameters = Some(parameters);
+                    d
+                },
+                design,
+            )),
         }
     }
 

@@ -45,6 +45,7 @@ pub struct Parameters {
     pub inter_helix_gap: f32,
 
     /// The inclination of paired phosphates relative to the helical axis
+    #[serde(default)]
     pub inclination: f32,
 }
 
@@ -146,13 +147,13 @@ impl Parameters {
         SQRT_2 * (1. - self.angle_aoc2().cos()).sqrt() * self.helix_radius
     }
 
-    pub fn name(&self) -> &'static str {
-        let mut best_name = "Unamed parameters";
+    pub fn name(&self) -> &'static NamedParameter {
+        let mut best_name = &NAMED_DNA_PARAMETERS[0];
         let mut best_delta = f32::INFINITY;
-        for (name, p) in NAMED_DNA_PARAMETERS.iter() {
-            let delta = self.delta_model(p);
+        for p in NAMED_DNA_PARAMETERS.iter() {
+            let delta = self.delta_model(&p.value);
             if delta < best_delta {
-                best_name = name;
+                best_name = p;
                 best_delta = delta;
             }
         }
@@ -169,10 +170,36 @@ impl Parameters {
     }
 }
 
-pub const NAMED_DNA_PARAMETERS: [(&'static str, Parameters); 2] = [
-    ("Old ENSnano", Parameters::OLD_ENSNANO),
-    ("Geary 2014", Parameters::GEARY_2014_DNA),
+#[derive(Clone, Debug)]
+pub struct NamedParameter {
+    pub name: &'static str,
+    pub value: Parameters,
+}
+
+impl ToString for NamedParameter {
+    fn to_string(&self) -> String {
+        self.name.to_string()
+    }
+}
+
+pub const NAMED_DNA_PARAMETERS: [NamedParameter; 2] = [
+    NamedParameter {
+        name: "Old ENSnano",
+        value: Parameters::OLD_ENSNANO,
+    },
+    NamedParameter {
+        name: "Geary 2014",
+        value: Parameters::GEARY_2014_DNA,
+    },
 ];
+
+impl PartialEq for NamedParameter {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl Eq for NamedParameter {}
 
 #[cfg(test)]
 mod tests {
