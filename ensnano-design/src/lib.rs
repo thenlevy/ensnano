@@ -1346,12 +1346,30 @@ pub struct Parameters {
 
     /// Gap between two neighbouring helices.
     pub inter_helix_gap: f32,
+
+    /// The inclination of paired phosphates relative to the helical axis
+    pub inclination: f32,
 }
 
 impl Parameters {
-    /// Default values for the parameters of DNA, taken from the litterature (Wikipedia, Cargo
+    /// Value used for versions >= 0.4.1.
+    /// Taken from "Design Principles for Single-Stranded RNA Origami Structures, Geary & Andersen
+    /// 2014
+    pub const GEARY_2014_DNA: Parameters = Parameters {
+        z_step: 0.34,
+        helix_radius: 0.93,
+        bases_per_turn: 10.44,
+        groove_angle: 170.4 / 180.0 * std::f32::consts::PI,
+        inclination: 0.375,
+        // From Paul's paper.
+        inter_helix_gap: 0.65,
+    };
+
+    pub const DEFAULT: Self = Self::GEARY_2014_DNA;
+
+    /// Values used in version perior to 0.4.1, taken from the litterature (Wikipedia, Cargo
     /// sorting paper, Woo 2011).
-    pub const DEFAULT: Parameters = Parameters {
+    pub const OLD_ENSNANO: Parameters = Parameters {
         // z-step and helix radius from: Wikipedia
         z_step: 0.332,
         helix_radius: 1.,
@@ -1361,6 +1379,8 @@ impl Parameters {
         groove_angle: 2. * PI * 12. / 34.,
         // From Paul's paper.
         inter_helix_gap: 0.65,
+        // Previous version of ENSnano did not have an inclination parameter
+        inclination: 0.0,
     };
 
     pub fn from_codenano(codenano_param: &codenano::Parameters) -> Self {
@@ -1370,6 +1390,7 @@ impl Parameters {
             bases_per_turn: codenano_param.bases_per_turn as f32,
             groove_angle: codenano_param.groove_angle as f32,
             inter_helix_gap: codenano_param.inter_helix_gap as f32,
+            inclination: 0.0,
         }
     }
 
@@ -1596,8 +1617,13 @@ impl Helix {
     /// 3D position of a nucleotide on this helix. `n` is the position along the axis, and `forward` is true iff the 5' to 3' direction of the strand containing that nucleotide runs in the same direction as the axis of the helix.
     pub fn space_pos(&self, p: &Parameters, n: isize, forward: bool) -> Vec3 {
         let theta = self.theta(n, forward, p);
+        let delta_inclination = if forward {
+            p.inclination / 2.
+        } else {
+            -p.inclination / 2.
+        };
         let mut ret = Vec3::new(
-            n as f32 * p.z_step,
+            n as f32 * p.z_step + delta_inclination,
             theta.sin() * p.helix_radius,
             theta.cos() * p.helix_radius,
         );
