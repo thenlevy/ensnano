@@ -18,6 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use ultraviolet::{Isometry2, Mat3, Rotor2, Vec2};
 
 #[derive(Clone, Debug, Copy)]
+/// A transformation made of a symmetry, a rotation and a translation, applied in that order.
 pub struct FullIsometry {
     pub translation: Vec2,
     pub rotation: Rotor2,
@@ -35,10 +36,12 @@ impl FullIsometry {
 
     pub fn into_homogeneous_matrix(self) -> Mat3 {
         let mut sym_rot = self.rotation.into_matrix().into_homogeneous();
-        sym_rot[0][0] *= self.symmetry.x;
-        sym_rot[0][1] *= self.symmetry.x;
-        sym_rot[1][0] *= self.symmetry.y;
-        sym_rot[1][1] *= self.symmetry.y;
+        sym_rot[0] *= self.symmetry.x;
+        sym_rot[1] *= self.symmetry.y;
         Mat3::from_translation(self.translation) * sym_rot
+    }
+
+    pub fn matrix_without_symetry(self) -> Mat3 {
+        self.rotation.into_matrix().into_homogeneous()
     }
 }

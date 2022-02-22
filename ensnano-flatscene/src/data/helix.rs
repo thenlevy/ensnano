@@ -186,10 +186,13 @@ impl Helix {
     }
 
     pub fn model(&self) -> HelixModel {
+        let mut rotation = self.isometry.rotation.into_matrix();
+        rotation[0] *= self.isometry.symmetry.x;
+        rotation[1] *= self.isometry.symmetry.y;
         HelixModel {
             color: Instance::color_from_u32(self.color),
             position: self.isometry.translation,
-            rotation: self.isometry.rotation.into_matrix(),
+            rotation,
             z_index: self.z_index,
             stroke_width: self.stroke_width,
         }
@@ -616,7 +619,7 @@ impl Helix {
                 .transform_point2(-Vec2::unit_y()),
             direction: self
                 .isometry
-                .into_homogeneous_matrix()
+                .matrix_without_symetry()
                 .transform_vec2(Vec2::unit_x()),
         }
     }
@@ -629,7 +632,7 @@ impl Helix {
                 .transform_point2(Vec2::zero()),
             direction: self
                 .isometry
-                .into_homogeneous_matrix()
+                .matrix_without_symetry()
                 .transform_vec2(Vec2::unit_x()),
         }
     }
@@ -642,7 +645,7 @@ impl Helix {
                 .transform_point2(2. * Vec2::unit_y()),
             direction: self
                 .isometry
-                .into_homogeneous_matrix()
+                .matrix_without_symetry()
                 .transform_vec2(-Vec2::unit_x()),
         }
     }
