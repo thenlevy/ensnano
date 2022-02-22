@@ -21,7 +21,9 @@ use std::sync::{Arc, Mutex};
 use super::super::{FlatHelix, FlatIdx, FlatNucl, Requests};
 use super::{Flat, HelixVec, Nucl, Strand};
 use ahash::RandomState;
-use ensnano_design::{ultraviolet, Extremity, Helix as DesignHelix, Strand as StrandDesign};
+use ensnano_design::{
+    ultraviolet, Extremity, Helix as DesignHelix, HelixCollection, Strand as StrandDesign,
+};
 use ensnano_interactor::{torsion::Torsion, Referential};
 use ultraviolet::{Isometry2, Rotor2, Vec2, Vec3};
 
@@ -40,7 +42,7 @@ pub(super) struct Design2d<R: DesignReader> {
     removed: BTreeSet<FlatIdx>,
     requests: Arc<Mutex<dyn Requests>>,
     known_helices: HashMap<usize, *const DesignHelix>,
-    known_map: *const BTreeMap<usize, Arc<DesignHelix>>,
+    known_map: *const ensnano_design::Helices,
 }
 
 impl<R: DesignReader> Design2d<R> {
@@ -211,14 +213,21 @@ impl<R: DesignReader> Design2d<R> {
     }
 
     fn update_helices(&mut self) {
-        if self.known_map == Arc::as_ptr(&self.design.get_helices_map()) {
+        if std::ptr::eq(self.known_map, self.design.get_helices_map()) {
+            // Nothing to do
             return;
         }
         let helices = self.design.get_helices_map();
-        self.known_map = Arc::as_ptr(&helices);
+        self.known_map = helices;
         for (h_id, helix) in helices.iter() {
-            if self.known_helices.get(h_id) != Some(&Arc::as_ptr(helix)) {
-                self.known_helices.insert(*h_id, Arc::as_ptr(helix));
+            // update helix only if necessary
+            if self
+                .known_helices
+                .get(h_id)
+                .filter(|ptr| std::ptr::eq(**ptr, helix))
+                .is_none()
+            {
+                self.known_helices.insert(*h_id, helix);
                 let iso_opt = self.design.get_isometry(*h_id);
                 let isometry = if let Some(iso) = iso_opt {
                     iso
@@ -461,7 +470,7 @@ pub trait DesignReader: 'static {
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn helix_is_empty(&self, h_id: usize) -> Option<bool>;
-    fn get_helices_map(&self) -> Arc<BTreeMap<usize, Arc<DesignHelix>>>;
+    fn get_helices_map(&self) -> &ensnano_design::Helices;
     fn get_raw_helix(&self, h_id: usize) -> Option<Arc<DesignHelix>>;
     fn get_raw_strand(&self, s_id: usize) -> Option<StrandDesign>;
     fn is_xover_end(&self, nucl: &Nucl) -> Extremity;

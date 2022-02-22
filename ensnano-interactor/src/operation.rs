@@ -16,6 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::BezierControlPoint;
+
 use super::{DesignOperation, DesignRotation, DesignTranslation, GroupId, IsometryTarget};
 use ensnano_design::{
     grid::{GridDescriptor, GridTypeDescr},
@@ -290,6 +292,83 @@ impl Operation for DesignViewTranslation {
 }
 
 #[derive(Debug, Clone)]
+pub struct BezierControlPointTranslation {
+    pub design_id: usize,
+    pub control_points: Vec<(usize, BezierControlPoint)>,
+    pub right: Vec3,
+    pub top: Vec3,
+    pub dir: Vec3,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub snap: bool,
+    pub group_id: Option<GroupId>,
+}
+
+impl Operation for BezierControlPointTranslation {
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![
+            Parameter {
+                field: ParameterField::Value,
+                name: String::from("x"),
+            },
+            Parameter {
+                field: ParameterField::Value,
+                name: String::from("y"),
+            },
+            Parameter {
+                field: ParameterField::Value,
+                name: String::from("z"),
+            },
+        ]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![self.x.to_string(), self.y.to_string(), self.z.to_string()]
+    }
+
+    fn effect(&self) -> DesignOperation {
+        let translation = self.x * self.right + self.y * self.top + self.z * self.dir;
+        DesignOperation::Translation(DesignTranslation {
+            translation,
+            target: IsometryTarget::ControlPoint(self.control_points.clone()),
+            group_id: self.group_id,
+        })
+    }
+
+    fn description(&self) -> String {
+        format!("Translate control points {:?}", self.control_points,)
+    }
+
+    fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>> {
+        match n {
+            0 => {
+                let new_x: f32 = val.parse().ok()?;
+                Some(Arc::new(Self {
+                    x: new_x,
+                    ..self.clone()
+                }))
+            }
+            1 => {
+                let new_y: f32 = val.parse().ok()?;
+                Some(Arc::new(Self {
+                    y: new_y,
+                    ..self.clone()
+                }))
+            }
+            2 => {
+                let new_z: f32 = val.parse().ok()?;
+                Some(Arc::new(Self {
+                    z: new_z,
+                    ..self.clone()
+                }))
+            }
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct HelixTranslation {
     pub design_id: usize,
     pub helices: Vec<usize>,
@@ -481,7 +560,7 @@ impl Operation for GridHelixCreation {
 
     fn effect(&self) -> DesignOperation {
         DesignOperation::AddGridHelix {
-            position: ensnano_design::grid::GridPosition {
+            position: ensnano_design::grid::HelixGridPosition {
                 grid: self.grid_id,
                 x: self.x,
                 y: self.y,
@@ -684,11 +763,11 @@ impl Operation for CreateGrid {
         match n {
             0 => match val.as_str() {
                 "Square" => Some(Arc::new(Self {
-                    grid_type: GridTypeDescr::Square,
+                    grid_type: GridTypeDescr::Square { twist: None },
                     ..*self
                 })),
                 "Honeycomb" => Some(Arc::new(Self {
-                    grid_type: GridTypeDescr::Honeycomb,
+                    grid_type: GridTypeDescr::Honeycomb { twist: None },
                     ..*self
                 })),
                 _ => None,

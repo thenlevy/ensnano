@@ -18,7 +18,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 //! This modules defines the `Controller` struct which handles windows and dialog interactions.
 
-use ensnano_design::Nucl;
+use crate::PastePosition;
+mod download_intervals;
 mod download_staples;
 use download_staples::*;
 pub use download_staples::{DownloadStappleError, DownloadStappleOk, StaplesDownloader};
@@ -57,6 +58,7 @@ impl Controller {
     }
 
     pub(crate) fn make_progress(&mut self, main_state: &mut dyn MainState) {
+        main_state.check_backup();
         if main_state.need_backup() {
             if let Err(e) = main_state.save_backup() {
                 log::error!("{:?}", e);
@@ -190,14 +192,13 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn toggle_split_mode(&mut self, mode: SplitMode);
     fn oxdna_export(&mut self, path: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)>;
     fn change_ui_size(&mut self, ui_size: UiSize);
-    fn invert_scroll_y(&mut self, inverted: bool);
     fn notify_apps(&mut self, notificiation: Notification);
     fn get_selection(&mut self) -> Box<dyn AsRef<[Selection]>>;
     fn get_design_reader(&mut self) -> Box<dyn DesignReader>;
     fn get_grid_creation_position(&self) -> Option<(Vec3, Rotor3)>;
     fn finish_operation(&mut self);
     fn request_copy(&mut self);
-    fn request_pasting_candidate(&mut self, candidate: Option<Nucl>);
+    fn request_pasting_candidate(&mut self, candidate: Option<PastePosition>);
     fn init_paste(&mut self);
     fn apply_paste(&mut self);
     fn duplicate(&mut self);
@@ -221,8 +222,12 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn select_camera(&mut self, camera_id: ensnano_design::CameraId);
     fn select_favorite_camera(&mut self, n_camera: u32);
     fn update_camera(&mut self, camera_id: ensnano_design::CameraId);
+    fn toggle_2d(&mut self);
+    fn make_all_suggested_xover(&mut self, doubled: bool);
     fn need_backup(&self) -> bool;
+    fn check_backup(&mut self);
     fn flip_split_views(&mut self);
+    fn start_twist(&mut self, g_id: usize);
 }
 
 pub struct LoadDesignError(String);

@@ -44,7 +44,9 @@ pub struct TopBar<R: Requests, S: AppState> {
     button_help: button::State,
     button_tutorial: button::State,
     button_reload: button::State,
+    button_toggle_2d: button::State,
     button_new_empty_design: button::State,
+    button_thick_helices: button::State,
     horizon_button: button::State,
     requests: Arc<Mutex<R>>,
     logical_size: LogicalSize<f64>,
@@ -62,6 +64,7 @@ pub struct MainState<S: AppState> {
     pub need_save: bool,
     pub can_reload: bool,
     pub can_split2d: bool,
+    pub can_toggle_2d: bool,
     pub splited_2d: bool,
 }
 
@@ -85,12 +88,18 @@ pub enum Message<S: AppState> {
     ButtonNewEmptyDesignPressed,
     ActionModeChanged(ActionMode),
     SelectionModeChanged(SelectionMode),
+    Toggle2D,
     Reload,
     FlipSplitViews,
+    ThickHelices(bool),
 }
 
 impl<R: Requests, S: AppState> TopBar<R, S> {
-    pub fn new(requests: Arc<Mutex<R>>, logical_size: LogicalSize<f64>) -> Self {
+    pub fn new(
+        requests: Arc<Mutex<R>>,
+        logical_size: LogicalSize<f64>,
+        application_state: MainState<S>,
+    ) -> Self {
         Self {
             button_fit: Default::default(),
             button_add_file: Default::default(),
@@ -109,12 +118,14 @@ impl<R: Requests, S: AppState> TopBar<R, S> {
             button_tutorial: Default::default(),
             button_new_empty_design: Default::default(),
             button_reload: Default::default(),
+            button_toggle_2d: Default::default(),
+            button_thick_helices: Default::default(),
             requests,
             logical_size,
             action_mode_state: Default::default(),
             selection_mode_state: Default::default(),
             ui_size: Default::default(),
-            application_state: Default::default(),
+            application_state,
         }
     }
 
@@ -180,7 +191,11 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
                     }
                 }
             }
+            Message::Toggle2D => {
+                self.requests.lock().unwrap().toggle_2d();
+            }
             Message::FlipSplitViews => self.requests.lock().unwrap().flip_split_views(),
+            Message::ThickHelices(b) => self.requests.lock().unwrap().set_thick_helices(b),
             Message::AlignHorizon => self.requests.lock().unwrap().align_horizon(),
         };
         Command::none()
@@ -288,6 +303,19 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
         let button_3d = Button::new(&mut self.button_3d, iced::Text::new("3D"))
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Scene3D));
+        let button_thick_helices = if self.application_state.app_state.want_thick_helices() {
+            Button::new(
+                &mut self.button_thick_helices,
+                light_icon(LightIcon::Dehaze, self.ui_size),
+            )
+            .on_press(Message::ThickHelices(false))
+        } else {
+            Button::new(
+                &mut self.button_thick_helices,
+                light_icon(LightIcon::Water, self.ui_size),
+            )
+            .on_press(Message::ThickHelices(true))
+        };
         let button_split = Button::new(&mut self.button_split, iced::Text::new("3D+2D"))
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Both));
@@ -311,6 +339,14 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
 
         if self.application_state.can_split2d {
             button_split_2d = button_split_2d.on_press(Message::Split2d);
+        }
+
+        let mut button_toggle_2d =
+            Button::new(&mut self.button_toggle_2d, iced::Text::new("Toggle 2D"))
+                .height(Length::Units(self.ui_size.button()));
+
+        if self.application_state.can_toggle_2d {
+            button_toggle_2d = button_toggle_2d.on_press(Message::Toggle2D);
         }
 
         let mut button_flip_split = Button::new(
@@ -380,9 +416,11 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .push(oxdna_tooltip)
             .push(iced::Space::with_width(Length::Units(10)))
             .push(button_3d)
+            .push(button_thick_helices)
             .push(button_2d)
             .push(button_split)
             .push(button_split_2d)
+            .push(button_toggle_2d)
             .push(button_flip_split)
             .push(iced::Space::with_width(Length::Units(10)))
             .push(button_fit)

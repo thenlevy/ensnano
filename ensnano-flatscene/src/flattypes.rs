@@ -208,6 +208,7 @@ impl FlatSelection {
                 Selection::Grid(d, g_id) => Self::Grid(*d as usize, *g_id),
                 Selection::Phantom(pe) => Self::Phantom(pe.clone()),
                 Selection::Nothing => Self::Nothing,
+                Selection::BezierControlPoint { .. } => Self::Nothing,
             }
         } else {
             Self::Nothing

@@ -23,14 +23,14 @@ mod poll;
 
 use super::gui::UiSize;
 use super::*;
-use ensnano_interactor::CenterOfSelection;
 use ensnano_interactor::{application::AppId, RollRequest, Selection};
+use ensnano_interactor::{CenterOfSelection, CheckXoversParameter};
 pub(crate) use poll::poll_all;
 use ultraviolet::Vec3;
 
 use super::gui::OrganizerTree;
 use super::scene::FogParameters;
-use ensnano_design::grid::GridTypeDescr;
+use ensnano_design::grid::{GridPosition, GridTypeDescr};
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     Nucl,
@@ -115,8 +115,16 @@ pub struct Requests {
     pub toggle_widget_basis: Option<()>,
     pub stop_roll: Option<()>,
     pub new_paste_candiate: Option<Option<Nucl>>,
+    pub new_grid_paste_candidate: Option<GridPosition>,
     pub new_double_strand_parameters: Option<Option<(isize, usize)>>,
     pub new_center_of_selection: Option<Option<CenterOfSelection>>,
     pub new_suggestion_parameters: Option<SuggestionParameters>,
+    pub check_xover_parameters: Option<CheckXoversParameter>,
+    pub follow_stereographic_camera: Option<bool>,
+    pub set_show_stereographic_camera: Option<bool>,
+    pub set_show_h_bonds: Option<bool>,
+    pub set_invert_y_scroll: Option<bool>,
+    pub set_thick_helices: Option<bool>,
+    pub twist_simulation: Option<usize>,
     pub horizon_targeted: Option<()>,
 }

@@ -16,11 +16,22 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::Parameters;
+use crate::CurveDescriptor;
+use std::collections::{HashMap, HashSet};
+
+use super::{
+    curves,
+    design_operations::{ErrOperation, MIN_HELICES_TO_MAKE_GRID},
+    twist_to_omega, Axis, BezierControlPoint, Design, Helices, Helix, HelixCollection, Parameters,
+    Twist,
+};
+use curves::{CurveCache, GridPositionProvider, InstanciatedCurve, InstanciatedCurveDescriptor};
 mod copy_grid;
+mod deserialize;
 mod hyperboloid;
 pub use copy_grid::GridCopyError;
 pub use hyperboloid::*;
+use std::sync::Arc;
 
 use ultraviolet::{Rotor3, Vec2, Vec3};
 
@@ -42,10 +53,16 @@ pub struct GridDescriptor {
     pub invisible: bool, // by default grids are visible so we store a "negative attribute"
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub enum GridTypeDescr {
-    Square,
-    Honeycomb,
+    Square {
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        twist: Option<f64>,
+    },
+    Honeycomb {
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        twist: Option<f64>,
+    },
     Hyperboloid {
         radius: usize,
         shift: f32,
@@ -53,6 +70,16 @@ pub enum GridTypeDescr {
         radius_shift: f32,
         #[serde(skip_serializing_if = "Option::is_none", default)]
         forced_radius: Option<f32>,
+        #[serde(default)]
+        /// The number of turns arround the grid made by the helices every 100 nucleotides.
+        ///
+        /// Note that this value is subject to the constraint
+        /// |Ω| ≤ Z * r / sqrt(2π)
+        /// where
+        ///  * Ω is `self.nb_turn_per_100_nt`,
+        ///  * Z is `100.0 * Parameters::step`
+        ///  * r is `self.radius`
+        nb_turn_per_100_nt: f64,
     },
 }
 
@@ -80,36 +107,38 @@ impl GridDescriptor {
 impl GridTypeDescr {
     pub fn to_string(&self) -> String {
         match self {
-            GridTypeDescr::Square => String::from("Square"),
-            GridTypeDescr::Honeycomb => String::from("Honeycomb"),
+            GridTypeDescr::Square { .. } => String::from("Square"),
+            GridTypeDescr::Honeycomb { .. } => String::from("Honeycomb"),
             GridTypeDescr::Hyperboloid { .. } => String::from("Hyperboloid"),
         }
     }
 
     pub fn to_u32(&self) -> u32 {
         match self {
-            GridTypeDescr::Square => 0u32,
-            GridTypeDescr::Honeycomb => 1u32,
+            GridTypeDescr::Square { .. } => 0u32,
+            GridTypeDescr::Honeycomb { .. } => 1u32,
             GridTypeDescr::Hyperboloid { .. } => 2u32,
         }
     }
 
     fn to_concrete(&self) -> GridType {
         match self.clone() {
-            Self::Square => GridType::square(),
-            Self::Honeycomb => GridType::honneycomb(),
+            Self::Square { twist } => GridType::square(twist.clone()),
+            Self::Honeycomb { twist } => GridType::honneycomb(twist.clone()),
             Self::Hyperboloid {
                 radius,
                 shift,
                 forced_radius,
                 length,
                 radius_shift,
+                nb_turn_per_100_nt,
             } => GridType::Hyperboloid(Hyperboloid {
                 radius,
                 shift,
                 forced_radius,
                 length,
                 radius_shift,
+                nb_turn_per_100_nt,
             }),
         }
     }
@@ -124,11 +153,7 @@ pub enum GridType {
 
 impl GridDivision for GridType {
     fn grid_type(&self) -> GridType {
-        match self {
-            GridType::Square(SquareGrid) => GridType::Square(SquareGrid),
-            GridType::Honeycomb(HoneyComb) => GridType::Honeycomb(HoneyComb),
-            GridType::Hyperboloid(hyperboloid) => GridType::Hyperboloid(hyperboloid.clone()),
-        }
+        self.clone()
     }
 
     fn origin_helix(&self, parameters: &Parameters, x: isize, y: isize) -> Vec2 {
@@ -170,15 +195,23 @@ impl GridDivision for GridType {
             GridType::Hyperboloid(grid) => grid.translate_by_edge(x1, y1, edge),
         }
     }
+
+    fn curve(&self, x: isize, y: isize, info: CurveInfo) -> Option<Arc<CurveDescriptor>> {
+        match self {
+            GridType::Hyperboloid(grid) => grid.curve(x, y, info),
+            GridType::Square(grid) => grid.curve(x, y, info),
+            GridType::Honeycomb(grid) => grid.curve(x, y, info),
+        }
+    }
 }
 
 impl GridType {
-    pub fn square() -> Self {
-        Self::Square(SquareGrid)
+    pub fn square(twist: Option<f64>) -> Self {
+        Self::Square(SquareGrid { twist })
     }
 
-    pub fn honneycomb() -> Self {
-        Self::Honeycomb(HoneyComb)
+    pub fn honneycomb(twist: Option<f64>) -> Self {
+        Self::Honeycomb(HoneyComb { twist })
     }
 
     pub fn hyperboloid(h: Hyperboloid) -> Self {
@@ -187,14 +220,19 @@ impl GridType {
 
     pub fn descr(&self) -> GridTypeDescr {
         match self {
-            GridType::Square(_) => GridTypeDescr::Square,
-            GridType::Honeycomb(_) => GridTypeDescr::Honeycomb,
+            GridType::Square(SquareGrid { twist }) => GridTypeDescr::Square {
+                twist: twist.clone(),
+            },
+            GridType::Honeycomb(HoneyComb { twist }) => GridTypeDescr::Honeycomb {
+                twist: twist.clone(),
+            },
             GridType::Hyperboloid(h) => GridTypeDescr::Hyperboloid {
                 radius: h.radius,
                 shift: h.shift,
                 length: h.length,
                 radius_shift: h.radius_shift,
                 forced_radius: h.forced_radius,
+                nb_turn_per_100_nt: h.nb_turn_per_100_nt,
             },
         }
     }
@@ -204,6 +242,14 @@ impl GridType {
             GridType::Square(_) => None,
             GridType::Honeycomb(_) => None,
             GridType::Hyperboloid(h) => Some(h.shift),
+        }
+    }
+
+    pub fn get_nb_turn(&self) -> Option<f64> {
+        match self {
+            GridType::Square(s) => s.twist.clone(),
+            GridType::Honeycomb(h) => h.twist.clone(),
+            GridType::Hyperboloid(h) => Some(h.nb_turn_per_100_nt),
         }
     }
 
@@ -298,36 +344,43 @@ impl Grid {
         )
     }
 
-    pub fn find_helix_position(&self, helix: &super::Helix, g_id: usize) -> Option<GridPosition> {
-        let super::Axis { origin, direction } = helix.get_axis(&self.parameters);
-        let (x, y) = self.interpolate_helix(origin, direction)?;
-        let intersection = self.position_helix(x, y);
-        // direction is the vector from the origin of the helix to its first axis position
-        let axis_intersection =
-            ((intersection - origin).dot(direction) / direction.mag_sq()).round() as isize;
-        let nucl_intersection = helix.space_pos(&self.parameters, axis_intersection, false);
-        let projection_nucl = self.project_point(nucl_intersection);
-        let roll = {
-            let x = (projection_nucl - intersection)
-                .dot(Vec3::unit_z().rotated_by(self.orientation))
-                / -self.parameters.helix_radius;
-            let y = (projection_nucl - intersection)
-                .dot(Vec3::unit_y().rotated_by(self.orientation))
-                / -self.parameters.helix_radius;
-            x.atan2(y)
-                - std::f32::consts::PI
-                - axis_intersection as f32 * 2. * std::f32::consts::PI
-                    / self.parameters.bases_per_turn
-        };
-        let roll = (roll + std::f32::consts::PI).rem_euclid(2. * std::f32::consts::PI)
-            - std::f32::consts::PI;
-        Some(GridPosition {
-            grid: g_id,
-            x,
-            y,
-            axis_pos: axis_intersection,
-            roll,
-        })
+    pub fn find_helix_position(
+        &self,
+        helix: &super::Helix,
+        g_id: usize,
+    ) -> Option<HelixGridPosition> {
+        if let super::Axis::Line { origin, direction } = helix.get_axis(&self.parameters) {
+            let (x, y) = self.interpolate_helix(origin, direction)?;
+            let intersection = self.position_helix(x, y);
+            // direction is the vector from the origin of the helix to its first axis position
+            let axis_intersection =
+                ((intersection - origin).dot(direction) / direction.mag_sq()).round() as isize;
+            let nucl_intersection = helix.space_pos(&self.parameters, axis_intersection, false);
+            let projection_nucl = self.project_point(nucl_intersection);
+            let roll = {
+                let x = (projection_nucl - intersection)
+                    .dot(Vec3::unit_z().rotated_by(self.orientation))
+                    / -self.parameters.helix_radius;
+                let y = (projection_nucl - intersection)
+                    .dot(Vec3::unit_y().rotated_by(self.orientation))
+                    / -self.parameters.helix_radius;
+                x.atan2(y)
+                    - std::f32::consts::PI
+                    - axis_intersection as f32 * 2. * std::f32::consts::PI
+                        / self.parameters.bases_per_turn
+            };
+            let roll = (roll + std::f32::consts::PI).rem_euclid(2. * std::f32::consts::PI)
+                - std::f32::consts::PI;
+            Some(HelixGridPosition {
+                grid: g_id,
+                x,
+                y,
+                axis_pos: axis_intersection,
+                roll,
+            })
+        } else {
+            None
+        }
     }
 
     pub fn desc(&self) -> GridDescriptor {
@@ -337,6 +390,25 @@ impl Grid {
             grid_type: self.grid_type.descr(),
             invisible: self.invisible,
         }
+    }
+
+    pub fn make_curve(
+        &self,
+        x: isize,
+        y: isize,
+        t_min: Option<f64>,
+        t_max: Option<f64>,
+        center_of_gravitiy: Option<Vec3>,
+    ) -> Option<Arc<CurveDescriptor>> {
+        let info = CurveInfo {
+            position: center_of_gravitiy.unwrap_or(self.position),
+            orientation: self.orientation,
+            t_min,
+            t_max,
+            parameters: self.parameters.clone(),
+            grid_center: self.position,
+        };
+        self.grid_type.curve(x, y, info)
     }
 }
 
@@ -352,10 +424,25 @@ pub trait GridDivision {
     fn orientation_helix(&self, _parameters: &Parameters, _x: isize, _y: isize) -> Rotor3 {
         Rotor3::identity()
     }
+
+    /// If the helix at position (x, y) should be a curve istead of a cylinder, this method must be
+    /// overiden
+    fn curve(&self, _x: isize, _y: isize, _info: CurveInfo) -> Option<Arc<CurveDescriptor>>;
+}
+
+pub struct CurveInfo {
+    pub t_min: Option<f64>,
+    pub t_max: Option<f64>,
+    pub position: Vec3,
+    pub orientation: Rotor3,
+    pub parameters: Parameters,
+    pub grid_center: Vec3,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct SquareGrid;
+pub struct SquareGrid {
+    twist: Option<f64>,
+}
 
 impl GridDivision for SquareGrid {
     fn origin_helix(&self, parameters: &Parameters, x: isize, y: isize) -> Vec2 {
@@ -388,12 +475,40 @@ impl GridDivision for SquareGrid {
     }
 
     fn grid_type(&self) -> GridType {
-        GridType::Square(SquareGrid)
+        GridType::Square(self.clone())
+    }
+
+    fn curve(&self, x: isize, y: isize, info: CurveInfo) -> Option<Arc<CurveDescriptor>> {
+        let twist = self.twist?;
+        let omega = twist_to_omega(twist, &info.parameters)?;
+        let grid_position = self.origin_helix(&info.parameters, x, y);
+        Some(basic_curve(grid_position, omega, info))
     }
 }
 
+fn basic_curve(grid_position: Vec2, omega: f64, info: CurveInfo) -> Arc<CurveDescriptor> {
+    let z_vec = Vec3::unit_z().rotated_by(info.orientation);
+    let y_vec = Vec3::unit_y().rotated_by(info.orientation);
+    let origin_vec =
+        info.grid_center + grid_position.x * z_vec + grid_position.y * y_vec - info.position;
+    let theta0 = origin_vec.dot(y_vec).atan2(origin_vec.dot(z_vec)) as f64;
+    let radius = origin_vec.mag() as f64;
+
+    Arc::new(CurveDescriptor::Twist(Twist {
+        theta0,
+        radius,
+        position: info.position,
+        orientation: info.orientation,
+        t_max: info.t_max,
+        t_min: info.t_min,
+        omega,
+    }))
+}
+
 #[derive(Debug, Clone, Copy)]
-pub struct HoneyComb;
+pub struct HoneyComb {
+    twist: Option<f64>,
+}
 
 impl GridDivision for HoneyComb {
     fn origin_helix(&self, parameters: &Parameters, x: isize, y: isize) -> Vec2 {
@@ -453,12 +568,19 @@ impl GridDivision for HoneyComb {
     }
 
     fn grid_type(&self) -> GridType {
-        GridType::Honeycomb(HoneyComb)
+        GridType::Honeycomb(self.clone())
+    }
+
+    fn curve(&self, x: isize, y: isize, info: CurveInfo) -> Option<Arc<CurveDescriptor>> {
+        let twist = self.twist?;
+        let omega = twist_to_omega(twist, &info.parameters)?;
+        let grid_position = self.origin_helix(&info.parameters, x, y);
+        Some(basic_curve(grid_position, omega, info))
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq)]
-pub struct GridPosition {
+pub struct HelixGridPosition {
     /// Identifier of the grid
     pub grid: usize,
     /// x coordinate on the grid
@@ -471,7 +593,17 @@ pub struct GridPosition {
     pub roll: f32,
 }
 
-impl GridPosition {
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Hash, Eq)]
+pub struct GridPosition {
+    /// Identifier of the grid
+    pub grid: usize,
+    /// x coordinate on the grid
+    pub x: isize,
+    /// y coordinate on the grid
+    pub y: isize,
+}
+
+impl HelixGridPosition {
     pub fn with_roll(self, roll: Option<f32>) -> Self {
         if let Some(roll) = roll {
             Self { roll, ..self }
@@ -489,6 +621,20 @@ impl GridPosition {
             axis_pos: 0,
         }
     }
+
+    pub fn light(&self) -> GridPosition {
+        GridPosition {
+            grid: self.grid,
+            x: self.x,
+            y: self.y,
+        }
+    }
+}
+
+impl GridPosition {
+    pub fn to_helix_pos(self) -> HelixGridPosition {
+        HelixGridPosition::from_grid_id_x_y(self.grid, self.x, self.y)
+    }
 }
 
 #[derive(Clone, Debug, Copy)]
@@ -504,3 +650,724 @@ pub enum Edge {
     },
     Circle(isize),
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+/// An object lying on a grid
+pub enum GridObject {
+    Helix(usize),
+    /// A point on the grid through which a bezier helix goes.
+    BezierPoint {
+        /// The helix to which the point belong
+        helix_id: usize,
+        /// The position of the point in the list of BezierEnds,
+        n: usize,
+    },
+}
+
+impl GridObject {
+    pub fn helix(&self) -> usize {
+        match self {
+            Self::Helix(h) => *h,
+            Self::BezierPoint { helix_id, .. } => *helix_id,
+        }
+    }
+}
+
+/// A view of the design's grids, with pre-computed maps.
+#[derive(Clone, Default, Debug)]
+pub struct GridData {
+    // We borrow the grids and helices from the source that was used to build the view. This ensure
+    // that the data used to build this view are not modified during the view's lifetime.
+    pub(super) source_grids: Arc<Vec<GridDescriptor>>,
+    source_helices: Helices,
+    pub grids: Vec<Grid>,
+    object_to_pos: HashMap<GridObject, HelixGridPosition>,
+    pos_to_object: HashMap<GridPosition, GridObject>,
+    pub parameters: Parameters,
+    pub no_phantoms: Arc<HashSet<usize>>,
+    pub small_spheres: Arc<HashSet<usize>>,
+    center_of_gravity: HashMap<usize, CenterOfGravity>,
+}
+
+#[derive(Default, Debug, Clone)]
+struct CenterOfGravity {
+    center: Option<Vec3>,
+    nb: usize,
+}
+
+impl CenterOfGravity {
+    fn add_point(&mut self, point: Vec3) {
+        if self.nb == 0 {
+            self.center = Some(point);
+            self.nb = 1
+        } else {
+            let new_center = point
+                + self.nb as f32
+                    * self.center.unwrap_or_else(|| {
+                        log::error!("nb > 0 but center is none");
+                        Vec3::zero()
+                    });
+            self.nb += 1;
+            self.center = Some(new_center / (self.nb as f32))
+        }
+    }
+}
+
+impl GridData {
+    pub(super) fn is_up_to_date(&self, design: &Design) -> bool {
+        Arc::ptr_eq(&self.source_grids, &design.grids)
+            && Arc::ptr_eq(&self.source_helices.0, &design.helices.0)
+            && Arc::ptr_eq(&self.no_phantoms, &design.no_phantoms)
+            && Arc::ptr_eq(&self.small_spheres, &design.small_spheres)
+    }
+
+    pub fn get_visibility(&self, g_id: usize) -> bool {
+        self.grids.get(g_id).map(|g| !g.invisible).unwrap_or(false)
+    }
+
+    pub fn new_by_updating_design(design: &mut Design) -> Self {
+        let mut grids = Vec::new();
+        let mut object_to_pos = HashMap::new();
+        let mut pos_to_object = HashMap::new();
+        let parameters = design.parameters.unwrap_or_default();
+        let source_grids = design.grids.clone();
+        for desc in source_grids.iter() {
+            let grid = desc.to_grid(parameters.clone());
+            grids.push(grid);
+        }
+        let source_helices = design.helices.clone();
+        for (h_id, h) in design.helices.iter() {
+            if let Some(grid_position) = h.grid_position {
+                object_to_pos.insert(GridObject::Helix(*h_id), grid_position);
+                pos_to_object.insert(grid_position.light(), GridObject::Helix(*h_id));
+            }
+            if let Some(curve) = h.curve.as_ref() {
+                for (n, position) in curve.grid_positions_involved().enumerate() {
+                    object_to_pos.insert(
+                        GridObject::BezierPoint { n, helix_id: *h_id },
+                        position.to_helix_pos(),
+                    );
+                    pos_to_object.insert(*position, GridObject::BezierPoint { n, helix_id: *h_id });
+                    if n == 0 {
+                        object_to_pos.insert(GridObject::Helix(*h_id), position.to_helix_pos());
+                    }
+                }
+            }
+        }
+
+        let mut ret = Self {
+            source_grids,
+            source_helices,
+            grids,
+            object_to_pos,
+            pos_to_object,
+            parameters: design.parameters.unwrap_or_default(),
+            no_phantoms: design.no_phantoms.clone(),
+            small_spheres: design.small_spheres.clone(),
+            center_of_gravity: Default::default(),
+        };
+        ret.reposition_all_helices();
+        ret.update_all_curves(Arc::make_mut(&mut design.cached_curve));
+        ret.update_support_helices();
+        design.helices = ret.source_helices.clone();
+        ret
+    }
+
+    #[allow(dead_code)]
+    pub fn get_empty_grids_id(&self) -> HashSet<usize> {
+        let mut ret: HashSet<usize> = (0..self.grids.len()).collect();
+        for position in self.pos_to_object.keys() {
+            ret.remove(&position.grid);
+        }
+        ret
+    }
+
+    /// Reposition all the helices at their correct space position
+    fn reposition_all_helices(&mut self) {
+        let mut helices_mut = self.source_helices.make_mut();
+        for (h_id, h) in helices_mut.iter_mut() {
+            if let Some(grid_position) = h.grid_position {
+                self.object_to_pos
+                    .insert(GridObject::Helix(*h_id), grid_position);
+                self.pos_to_object
+                    .insert(grid_position.light(), GridObject::Helix(*h_id));
+                let grid = &self.grids[grid_position.grid];
+
+                let position_from_grid = grid.position_helix(grid_position.x, grid_position.y);
+                h.position = position_from_grid;
+                self.center_of_gravity
+                    .entry(grid_position.grid)
+                    .or_default()
+                    .add_point(position_from_grid);
+                h.orientation = {
+                    let orientation = grid.orientation_helix(grid_position.x, grid_position.y);
+                    let normal =
+                        -self.parameters.helix_radius * Vec3::unit_y().rotated_by(orientation);
+                    let actual = -self.parameters.helix_radius
+                        * Vec3::unit_y().rotated_by(orientation)
+                        * grid_position.roll.cos()
+                        - self.parameters.helix_radius
+                            * Vec3::unit_z().rotated_by(orientation)
+                            * grid_position.roll.sin();
+                    let roll = Rotor3::from_rotation_between(normal, actual);
+                    (roll * grid.orientation_helix(grid_position.x, grid_position.y)).normalized()
+                };
+                if let Axis::Line { direction, .. } = h.get_axis(&self.parameters) {
+                    h.position -= grid_position.axis_pos as f32 * direction;
+                }
+            }
+        }
+        for h in helices_mut.values_mut() {
+            if let Some(grid_position) = h.grid_position {
+                let grid = &self.grids[grid_position.grid];
+                let t_min = h.curve.as_ref().and_then(|c| c.t_min());
+                let t_max = h.curve.as_ref().and_then(|c| c.t_max());
+                let center_of_gravity = self
+                    .center_of_gravity
+                    .get(&grid_position.grid)
+                    .and_then(|c| c.center);
+                if let Some(curve) = grid.make_curve(
+                    grid_position.x,
+                    grid_position.y,
+                    t_min,
+                    t_max,
+                    center_of_gravity,
+                ) {
+                    log::info!("setting curve");
+                    h.curve = Some(curve)
+                }
+            }
+        }
+    }
+
+    fn update_all_curves(&mut self, cached_curve: &mut CurveCache) {
+        let need_update = self
+            .source_helices
+            .values()
+            .any(|h| h.need_curve_update(&self.source_grids));
+
+        if need_update {
+            let mut new_helices = self.source_helices.clone();
+            for h in new_helices.make_mut().values_mut() {
+                self.update_curve(h, cached_curve);
+            }
+            self.source_helices = new_helices;
+        }
+    }
+
+    /// Recompute the position of helix `h_id` on its grid. Return false if there is already an
+    /// other helix at that position, otherwise return true.
+    pub(super) fn reattach_helix<'a>(
+        &mut self,
+        h_id: usize,
+        preserve_roll: bool,
+        authorized_collisions: &[usize],
+    ) -> Result<(), ErrOperation> {
+        let mut helices = self.source_helices.make_mut();
+        let h = helices.get_mut(&h_id);
+        if h.is_none() {
+            return Err(ErrOperation::HelixDoesNotExists(h_id));
+        }
+        let h = h.unwrap();
+        let axis = h.get_axis(&self.parameters);
+        if let Some(old_grid_position) = h.grid_position {
+            let g = &self.grids[old_grid_position.grid];
+            if let Axis::Line { origin, direction } = axis {
+                if g.interpolate_helix(origin, direction).is_some() {
+                    let old_roll = h.grid_position.map(|gp| gp.roll).filter(|_| preserve_roll);
+                    let candidate_position = g
+                        .find_helix_position(h, old_grid_position.grid)
+                        .map(|g| g.with_roll(old_roll));
+                    if let Some(new_grid_position) = candidate_position {
+                        if let Some(object) = self.pos_to_object.get(&new_grid_position.light()) {
+                            log::info!(
+                                "{} collides with {:?}. Authorized collisions are {:?}",
+                                h_id,
+                                object,
+                                authorized_collisions
+                            );
+                            let authorized = if let GridObject::Helix(helix) = object {
+                                authorized_collisions.contains(&helix)
+                            } else {
+                                false
+                            };
+                            if authorized {
+                                h.grid_position = candidate_position;
+                                h.position = g
+                                    .position_helix(new_grid_position.x, new_grid_position.y)
+                                    - h.get_axis(&self.parameters)
+                                        .direction()
+                                        .unwrap_or(Vec3::zero())
+                            } else {
+                                return Err(ErrOperation::HelixCollisionDuringTranslation);
+                            }
+                        } else {
+                            h.grid_position = candidate_position;
+                            h.position = g.position_helix(new_grid_position.x, new_grid_position.y)
+                                - h.get_axis(&self.parameters)
+                                    .direction()
+                                    .unwrap_or(Vec3::zero())
+                                    * new_grid_position.axis_pos as f32
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn attach_to(&self, helix: &Helix, g_id: usize) -> Option<HelixGridPosition> {
+        let mut ret = None;
+        if let Some(g) = self.grids.get(g_id) {
+            ret = g.find_helix_position(helix, g_id)
+        }
+        ret
+    }
+
+    fn find_grid_for_group(&self, group: &[usize]) -> GridDescriptor {
+        use std::f32::consts::FRAC_PI_2;
+        let parameters = self.parameters;
+        let leader = self.source_helices.get(&group[0]).unwrap();
+        let orientation = Rotor3::from_rotation_between(
+            Vec3::unit_x(),
+            leader
+                .get_axis(&parameters)
+                .direction()
+                .unwrap_or(Vec3::zero())
+                .normalized(),
+        );
+        let mut hex_grid = Grid::new(
+            leader.position,
+            orientation,
+            self.parameters,
+            GridType::honneycomb(None),
+        );
+        let mut best_err = hex_grid.error_group(&group, &self.source_helices);
+        for dx in [-1, 0, 1].iter() {
+            for dy in [-1, 0, 1].iter() {
+                let position = hex_grid.position_helix(*dx, *dy);
+                for i in 0..100 {
+                    let angle = i as f32 * FRAC_PI_2 / 100.;
+                    let rotor = Rotor3::from_rotation_yz(angle);
+                    let grid = Grid::new(
+                        position,
+                        orientation.rotated_by(rotor),
+                        self.parameters,
+                        GridType::honneycomb(None),
+                    );
+                    let err = grid.error_group(group, &self.source_helices);
+                    if err < best_err {
+                        hex_grid = grid;
+                        best_err = err
+                    }
+                }
+            }
+        }
+
+        let mut square_grid = Grid::new(
+            leader.position,
+            leader.orientation,
+            self.parameters,
+            GridType::square(None),
+        );
+        let mut best_square_err = square_grid.error_group(&group, &self.source_helices);
+        for i in 0..100 {
+            let angle = i as f32 * FRAC_PI_2 / 100.;
+            let rotor = Rotor3::from_rotation_yz(angle);
+            let grid = Grid::new(
+                leader.position,
+                orientation.rotated_by(rotor),
+                self.parameters,
+                GridType::square(None),
+            );
+            let err = grid.error_group(group, &self.source_helices);
+            if err < best_square_err {
+                square_grid = grid;
+                best_square_err = err
+            }
+        }
+        if best_square_err < best_err {
+            GridDescriptor {
+                position: square_grid.position,
+                orientation: square_grid.orientation,
+                grid_type: GridTypeDescr::Square { twist: None },
+                invisible: square_grid.invisible,
+            }
+        } else {
+            GridDescriptor {
+                position: hex_grid.position,
+                orientation: hex_grid.orientation,
+                grid_type: GridTypeDescr::Honeycomb { twist: None },
+                invisible: hex_grid.invisible,
+            }
+        }
+    }
+
+    /// Retrun the edge between two grid position. Return None if the position are not in the same
+    /// grid.
+    pub fn get_edge(&self, pos1: &HelixGridPosition, pos2: &HelixGridPosition) -> Option<Edge> {
+        if pos1.grid == pos2.grid {
+            self.grids.get(pos1.grid).map(|g| {
+                g.grid_type
+                    .translation_to_edge(pos1.x, pos1.y, pos2.x, pos2.y)
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn translate_by_edge(
+        &self,
+        pos1: &HelixGridPosition,
+        edge: &Edge,
+    ) -> Option<HelixGridPosition> {
+        log::debug!("translate by edge {:?} {:?}", pos1, edge);
+        let position = self
+            .grids
+            .get(pos1.grid)
+            .and_then(|g| g.grid_type.translate_by_edge(pos1.x, pos1.y, *edge))?;
+        Some(HelixGridPosition {
+            grid: pos1.grid,
+            x: position.0,
+            y: position.1,
+            roll: 0f32,
+            axis_pos: 0,
+        })
+    }
+
+    pub fn pos_to_object(&self, position: GridPosition) -> Option<GridObject> {
+        self.pos_to_object.get(&position).cloned()
+    }
+
+    pub fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
+        if self.grids.len() > g_id {
+            Some(
+                self.pos_to_object
+                    .iter()
+                    .filter(|(pos, _)| pos.grid == g_id)
+                    .filter_map(|(_, obj)| {
+                        if let GridObject::Helix(h) = obj {
+                            Some(h)
+                        } else {
+                            None
+                        }
+                    })
+                    .cloned()
+                    .collect(),
+            )
+        } else {
+            None
+        }
+    }
+
+    pub fn get_used_coordinates_on_grid(&self, g_id: usize) -> Vec<(isize, isize)> {
+        let filter = |pos: &&GridPosition| pos.grid == g_id;
+        let map = |pos: &GridPosition| (pos.x, pos.y);
+        self.pos_to_object.keys().filter(filter).map(map).collect()
+    }
+
+    pub fn get_persistent_phantom_helices_id(&self) -> HashSet<u32> {
+        self.pos_to_object
+            .iter()
+            .filter(|(k, _)| !self.no_phantoms.contains(&k.grid))
+            .map(|(_, v)| match v {
+                GridObject::Helix(h) => *h as u32,
+                GridObject::BezierPoint { helix_id, .. } => *helix_id as u32,
+            })
+            .collect()
+    }
+
+    pub fn get_helix_grid_position(&self, h_id: usize) -> Option<HelixGridPosition> {
+        self.object_to_pos.get(&GridObject::Helix(h_id)).cloned()
+    }
+
+    /// Return a list of pairs ((x, y), h_id) of all the used helices on the grid g_id
+    pub fn get_helices_grid_key_coord(&self, g_id: usize) -> Vec<((isize, isize), usize)> {
+        self.pos_to_object
+            .iter()
+            .filter(|t| t.0.grid == g_id)
+            .map(|t| ((t.0.x, t.0.y), t.1.helix()))
+            .collect()
+    }
+
+    pub fn get_all_used_grid_positions(&self) -> impl Iterator<Item = &GridPosition> {
+        self.pos_to_object.keys()
+    }
+
+    pub fn get_tengents_between_two_points(
+        &self,
+        start: GridPosition,
+        end: GridPosition,
+    ) -> Option<(Vec3, Vec3)> {
+        let grid_start = self.grids.get(start.grid)?;
+        let grid_end = self.grids.get(end.grid)?;
+        let dumy_start_helix = Helix::new_on_grid(&grid_start, start.x, start.y, start.grid);
+        let mut start_axis = dumy_start_helix
+            .get_axis(&self.parameters)
+            .direction()
+            .unwrap_or(Vec3::zero());
+        let dumy_end_helix = Helix::new_on_grid(&grid_end, end.x, end.y, end.grid);
+        let mut end_axis = dumy_end_helix
+            .get_axis(&self.parameters)
+            .direction()
+            .unwrap_or(Vec3::zero());
+        start_axis.normalize();
+        end_axis.normalize();
+        let start = dumy_start_helix.position;
+        let end = dumy_end_helix.position;
+        let middle = (end - start) / 2.;
+        let vec_start = middle.dot(start_axis) * start_axis;
+        // Do not negate it, it corresponds to the tengeant of the piece that will leave at that
+        // point
+        let vec_end = middle.dot(end_axis) * end_axis;
+        Some((
+            vec_start.rotated_by(grid_start.orientation.reversed()),
+            vec_end.rotated_by(grid_end.orientation.reversed()),
+        ))
+    }
+}
+
+trait GridApprox {
+    fn error_group(&self, group: &[usize], helices: &Helices) -> f32;
+    fn error_helix(&self, origin: Vec3, direction: Vec3) -> f32;
+}
+
+impl GridApprox for Grid {
+    fn error_group(&self, group: &[usize], helices: &Helices) -> f32 {
+        let mut ret = 0f32;
+        for h_id in group.iter() {
+            let helix = helices.get(h_id).unwrap();
+            let axis = helix.get_axis(&self.parameters);
+            if let Axis::Line { origin, direction } = axis {
+                ret += self.error_helix(origin, direction);
+            }
+        }
+        ret
+    }
+
+    fn error_helix(&self, origin: Vec3, direction: Vec3) -> f32 {
+        let position_descrete = self
+            .interpolate_helix(origin, direction)
+            .map(|(x, y)| self.position_helix(x, y));
+        if let Some(position) = self.real_intersection(origin, direction) {
+            (position - position_descrete.unwrap()).mag_sq()
+        } else {
+            std::f32::INFINITY
+        }
+    }
+}
+
+pub(super) fn make_grid_from_helices(
+    design: &mut Design,
+    helices: &[usize],
+) -> Result<(), ErrOperation> {
+    if helices.len() < MIN_HELICES_TO_MAKE_GRID {
+        return Err(ErrOperation::NotEnoughHelices {
+            actual: helices.len(),
+            needed: MIN_HELICES_TO_MAKE_GRID,
+        });
+    }
+    let grid_data = design.get_updated_grid_data();
+    let desc = grid_data.find_grid_for_group(helices);
+    let mut new_grids = Vec::clone(grid_data.source_grids.as_ref());
+    let mut new_helices = grid_data.source_helices.clone();
+    new_grids.push(desc);
+    let mut helices_mut = new_helices.make_mut();
+    for h_id in helices.iter() {
+        if let Some(h) = helices_mut.get_mut(h_id) {
+            if h.grid_position.is_some() {
+                continue;
+            }
+            if let Some(position) = grid_data.attach_to(h, grid_data.grids.len() - 1) {
+                h.grid_position = Some(position)
+            }
+        }
+    }
+    drop(helices_mut);
+    design.grids = Arc::new(new_grids);
+    design.helices = new_helices;
+    Ok(())
+}
+
+/// A mutable view to a design and it's grid data.
+/// When this view is droped, the design's helices are automatically updated.
+pub(super) struct HelicesTranslator<'a> {
+    design: &'a mut Design,
+    grid_data: GridData,
+}
+
+impl<'a> Drop for HelicesTranslator<'a> {
+    fn drop(&mut self) {
+        self.design.helices = self.grid_data.source_helices.clone();
+    }
+}
+
+impl<'a> HelicesTranslator<'a> {
+    pub fn from_design(design: &'a mut Design) -> Self {
+        let grid_data = GridData::new_by_updating_design(design);
+        Self { design, grid_data }
+    }
+
+    pub fn translate_helices(
+        &mut self,
+        snap: bool,
+        helices: Vec<usize>,
+        translation: Vec3,
+    ) -> Result<(), ErrOperation> {
+        let mut new_helices = self.grid_data.source_helices.make_mut();
+        for h_id in helices.iter() {
+            if let Some(h) = new_helices.get_mut(h_id) {
+                h.translate(translation);
+            }
+        }
+        drop(new_helices);
+        if snap {
+            self.attempt_reattach(&helices)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn rotate_helices_3d(
+        &mut self,
+        snap: bool,
+        helices: Vec<usize>,
+        rotation: Rotor3,
+        origin: Vec3,
+    ) -> Result<(), ErrOperation> {
+        let mut new_helices = self.grid_data.source_helices.make_mut();
+        for h_id in helices.iter() {
+            if let Some(h) = new_helices.get_mut(h_id) {
+                h.rotate_arround(rotation, origin)
+            }
+        }
+        drop(new_helices);
+        if snap {
+            self.attempt_reattach(&helices)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn attempt_reattach(&mut self, helices: &[usize]) -> Result<(), ErrOperation> {
+        for h_id in helices.iter() {
+            self.grid_data.reattach_helix(*h_id, true, helices)?;
+        }
+        Ok(())
+    }
+}
+
+impl GridPositionProvider for GridData {
+    fn position(&self, position: GridPosition) -> Vec3 {
+        if let Some(grid) = self.grids.get(position.grid) {
+            grid.position_helix(position.x, position.y)
+        } else {
+            log::error!("Attempt to get position on unexisting grid. This is a bug");
+            Vec3::zero()
+        }
+    }
+
+    fn source(&self) -> Arc<Vec<GridDescriptor>> {
+        self.source_grids.clone()
+    }
+
+    fn orientation(&self, grid: usize) -> Rotor3 {
+        if let Some(grid) = self.grids.get(grid) {
+            grid.orientation
+        } else {
+            log::error!("Attempt to get orientation of unexisting grid. This is a bug");
+            Rotor3::identity()
+        }
+    }
+
+    fn get_tengents_between_two_points(
+        &self,
+        p0: GridPosition,
+        p1: GridPosition,
+    ) -> Option<(Vec3, Vec3)> {
+        self.get_tengents_between_two_points(p0, p1)
+    }
+
+    fn translate_by_edge(&self, position: GridPosition, edge: Edge) -> Option<GridPosition> {
+        self.translate_by_edge(&position.to_helix_pos(), &edge)
+            .map(|h| h.light())
+    }
+}
+
+impl GridData {
+    fn update_instanciated_curve_descriptor(&self, helix: &mut Helix) {
+        if let Some(curve) = helix.curve.clone() {
+            helix.instanciated_descriptor = Some(Arc::new(
+                InstanciatedCurveDescriptor::instanciate(curve, self),
+            ))
+        } else {
+            helix.instanciated_descriptor = None;
+        }
+    }
+
+    pub(super) fn update_curve(&self, helix: &mut Helix, cached_curve: &mut CurveCache) {
+        if helix.need_curve_descriptor_update(&self.source_grids) {
+            self.update_instanciated_curve_descriptor(helix)
+        }
+
+        if let Some(desc) = helix.instanciated_descriptor.as_ref() {
+            let curve = desc.make_curve(&self.parameters, cached_curve);
+            helix.instanciated_curve = Some(InstanciatedCurve {
+                curve,
+                source: desc.clone(),
+            })
+        }
+    }
+
+    pub fn pos_to_space(&self, position: GridPosition) -> Option<Vec3> {
+        if let Some(grid) = self.grids.get(position.grid) {
+            Some(grid.position_helix(position.x, position.y))
+        } else {
+            None
+        }
+    }
+
+    fn update_support_helices(&mut self) {
+        let old_rolls: Vec<f32> = self.source_helices.values().map(|h| h.roll).collect();
+        let mut helices_mut = self.source_helices.make_mut();
+        for h in helices_mut.values_mut() {
+            if let Some(mother_id) = h.support_helix {
+                if let Some(mother_roll) = old_rolls.get(mother_id) {
+                    h.roll = *mother_roll;
+                }
+            }
+        }
+    }
+
+    pub fn translate_bezier_point(
+        &self,
+        control_point: (usize, BezierControlPoint),
+        translation: Vec3,
+    ) -> Option<GridAwareTranslation> {
+        let helix = self.source_helices.get(&control_point.0)?;
+        match control_point.1 {
+            BezierControlPoint::PiecewiseBezier(n) => {
+                let grid_id = if let Some(CurveDescriptor::PiecewiseBezier { points, .. }) =
+                    helix.curve.as_ref().map(Arc::as_ref)
+                {
+                    points.get(n / 2)
+                } else {
+                    None
+                }?
+                .position
+                .grid;
+                let grid = self.grids.get(grid_id)?;
+                let ret = if n % 2 == 0 {
+                    (-translation).rotated_by(grid.orientation.reversed())
+                } else {
+                    translation.rotated_by(grid.orientation.reversed())
+                };
+                Some(GridAwareTranslation(ret))
+            }
+            BezierControlPoint::CubicBezier(_) => Some(GridAwareTranslation(translation)),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct GridAwareTranslation(pub Vec3);

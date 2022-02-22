@@ -78,7 +78,12 @@ impl Reader2D for DesignReader {
     }
 
     fn get_raw_helix(&self, h_id: usize) -> Option<Arc<Helix>> {
-        self.presenter.current_design.helices.get(&h_id).cloned()
+        self.presenter
+            .current_design
+            .helices
+            .get(&h_id)
+            .cloned()
+            .map(|h| Arc::new(h))
     }
 
     fn get_basis_map(&self) -> Arc<HashMap<Nucl, char, RandomState>> {
@@ -182,8 +187,8 @@ impl Reader2D for DesignReader {
         self.is_xover_end(nucl)
     }
 
-    fn get_helices_map(&self) -> Arc<BTreeMap<usize, Arc<Helix>>> {
-        self.presenter.current_design.helices.clone()
+    fn get_helices_map(&self) -> &ensnano_design::Helices {
+        &self.presenter.current_design.helices
     }
 
     fn get_strand_ends(&self) -> Vec<Nucl> {

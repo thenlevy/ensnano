@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
+use crate::PastePosition;
 
 use ensnano_interactor::{application::Notification, HyperboloidOperation, SelectionConversion};
 
@@ -101,9 +102,7 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(sensitivity) = requests.scroll_sensitivity.take() {
-        main_state.push_action(Action::NotifyApps(Notification::NewSensitivity(
-            sensitivity,
-        )))
+        main_state.set_scroll_sensitivity(sensitivity)
     }
 
     /*
@@ -200,6 +199,10 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.push_action(Action::RigidGridSimulation { parameters })
     }
 
+    if let Some(g_id) = requests.twist_simulation.take() {
+        main_state.push_action(Action::Twist(g_id))
+    }
+
     if let Some(parameters) = requests.rigid_helices_simulation.take() {
         main_state.push_action(Action::RigidHelicesSimulation { parameters })
     }
@@ -281,10 +284,9 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.push_action(Action::SetVisiblitySieve { compl: b })
     }
 
-    /*
-    if let Some(b) = requests.invert_scroll.take() {
-        multiplexer.invert_y_scroll = b;
-    }*/
+    if let Some(b) = requests.set_invert_y_scroll.take() {
+        main_state.set_invert_y_scroll(b)
+    }
 
     if requests.delete_selection.take().is_some() {
         main_state.push_action(Action::DeleteSelection)
@@ -302,11 +304,11 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     }
 
     if let Some(mode) = requests.rendering_mode.take() {
-        main_state.push_action(Action::NotifyApps(Notification::RenderingMode(mode)))
+        main_state.set_rendering_mode(mode);
     }
 
     if let Some(bg) = requests.background3d.take() {
-        main_state.push_action(Action::NotifyApps(Notification::Background3D(bg)))
+        main_state.set_background_3d(bg);
     }
 
     if requests.undo.take().is_some() {
@@ -377,7 +379,15 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     if let Some(candidate) = requests.new_paste_candiate.take() {
         main_state
             .pending_actions
-            .push_back(Action::PasteCandidate(candidate))
+            .push_back(Action::PasteCandidate(candidate.map(PastePosition::Nucl)))
+    }
+
+    if let Some(candidate) = requests.new_grid_paste_candidate.take() {
+        main_state
+            .pending_actions
+            .push_back(Action::PasteCandidate(Some(PastePosition::GridPosition(
+                candidate,
+            ))))
     }
 
     for action in requests.keep_proceed.drain(..) {
@@ -386,5 +396,25 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
 
     if let Some(param) = requests.new_suggestion_parameters.take() {
         main_state.set_suggestion_parameters(param);
+    }
+
+    if let Some(param) = requests.check_xover_parameters.take() {
+        main_state.set_check_xovers_parameters(param);
+    }
+
+    if let Some(b) = requests.follow_stereographic_camera.take() {
+        main_state.set_follow_stereographic_camera(b);
+    }
+
+    if let Some(b) = requests.set_show_stereographic_camera.take() {
+        main_state.set_show_stereographic_camera(b);
+    }
+
+    if let Some(b) = requests.set_show_h_bonds.take() {
+        main_state.set_show_h_bonds(b);
+    }
+
+    if let Some(b) = requests.set_thick_helices.take() {
+        main_state.set_thick_helices(b);
     }
 }

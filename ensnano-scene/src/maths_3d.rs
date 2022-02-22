@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::{
     camera::{CameraPtr, ProjectionPtr},
-    Vec3,
+    Stereography, Vec3,
 };
 
 /// Use to compute the shortes line between two lines in 3D.
@@ -49,9 +49,10 @@ pub fn unproject_point_on_line(
     projection: ProjectionPtr,
     x_ndc: f32,
     y_ndc: f32,
+    stereography: Option<&Stereography>,
 ) -> Option<Vec3> {
     let p1 = camera.borrow().position;
-    let p2 = ndc_to_world(x_ndc, y_ndc, camera, projection);
+    let p2 = ndc_to_world(x_ndc, y_ndc, camera, projection, stereography);
 
     let p3 = objective_origin;
     let p4 = objective_origin + objective_direction;
@@ -65,6 +66,41 @@ pub fn unproject_point_on_line(
     }
 }
 
+const DIST_TO_CAMERA_PENALTY: f32 = 0.001;
+
+/// Shoot a ray from the camera and project a point of the world on that line
+pub fn distance_to_cursor_with_penalty(
+    objective: Vec3,
+    camera: CameraPtr,
+    projection: ProjectionPtr,
+    x_ndc: f32,
+    y_ndc: f32,
+    initial_position: Option<Vec3>,
+    stereography: Option<&Stereography>,
+) -> Option<f32> {
+    let p1 = camera.borrow().position;
+    let p2 = ndc_to_world(x_ndc, y_ndc, camera, projection, stereography);
+
+    let direction = (p2 - p1).normalized();
+
+    let point = objective - p1;
+    let penalty = if initial_position.is_some() {
+        100. * DIST_TO_CAMERA_PENALTY
+    } else {
+        DIST_TO_CAMERA_PENALTY
+    };
+
+    if point.dot(direction) < 0.0 {
+        None
+    } else {
+        let projected_point = direction * point.dot(direction);
+        Some(
+            (projected_point - point).mag()
+                + penalty * (projected_point - initial_position.unwrap_or(p1)).mag_sq(),
+        )
+    }
+}
+
 /// Shoot a ray from the camera and compute its intersection with the plane P: (p- p0).dot(n) - 0
 /// if the intersection if the point p, the return value is the coordinates of the point p.
 /// If the line and the plane are parallel, None is returned
@@ -75,9 +111,10 @@ pub fn unproject_point_on_plane(
     projection: ProjectionPtr,
     x_ndc: f32,
     y_ndc: f32,
+    stereography: Option<&Stereography>,
 ) -> Option<Vec3> {
     let p1 = camera.borrow().position;
-    let p2 = ndc_to_world(x_ndc, y_ndc, camera, projection);
+    let p2 = ndc_to_world(x_ndc, y_ndc, camera, projection, stereography);
 
     let dir = p2 - p1;
 
@@ -91,19 +128,34 @@ pub fn unproject_point_on_plane(
 }
 
 /// Convert a point on the screen into a point in the world. Usefull for casting rays
-fn ndc_to_world(x_ndc: f32, y_ndc: f32, camera: CameraPtr, projection: ProjectionPtr) -> Vec3 {
+fn ndc_to_world(
+    x_ndc: f32,
+    y_ndc: f32,
+    camera: CameraPtr,
+    projection: ProjectionPtr,
+    stereography: Option<&Stereography>,
+) -> Vec3 {
     let x_screen = 2. * x_ndc - 1.;
     let y_screen = 1. - 2. * y_ndc;
 
     let p1 = camera.borrow().position;
-    let p2 = {
-        let correction = (projection.borrow().get_fovy() / 2.).tan();
-        let right = camera.borrow().right_vec() * correction;
-        let up = camera.borrow().up_vec() * correction;
-        let direction = camera.borrow().direction();
-        p1 + right * x_screen * projection.borrow().get_ratio() + up * y_screen + direction
-    };
-    p2
+    if stereography.is_some() {
+        let eta = 3. * y_screen;
+        let khi = 3. * x_screen * projection.borrow().get_ratio();
+        let x = 2. * khi / (1. + eta * eta + khi * khi);
+        let y = 2. * eta / (1. + eta * eta + khi * khi);
+        let z = (-1. + eta * eta + khi * khi) / (1. + khi * khi + eta * eta);
+        p1 + camera.borrow().rotor.reversed() * Vec3 { x, y, z }
+    } else {
+        let p2 = {
+            let correction = (projection.borrow().get_fovy() / 2.).tan();
+            let right = camera.borrow().right_vec() * correction;
+            let up = camera.borrow().up_vec() * correction;
+            let direction = camera.borrow().direction();
+            p1 + right * x_screen * projection.borrow().get_ratio() + up * y_screen + direction
+        };
+        p2
+    }
 }
 
 pub fn cast_ray(
@@ -111,8 +163,9 @@ pub fn cast_ray(
     y_ndc: f32,
     camera: CameraPtr,
     projection: ProjectionPtr,
+    stereography: Option<&Stereography>,
 ) -> (Vec3, Vec3) {
-    let target = ndc_to_world(x_ndc, y_ndc, camera.clone(), projection);
+    let target = ndc_to_world(x_ndc, y_ndc, camera.clone(), projection, stereography);
     (camera.borrow().position, target - camera.borrow().position)
 }
 

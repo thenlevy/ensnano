@@ -16,6 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
+use ensnano_design::grid::GridObject;
 use ensnano_interactor::{ActionMode, CursorIcon};
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -50,6 +51,16 @@ impl<S: AppState> Transition<S> {
             consequences,
         }
     }
+
+    pub fn init_building(nucls: Vec<Nucl>, clicked: bool) -> Self {
+        Self {
+            new_state: Some(Box::new(BuildingStrand {
+                clicked,
+                last_scroll: Instant::now(),
+            })),
+            consequences: Consequence::InitBuild(nucls),
+        }
+    }
 }
 
 pub(super) trait ControllerState<S: AppState> {
@@ -81,6 +92,13 @@ pub(super) trait ControllerState<S: AppState> {
         None
     }
 
+    fn element_being_selected(&self) -> Option<SceneElement> {
+        None
+    }
+
+    fn notify_scroll(&mut self) {
+        ()
+    }
     fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
         None
     }
@@ -103,6 +121,22 @@ impl<S: AppState> ControllerState<S> for NormalState {
             WindowEvent::CursorMoved { .. } if app_state.is_pasting() => {
                 self.mouse_position = position;
                 let element = pixel_reader.set_selected_id(position);
+                let element = if let Some(SceneElement::Grid(d_id, _)) = element {
+                    let mouse_x = position.x / controller.area_size.width as f64;
+                    let mouse_y = position.y / controller.area_size.height as f64;
+                    log::info!("Attempt past on {:?}", element);
+                    if let Some(intersection) = controller
+                        .view
+                        .borrow()
+                        .grid_intersection(mouse_x as f32, mouse_y as f32)
+                    {
+                        Some(SceneElement::GridCircle(d_id, intersection.grid_position()))
+                    } else {
+                        element
+                    }
+                } else {
+                    element
+                };
                 Transition::consequence(Consequence::PasteCandidate(element))
             }
             WindowEvent::CursorMoved { .. } => {
@@ -116,12 +150,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         .borrow()
                         .grid_intersection(mouse_x as f32, mouse_y as f32)
                     {
-                        Some(SceneElement::GridCircle(
-                            d_id,
-                            intersection.grid_id,
-                            intersection.x,
-                            intersection.y,
-                        ))
+                        Some(SceneElement::GridCircle(d_id, intersection.grid_position()))
                     } else {
                         element
                     };
@@ -148,6 +177,22 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 ..
             } if app_state.is_pasting() => {
                 let element = pixel_reader.set_selected_id(position);
+                let element = if let Some(SceneElement::Grid(d_id, _)) = element {
+                    let mouse_x = position.x / controller.area_size.width as f64;
+                    let mouse_y = position.y / controller.area_size.height as f64;
+                    log::info!("Attempt past on {:?}", element);
+                    if let Some(intersection) = controller
+                        .view
+                        .borrow()
+                        .grid_intersection(mouse_x as f32, mouse_y as f32)
+                    {
+                        Some(SceneElement::GridCircle(d_id, intersection.grid_position()))
+                    } else {
+                        element
+                    }
+                } else {
+                    element
+                };
                 Transition {
                     new_state: Some(Box::new(Pasting {
                         clicked_position: position,
@@ -164,7 +209,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 let element = pixel_reader.set_selected_id(position);
                 log::info!("Clicked on {:?}", element);
                 match element {
-                    Some(SceneElement::GridCircle(d_id, g_id, x, y)) => {
+                    Some(SceneElement::GridCircle(d_id, grid_position)) => {
                         if let ActionMode::BuildHelix {
                             position: position_helix,
                             length,
@@ -174,9 +219,9 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                 new_state: Some(Box::new(BuildingHelix {
                                     position_helix,
                                     length_helix: length,
-                                    x_helix: x,
-                                    y_helix: y,
-                                    grid_id: g_id,
+                                    x_helix: grid_position.x,
+                                    y_helix: grid_position.y,
+                                    grid_id: grid_position.grid,
                                     design_id: d_id,
                                     clicked_position: position,
                                 })),
@@ -209,19 +254,20 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         } = app_state.get_action_mode().0
                         {
                             if let Some(intersection) = grid_intersection {
-                                if let Some(helix) = controller.data.borrow().get_grid_helix(
-                                    intersection.grid_id,
-                                    intersection.x,
-                                    intersection.y,
-                                ) {
+                                if let Some(object) = controller
+                                    .data
+                                    .borrow()
+                                    .get_grid_object(intersection.grid_position())
+                                    .filter(|_| !controller.current_modifiers.shift())
+                                {
                                     Transition {
-                                        new_state: Some(Box::new(TranslatingHelix {
+                                        new_state: Some(Box::new(TranslatingGridObject {
                                             grid_id: intersection.grid_id,
-                                            helix_id: helix as usize,
+                                            object: object.clone(),
                                             x: intersection.x,
                                             y: intersection.y,
                                         })),
-                                        consequences: Consequence::HelixSelected(helix as usize),
+                                        consequences: Consequence::HelixSelected(object.helix()),
                                     }
                                 } else {
                                     Transition {
@@ -252,34 +298,31 @@ impl<S: AppState> ControllerState<S> for NormalState {
                             }
                         } else {
                             let clicked_element;
-                            let helix;
+                            let object;
                             if let Some(intersection) = grid_intersection.as_ref() {
                                 clicked_element = Some(SceneElement::GridCircle(
                                     d_id,
-                                    intersection.grid_id,
-                                    intersection.x,
-                                    intersection.y,
+                                    intersection.grid_position(),
                                 ));
-                                helix = controller.data.borrow().get_grid_helix(
-                                    intersection.grid_id,
-                                    intersection.x,
-                                    intersection.y,
-                                );
+                                object = controller
+                                    .data
+                                    .borrow()
+                                    .get_grid_object(intersection.grid_position());
                             } else {
                                 clicked_element = element;
-                                helix = None;
+                                object = None;
                             };
-                            if let Some(h_id) = helix {
+                            if let Some(obj) = object {
                                 // if helix is Some, intersection is also Some
                                 let intersection = grid_intersection.unwrap();
                                 Transition {
-                                    new_state: Some(Box::new(TranslatingHelix {
+                                    new_state: Some(Box::new(TranslatingGridObject {
                                         grid_id: intersection.grid_id,
-                                        helix_id: h_id as usize,
+                                        object: obj.clone(),
                                         x: intersection.x,
                                         y: intersection.y,
                                     })),
-                                    consequences: Consequence::HelixSelected(h_id as usize),
+                                    consequences: Consequence::HelixSelected(obj.helix()),
                                 }
                             } else {
                                 Transition {
@@ -337,6 +380,25 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                 println!("WARNING UNEXPECTED WIDGET ID");
                                 Transition::nothing()
                             }
+                        }
+                    }
+                    Some(SceneElement::DesignElement(_, _))
+                        if ctrl(&controller.current_modifiers)
+                            && controller
+                                .data
+                                .borrow()
+                                .element_to_nucl(&element, true)
+                                .is_some() =>
+                    {
+                        if let Some((nucl, _)) =
+                            controller.data.borrow().element_to_nucl(&element, true)
+                        {
+                            Transition::consequence(Consequence::QuickXoverAttempt {
+                                nucl,
+                                doubled: controller.current_modifiers.shift(),
+                            })
+                        } else {
+                            Transition::nothing()
                         }
                     }
                     _ => Transition {
@@ -500,12 +562,7 @@ impl<S: AppState> ControllerState<S> for SettingPivot {
                             .borrow()
                             .specific_grid_intersection(mouse_x as f32, mouse_y as f32, g_id)
                         {
-                            Some(SceneElement::GridCircle(
-                                d_id,
-                                intersection.grid_id,
-                                intersection.x,
-                                intersection.y,
-                            ))
+                            Some(SceneElement::GridCircle(d_id, intersection.grid_position()))
                         } else {
                             Some(SceneElement::Grid(d_id, g_id))
                         }
@@ -596,9 +653,13 @@ impl<S: AppState> ControllerState<S> for Selecting {
         "Selecting".into()
     }
 
+    fn element_being_selected(&self) -> Option<SceneElement> {
+        self.element.clone()
+    }
+
     fn check_timers(&mut self, controller: &Controller<S>) -> Transition<S> {
         let now = Instant::now();
-        if (now - self.click_date).as_millis() > 250 {
+        if (now - self.click_date).as_millis() > 350 {
             if let Some((nucl, d_id)) = controller
                 .data
                 .borrow()
@@ -611,10 +672,12 @@ impl<S: AppState> ControllerState<S> for Selecting {
                     .expect("position nucl");
                 let mouse_x = self.mouse_position.x / controller.area_size.width as f64;
                 let mouse_y = self.mouse_position.y / controller.area_size.height as f64;
-                let projected_pos =
-                    controller
-                        .camera_controller
-                        .get_projection(position_nucl, mouse_x, mouse_y);
+                let projected_pos = controller.camera_controller.get_projection(
+                    position_nucl,
+                    mouse_x,
+                    mouse_y,
+                    controller.stereography.as_ref(),
+                );
 
                 Transition {
                     new_state: Some(Box::new(Xovering {
@@ -649,8 +712,11 @@ impl<S: AppState> ControllerState<S> for Selecting {
                 if position_difference(position, self.clicked_position) > 5. {
                     if let Some(nucl) = controller.data.borrow().can_start_builder(self.element) {
                         Transition {
-                            new_state: Some(Box::new(BuildingStrand)),
-                            consequences: Consequence::InitBuild(nucl),
+                            new_state: Some(Box::new(BuildingStrand {
+                                clicked: true,
+                                last_scroll: Instant::now(),
+                            })),
+                            consequences: Consequence::InitBuild(vec![nucl]),
                         }
                     } else {
                         Transition {
@@ -813,18 +879,18 @@ impl<S: AppState> ControllerState<S> for TranslatingWidget {
     }
 }
 
-struct TranslatingHelix {
-    helix_id: usize,
+struct TranslatingGridObject {
+    object: GridObject,
     grid_id: usize,
     x: isize,
     y: isize,
 }
 
-impl<S: AppState> ControllerState<S> for TranslatingHelix {
+impl<S: AppState> ControllerState<S> for TranslatingGridObject {
     fn display(&self) -> Cow<'static, str> {
         format!(
-            "Translating helix {} on grid {}",
-            self.helix_id, self.grid_id
+            "Translating object {:?} on grid {}",
+            self.object, self.grid_id
         )
         .into()
     }
@@ -859,8 +925,8 @@ impl<S: AppState> ControllerState<S> for TranslatingHelix {
                     if intersection.x != self.x || intersection.y != self.y {
                         self.x = intersection.x;
                         self.y = intersection.y;
-                        Transition::consequence(Consequence::HelixTranslated {
-                            helix: self.helix_id,
+                        Transition::consequence(Consequence::ObjectTranslated {
+                            object: self.object.clone(),
                             grid: self.grid_id,
                             x: intersection.x,
                             y: intersection.y,
@@ -944,10 +1010,32 @@ impl<S: AppState> ControllerState<S> for RotatingWidget {
     }
 }
 
-struct BuildingStrand;
+struct BuildingStrand {
+    clicked: bool,
+    last_scroll: Instant,
+}
+
 impl<S: AppState> ControllerState<S> for BuildingStrand {
     fn display(&self) -> Cow<'static, str> {
         "Building Strand".into()
+    }
+
+    fn notify_scroll(&mut self) {
+        self.last_scroll = Instant::now()
+    }
+
+    fn check_timers(&mut self, _controller: &Controller<S>) -> Transition<S> {
+        let now = Instant::now();
+        if !self.clicked && (now - self.last_scroll).as_millis() > 1000 {
+            Transition {
+                new_state: Some(Box::new(NormalState {
+                    mouse_position: PhysicalPosition::new(0., 0.),
+                })),
+                consequences: Consequence::BuildEnded,
+            }
+        } else {
+            Transition::nothing()
+        }
     }
 
     fn input(
@@ -955,7 +1043,7 @@ impl<S: AppState> ControllerState<S> for BuildingStrand {
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
         controller: &Controller<S>,
-        _pixel_reader: &mut ElementSelector,
+        pixel_reader: &mut ElementSelector,
         app_state: &S,
     ) -> Transition<S> {
         match event {
@@ -969,15 +1057,28 @@ impl<S: AppState> ControllerState<S> for BuildingStrand {
                 })),
                 consequences: Consequence::BuildEnded,
             },
-            WindowEvent::CursorMoved { .. } => {
+            WindowEvent::CursorMoved { .. } if self.clicked => {
                 if let Some(builder) = app_state.get_strand_builders().get(0) {
                     let mouse_x = position.x / controller.area_size.width as f64;
                     let mouse_y = position.y / controller.area_size.height as f64;
-                    let position = controller.view.borrow().compute_projection_axis(
-                        &builder.axis,
-                        mouse_x,
-                        mouse_y,
-                    );
+                    let element = pixel_reader.set_selected_id(position);
+                    let nucl = controller
+                        .data
+                        .borrow()
+                        .element_to_nucl(&element, false)
+                        .filter(|p| p.0.helix == builder.get_initial_nucl().helix);
+                    let initial_position =
+                        nucl.and_then(|nucl| controller.data.borrow().get_nucl_position(nucl.0, 0));
+
+                    let position = nucl.map(|n| n.0.position).or_else(|| {
+                        controller.view.borrow().compute_projection_axis(
+                            builder.get_axis(),
+                            mouse_x,
+                            mouse_y,
+                            initial_position,
+                            controller.stereography.is_some(),
+                        )
+                    });
                     let consequence = if let Some(position) = position {
                         Consequence::Building(position)
                     } else {
@@ -1050,6 +1151,7 @@ impl<S: AppState> ControllerState<S> for Xovering {
                     self.source_position,
                     mouse_x,
                     mouse_y,
+                    controller.stereography.as_ref(),
                 );
                 Transition::consequence(Consequence::MoveFreeXover(element, projected_pos))
             }

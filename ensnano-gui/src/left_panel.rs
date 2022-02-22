@@ -37,7 +37,7 @@ use ensnano_design::{
     CameraId,
 };
 use ensnano_interactor::{
-    graphics::{Background3D, FogParameters as Fog, RenderingMode},
+    graphics::{Background3D, RenderingMode},
     ActionMode, SelectionConversion, SuggestionParameters,
 };
 
@@ -47,7 +47,7 @@ use super::{
         dark_icon as icon, icon_to_char, LightIcon as MaterialIcon, DARK_ICONFONT as ICONFONT,
     },
     slider_style::DesactivatedSlider,
-    text_btn, AppState, DesignReader, OverlayType, Requests, UiSize,
+    text_btn, AppState, FogParameters as Fog, OverlayType, Requests, UiSize,
 };
 
 use ensnano_design::{grid::GridTypeDescr, ultraviolet, NamedParameter};
@@ -61,9 +61,9 @@ use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
 mod tabs;
 use crate::consts::*;
 mod contextual_panel;
-use contextual_panel::{ContextualPanel, ValueKind};
+use contextual_panel::{ContextualPanel, InstanciatedValue, ValueKind};
 
-use ensnano_interactor::HyperboloidRequest;
+use ensnano_interactor::{CheckXoversParameter, HyperboloidRequest, Selection};
 use tabs::{
     CameraShortcut, CameraTab, EditionTab, GridTab, ParametersTab, SequenceTab, SimulationTab,
 };
@@ -140,6 +140,7 @@ pub enum Message<S> {
     UiSizeChanged(UiSize),
     UiSizePicked(UiSize),
     StapplesRequested,
+    OrigamisRequested,
     ToggleText(bool),
     #[allow(dead_code)]
     CleanRequested,
@@ -168,14 +169,20 @@ pub enum Message<S> {
     EditCameraName(String),
     SubmitCameraName,
     StartEditCameraName(CameraId),
-    SetCameraFavorite(CameraId),
     DeleteCamera(CameraId),
     SelectCamera(CameraId),
     NewCustomCamera,
-    UpdateCamera(CameraId),
     NewSuggestionParameters(SuggestionParameters),
     ContextualValueChanged(ValueKind, usize, String),
     ContextualValueSubmitted(ValueKind),
+    InstanciatedValueSubmitted(InstanciatedValue),
+    CheckXoversParameter(CheckXoversParameter),
+    FollowStereographicCamera(bool),
+    ShowStereographicCamera(bool),
+    ShowHBonds(bool),
+    RainbowScaffold(bool),
+    StopSimulation,
+    StartTwist,
     NewDnaParameters(NamedParameter),
 }
 
@@ -195,6 +202,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
         logical_size: LogicalSize<f64>,
         logical_position: LogicalPosition<f64>,
         first_time: bool,
+        state: &S,
     ) -> Self {
         let selected_tab = if first_time { 0 } else { 5 };
         let mut organizer = Organizer::new();
@@ -214,10 +222,10 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
             camera_tab: CameraTab::new(),
             simulation_tab: SimulationTab::new(),
             sequence_tab: SequenceTab::new(),
-            parameters_tab: ParametersTab::new(),
+            parameters_tab: ParametersTab::new(state),
             contextual_panel: ContextualPanel::new(logical_size.width as u32),
             camera_shortcut: CameraShortcut::new(),
-            application_state: Default::default(),
+            application_state: state.clone(),
         }
     }
 
@@ -628,7 +636,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::Redim2dHelices(b) => self.requests.lock().unwrap().resize_2d_helices(b),
             Message::InvertScroll(b) => {
                 self.requests.lock().unwrap().invert_scroll(b);
-                self.parameters_tab.invert_y_scroll = b;
             }
             Message::CancelHyperboloid => {
                 self.requests.lock().unwrap().cancel_hyperboloid();
@@ -703,11 +710,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::StartEditCameraName(camera_id) => {
                 self.camera_shortcut.start_editing(camera_id)
             }
-            Message::SetCameraFavorite(camera_id) => self
-                .requests
-                .lock()
-                .unwrap()
-                .set_favourite_camera(camera_id),
             Message::DeleteCamera(camera_id) => {
                 self.requests.lock().unwrap().delete_camera(camera_id)
             }
@@ -717,9 +719,6 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::NewCustomCamera => {
                 self.requests.lock().unwrap().create_new_camera();
                 self.camera_shortcut.scroll_down()
-            }
-            Message::UpdateCamera(camera_id) => {
-                self.requests.lock().unwrap().update_camera(camera_id)
             }
             Message::NewSuggestionParameters(param) => {
                 self.requests
@@ -735,6 +734,38 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::ContextualValueChanged(kind, n, val) => {
                 self.contextual_panel.update_builder_value(kind, n, val);
             }
+            Message::InstanciatedValueSubmitted(value) => {
+                if let Some(request) = self.contextual_panel.request_from_value(value) {
+                    request.make_request(self.requests.clone())
+                }
+            }
+            Message::CheckXoversParameter(parameters) => self
+                .requests
+                .lock()
+                .unwrap()
+                .set_check_xover_parameters(parameters),
+            Message::FollowStereographicCamera(b) => {
+                self.requests.lock().unwrap().follow_stereographic_camera(b)
+            }
+            Message::ShowStereographicCamera(b) => {
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_show_stereographic_camera(b);
+            }
+            Message::ShowHBonds(b) => {
+                self.requests.lock().unwrap().set_show_h_bonds(b);
+            }
+            Message::RainbowScaffold(b) => self.requests.lock().unwrap().set_rainbow_scaffold(b),
+            Message::StopSimulation => self.requests.lock().unwrap().stop_simulations(),
+            Message::StartTwist => {
+                if let Some(Selection::Grid(_, g_id)) =
+                    self.application_state.get_selection().get(0)
+                {
+                    self.requests.lock().unwrap().start_twist_simulation(*g_id)
+                }
+            }
+            Message::OrigamisRequested => self.requests.lock().unwrap().download_origamis(),
             Message::NewDnaParameters(parameters) => self
                 .requests
                 .lock()
@@ -759,7 +790,8 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             )
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Videocam))),
-                self.camera_tab.view(self.ui_size.clone()),
+                self.camera_tab
+                    .view(self.ui_size.clone(), &self.application_state),
             )
             .push(
                 TabLabel::Icon(ICON_PHYSICAL_ENGINE),
@@ -1080,10 +1112,11 @@ impl Requestable for Hyperboloid_ {
             length: values[1],
             shift: values[2],
             radius_shift: values[3],
+            nb_turn: values[4] as f64,
         }
     }
     fn nb_values(&self) -> usize {
-        4
+        5
     }
     fn initial_value(&self, n: usize) -> f32 {
         match n {
@@ -1091,6 +1124,7 @@ impl Requestable for Hyperboloid_ {
             1 => 30f32,
             2 => 0f32,
             3 => 0.2f32,
+            4 => 0.0f32,
             _ => unreachable!(),
         }
     }
@@ -1101,17 +1135,18 @@ impl Requestable for Hyperboloid_ {
             1 => 1f32,
             2 => -PI + 1f32.to_radians(),
             3 => 0.,
+            4 => -5f32,
             _ => unreachable!(),
         }
     }
 
     fn max_val(&self, n: usize) -> f32 {
-        use std::f32::consts::PI;
         match n {
             0 => 60f32,
-            1 => 200f32,
-            2 => PI - 1f32.to_radians(),
+            1 => 1000f32,
+            2 => 2.,
             3 => 1f32,
+            4 => 5f32,
             _ => unreachable!(),
         }
     }
@@ -1119,8 +1154,9 @@ impl Requestable for Hyperboloid_ {
         match n {
             0 => 1f32,
             1 => 1f32,
-            2 => 1f32.to_radians(),
+            2 => 0.01,
             3 => 0.01,
+            4 => 0.05,
             _ => unreachable!(),
         }
     }
@@ -1128,8 +1164,9 @@ impl Requestable for Hyperboloid_ {
         match n {
             0 => String::from("Nb helices"),
             1 => String::from("Strands length"),
-            2 => String::from("Angle shift"),
+            2 => String::from("Shift"),
             3 => String::from("Tube radius"),
+            4 => String::from("nb turn"),
             _ => unreachable!(),
         }
     }
@@ -1139,7 +1176,9 @@ impl Requestable for Hyperboloid_ {
     }
 }
 
-struct ScrollSentivity {}
+struct ScrollSentivity {
+    initial_value: f32,
+}
 
 impl Requestable for ScrollSentivity {
     type Request = f32;
@@ -1151,7 +1190,7 @@ impl Requestable for ScrollSentivity {
     }
     fn initial_value(&self, n: usize) -> f32 {
         if n == 0 {
-            0f32
+            self.initial_value
         } else {
             unreachable!()
         }

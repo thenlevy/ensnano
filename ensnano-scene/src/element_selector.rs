@@ -18,7 +18,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use std::rc::Rc;
 
 use super::{Device, DrawArea, DrawType, Queue, ViewPtr};
-use ensnano_interactor::{phantom_helix_decoder, PhantomElement};
+use ensnano_design::grid::GridPosition;
+use ensnano_interactor::{phantom_helix_decoder, BezierControlPoint, PhantomElement};
 use ensnano_utils as utils;
 use futures::executor;
 use std::convert::TryInto;
@@ -33,6 +34,7 @@ pub struct ElementSelector {
     window_size: PhysicalSize<u32>,
     view: ViewPtr,
     area: DrawArea,
+    stereographic: bool,
 }
 
 impl ElementSelector {
@@ -56,7 +58,15 @@ impl ElementSelector {
             readers,
             view,
             area,
+            stereographic: false,
         }
+    }
+
+    pub fn set_stereographic(&mut self, stereographic: bool) {
+        if self.stereographic != stereographic {
+            self.readers[0].pixels = None;
+        }
+        self.stereographic = stereographic;
     }
 
     pub fn resize(&mut self, window_size: PhysicalSize<u32>, area: DrawArea) {
@@ -70,7 +80,7 @@ impl ElementSelector {
     ) -> Option<SceneElement> {
         if self.readers[0].pixels.is_none() || self.view.borrow().need_redraw_fake() {
             for i in 0..self.readers.len() {
-                let pixels = self.update_fake_pixels(self.readers[i].draw_type);
+                let pixels = self.update_fake_pixels(self.readers[i].draw_type, self.stereographic);
                 self.readers[i].pixels = Some(pixels)
             }
         }
@@ -106,7 +116,7 @@ impl ElementSelector {
         None
     }
 
-    fn update_fake_pixels(&self, draw_type: DrawType) -> Vec<u8> {
+    fn update_fake_pixels(&self, draw_type: DrawType, stereographic: bool) -> Vec<u8> {
         log::debug!("update fake pixels");
         let size = wgpu::Extent3d {
             width: self.window_size.width,
@@ -120,9 +130,15 @@ impl ElementSelector {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        self.view
-            .borrow_mut()
-            .draw(&mut encoder, &texture_view, draw_type, self.area);
+        self.view.borrow_mut().draw(
+            &mut encoder,
+            &texture_view,
+            draw_type,
+            self.area,
+            stereographic,
+            // The draw options are irrelevant for the fake scene
+            Default::default(),
+        );
 
         // create a buffer and fill it with the texture
         let extent = wgpu::Extent3d {
@@ -222,7 +238,11 @@ pub enum SceneElement {
     WidgetElement(u32),
     PhantomElement(PhantomElement),
     Grid(u32, usize),
-    GridCircle(u32, usize, isize, isize),
+    GridCircle(u32, GridPosition),
+    BezierControl {
+        helix_id: usize,
+        bezier_control: BezierControlPoint,
+    },
 }
 
 impl SceneElement {
@@ -232,7 +252,8 @@ impl SceneElement {
             SceneElement::WidgetElement(_) => None,
             SceneElement::PhantomElement(p) => Some(p.design_id),
             SceneElement::Grid(d, _) => Some(*d),
-            SceneElement::GridCircle(d, _, _, _) => Some(*d),
+            SceneElement::GridCircle(d, _) => Some(*d),
+            SceneElement::BezierControl { .. } => None,
         }
     }
 
@@ -241,6 +262,23 @@ impl SceneElement {
         match self {
             SceneElement::WidgetElement(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn transform_into_bezier(self) -> Self {
+        if let Self::WidgetElement(id) = self {
+            if let Some((helix_id, bezier_control)) =
+                ensnano_interactor::consts::widget_id_to_bezier(id)
+            {
+                Self::BezierControl {
+                    bezier_control,
+                    helix_id,
+                }
+            } else {
+                self
+            }
+        } else {
+            self
         }
     }
 }
@@ -281,7 +319,9 @@ impl SceneReader {
                 DrawType::Phantom => {
                     Some(SceneElement::PhantomElement(phantom_helix_decoder(color)))
                 }
-                DrawType::Widget => Some(SceneElement::WidgetElement(color)),
+                DrawType::Widget => {
+                    Some(SceneElement::WidgetElement(color).transform_into_bezier())
+                }
                 DrawType::Scene => unreachable!(),
             }
         }

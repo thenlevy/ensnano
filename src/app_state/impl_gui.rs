@@ -112,7 +112,35 @@ impl GuiState for AppState {
     }
 
     fn get_suggestion_parameters(&self) -> &SuggestionParameters {
-        &self.0.suggestion_parameters
+        &self.0.parameters.suggestion_parameters
+    }
+
+    fn get_checked_xovers_parameters(&self) -> CheckXoversParameter {
+        self.0.parameters.check_xover_paramters
+    }
+
+    fn follow_stereographic_camera(&self) -> bool {
+        self.0.parameters.follow_stereography
+    }
+
+    fn show_stereographic_camera(&self) -> bool {
+        self.0.parameters.show_stereography
+    }
+
+    fn show_h_bonds(&self) -> bool {
+        self.0.parameters.show_h_bonds
+    }
+
+    fn get_scroll_sensitivity(&self) -> f32 {
+        self.0.parameters.scroll_sensitivity
+    }
+
+    fn get_invert_y_scroll(&self) -> bool {
+        self.0.parameters.inverted_y_scroll
+    }
+
+    fn want_thick_helices(&self) -> bool {
+        self.0.parameters.thick_helices
     }
 }
 

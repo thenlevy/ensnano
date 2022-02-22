@@ -18,19 +18,23 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! This modules handles internal informations about the scene, such as the selected objects etc..
 //! It also communicates with the desgings to get the position of the objects to draw on the scene.
 
-use super::view::{GridDisc, HandleColors, RawDnaInstance};
+use super::view::{
+    GridDisc, HandleColors, Instanciable, RawDnaInstance, StereographicSphereAndPlane,
+};
 use super::{
-    ultraviolet, HandleOrientation, HandlesDescriptor, LetterInstance, RotationWidgetDescriptor,
-    RotationWidgetOrientation, SceneElement, View, ViewUpdate,
+    ultraviolet, Camera3D, HandleOrientation, HandlesDescriptor, LetterInstance,
+    RotationWidgetDescriptor, RotationWidgetOrientation, SceneElement, View, ViewUpdate,
 };
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use std::sync::Arc;
 
+use ensnano_design::grid::GridObject;
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
-use ensnano_design::Nucl;
+use ensnano_design::{grid::GridPosition, Nucl};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::{
     ActionMode, CenterOfSelection, ObjectType, PhantomElement, Referential, Selection,
@@ -44,7 +48,7 @@ type ViewPtr = Rc<RefCell<View>>;
 /// A module that handles the instantiation of designs as 3D geometric objects
 mod design3d;
 use design3d::Design3D;
-pub use design3d::DesignReader;
+pub use design3d::{DesignReader, HBond, HalfHBond};
 
 pub struct Data<R: DesignReader> {
     view: ViewPtr,
@@ -70,6 +74,8 @@ pub struct Data<R: DesignReader> {
     last_candidate_disc: Option<SceneElement>,
     rotating_pivot: bool,
     handle_colors: HandleColors,
+    stereographic_camera: Arc<(Camera3D, f32)>,
+    stereographic_camera_need_update: bool,
 }
 
 impl<R: DesignReader> Data<R> {
@@ -89,6 +95,15 @@ impl<R: DesignReader> Data<R> {
             last_candidate_disc: None,
             rotating_pivot: false,
             handle_colors: HandleColors::Rgb,
+            stereographic_camera: Arc::new((Default::default(), 1.)),
+            stereographic_camera_need_update: false,
+        }
+    }
+
+    pub fn update_stereographic_camera(&mut self, camera_ptr: Arc<(Camera3D, f32)>) {
+        if Arc::as_ptr(&camera_ptr) != Arc::as_ptr(&self.stereographic_camera) {
+            self.stereographic_camera = camera_ptr;
+            self.stereographic_camera_need_update = true;
         }
     }
 
@@ -116,8 +131,17 @@ impl<R: DesignReader> Data<R> {
         }
         if app_state.design_was_modified(older_app_state)
             || app_state.suggestion_parameters_were_updated(older_app_state)
+            || app_state.draw_options_were_updated(older_app_state)
         {
+            for d in self.designs.iter_mut() {
+                d.thick_helices = app_state.get_draw_options().thick_helices;
+            }
             self.update_instances(app_state);
+        }
+
+        if self.stereographic_camera_need_update {
+            self.update_stereographic_sphere();
+            self.stereographic_camera_need_update = false;
         }
 
         // If the color of a strand is being modified, we tell the view to highlight nothing.
@@ -125,6 +149,8 @@ impl<R: DesignReader> Data<R> {
             self.update_selection(&[], app_state)
         } else if app_state.selection_was_updated(older_app_state)
             || app_state.design_was_modified(older_app_state)
+            || app_state.get_check_xover_parameters()
+                != older_app_state.get_check_xover_parameters()
         {
             self.update_selection(app_state.get_selection(), app_state);
         }
@@ -132,6 +158,7 @@ impl<R: DesignReader> Data<R> {
             || app_state.selection_was_updated(older_app_state)
             || app_state.get_action_mode() != older_app_state.get_action_mode();
         if self.handle_need_opdate {
+            self.update_bezier(app_state);
             self.update_handle(app_state);
             self.handle_need_opdate = false;
         }
@@ -152,6 +179,24 @@ impl<R: DesignReader> Data<R> {
         }
     }
 
+    fn update_stereographic_sphere(&self) {
+        let instances = Rc::new(vec![StereographicSphereAndPlane {
+            position: self.stereographic_camera.0.position,
+            orientation: self.stereographic_camera.0.orientation.reversed(),
+            ratio: self.stereographic_camera.1,
+        }
+        .to_raw_instance()]);
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::StereographicSphere, instances));
+    }
+
+    pub fn get_aligned_camera(&self) -> Camera3D {
+        let mut ret = Camera3D::clone(&self.stereographic_camera.0);
+        ret.position += ret.orientation.reversed() * (10. * Vec3::unit_z());
+        ret
+    }
+
     fn discs_need_update<S: AppState>(&mut self, app_state: &S, older_app_state: &S) -> bool {
         let ret = app_state.design_was_modified(older_app_state)
             || app_state.selection_was_updated(older_app_state)
@@ -159,6 +204,26 @@ impl<R: DesignReader> Data<R> {
             || self.last_candidate_disc != self.candidate_element;
         self.last_candidate_disc = self.candidate_element.clone();
         ret
+    }
+
+    fn update_bezier<S: AppState>(&mut self, app_state: &S) {
+        let selected_helices =
+            ensnano_interactor::extract_helices_with_controls(app_state.get_selection());
+        log::debug!("selected helices {:?}", selected_helices);
+        let mut spheres = Vec::new();
+        let mut tubes = Vec::new();
+        for h_id in selected_helices {
+            let (s, t) = self.designs[0].get_bezier_elements(h_id);
+            spheres.extend(s);
+            tubes.extend(t);
+        }
+
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::BezierControll, Rc::new(spheres)));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::BezierSqueleton, Rc::new(tubes)));
     }
 
     fn update_handle<S: AppState>(&self, app_state: &S) {
@@ -229,6 +294,11 @@ impl<R: DesignReader> Data<R> {
         self.pivot_update |= self.pivot_element != element;
         self.pivot_element = element;
         self.update_pivot_position(app_state);
+    }
+
+    pub fn set_pivot_position(&mut self, position: Vec3) {
+        self.pivot_position = Some(position);
+        self.pivot_update = true;
     }
 
     #[allow(dead_code)]
@@ -344,7 +414,7 @@ impl<R: DesignReader> Data<R> {
     }*/
 
     /// Return the instances of selected spheres
-    pub fn get_selected_spheres(&self, selection: &[Selection]) -> Rc<Vec<RawDnaInstance>> {
+    pub fn get_selected_spheres(&self, selection: &[Selection]) -> Vec<RawDnaInstance> {
         let mut ret = Vec::new();
         for selection in selection.iter() {
             for element in self
@@ -380,7 +450,7 @@ impl<R: DesignReader> Data<R> {
                 }
             }
         }
-        Rc::new(ret)
+        ret
     }
 
     /// Return the instances of selected tubes
@@ -591,6 +661,7 @@ impl<R: DesignReader> Data<R> {
                 .cloned()
                 .collect(),
             Selection::Helix(d_id, h_id) => self.designs[*d_id as usize].get_helix_elements(*h_id),
+            Selection::BezierControlPoint { .. } => HashSet::new(),
             Selection::Strand(d_id, s_id) => {
                 self.designs[*d_id as usize].get_strand_elements(*s_id)
             }
@@ -608,16 +679,26 @@ impl<R: DesignReader> Data<R> {
         referential: Referential,
         selection_mode: SelectionMode,
     ) -> Option<Vec3> {
-        let design_id = element.get_design()?;
-        let design = self.designs.get(design_id as usize)?;
-        match selection_mode {
-            SelectionMode::Helix => design
-                .get_element_axis_position(element, referential)
-                .or(design.get_element_position(element, referential)),
-            SelectionMode::Nucleotide
-            | SelectionMode::Strand
-            | SelectionMode::Design
-            | SelectionMode::Grid => design.get_element_position(element, referential),
+        if let SceneElement::BezierControl {
+            helix_id,
+            bezier_control,
+        } = element
+        {
+            self.designs
+                .get(0)
+                .and_then(|d| d.get_control_point(*helix_id, *bezier_control))
+        } else {
+            let design_id = element.get_design()?;
+            let design = self.designs.get(design_id as usize)?;
+            match selection_mode {
+                SelectionMode::Helix => design
+                    .get_element_axis_position(element, referential)
+                    .or(design.get_element_position(element, referential)),
+                SelectionMode::Nucleotide
+                | SelectionMode::Strand
+                | SelectionMode::Design
+                | SelectionMode::Grid => design.get_element_position(element, referential),
+            }
         }
     }
 
@@ -780,7 +861,7 @@ impl<R: DesignReader> Data<R> {
     /// Notify the view that the selected elements have been modified
     fn update_selection<S: AppState>(&mut self, selection: &[Selection], app_state: &S) {
         log::trace!("Update selection {:?}", selection);
-        let sphere = self.get_selected_spheres(selection);
+        let mut sphere = self.get_selected_spheres(selection);
         let tubes = self.get_selected_tubes(selection);
         let pos: Vec3 = sphere
             .iter()
@@ -797,14 +878,29 @@ impl<R: DesignReader> Data<R> {
             self.update_selected_position(app_state);
             self.selected_position = self.selected_position.or(Some(pos / (total_len as f32)));
         }
+        if app_state.get_check_xover_parameters().wants_checked() {
+            sphere.extend(
+                self.designs
+                    .get(0)
+                    .map(|d| d.get_all_checked_xover_instance(true))
+                    .unwrap_or_default(),
+            );
+        }
+        if app_state.get_check_xover_parameters().wants_unchecked() {
+            sphere.extend(
+                self.designs
+                    .get(0)
+                    .map(|d| d.get_all_checked_xover_instance(false))
+                    .unwrap_or_default(),
+            );
+        }
         self.view.borrow_mut().update(ViewUpdate::RawDna(
             Mesh::SelectedTube,
             self.get_selected_tubes(selection),
         ));
-        self.view.borrow_mut().update(ViewUpdate::RawDna(
-            Mesh::SelectedSphere,
-            self.get_selected_spheres(selection),
-        ));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::SelectedSphere, Rc::new(sphere)));
         let (sphere, vec) = self.get_phantom_instances(app_state);
         self.view
             .borrow_mut()
@@ -886,13 +982,17 @@ impl<R: DesignReader> Data<R> {
                             set.insert(*h_id as u32, true);
                         }
                     }
-                    SceneElement::GridCircle(d_id, g_id, x, y) => {
-                        if let Some(h_id) = self.designs[d_id as usize].get_helix_grid(g_id, x, y) {
+                    SceneElement::GridCircle(d_id, position) => {
+                        if let Some(h_id) = self.designs[d_id as usize].get_helix_grid(position) {
                             let set = ret.entry(d_id).or_insert_with(HashMap::new);
                             set.insert(h_id, false);
                         }
                     }
                     SceneElement::WidgetElement(_) => unreachable!(),
+                    SceneElement::BezierControl { helix_id, .. } => {
+                        let set = ret.entry(0).or_insert_with(HashMap::new);
+                        set.insert(helix_id as u32, false);
+                    }
                 }
             }
         }
@@ -950,13 +1050,13 @@ impl<R: DesignReader> Data<R> {
                 }
             }
             SceneElement::Grid(d_id, g_id) => Selection::Grid(*d_id, *g_id),
-            SceneElement::GridCircle(d_id, g_id, x, y) => {
+            SceneElement::GridCircle(d_id, position) => {
                 let helix = self
                     .designs
                     .get(*d_id as usize)
-                    .and_then(|d| d.get_helix_grid(*g_id, *x, *y))
+                    .and_then(|d| d.get_helix_grid(*position))
                     .map(|h_id| Selection::Helix(*d_id, h_id));
-                helix.unwrap_or(Selection::Grid(*d_id, *g_id))
+                helix.unwrap_or(Selection::Grid(*d_id, position.grid))
             }
             SceneElement::PhantomElement(phantom) if phantom.bound => Selection::Bound(
                 phantom.design_id,
@@ -970,6 +1070,13 @@ impl<R: DesignReader> Data<R> {
                     Selection::Nucleotide(phantom.design_id, phantom.to_nucl())
                 }
             }
+            SceneElement::BezierControl {
+                bezier_control,
+                helix_id,
+            } => Selection::BezierControlPoint {
+                bezier_control: *bezier_control,
+                helix_id: *helix_id,
+            },
             _ => Selection::Nothing,
         }
     }
@@ -1036,6 +1143,15 @@ impl<R: DesignReader> Data<R> {
                         let pos2 = self.designs[d_id as usize].get_nucl_position(n2);
                         self.selected_position = pos1.zip(pos2).map(|(a, b)| (a + b) / 2.);
                     }
+                }
+                Selection::BezierControlPoint {
+                    helix_id,
+                    bezier_control,
+                } => {
+                    self.selected_position = self
+                        .designs
+                        .get(0)
+                        .and_then(|d| d.get_control_point(helix_id, bezier_control))
                 }
                 _ => (),
             }
@@ -1133,8 +1249,8 @@ impl<R: DesignReader> Data<R> {
 
     /// Notify the view that the set of instances have been modified.
     fn update_instances<S: AppState>(&mut self, app_state: &S) {
-        let mut spheres = Vec::with_capacity(self.get_number_spheres());
-        let mut tubes = Vec::with_capacity(self.get_number_tubes());
+        let mut spheres = Vec::with_capacity(10_000);
+        let mut tubes = Vec::with_capacity(10_000);
         let mut suggested_spheres = Vec::with_capacity(1000);
         let mut suggested_tubes = Vec::with_capacity(1000);
         let mut pasted_spheres = Vec::with_capacity(1000);
@@ -1200,6 +1316,13 @@ impl<R: DesignReader> Data<R> {
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::Prime3Cone, Rc::new(cones)));
+        let (hbonds, ellipsoids) = self.designs[0].get_all_hbond();
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::HBond, Rc::new(hbonds)));
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::RawDna(Mesh::BaseEllipsoid, Rc::new(ellipsoids)));
     }
 
     fn update_discs<S: AppState>(&mut self, app_state: &S) {
@@ -1207,8 +1330,8 @@ impl<R: DesignReader> Data<R> {
         let mut letters: Vec<Vec<LetterInstance>> = vec![vec![]; 10];
         let right = self.view.borrow().get_camera().borrow().right_vec();
         let up = self.view.borrow().get_camera().borrow().up_vec();
-        let mut selected_discs: Vec<(usize, isize, isize)> = Vec::new();
-        let mut candidate_discs: Vec<(usize, isize, isize)> = Vec::new();
+        let mut selected_discs: Vec<GridPosition> = Vec::new();
+        let mut candidate_discs: Vec<GridPosition> = Vec::new();
         let design = &self.designs[0];
         macro_rules! discs {
             () => {
@@ -1224,15 +1347,15 @@ impl<R: DesignReader> Data<R> {
         // If we are building helices, we want to show candidates grid circle even when they do not
         // correspond to an existing helix
         if app_state.get_action_mode().0.is_build() {
-            if let Some(SceneElement::GridCircle(0, g_id, x, y)) = self.candidate_element.as_ref() {
-                add_discs((*g_id, *x, *y), discs!(), DiscLevel::Candidate);
+            if let Some(SceneElement::GridCircle(0, position)) = self.candidate_element.as_ref() {
+                add_discs(*position, discs!(), DiscLevel::Candidate);
             }
         }
 
         for c in app_state.get_candidates() {
             if let Selection::Helix(0, h_id) = c {
                 if let Some(pos) = design.get_helix_grid_position(*h_id) {
-                    add_discs((pos.grid, pos.x, pos.y), discs!(), DiscLevel::Candidate)
+                    add_discs(pos.light(), discs!(), DiscLevel::Candidate)
                 };
             }
         }
@@ -1240,14 +1363,22 @@ impl<R: DesignReader> Data<R> {
         for s in app_state.get_selection() {
             if let Selection::Helix(0, h_id) = s {
                 if let Some(pos) = design.get_helix_grid_position(*h_id) {
-                    add_discs((pos.grid, pos.x, pos.y), discs!(), DiscLevel::Selection)
+                    add_discs(pos.light(), discs!(), DiscLevel::Selection)
                 }
             }
         }
         for design in self.designs.iter() {
             for grid in design.get_grid().iter().filter(|g| g.visible) {
                 for (x, y) in design.get_helices_grid_coord(grid.id) {
-                    add_discs((grid.id, x, y), discs!(), DiscLevel::Scene);
+                    add_discs(
+                        GridPosition {
+                            grid: grid.id,
+                            x,
+                            y,
+                        },
+                        discs!(),
+                        DiscLevel::Scene,
+                    );
                 }
                 for ((x, y), h_id) in design.get_helices_grid_key_coord(grid.id) {
                     grid.letter_instance(x, y, h_id, &mut letters, right, up);
@@ -1284,14 +1415,6 @@ impl<R: DesignReader> Data<R> {
     /// Return the point in the middle of the selected design
     pub fn get_middle_point(&self, design_id: u32) -> Vec3 {
         self.designs[design_id as usize].middle_point()
-    }
-
-    fn get_number_spheres(&self) -> usize {
-        self.designs.iter().map(|d| d.get_spheres_raw().len()).sum()
-    }
-
-    fn get_number_tubes(&self) -> usize {
-        self.designs.iter().map(|d| d.get_tubes_raw().len()).sum()
     }
 
     pub fn get_widget_basis<S: AppState>(&self, app_state: &S) -> Option<Rotor3> {
@@ -1349,9 +1472,13 @@ impl<R: DesignReader> Data<R> {
             Some(SceneElement::Grid(d_id, g_id)) => {
                 self.designs[d_id as usize].get_grid_basis(g_id)
             }
-            Some(SceneElement::GridCircle(d_id, g_id, _, _)) => {
-                self.designs[d_id as usize].get_grid_basis(g_id)
+            Some(SceneElement::GridCircle(d_id, position)) => {
+                self.designs[d_id as usize].get_grid_basis(position.grid)
             }
+            Some(SceneElement::BezierControl {
+                helix_id,
+                bezier_control,
+            }) => self.designs[0].get_bezier_control_basis(helix_id, bezier_control),
             _ => None,
         };
         let from_selection = match app_state.get_selection().get(0) {
@@ -1371,7 +1498,8 @@ impl<R: DesignReader> Data<R> {
             Some(_) => Some(Rotor3::identity()),
             None => None,
         };
-        from_selection.or(from_selected_element)
+        //from_selection.or(from_selected_element)
+        from_selected_element.or(from_selection)
     }
 
     pub fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl> {
@@ -1501,12 +1629,26 @@ impl<R: DesignReader> Data<R> {
                 .get(d_id as usize)
                 .and_then(|d| d.get_identifier_nucl(&n1))
                 .map(|id| SceneElement::DesignElement(d_id, id)),
-            CenterOfSelection::GridPosition {
+            CenterOfSelection::HelixGridPosition {
                 design,
                 grid_id,
                 x,
                 y,
-            } => Some(SceneElement::GridCircle(design, grid_id, x, y)),
+            } => Some(SceneElement::GridCircle(
+                design,
+                GridPosition {
+                    grid: grid_id,
+                    x,
+                    y,
+                },
+            )),
+            CenterOfSelection::BezierControlPoint {
+                helix_id,
+                bezier_control,
+            } => Some(SceneElement::BezierControl {
+                helix_id,
+                bezier_control,
+            }),
         }
     }
 
@@ -1520,7 +1662,7 @@ impl<R: DesignReader> Data<R> {
         match selected_object {
             Selection::Helix(d_id, h_id) => {
                 if let Some(pos) = design.get_helix_grid_position(*h_id) {
-                    Some(SceneElement::GridCircle(*d_id, pos.grid, pos.x, pos.y))
+                    Some(SceneElement::GridCircle(*d_id, pos.light()))
                 } else {
                     Some(SceneElement::PhantomElement(PhantomElement {
                         design_id: *d_id,
@@ -1538,7 +1680,14 @@ impl<R: DesignReader> Data<R> {
             Selection::Nucleotide(d_id, nucl) => design
                 .get_identifier_nucl(nucl)
                 .map(|nucl_id| SceneElement::DesignElement(*d_id, nucl_id)),
-            Selection::Grid(d_id, g_id) => Some(SceneElement::GridCircle(*d_id, *g_id, 0, 0)),
+            Selection::Grid(d_id, g_id) => Some(SceneElement::GridCircle(
+                *d_id,
+                GridPosition {
+                    grid: *g_id,
+                    x: 0,
+                    y: 0,
+                },
+            )),
             Selection::Xover(d_id, xover_id) => design
                 .get_element_identifier_from_xover_id(*xover_id)
                 .map(|e_id| SceneElement::DesignElement(*d_id, e_id)),
@@ -1562,18 +1711,18 @@ impl<R: DesignReader> Data<R> {
                     Some(CenterOfSelection::Nucleotide(pe.design_id, pe.to_nucl()))
                 }
             }
-            SceneElement::Grid(design, grid_id) => Some(CenterOfSelection::GridPosition {
+            SceneElement::Grid(design, grid_id) => Some(CenterOfSelection::HelixGridPosition {
                 design,
                 grid_id,
                 x: 0,
                 y: 0,
             }),
-            SceneElement::GridCircle(design, grid_id, x, y) => {
-                Some(CenterOfSelection::GridPosition {
+            SceneElement::GridCircle(design, position) => {
+                Some(CenterOfSelection::HelixGridPosition {
                     design,
-                    grid_id,
-                    x,
-                    y,
+                    grid_id: position.grid,
+                    x: position.x,
+                    y: position.y,
                 })
             }
             SceneElement::DesignElement(d_id, e_id) => {
@@ -1587,6 +1736,13 @@ impl<R: DesignReader> Data<R> {
                 })
             }
             SceneElement::WidgetElement(_) => None,
+            SceneElement::BezierControl {
+                helix_id,
+                bezier_control,
+            } => Some(CenterOfSelection::BezierControlPoint {
+                helix_id,
+                bezier_control,
+            }),
         }
     }
 
@@ -1675,10 +1831,10 @@ impl<R: DesignReader> ControllerData for Data<R> {
         self.can_start_builder(element)
     }
 
-    fn get_grid_helix(&self, grid_id: usize, x: isize, y: isize) -> Option<u32> {
+    fn get_grid_object(&self, position: GridPosition) -> Option<GridObject> {
         self.designs
             .get(0)
-            .and_then(|d| d.get_helix_grid(grid_id, x, y))
+            .and_then(|d| d.get_grid_object(position))
     }
 
     fn notify_rotating_pivot(&mut self) {
@@ -1695,9 +1851,13 @@ impl<R: DesignReader> ControllerData for Data<R> {
             self.handle_colors = colors;
         }
     }
-}
 
-type DiscPos = (usize, isize, isize);
+    fn element_to_selection(&self, element: &Option<SceneElement>) -> Selection {
+        element
+            .map(|elt| self.element_to_selection(&elt, SelectionMode::Nucleotide))
+            .unwrap_or(Selection::Nothing)
+    }
+}
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 enum DiscLevel {
@@ -1718,29 +1878,29 @@ impl DiscLevel {
 
 struct Discs<'a, R: DesignReader> {
     discs: &'a mut Vec<GridDisc>,
-    selection: &'a mut Vec<DiscPos>,
-    candidates: &'a mut Vec<DiscPos>,
+    selection: &'a mut Vec<GridPosition>,
+    candidates: &'a mut Vec<GridPosition>,
     design: &'a Design3D<R>,
 }
 
-fn add_discs<R: DesignReader>(pos: DiscPos, discs: Discs<R>, level: DiscLevel) {
-    if let Some(grid) = discs.design.get_grid().get(pos.0) {
+fn add_discs<R: DesignReader>(pos: GridPosition, discs: Discs<R>, level: DiscLevel) {
+    if let Some(grid) = discs.design.get_grid().get(pos.grid) {
         let new_disc_instances = match level {
             DiscLevel::Candidate => {
                 discs.candidates.push(pos);
-                Some(grid.disc(pos.1, pos.2, level.color(), 0))
+                Some(grid.disc(pos.x, pos.y, level.color(), 0))
             }
             DiscLevel::Selection => {
                 if !discs.candidates.contains(&pos) {
                     discs.selection.push(pos);
-                    Some(grid.disc(pos.1, pos.2, level.color(), 0))
+                    Some(grid.disc(pos.x, pos.y, level.color(), 0))
                 } else {
                     None
                 }
             }
             DiscLevel::Scene => {
                 if !discs.candidates.contains(&pos) && !discs.selection.contains(&pos) {
-                    Some(grid.disc(pos.1, pos.2, level.color(), 0))
+                    Some(grid.disc(pos.x, pos.y, level.color(), 0))
                 } else {
                     None
                 }
@@ -1751,7 +1911,7 @@ fn add_discs<R: DesignReader>(pos: DiscPos, discs: Discs<R>, level: DiscLevel) {
             discs.discs.push(d2);
         }
     } else {
-        log::error!("Could not get grid {:?}", pos.0);
+        log::error!("Could not get grid {:?}", pos.grid);
     }
 }
 

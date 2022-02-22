@@ -16,7 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::*;
+use super::*;
+use crate::strands::*;
+use std::borrow::Cow;
 
 impl Design {
     pub fn copy_grids(
@@ -46,26 +48,22 @@ impl Design {
             &mut new_grids,
         )?;
 
-        let mut new_helices = BTreeMap::clone(self.helices.as_ref());
-        let mut new_strands = self.strands.clone();
         let new_helix_map = self.make_grid_copy_helix_map(&grid_ids);
         let source_strand_ids = self.get_id_of_strands_on_grids(&grid_ids);
 
-        let mut new_strand_id = new_strands.keys().max().map(|n| *n + 1).unwrap_or(0);
-
         for s_id in source_strand_ids.into_iter() {
             let strand = self.copy_strand_on_new_grids(s_id, &new_helix_map)?;
-            new_strands.insert(new_strand_id, strand);
-            new_strand_id += 1;
+            self.strands.push(strand);
         }
 
         for (old_h_id, new_h_id) in new_helix_map.iter() {
-            let old_helix = new_helices
+            let old_helix = self
+                .helices
                 .get(old_h_id)
                 .ok_or(GridCopyError::HelixDoesNotExist(*old_h_id))?;
             let grid_position = old_helix.grid_position.and_then(|gp| {
                 let new_grid_id = new_grid_ids.get(&gp.grid).cloned()?;
-                Some(GridPosition {
+                Some(HelixGridPosition {
                     grid: new_grid_id,
                     ..gp.clone()
                 })
@@ -73,21 +71,13 @@ impl Design {
             if grid_position.is_none() {
                 return Err(GridCopyError::HelixNotOnGrid(*old_h_id));
             }
-            let new_helix = Arc::new(Helix {
-                position: Vec3::zero(),
-                orientation: Rotor3::identity(),
-                roll: old_helix.roll,
-                visible: true,
-                locked_for_simulations: false,
-                grid_position,
-                isometry2d: None,
-                symmetry: old_helix.symmetry,
-            });
-            new_helices.insert(*new_h_id, new_helix);
+            let mut new_helix = Helix::new(Vec3::zero(), Rotor3::identity());
+            new_helix.grid_position = grid_position;
+            new_helix.symmetry = old_helix.symmetry;
+            let mut helices_mut = self.helices.make_mut();
+            helices_mut.insert(*new_h_id, new_helix);
         }
 
-        self.strands = new_strands;
-        self.helices = Arc::new(new_helices);
         self.grids = Arc::new(new_grids);
         Ok(())
     }

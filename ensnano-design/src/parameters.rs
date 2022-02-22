@@ -69,6 +69,21 @@ impl Parameters {
         }
     };
 
+    /// Value used for RNA designs
+    /// Taken from "Design Principles for Single-Stranded RNA Origami Structures, Geary & Andersen
+    /// 2014
+    pub const GEARY_2014_RNA: Parameters = {
+        let helix_radius = 0.87;
+        Parameters {
+            helix_radius,
+            z_step: 0.281,
+            inclination: -0.745,
+            groove_angle: 139.9 / 180.0 * std::f32::consts::PI,
+            bases_per_turn: 11.0,
+            inter_helix_gap: 2. * (INTER_CENTER_GAP - helix_radius),
+        }
+    };
+
     pub const DEFAULT: Self = Self::GEARY_2014_DNA;
 
     /// Values used in version perior to 0.4.1, taken from the litterature (Wikipedia, Cargo
@@ -188,7 +203,7 @@ impl ToString for NamedParameter {
     }
 }
 
-pub const NAMED_DNA_PARAMETERS: [NamedParameter; 2] = [
+pub const NAMED_DNA_PARAMETERS: [NamedParameter; 3] = [
     NamedParameter {
         name: "Old ENSnano",
         value: Parameters::OLD_ENSNANO,
@@ -196,6 +211,10 @@ pub const NAMED_DNA_PARAMETERS: [NamedParameter; 2] = [
     NamedParameter {
         name: "Geary 2014",
         value: Parameters::GEARY_2014_DNA,
+    },
+    NamedParameter {
+        name: "Geary 2014 RNA",
+        value: Parameters::GEARY_2014_RNA,
     },
 ];
 

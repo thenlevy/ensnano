@@ -28,11 +28,16 @@ pub struct ParametersTab {
 }
 
 impl ParametersTab {
-    pub fn new() -> Self {
+    pub fn new<S: AppState>(app_state: &S) -> Self {
         Self {
             size_pick_list: Default::default(),
             scroll: Default::default(),
-            scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
+            scroll_sensitivity_factory: RequestFactory::new(
+                FactoryId::Scroll,
+                ScrollSentivity {
+                    initial_value: app_state.get_scroll_sensitivity(),
+                },
+            ),
             dna_parameters_picklist: Default::default(),
             invert_y_scroll: false,
         }
@@ -65,7 +70,7 @@ impl ParametersTab {
         }
 
         ret = ret.push(right_checkbox(
-            self.invert_y_scroll,
+            app_state.get_invert_y_scroll(),
             "Inverse direction",
             Message::InvertScroll,
             ui_size.clone(),

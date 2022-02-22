@@ -17,12 +17,15 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::view::HandleColors;
 use super::{
-    camera, ultraviolet, Duration, ElementSelector, HandleDir, SceneElement, ViewPtr,
+    camera, ultraviolet, Duration, ElementSelector, HandleDir, SceneElement, Stereography, ViewPtr,
     WidgetRotationMode as RotationMode,
 };
 use crate::{PhySize, PhysicalPosition, WindowEvent};
+use ensnano_design::grid::{GridObject, GridPosition, HelixGridPosition};
 use ensnano_design::Nucl;
 use ensnano_interactor::consts::*;
+use ensnano_interactor::DesignReader;
+use ensnano_interactor::Selection;
 use ensnano_utils::winit::event::*;
 use std::cell::RefCell;
 use ultraviolet::{Rotor3, Vec3};
@@ -63,12 +66,19 @@ pub struct Controller<S: AppState> {
     /// The effect that dragging the mouse has
     click_mode: ClickMode,
     state: State<S>,
+    stereography: Option<Stereography>,
+    /// The origin of the two points bezier curve being created.
+    bezier_curve_origin: Option<HelixGridPosition>,
 }
 
 pub enum Consequence {
     CameraMoved,
     CameraTranslated(f64, f64),
     XoverAtempt(Nucl, Nucl, usize),
+    QuickXoverAttempt {
+        nucl: Nucl,
+        doubled: bool,
+    },
     Translation(HandleDir, f64, f64, WidgetTarget),
     MovementEnded,
     Rotation(f64, f64, WidgetTarget),
@@ -99,14 +109,17 @@ pub enum Consequence {
     PasteCandidate(Option<super::SceneElement>),
     Paste(Option<super::SceneElement>),
     DoubleClick(Option<super::SceneElement>),
-    InitBuild(Nucl),
-    HelixTranslated {
-        helix: usize,
+    InitBuild(Vec<Nucl>),
+    ObjectTranslated {
+        object: GridObject,
         grid: usize,
         x: isize,
         y: isize,
     },
     HelixSelected(usize),
+    PivotCenter,
+    CheckXovers,
+    AlignWithStereo,
 }
 
 enum TransistionConsequence {
@@ -124,12 +137,7 @@ impl<S: AppState> Controller<S> {
     ) -> Self {
         let camera_controller = {
             let view = view.borrow();
-            CameraController::new(
-                4.0,
-                BASE_SCROLL_SENSITIVITY,
-                view.get_camera(),
-                view.get_projection(),
-            )
+            CameraController::new(4.0, view.get_camera(), view.get_projection())
         };
         Self {
             view,
@@ -140,11 +148,20 @@ impl<S: AppState> Controller<S> {
             current_modifiers: ModifiersState::empty(),
             click_mode: ClickMode::TranslateCam,
             state: automata::initial_state(),
+            stereography: None,
+            bezier_curve_origin: None,
         }
+    }
+
+    pub fn set_setreography(&mut self, stereography: Option<Stereography>) {
+        self.stereography = stereography;
     }
 
     pub fn update_modifiers(&mut self, modifiers: ModifiersState) {
         self.current_modifiers = modifiers;
+        if !modifiers.shift() {
+            self.bezier_curve_origin = None;
+        }
     }
 
     /// Replace the camera by a new one.
@@ -210,9 +227,54 @@ impl<S: AppState> Controller<S> {
         } else if let WindowEvent::MouseWheel { delta, .. } = event {
             let mouse_x = position.x / self.area_size.width as f64;
             let mouse_y = position.y / self.area_size.height as f64;
-            self.camera_controller
-                .process_scroll(delta, mouse_x as f32, mouse_y as f32);
-            Transition::consequence(Consequence::CameraMoved)
+            if ctrl(&self.current_modifiers) {
+                self.camera_controller.update_stereographic_zoom(delta);
+                Transition::consequence(Consequence::CameraMoved)
+            } else if self.current_modifiers.shift() {
+                self.state.borrow_mut().notify_scroll();
+                let element = pixel_reader.set_selected_id(position);
+                if let Some(builder) = app_state.get_strand_builders().get(0) {
+                    let init_position = builder.get_moving_end_nucl().position;
+                    let delta = match delta {
+                        MouseScrollDelta::LineDelta(_, y) => y.signum() as isize,
+                        MouseScrollDelta::PixelDelta(pos) => pos.y.signum() as isize,
+                    };
+                    Transition::consequence(Consequence::Building(init_position + delta))
+                } else if let Some(nucl) = self
+                    .data
+                    .borrow()
+                    .can_start_builder(self.state.borrow().element_being_selected())
+                {
+                    Transition::init_building(vec![nucl], false)
+                } else if let Selection::Nucleotide(_, nucl) =
+                    self.data.borrow().element_to_selection(&element)
+                {
+                    Transition::init_building(vec![nucl], false)
+                } else if let Selection::Xover(_, xover_id) =
+                    self.data.borrow().element_to_selection(&element)
+                {
+                    if let Some((n1, n2)) =
+                        app_state.get_design_reader().get_xover_with_id(xover_id)
+                    {
+                        Transition::init_building(vec![n1, n2], false)
+                    } else {
+                        self.camera_controller.process_scroll(
+                            delta,
+                            mouse_x as f32,
+                            mouse_y as f32,
+                        );
+                        Transition::consequence(Consequence::CameraMoved)
+                    }
+                } else {
+                    self.camera_controller
+                        .process_scroll(delta, mouse_x as f32, mouse_y as f32);
+                    Transition::consequence(Consequence::CameraMoved)
+                }
+            } else {
+                self.camera_controller
+                    .process_scroll(delta, mouse_x as f32, mouse_y as f32);
+                Transition::consequence(Consequence::CameraMoved)
+            }
         } else if let WindowEvent::KeyboardInput {
             input:
                 KeyboardInput {
@@ -224,6 +286,10 @@ impl<S: AppState> Controller<S> {
         } = event
         {
             let csq = match *key {
+                VirtualKeyCode::A if *state == ElementState::Pressed => {
+                    Consequence::AlignWithStereo
+                }
+                VirtualKeyCode::C if *state == ElementState::Pressed => Consequence::CheckXovers,
                 VirtualKeyCode::Z
                     if ctrl(&self.current_modifiers) && *state == ElementState::Pressed =>
                 {
@@ -234,6 +300,7 @@ impl<S: AppState> Controller<S> {
                 {
                     Consequence::Redo
                 }
+                VirtualKeyCode::Q => Consequence::PivotCenter,
                 VirtualKeyCode::Space if *state == ElementState::Pressed => {
                     Consequence::ToggleWidget
                 }
@@ -287,8 +354,13 @@ impl<S: AppState> Controller<S> {
     }
 
     /// Moves the camera according to its speed and the time elapsed since previous frame
-    pub fn update_camera(&mut self, dt: Duration) {
-        self.camera_controller.update_camera(dt, self.click_mode);
+    pub fn update_camera(&mut self, dt: Duration, app_state: &S) {
+        self.camera_controller.update_camera(
+            dt,
+            self.click_mode,
+            &self.current_modifiers,
+            app_state,
+        );
     }
 
     /// Handles a resizing of the window and/or drawing area
@@ -312,10 +384,6 @@ impl<S: AppState> Controller<S> {
 
     fn end_movement(&mut self) {
         self.camera_controller.end_movement();
-    }
-
-    pub fn change_sensitivity(&mut self, sensitivity: f32) {
-        self.camera_controller.sensitivity = 10f32.powf(sensitivity / 10.) * BASE_SCROLL_SENSITIVITY
     }
 
     pub fn set_camera_target(&mut self, target: Vec3, up: Vec3, pivot: Option<Vec3>) {
@@ -356,6 +424,27 @@ impl<S: AppState> Controller<S> {
             .update_handle_colors(self.handles_color_system());
     }
 
+    pub fn is_building_bezier_curve(&self) -> bool {
+        self.current_modifiers.shift()
+    }
+
+    /// Set the origin or destination of the two point bezier helix being built.
+    ///
+    /// If an origin was set, `point` is treated as a destianation and the pair
+    /// `(origin, destination)` is returned. Otherwise, `point` is treated as an origin and `None`
+    /// is returned.
+    pub fn add_bezier_point(
+        &mut self,
+        point: HelixGridPosition,
+    ) -> Option<(HelixGridPosition, HelixGridPosition)> {
+        if let Some(position) = self.bezier_curve_origin.take() {
+            Some((position, point))
+        } else {
+            self.bezier_curve_origin = Some(point);
+            None
+        }
+    }
+
     pub fn get_icon(&self) -> Option<ensnano_interactor::CursorIcon> {
         self.state.borrow().cursor()
     }
@@ -382,8 +471,9 @@ pub(super) trait Data {
         dest: &Option<SceneElement>,
     ) -> Option<(Nucl, Nucl, usize)>;
     fn can_start_builder(&self, element: Option<SceneElement>) -> Option<Nucl>;
-    fn get_grid_helix(&self, grid_id: usize, x: isize, y: isize) -> Option<u32>;
+    fn get_grid_object(&self, position: GridPosition) -> Option<GridObject>;
     fn notify_rotating_pivot(&mut self);
     fn stop_rotating_pivot(&mut self);
     fn update_handle_colors(&mut self, colors: HandleColors);
+    fn element_to_selection(&self, element: &Option<SceneElement>) -> Selection;
 }

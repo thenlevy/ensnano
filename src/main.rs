@@ -124,9 +124,9 @@ use ensnano_interactor::consts;
 mod multiplexer;
 use ensnano_flatscene as flatscene;
 use ensnano_interactor::{
-    graphics::{DrawArea, ElementType, SplitMode},
+    graphics::{ElementType, SplitMode},
     operation::Operation,
-    ActionMode, Selection, SelectionMode,
+    ActionMode, CheckXoversParameter, Selection, SelectionMode,
 };
 /// 3D scene drawing
 use ensnano_scene as scene;
@@ -140,7 +140,10 @@ mod main_tests;
 
 mod app_state;
 mod controller;
-use app_state::{AppState, CopyOperation, ErrOperation, PastingStatus, SimulationTarget};
+use app_state::{
+    AppState, AppStateTransition, CopyOperation, ErrOperation, OkOperation, PastePosition,
+    PastingStatus, SimulationTarget, TransitionLabel,
+};
 use controller::Action;
 use controller::Controller;
 
@@ -307,9 +310,22 @@ fn main() {
         requests.clone(),
         &mut encoder,
         Default::default(),
+        scene::SceneKind::Cartesian,
     )));
+    let stereographic_scene = Arc::new(Mutex::new(Scene::new(
+        device.clone(),
+        queue.clone(),
+        window.inner_size(),
+        scene_area,
+        requests.clone(),
+        &mut encoder,
+        Default::default(),
+        scene::SceneKind::Stereographic,
+    )));
+
     queue.submit(Some(encoder.finish()));
     scheduler.add_application(scene.clone(), ElementType::Scene);
+    scheduler.add_application(stereographic_scene.clone(), ElementType::StereographicScene);
 
     let flat_scene = Arc::new(Mutex::new(FlatScene::new(
         device.clone(),
@@ -322,6 +338,12 @@ fn main() {
     scheduler.add_application(flat_scene.clone(), ElementType::FlatScene);
 
     // Initialize the UI
+    //
+    let main_state_constructor = MainStateConstructor {
+        messages: messages.clone(),
+    };
+
+    let mut main_state = MainState::new(main_state_constructor);
 
     let mut gui = gui::Gui::new(
         device.clone(),
@@ -329,6 +351,8 @@ fn main() {
         &multiplexer,
         requests.clone(),
         settings,
+        &main_state.app_state,
+        Default::default(),
     );
 
     let mut overlay_manager = OverlayManager::new(requests.clone(), &window, &mut renderer);
@@ -337,17 +361,15 @@ fn main() {
     let mut last_render_time = std::time::Instant::now();
     let mut mouse_interaction = iced::mouse::Interaction::Pointer;
 
-    let main_state_constructor = MainStateConstructor {
-        messages: messages.clone(),
-    };
-
-    let mut main_state = MainState::new(main_state_constructor);
     main_state
         .applications
         .insert(ElementType::Scene, scene.clone());
     main_state
         .applications
         .insert(ElementType::FlatScene, flat_scene.clone());
+    main_state
+        .applications
+        .insert(ElementType::StereographicScene, stereographic_scene.clone());
 
     // Add a design to the scene if one was given as a command line arguement
     if path.is_some() {
@@ -369,6 +391,11 @@ fn main() {
         main_state.app_state.clone(),
         main_state.gui_state(&multiplexer),
     );
+    messages
+        .lock()
+        .unwrap()
+        .push_application_state(main_state.get_app_state().clone(), last_gui_state.1.clone());
+
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(33));
@@ -548,6 +575,7 @@ fn main() {
                     }
                 }
 
+                log::trace!("call update from main");
                 main_state.update();
                 let new_title = if let Some(path) = main_state.get_current_file_name() {
                     let path_str = formated_path_end(path);
@@ -619,7 +647,12 @@ fn main() {
                 }
                 if scale_factor_changed {
                     multiplexer.generate_textures();
-                    gui.notify_scale_factor_change(&window, &multiplexer);
+                    gui.notify_scale_factor_change(
+                        &window,
+                        &multiplexer,
+                        &main_state.app_state,
+                        main_state.gui_state(&multiplexer),
+                    );
                     log::info!("Notified of scale factor change: {}", window.scale_factor());
                     scheduler.forward_new_size(window.inner_size(), &multiplexer);
                     let window_size = window.inner_size();
@@ -905,8 +938,8 @@ fn formated_path_end<P: AsRef<Path>>(path: P) -> String {
 pub(crate) struct MainState {
     app_state: AppState,
     pending_actions: VecDeque<Action>,
-    undo_stack: Vec<AppState>,
-    redo_stack: Vec<AppState>,
+    undo_stack: Vec<AppStateTransition>,
+    redo_stack: Vec<AppStateTransition>,
     chanel_reader: ChanelReader,
     messages: Arc<Mutex<IcedMessages<AppState>>>,
     applications: HashMap<ElementType, Arc<Mutex<dyn Application<AppState = AppState>>>>,
@@ -916,6 +949,7 @@ pub(crate) struct MainState {
     file_name: Option<PathBuf>,
     wants_fit: bool,
     last_backup_date: Instant,
+    last_backed_up_state: AppState,
     simulation_cursor: Option<CursorIcon>,
     applications_cursor: Option<CursorIcon>,
     gui_cursor: CursorIcon,
@@ -944,6 +978,7 @@ impl MainState {
             file_name: None,
             wants_fit: false,
             last_backup_date: Instant::now(),
+            last_backed_up_state: app_state.clone(),
             simulation_cursor: None,
             applications_cursor: None,
             gui_cursor: Default::default(),
@@ -1009,11 +1044,24 @@ impl MainState {
     }
 
     fn update(&mut self) {
+        log::trace!("call from main state");
+        if let Some(camera_ptr) = self
+            .applications
+            .get(&ElementType::StereographicScene)
+            .and_then(|s| s.lock().unwrap().get_camera())
+        {
+            self.applications
+                .get(&ElementType::Scene)
+                .unwrap()
+                .lock()
+                .unwrap()
+                .on_notify(Notification::NewStereographicCamera(camera_ptr));
+        }
         self.app_state.update()
     }
 
     fn update_candidates(&mut self, candidates: Vec<Selection>) {
-        self.modify_state(|s| s.with_candidates(candidates), false);
+        self.modify_state(|s| s.with_candidates(candidates), None);
     }
 
     fn transfer_selection_pivot_to_group(&mut self, group_id: ensnano_design::GroupId) {
@@ -1032,11 +1080,14 @@ impl MainState {
         selection: Vec<Selection>,
         group_id: Option<ensnano_organizer::GroupId>,
     ) {
-        self.modify_state(|s| s.with_selection(selection, group_id), true);
+        self.modify_state(
+            |s| s.with_selection(selection, group_id),
+            Some("Selection".into()),
+        );
     }
 
     fn update_center_of_selection(&mut self, center: Option<CenterOfSelection>) {
-        self.modify_state(|s| s.with_center_of_selection(center), false)
+        self.modify_state(|s| s.with_center_of_selection(center), None)
     }
 
     fn apply_copy_operation(&mut self, operation: CopyOperation) {
@@ -1050,7 +1101,7 @@ impl MainState {
         if let Err(ErrOperation::FinishFirst) = result {
             self.modify_state(
                 |s| s.notified(app_state::InteractorNotification::FinishOperation),
-                false,
+                None,
             );
             self.apply_operation(operation);
         } else {
@@ -1076,6 +1127,15 @@ impl MainState {
         self.apply_operation_result(result)
     }
 
+    fn start_twist(&mut self, grid_id: usize) {
+        let result = self.app_state.start_simulation(
+            Default::default(),
+            &mut self.chanel_reader,
+            SimulationTarget::Twist { grid_id },
+        );
+        self.apply_operation_result(result)
+    }
+
     fn start_roll_simulation(&mut self, target_helices: Option<Vec<usize>>) {
         let result = self.app_state.start_simulation(
             Default::default(),
@@ -1096,7 +1156,7 @@ impl MainState {
             Err(ErrOperation::FinishFirst) => {
                 self.modify_state(
                     |s| s.notified(app_state::InteractorNotification::FinishOperation),
-                    false,
+                    None,
                 );
                 self.apply_silent_operation(operation)
             }
@@ -1104,8 +1164,13 @@ impl MainState {
         }
     }
 
-    fn save_old_state(&mut self, old_state: AppState) {
-        self.undo_stack.push(old_state);
+    fn save_old_state(&mut self, old_state: AppState, label: TransitionLabel) {
+        let camera_3d = self.get_camera_3d();
+        self.undo_stack.push(AppStateTransition {
+            state: old_state,
+            label,
+            camera_3d,
+        });
         self.redo_stack.clear();
     }
 
@@ -1118,34 +1183,59 @@ impl MainState {
     }
 
     fn undo(&mut self) {
-        if let Some(mut state) = self.undo_stack.pop() {
-            state.prepare_for_replacement(&self.app_state);
-            let mut redo = std::mem::replace(&mut self.app_state, state);
-            redo = redo.notified(app_state::InteractorNotification::FinishOperation);
-            if redo.is_in_stable_state() {
-                self.redo_stack.push(redo);
+        if let Some(mut transition) = self.undo_stack.pop() {
+            transition.state.prepare_for_replacement(&self.app_state);
+            let mut redo_state = std::mem::replace(&mut self.app_state, transition.state);
+            redo_state = redo_state.notified(app_state::InteractorNotification::FinishOperation);
+            self.set_camera_3d(transition.camera_3d.clone());
+            self.messages
+                .lock()
+                .unwrap()
+                .push_message(format!("UNDO: {}", transition.label.as_ref()));
+            if redo_state.is_in_stable_state() {
+                self.redo_stack.push(AppStateTransition {
+                    state: redo_state,
+                    label: transition.label,
+                    camera_3d: transition.camera_3d,
+                });
             }
         }
     }
 
     fn redo(&mut self) {
-        if let Some(mut state) = self.redo_stack.pop() {
-            state.prepare_for_replacement(&self.app_state);
-            let undo = std::mem::replace(&mut self.app_state, state);
-            self.undo_stack.push(undo);
+        if let Some(mut transition) = self.redo_stack.pop() {
+            transition.state.prepare_for_replacement(&self.app_state);
+            let undo_state = std::mem::replace(&mut self.app_state, transition.state);
+            self.set_camera_3d(transition.camera_3d.clone());
+            self.messages
+                .lock()
+                .unwrap()
+                .push_message(format!("REDO: {}", transition.label.as_ref()));
+            self.undo_stack.push(AppStateTransition {
+                state: undo_state,
+                camera_3d: transition.camera_3d,
+                label: transition.label,
+            });
         }
     }
 
-    fn modify_state<F>(&mut self, modification: F, undoable: bool)
+    fn modify_state<F>(&mut self, modification: F, undo_label: Option<TransitionLabel>)
     where
         F: FnOnce(AppState) -> AppState,
     {
         let state = std::mem::take(&mut self.app_state);
         let old_state = state.clone();
         self.app_state = modification(state);
-        if old_state != self.app_state && undoable && old_state.is_in_stable_state() {
-            self.undo_stack.push(old_state);
-            self.redo_stack.clear();
+        if let Some(label) = undo_label {
+            if old_state != self.app_state && old_state.is_in_stable_state() {
+                let camera_3d = self.get_camera_3d();
+                self.undo_stack.push(AppStateTransition {
+                    state: old_state,
+                    label,
+                    camera_3d,
+                });
+                self.redo_stack.clear();
+            }
         }
     }
 
@@ -1154,7 +1244,7 @@ impl MainState {
         if let Err(ErrOperation::FinishFirst) = result {
             self.modify_state(
                 |s| s.notified(app_state::InteractorNotification::FinishOperation),
-                false,
+                None,
             );
             self.update_pending_operation(operation)
         }
@@ -1167,10 +1257,10 @@ impl MainState {
         self.apply_operation_result(result);
     }
 
-    fn apply_operation_result(&mut self, result: Result<Option<AppState>, ErrOperation>) {
+    fn apply_operation_result(&mut self, result: Result<OkOperation, ErrOperation>) {
         match result {
-            Ok(Some(old_state)) => self.save_old_state(old_state),
-            Ok(None) => (),
+            Ok(OkOperation::Undoable { state, label }) => self.save_old_state(state, label),
+            Ok(OkOperation::NotUndoable) => (),
             Err(e) => log::warn!("{:?}", e),
         }
     }
@@ -1184,6 +1274,8 @@ impl MainState {
             self.apply_copy_operation(CopyOperation::CopyXovers(xover_ids))
         } else if let Some(grid_ids) = ensnano_interactor::extract_only_grids(selection.as_ref()) {
             self.apply_copy_operation(CopyOperation::CopyGrids(grid_ids))
+        } else if let Some((_, helices)) = ensnano_interactor::list_of_helices(selection.as_ref()) {
+            self.apply_copy_operation(CopyOperation::CopyHelices(helices))
         } else {
             let strand_ids = ensnano_interactor::extract_strands_from_selection(
                 self.app_state.get_selection().as_ref(),
@@ -1197,7 +1289,7 @@ impl MainState {
         match self.app_state.is_pasting() {
             PastingStatus::Copy => self.apply_copy_operation(CopyOperation::Paste),
             PastingStatus::Duplication => self.apply_copy_operation(CopyOperation::Duplicate),
-            _ => (),
+            _ => log::info!("Not pasting"),
         }
     }
 
@@ -1210,6 +1302,10 @@ impl MainState {
                 &self.app_state.get_design_reader(),
             ) {
                 self.apply_copy_operation(CopyOperation::InitXoverDuplication(nucl_pairs))
+            } else if let Some((_, helices)) =
+                ensnano_interactor::list_of_helices(self.app_state.get_selection().as_ref())
+            {
+                self.apply_copy_operation(CopyOperation::InitHelicesDuplication(helices))
             } else {
                 let strand_ids = ensnano_interactor::extract_strands_from_selection(
                     self.app_state.get_selection().as_ref(),
@@ -1224,11 +1320,12 @@ impl MainState {
             .applications
             .get(&ElementType::Scene)
             .and_then(|s| s.lock().unwrap().get_camera())
-            .map(|(position, orientation)| Camera {
+            .map(|camera| Camera {
                 id: Default::default(),
                 name: String::from("Saved Camera"),
-                position,
-                orientation,
+                position: camera.0.position,
+                orientation: camera.0.orientation,
+                pivot_position: camera.0.pivot_position,
             });
         let save_info = ensnano_design::SavingInformation { camera };
         self.app_state
@@ -1245,11 +1342,12 @@ impl MainState {
             .applications
             .get(&ElementType::Scene)
             .and_then(|s| s.lock().unwrap().get_camera())
-            .map(|(position, orientation)| Camera {
+            .map(|camera| Camera {
                 id: Default::default(),
                 name: String::from("Saved Camera"),
-                position,
-                orientation,
+                position: camera.0.position,
+                orientation: camera.0.orientation,
+                pivot_position: camera.0.pivot_position,
             });
         let save_info = ensnano_design::SavingInformation { camera };
         let path = if let Some(mut path) = self.path_to_current_design.clone() {
@@ -1269,24 +1367,25 @@ impl MainState {
             .get_design_reader()
             .save_design(&path, save_info)?;
 
+        self.last_backed_up_state = self.app_state.clone();
         println!("Saved backup to {}", path.to_string_lossy());
         Ok(())
     }
 
     fn change_selection_mode(&mut self, mode: SelectionMode) {
-        self.modify_state(|s| s.with_selection_mode(mode), false)
+        self.modify_state(|s| s.with_selection_mode(mode), None)
     }
 
     fn change_action_mode(&mut self, mode: ActionMode) {
-        self.modify_state(|s| s.with_action_mode(mode), false)
+        self.modify_state(|s| s.with_action_mode(mode), None)
     }
 
     fn change_double_strand_parameters(&mut self, parameters: Option<(isize, usize)>) {
-        self.modify_state(|s| s.with_strand_on_helix(parameters), false)
+        self.modify_state(|s| s.with_strand_on_helix(parameters), None)
     }
 
     fn toggle_widget_basis(&mut self) {
-        self.modify_state(|s| s.with_toggled_widget_basis(), false)
+        self.modify_state(|s| s.with_toggled_widget_basis(), None)
     }
 
     fn set_visibility_sieve(&mut self, selection: Vec<Selection>, compl: bool) {
@@ -1311,7 +1410,43 @@ impl MainState {
     }
 
     fn set_suggestion_parameters(&mut self, param: SuggestionParameters) {
-        self.modify_state(|s| s.with_suggestion_parameters(param), false)
+        self.modify_state(|s| s.with_suggestion_parameters(param), None)
+    }
+
+    fn set_check_xovers_parameters(&mut self, param: CheckXoversParameter) {
+        self.modify_state(|s| s.with_check_xovers_parameters(param), None)
+    }
+
+    fn set_follow_stereographic_camera(&mut self, follow: bool) {
+        self.modify_state(|s| s.with_follow_stereographic_camera(follow), None)
+    }
+
+    fn set_show_stereographic_camera(&mut self, show: bool) {
+        self.modify_state(|s| s.with_show_stereographic_camera(show), None)
+    }
+
+    fn set_show_h_bonds(&mut self, show: bool) {
+        self.modify_state(|s| s.with_show_h_bonds(show), None)
+    }
+
+    fn set_thick_helices(&mut self, thick: bool) {
+        self.modify_state(|s| s.with_thick_helices(thick), None)
+    }
+
+    fn set_background_3d(&mut self, bg: ensnano_interactor::graphics::Background3D) {
+        self.modify_state(|s| s.with_background3d(bg), None)
+    }
+
+    fn set_rendering_mode(&mut self, rendering_mode: ensnano_interactor::graphics::RenderingMode) {
+        self.modify_state(|s| s.with_rendering_mode(rendering_mode), None)
+    }
+
+    fn set_scroll_sensitivity(&mut self, sensitivity: f32) {
+        self.modify_state(|s| s.with_scroll_sensitivity(sensitivity), None)
+    }
+
+    fn set_invert_y_scroll(&mut self, inverted: bool) {
+        self.modify_state(|s| s.with_inverted_y_scroll(inverted), None)
     }
 
     fn gui_state(&self, multiplexer: &Multiplexer) -> gui::MainState {
@@ -1326,7 +1461,31 @@ impl MainState {
                 .get(&ElementType::FlatScene)
                 .map(|app| app.lock().unwrap().is_splited())
                 .unwrap_or(false),
+            can_toggle_2d: multiplexer.is_showing(&ElementType::FlatScene)
+                || multiplexer.is_showing(&ElementType::StereographicScene),
         }
+    }
+
+    fn get_camera_3d(&self) -> ensnano_interactor::application::Camera3D {
+        self.applications
+            .get(&ElementType::Scene)
+            .expect("Could not get scene element")
+            .lock()
+            .unwrap()
+            .get_camera()
+            .unwrap()
+            .as_ref()
+            .clone()
+            .0
+    }
+
+    fn set_camera_3d(&self, camera: ensnano_interactor::application::Camera3D) {
+        self.applications
+            .get(&ElementType::Scene)
+            .expect("Could not get scene element")
+            .lock()
+            .unwrap()
+            .on_notify(Notification::TeleportCamera(camera));
     }
 }
 
@@ -1348,6 +1507,20 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             log::debug!("pending actions {:?}", self.main_state.pending_actions);
         }
         self.main_state.pending_actions.pop_front()
+    }
+
+    fn check_backup(&mut self) {
+        if !self
+            .main_state
+            .last_backed_up_state
+            .design_was_modified(&self.main_state.app_state)
+            && !self
+                .main_state
+                .last_saved_state
+                .design_was_modified(&self.main_state.app_state)
+        {
+            self.main_state.last_backup_date = Instant::now()
+        }
     }
 
     fn need_backup(&self) -> bool {
@@ -1382,7 +1555,13 @@ impl<'a> MainStateInteface for MainStateView<'a> {
                 .get_design_reader()
                 .get_favourite_camera()
             {
-                self.notify_apps(Notification::TeleportCamera(position, orientation));
+                self.notify_apps(Notification::TeleportCamera(
+                    ensnano_interactor::application::Camera3D {
+                        position,
+                        orientation,
+                        pivot_position: None,
+                    },
+                ));
             } else {
                 self.main_state.wants_fit = true;
             }
@@ -1437,8 +1616,13 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn change_ui_size(&mut self, ui_size: UiSize) {
-        self.gui
-            .new_ui_size(ui_size.clone(), self.window, self.multiplexer);
+        self.gui.new_ui_size(
+            ui_size.clone(),
+            self.window,
+            self.multiplexer,
+            &self.main_state.app_state,
+            self.main_state.gui_state(&self.multiplexer),
+        );
         self.multiplexer
             .change_ui_size(ui_size.clone(), self.window);
         self.main_state
@@ -1448,10 +1632,6 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             .new_ui_size(ui_size);
         self.resized = true;
         //messages.lock().unwrap().new_ui_size(ui_size);
-    }
-
-    fn invert_scroll_y(&mut self, inverted: bool) {
-        self.multiplexer.invert_y_scroll = inverted;
     }
 
     fn notify_apps(&mut self, notificiation: Notification) {
@@ -1478,7 +1658,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     fn finish_operation(&mut self) {
         self.main_state.modify_state(
             |s| s.notified(app_state::InteractorNotification::FinishOperation),
-            false,
+            None,
         );
         self.main_state.app_state.finish_operation();
     }
@@ -1500,7 +1680,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.request_duplication();
     }
 
-    fn request_pasting_candidate(&mut self, candidate: Option<Nucl>) {
+    fn request_pasting_candidate(&mut self, candidate: Option<PastePosition>) {
         self.main_state
             .apply_copy_operation(CopyOperation::PositionPastingPoint(candidate))
     }
@@ -1642,7 +1822,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn create_new_camera(&mut self) {
-        if let Some((position, orientation)) = self
+        if let Some(camera) = self
             .main_state
             .applications
             .get(&ElementType::Scene)
@@ -1650,8 +1830,9 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         {
             self.main_state
                 .apply_operation(DesignOperation::CreateNewCamera {
-                    position,
-                    orientation,
+                    position: camera.0.position,
+                    orientation: camera.0.orientation,
+                    pivot_position: camera.0.pivot_position,
                 })
         } else {
             log::error!("Could not get current camera position");
@@ -1660,15 +1841,15 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn select_camera(&mut self, camera_id: ensnano_design::CameraId) {
         let reader = self.main_state.app_state.get_design_reader();
-        if let Some((position, orientation)) = reader.get_camera_with_id(camera_id) {
-            self.notify_apps(Notification::TeleportCamera(position, orientation))
+        if let Some(camera) = reader.get_camera_with_id(camera_id) {
+            self.notify_apps(Notification::TeleportCamera(camera))
         } else {
             log::error!("Could not get camera {:?}", camera_id)
         }
     }
 
     fn update_camera(&mut self, camera_id: ensnano_design::CameraId) {
-        if let Some((position, orientation)) = self
+        if let Some(camera) = self
             .main_state
             .applications
             .get(&ElementType::Scene)
@@ -1677,8 +1858,8 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             self.main_state
                 .apply_operation(DesignOperation::UpdateCamera {
                     camera_id,
-                    position,
-                    orientation,
+                    position: camera.0.position,
+                    orientation: camera.0.orientation,
                 })
         } else {
             log::error!("Could not get current camera position");
@@ -1687,15 +1868,32 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn select_favorite_camera(&mut self, n_camera: u32) {
         let reader = self.main_state.app_state.get_design_reader();
-        if let Some((position, orientation)) = reader.get_nth_camera(n_camera) {
-            self.notify_apps(Notification::TeleportCamera(position, orientation))
+        if let Some(camera) = reader.get_nth_camera(n_camera) {
+            self.notify_apps(Notification::TeleportCamera(camera))
         } else {
             log::error!("Design has less than {} cameras", n_camera + 1);
         }
     }
 
+    fn toggle_2d(&mut self) {
+        self.multiplexer.toggle_2d();
+        self.scheduler
+            .forward_new_size(self.window.inner_size(), self.multiplexer);
+    }
+
+    fn make_all_suggested_xover(&mut self, doubled: bool) {
+        use scene::DesignReader;
+        let reader = self.main_state.app_state.get_design_reader();
+        let xovers = reader.get_suggestions();
+        self.apply_operation(DesignOperation::MakeSeveralXovers { xovers, doubled })
+    }
+
     fn flip_split_views(&mut self) {
         self.notify_apps(Notification::FlipSplitViews)
+    }
+
+    fn start_twist(&mut self, g_id: usize) {
+        self.main_state.start_twist(g_id);
     }
 }
 
@@ -1711,8 +1909,10 @@ impl<'a> controller::ScaffoldSetter for MainStateView<'a> {
             .app_state
             .apply_design_op(DesignOperation::SetScaffoldSequence { sequence, shift })
         {
-            Ok(Some(old_state)) => self.main_state.save_old_state(old_state),
-            Ok(None) => (),
+            Ok(OkOperation::Undoable { state, label }) => {
+                self.main_state.save_old_state(state, label)
+            }
+            Ok(OkOperation::NotUndoable) => (),
             Err(e) => return Err(SetScaffoldSequenceError(format!("{:?}", e))),
         };
         let default_shift = self.get_staple_downloader().default_shift();
@@ -1724,10 +1924,10 @@ impl<'a> controller::ScaffoldSetter for MainStateView<'a> {
     }
 }
 
-fn apply_update<T: Default, F>(obj: &mut T, update_func: F)
+fn apply_update<T: Clone, F>(obj: &mut T, update_func: F)
 where
     F: FnOnce(T) -> T,
 {
-    let tmp = std::mem::take(obj);
+    let tmp = obj.clone();
     *obj = update_func(tmp);
 }

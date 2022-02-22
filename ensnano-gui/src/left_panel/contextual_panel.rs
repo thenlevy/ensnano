@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::super::DesignReader;
 use super::*;
-use ensnano_interactor::Selection;
+use ensnano_interactor::{Selection, SimulationState};
 use iced::{scrollable, Scrollable};
 
 mod value_constructor;
@@ -26,16 +26,17 @@ pub use value_constructor::{BuilderMessage, InstanciatedValue, ValueKind};
 
 use ultraviolet::{Rotor3, Vec3};
 pub enum ValueRequest {
-    GridPosition { grid_id: usize, position: Vec3 },
+    HelixGridPosition { grid_id: usize, position: Vec3 },
     GridOrientation { grid_id: usize, orientation: Rotor3 },
+    GridNbTurn { grid_id: usize, nb_turn: f32 },
 }
 
 impl ValueRequest {
     fn from_value_and_selection(selection: &Selection, value: InstanciatedValue) -> Option<Self> {
         match value {
-            InstanciatedValue::GridPosition(v) => {
+            InstanciatedValue::HelixGridPosition(v) => {
                 if let Selection::Grid(_, g_id) = selection {
-                    Some(Self::GridPosition {
+                    Some(Self::HelixGridPosition {
                         grid_id: *g_id,
                         position: v,
                     })
@@ -55,12 +56,23 @@ impl ValueRequest {
                     None
                 }
             }
+            InstanciatedValue::GridNbTurn(nb_turn) => {
+                if let Selection::Grid(_, g_id) = selection {
+                    Some(Self::GridNbTurn {
+                        grid_id: *g_id,
+                        nb_turn,
+                    })
+                } else {
+                    log::error!("Recieved value {:?} with selection {:?}", value, selection);
+                    None
+                }
+            }
         }
     }
 
     pub(super) fn make_request(&self, request: Arc<Mutex<dyn Requests>>) {
         match self {
-            Self::GridPosition { grid_id, position } => request
+            Self::HelixGridPosition { grid_id, position } => request
                 .lock()
                 .unwrap()
                 .set_grid_position(*grid_id, *position),
@@ -71,6 +83,9 @@ impl ValueRequest {
                 .lock()
                 .unwrap()
                 .set_grid_orientation(*grid_id, *orientation),
+            Self::GridNbTurn { grid_id, nb_turn } => {
+                request.lock().unwrap().set_nb_turn(*grid_id, *nb_turn)
+            }
         }
     }
 }
@@ -137,6 +152,7 @@ pub(super) struct ContextualPanel<S: AppState> {
     add_strand_menu: AddStrandMenu,
     strand_name_state: text_input::State,
     builder: Option<InstantiatedBuilder<S>>,
+    twist_button: button::State,
 }
 
 impl<S: AppState> ContextualPanel<S> {
@@ -151,6 +167,7 @@ impl<S: AppState> ContextualPanel<S> {
             add_strand_menu: Default::default(),
             strand_name_state: Default::default(),
             builder: None,
+            twist_button: Default::default(),
         }
     }
 
@@ -188,6 +205,16 @@ impl<S: AppState> ContextualPanel<S> {
             Some(selection).filter(|_| nb_selected == 1),
             app_state.get_reader().as_ref(),
         );
+
+        let xover_len = app_state
+            .get_strand_building_state()
+            .map(|b| b.dragged_nucl)
+            .and_then(|nucl| {
+                log::info!("dragged_nucl: {:?}", nucl);
+                app_state.get_reader().get_id_of_xover_involving_nucl(nucl)
+            })
+            .and_then(|id| app_state.get_reader().xover_length(id));
+
         let info_values = values_of_selection(selection, app_state.get_reader().as_ref());
         if self.show_tutorial {
             column = column.push(
@@ -202,12 +229,12 @@ impl<S: AppState> ContextualPanel<S> {
                 "http://ens-lyon.fr/ensnano",
                 ui_size.clone(),
             ));
-        } else if self.force_help {
+        } else if self.force_help && xover_len.is_none() {
             column = turn_into_help_column(column, ui_size)
         } else if app_state.get_action_mode().is_build() {
             let strand_menu = self.add_strand_menu.view(ui_size, self.width as u16);
             column = column.push(strand_menu);
-        } else if *selection == Selection::Nothing {
+        } else if *selection == Selection::Nothing && xover_len.is_none() {
             column = turn_into_help_column(column, ui_size)
         } else if nb_selected > 1 {
             let help_btn =
@@ -232,11 +259,27 @@ impl<S: AppState> ContextualPanel<S> {
                     .push(Column::new().width(Length::FillPortion(1)).push(help_btn))
                     .push(iced::Space::with_width(Length::FillPortion(1))),
             );
-            column = column.push(Text::new(selection.info()).size(ui_size.main_text()));
+
+            if !matches!(selection, Selection::Nothing) {
+                column = column.push(Text::new(selection.info()).size(ui_size.main_text()));
+            }
 
             match selection {
-                Selection::Grid(_, _) => {
-                    column = add_grid_content(column, info_values.as_slice(), ui_size.clone())
+                Selection::Grid(_, g_id) => {
+                    let twisting = match app_state.get_simulation_state() {
+                        SimulationState::Twisting { grid_id } if *g_id == grid_id => {
+                            TwistStatus::Twisting
+                        }
+                        SimulationState::None => TwistStatus::CanTwist,
+                        _ => TwistStatus::CannotTwist,
+                    };
+                    column = add_grid_content(
+                        column,
+                        info_values.as_slice(),
+                        ui_size.clone(),
+                        &mut self.twist_button,
+                        twisting,
+                    )
                 }
                 Selection::Strand(_, _) => {
                     column = add_strand_content(
@@ -250,10 +293,29 @@ impl<S: AppState> ContextualPanel<S> {
                     let anchor = info_values[0].clone();
                     column = column.push(Text::new(format!("Anchor {}", anchor)));
                 }
+                Selection::Xover(_, _) => {
+                    if xover_len.is_none() {
+                        if let Some(info) = info_values.get(0) {
+                            column = column.push(Text::new(info));
+                        }
+                        if let Some(info) = info_values.get(1) {
+                            column = column.push(Text::new(info));
+                        }
+                    }
+                }
                 _ => (),
             }
             if let Some(builder) = &mut self.builder {
-                column = column.push(builder.builder.view(ui_size))
+                column = column.push(builder.builder.view(ui_size, &selection, app_state))
+            }
+        }
+
+        if let Some(info_values) = xover_len.map(|v| fmt_xover_len(Some(v))) {
+            if let Some(info) = info_values.get(0) {
+                column = column.push(Text::new(info));
+            }
+            if let Some(info) = info_values.get(1) {
+                column = column.push(Text::new(info));
             }
         }
 
@@ -344,13 +406,40 @@ impl<S: AppState> ContextualPanel<S> {
             None
         }
     }
+
+    pub fn request_from_value(&mut self, value: InstanciatedValue) -> Option<ValueRequest> {
+        if let Some(b) = &mut self.builder {
+            ValueRequest::from_value_and_selection(&b.selection, value)
+        } else {
+            log::error!("Cannot submit value: No instanciated builder");
+            None
+        }
+    }
+}
+
+enum TwistStatus {
+    CanTwist,
+    CannotTwist,
+    Twisting,
 }
 
 fn add_grid_content<'a, S: AppState, I: std::ops::Deref<Target = str>>(
     mut column: Column<'a, Message<S>>,
     info_values: &[I],
     ui_size: UiSize,
+    twist_button: &'a mut button::State,
+    twisting: TwistStatus,
 ) -> Column<'a, Message<S>> {
+    let twist_button = match twisting {
+        TwistStatus::Twisting => {
+            text_btn(twist_button, "Stop", ui_size).on_press(Message::StopSimulation)
+        }
+        TwistStatus::CanTwist => {
+            text_btn(twist_button, "Twist", ui_size).on_press(Message::StartTwist)
+        }
+        TwistStatus::CannotTwist => text_btn(twist_button, "Twist", ui_size),
+    };
+    column = column.push(twist_button);
     column = column.push(
         Checkbox::new(
             info_values[0].parse::<bool>().unwrap(),
@@ -635,7 +724,7 @@ fn values_of_selection(selection: &Selection, reader: &dyn DesignReader) -> Vec<
                     }
                 })
                 .collect();
-            if let Some(f) = reader.get_grid_shift(*g_id) {
+            if let Some(f) = reader.get_grid_nb_turn(*g_id) {
                 ret.push(f.to_string());
             }
             ret
@@ -653,7 +742,19 @@ fn values_of_selection(selection: &Selection, reader: &dyn DesignReader) -> Vec<
         Selection::Nucleotide(_, nucl) => {
             vec![format!("{}", reader.nucl_is_anchor(*nucl))]
         }
+        Selection::Xover(_, xover_id) => fmt_xover_len(reader.xover_length(*xover_id)),
         _ => Vec::new(),
+    }
+}
+
+fn fmt_xover_len(info: Option<(f32, Option<f32>)>) -> Vec<String> {
+    match info {
+        Some((len_self, Some(len_neighbour))) => vec![
+            format!("length {:.2} nm", len_self),
+            format!("{:.2} nm", len_neighbour),
+        ],
+        Some((len, None)) => vec![format!("length {:.2} nm", len)],
+        None => vec![String::from("Error getting length")],
     }
 }
 

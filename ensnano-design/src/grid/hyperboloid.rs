@@ -16,7 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
-use crate::Helix;
+use crate::curves::Twist;
+use crate::{nb_turn_per_100_nt_to_omega, CurveDescriptor, Helix};
+use std::sync::Arc;
 
 use ultraviolet::{Rotor3, Vec2, Vec3};
 
@@ -36,6 +38,15 @@ pub struct Hyperboloid {
     /// A forced grid radius, for when user modifies the shift but still wants the radius in the
     /// center to be constant.
     pub forced_radius: Option<f32>,
+    /// The number of turns arround the grid made by the helices every 100 nucleotides.
+    ///
+    /// Note that this value is subject to the constraint
+    /// |Ω| ≤ Z * r / sqrt(2π)
+    /// where
+    ///  * Ω is `self.nb_turn_per_100_nt`,
+    ///  * Z is `100.0 * Parameters::step`
+    ///  * r is `self.radius`
+    pub nb_turn_per_100_nt: f64,
 }
 
 impl GridDivision for Hyperboloid {
@@ -76,6 +87,31 @@ impl GridDivision for Hyperboloid {
     fn grid_type(&self) -> GridType {
         GridType::Hyperboloid(self.clone())
     }
+
+    fn curve(&self, x: isize, _y: isize, info: CurveInfo) -> Option<Arc<CurveDescriptor>> {
+        if self.nb_turn_per_100_nt != 0.0 {
+            if let Some(omega) =
+                nb_turn_per_100_nt_to_omega(self.nb_turn_per_100_nt, &info.parameters)
+            {
+                let mut ret = self.curve(x as usize, &info.parameters, omega);
+                ret.orientation = info.orientation;
+                ret.position = info.position;
+                ret.t_max = info.t_max;
+                ret.t_min = info.t_min;
+                Some(Arc::new(CurveDescriptor::Twist(ret)))
+            } else {
+                log::error!("Too high number of turn per 100 nt");
+                None
+            }
+        } else {
+            let mut ret = self.curve(x as usize, &info.parameters, 0.0);
+            ret.orientation = info.orientation;
+            ret.position = info.position;
+            ret.t_max = info.t_max;
+            ret.t_min = info.t_min;
+            Some(Arc::new(CurveDescriptor::Twist(ret)))
+        }
+    }
 }
 
 impl Hyperboloid {
@@ -89,7 +125,20 @@ impl Hyperboloid {
                 Vec3::unit_x(),
                 (right_helix - left_helix).normalized(),
             );
-            let helix = Helix::new(origin, orientation);
+            let mut helix = Helix::new(origin, orientation);
+            helix.curve = <Self as GridDivision>::curve(
+                self,
+                i as isize,
+                0,
+                CurveInfo {
+                    position: origin,
+                    t_min: None,
+                    t_max: None,
+                    orientation,
+                    parameters: parameters.clone(),
+                    grid_center: origin,
+                },
+            );
             ret.push(helix);
         }
         (ret, self.length as usize)
@@ -110,6 +159,7 @@ impl Hyperboloid {
             length: self.length,
             radius_shift: self.radius_shift,
             forced_radius: self.forced_radius,
+            nb_turn_per_100_nt: self.nb_turn_per_100_nt,
         }
     }
 
@@ -142,6 +192,20 @@ impl Hyperboloid {
 
     fn radius(&self, parameters: &Parameters) -> f32 {
         self.sheet_radii(parameters).0
+    }
+
+    fn curve(&self, n: usize, parameters: &Parameters, omega: f64) -> Twist {
+        let radius = self.sheet_radii(parameters).1;
+        let angle = std::f64::consts::TAU / self.radius as f64;
+        Twist {
+            theta0: n as f64 * angle,
+            radius: radius as f64,
+            position: Vec3::zero(),
+            orientation: Rotor3::identity(),
+            omega,
+            t_min: None,
+            t_max: None,
+        }
     }
 
     pub fn grid_radius(&self, parameters: &Parameters) -> f32 {

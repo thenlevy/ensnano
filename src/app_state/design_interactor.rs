@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::AddressPointer;
-use ensnano_design::{group_attributes::GroupAttribute, Design, Parameters};
+use ensnano_design::{group_attributes::GroupAttribute, Design, HelixCollection, Parameters};
 use ensnano_interactor::{
     operation::Operation, DesignOperation, RigidBodyConstants, Selection, SimulationState,
     StrandBuilder, SuggestionParameters,
@@ -30,19 +30,17 @@ use presenter::{apply_simulation_update, update_presenter, NuclCollection, Prese
 pub(super) mod controller;
 use controller::Controller;
 pub use controller::{
-    CopyOperation, InteractorNotification, PastingStatus, RigidHelixState, ShiftOptimizationResult,
-    ShiftOptimizerReader, SimulationInterface, SimulationReader,
+    CopyOperation, InteractorNotification, PastePosition, PastingStatus, RigidHelixState,
+    ShiftOptimizationResult, ShiftOptimizerReader, SimulationInterface, SimulationReader,
 };
 
 use crate::{controller::SimulationRequest, gui::CurentOpState};
 pub(super) use controller::ErrOperation;
-use controller::{GridPresenter, HelixPresenter, OkOperation, RollPresenter};
+use controller::{GridPresenter, HelixPresenter, OkOperation, RollPresenter, TwistPresenter};
 
 use std::sync::Arc;
 mod file_parsing;
 pub use file_parsing::ParseDesignError;
-
-mod grid_data;
 
 /// The `DesignInteractor` handles all read/write operations on the design. It is a stateful struct
 /// so it is meant to be unexpansive to clone.
@@ -89,13 +87,21 @@ impl DesignInteractor {
     }
 
     pub(super) fn apply_copy_operation(
-        &self,
+        &mut self,
         operation: CopyOperation,
     ) -> Result<InteractorResult, ErrOperation> {
-        let result = self
-            .controller
-            .apply_copy_operation(self.design.as_ref(), operation);
-        self.handle_operation_result(result)
+        println!("nb helices {}", self.design.helices.len());
+        let tried_up_to_date = self.design.try_get_up_to_date();
+        if let Some(up_to_date) = tried_up_to_date {
+            println!("up to date helices {}", up_to_date.design.helices.len());
+            let result = self.controller.apply_copy_operation(up_to_date, operation);
+            self.handle_operation_result(result)
+        } else {
+            let desing_mut = self.design.make_mut();
+            let up_to_date = desing_mut.get_up_to_date();
+            let result = self.controller.apply_copy_operation(up_to_date, operation);
+            self.handle_operation_result(result)
+        }
     }
 
     pub(super) fn update_pending_operation(
@@ -137,6 +143,11 @@ impl DesignInteractor {
                     target_helices,
                 }
             }
+            SimulationTarget::Twist { grid_id } => controller::SimulationOperation::StartTwist {
+                presenter: self.presenter.as_ref(),
+                reader,
+                grid_id,
+            },
         };
         let result = self
             .controller
@@ -172,11 +183,15 @@ impl DesignInteractor {
                 ret.design = AddressPointer::new(design);
                 Ok(InteractorResult::Replace(ret))
             }
-            Ok((OkOperation::Push(design), controller)) => {
+            Ok((OkOperation::Push { design, label }, controller)) => {
                 let mut ret = self.clone();
+                ret.current_operation = None;
                 ret.controller = AddressPointer::new(controller);
                 ret.design = AddressPointer::new(design);
-                Ok(InteractorResult::Push(ret))
+                Ok(InteractorResult::Push {
+                    interactor: ret,
+                    label,
+                })
             }
             Ok((OkOperation::NoOp, controller)) => {
                 let mut ret = self.clone();
@@ -200,21 +215,27 @@ impl DesignInteractor {
         ret
     }
 
+    pub(super) fn design_need_update(&self, suggestion_parameters: &SuggestionParameters) -> bool {
+        presenter::design_need_update(&self.presenter, &self.design, suggestion_parameters)
+            || self.simulation_update.is_some()
+    }
+
     pub(super) fn with_updated_design_reader(
         mut self,
         suggestion_parameters: &SuggestionParameters,
     ) -> Self {
-        if cfg!(test) {
+        if cfg!(test) || log::log_enabled!(log::Level::Trace) {
             print!("Old design: ");
             self.design.show_address();
         }
         let (new_presenter, new_design) =
             update_presenter(&self.presenter, self.design.clone(), suggestion_parameters);
         self.presenter = new_presenter;
-        if cfg!(test) {
+        if cfg!(test) || log::log_enabled!(log::Level::Trace) {
             print!("New design: ");
             new_design.show_address();
         }
+        log::trace!("Interactor design <- {:p}", new_design);
         self.design = new_design;
         if let Some(update) = self.simulation_update.clone() {
             if !self.controller.get_simulation_state().is_runing() {
@@ -246,6 +267,7 @@ impl DesignInteractor {
             suggestion_parameters,
         );
         self.presenter = new_presenter;
+        log::trace!("Interactor design <- {:p}", new_design);
         self.design = new_design;
         self
     }
@@ -307,7 +329,10 @@ impl DesignInteractor {
         presenter.set_visibility_sieve(selection, compl);
         self.presenter = AddressPointer::new(presenter);
         self.design = AddressPointer::new(self.design.clone_inner());
-        InteractorResult::Push(self)
+        InteractorResult::Push {
+            interactor: self,
+            label: crate::consts::UPDATE_VISIBILITY_SIEVE_LABEL.into(),
+        }
     }
 }
 
@@ -315,14 +340,17 @@ impl DesignInteractor {
 /// interactor. The variants of these enum indicate different ways in which the result should be
 /// handled
 pub(super) enum InteractorResult {
-    Push(DesignInteractor),
+    Push {
+        interactor: DesignInteractor,
+        label: std::borrow::Cow<'static, str>,
+    },
     Replace(DesignInteractor),
 }
 
 impl InteractorResult {
     pub fn set_operation_state(&mut self, operation: Arc<dyn Operation>, new_op: bool) {
         let interactor = match self {
-            Self::Push(interactor) => interactor,
+            Self::Push { interactor, .. } => interactor,
             Self::Replace(interactor) => interactor,
         };
         if new_op {
@@ -376,11 +404,13 @@ impl DesignReader {
 
 #[cfg(test)]
 mod tests {
+    use super::super::OkOperation as TopOkOperation;
     use super::super::*;
     use super::controller::CopyOperation;
     use super::*;
     use crate::scene::DesignReader as Reader3d;
-    use ensnano_design::grid::GridPosition;
+    use ensnano_design::grid::HelixGridPosition;
+    use ensnano_design::HelixCollection;
     use ensnano_design::{grid::GridDescriptor, DomainJunction, Nucl, Strand};
     use ensnano_interactor::operation::GridHelixCreation;
     use ensnano_interactor::DesignReader;
@@ -563,7 +593,7 @@ mod tests {
             .apply_design_op(DesignOperation::AddGrid(GridDescriptor {
                 position: Vec3::zero(),
                 orientation: Rotor3::identity(),
-                grid_type: ensnano_design::grid::GridTypeDescr::Square,
+                grid_type: ensnano_design::grid::GridTypeDescr::Square { twist: None },
                 invisible: false,
             }))
             .unwrap();
@@ -578,7 +608,7 @@ mod tests {
             .apply_design_op(DesignOperation::AddGrid(GridDescriptor {
                 position: Vec3::zero(),
                 orientation: Rotor3::identity(),
-                grid_type: ensnano_design::grid::GridTypeDescr::Square,
+                grid_type: ensnano_design::grid::GridTypeDescr::Square { twist: None },
                 invisible: false,
             }))
             .unwrap();
@@ -604,14 +634,14 @@ mod tests {
             .apply_design_op(DesignOperation::AddGrid(GridDescriptor {
                 position: Vec3::zero(),
                 orientation: Rotor3::identity(),
-                grid_type: ensnano_design::grid::GridTypeDescr::Square,
+                grid_type: ensnano_design::grid::GridTypeDescr::Square { twist: None },
                 invisible: false,
             }))
             .unwrap();
         app_state.update();
         app_state
             .apply_design_op(DesignOperation::AddGridHelix {
-                position: GridPosition::from_grid_id_x_y(0, 0, 0),
+                position: HelixGridPosition::from_grid_id_x_y(0, 0, 0),
                 start: 0,
                 length: 0,
             })
@@ -637,11 +667,14 @@ mod tests {
             .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
             .unwrap();
         app_state
-            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
-                helix: 4,
-                position: 5,
-                forward: true,
-            })))
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(
+                Some(Nucl {
+                    helix: 4,
+                    position: 5,
+                    forward: true,
+                })
+                .map(PastePosition::Nucl),
+            ))
             .unwrap();
         app_state
             .apply_copy_operation(CopyOperation::Paste)
@@ -658,17 +691,21 @@ mod tests {
             .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
             .unwrap();
         app_state
-            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
-                helix: 4,
-                position: 5,
-                forward: true,
-            })))
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(
+                Some(Nucl {
+                    helix: 4,
+                    position: 5,
+                    forward: true,
+                })
+                .map(PastePosition::Nucl),
+            ))
             .unwrap();
-        assert!(app_state
-            .apply_copy_operation(CopyOperation::Paste)
-            .unwrap()
-            .is_some()); // apply_copy_operation returns Some(self) when the action is
-                         // undoable and nothing otherwise
+        assert!(matches!(
+            app_state
+                .apply_copy_operation(CopyOperation::Paste)
+                .unwrap(),
+            TopOkOperation::Undoable { .. }
+        ));
     }
 
     #[test]
@@ -679,11 +716,14 @@ mod tests {
             .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
             .unwrap();
         app_state
-            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
-                helix: 1,
-                position: 10,
-                forward: true,
-            })))
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(
+                Some(Nucl {
+                    helix: 1,
+                    position: 10,
+                    forward: true,
+                })
+                .map(PastePosition::Nucl),
+            ))
             .unwrap();
         app_state
             .apply_copy_operation(CopyOperation::Paste)
@@ -700,11 +740,14 @@ mod tests {
             .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
             .unwrap();
         app_state
-            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
-                helix: 1,
-                position: 5,
-                forward: true,
-            })))
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(
+                Some(Nucl {
+                    helix: 1,
+                    position: 5,
+                    forward: true,
+                })
+                .map(PastePosition::Nucl),
+            ))
             .unwrap();
         match app_state.apply_copy_operation(CopyOperation::Paste) {
             Err(ErrOperation::CannotPasteHere) => (),
@@ -740,11 +783,14 @@ mod tests {
             .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
             .unwrap();
         app_state
-            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
-                helix: 4,
-                position: 5,
-                forward: true,
-            })))
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(
+                Some(Nucl {
+                    helix: 4,
+                    position: 5,
+                    forward: true,
+                })
+                .map(PastePosition::Nucl),
+            ))
             .unwrap();
         app_state
             .apply_copy_operation(CopyOperation::Paste)
@@ -769,11 +815,14 @@ mod tests {
             .apply_copy_operation(CopyOperation::InitStrandsDuplication(vec![0]))
             .unwrap();
         app_state
-            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
-                helix: 1,
-                position: 10,
-                forward: true,
-            })))
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(
+                Some(Nucl {
+                    helix: 1,
+                    position: 10,
+                    forward: true,
+                })
+                .map(PastePosition::Nucl),
+            ))
             .unwrap();
         app_state
             .apply_copy_operation(CopyOperation::Duplicate)
@@ -799,11 +848,14 @@ mod tests {
             .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
             .unwrap();
         app_state
-            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
-                helix: 1,
-                position: 5,
-                forward: true,
-            })))
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(
+                Some(Nucl {
+                    helix: 1,
+                    position: 5,
+                    forward: true,
+                })
+                .map(PastePosition::Nucl),
+            ))
             .unwrap();
         assert!(app_state.0.design.controller.get_pasted_position().len() > 0);
     }
@@ -817,15 +869,19 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
             .unwrap();
-        app_state
-            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
-                helix: 1,
-                position: 5,
-                forward: true,
-            })))
+        let ret = app_state
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(
+                Some(Nucl {
+                    helix: 1,
+                    position: 10,
+                    forward: true,
+                })
+                .map(PastePosition::Nucl),
+            ))
             .unwrap();
+        println!("{:?}", ret);
         app_state.update();
-        assert!(old_app_state.design_was_modified(&app_state));
+        assert!(app_state.design_was_modified(&old_app_state));
     }
 
     #[test]
@@ -840,19 +896,25 @@ mod tests {
             .unwrap();
         assert_eq!(app_state.0.design.design.strands.len(), 1);
         app_state
-            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
-                helix: 1,
-                position: 5,
-                forward: true,
-            })))
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(
+                Some(Nucl {
+                    helix: 1,
+                    position: 5,
+                    forward: true,
+                })
+                .map(PastePosition::Nucl),
+            ))
             .unwrap();
         assert_eq!(app_state.0.design.design.strands.len(), 2);
         app_state
-            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
-                helix: 1,
-                position: 3,
-                forward: true,
-            })))
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(
+                Some(Nucl {
+                    helix: 1,
+                    position: 3,
+                    forward: true,
+                })
+                .map(PastePosition::Nucl),
+            ))
             .unwrap();
         assert_eq!(app_state.0.design.design.strands.len(), 2);
         app_state
@@ -886,24 +948,31 @@ mod tests {
             .unwrap();
         assert_eq!(app_state.0.design.design.strands.len(), 1);
         app_state
-            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
-                helix: 1,
-                position: 5,
-                forward: true,
-            })))
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(
+                Some(Nucl {
+                    helix: 1,
+                    position: 5,
+                    forward: true,
+                })
+                .map(PastePosition::Nucl),
+            ))
             .unwrap();
+        app_state.update();
         assert_eq!(app_state.0.design.design.strands.len(), 2);
         app_state
             .apply_copy_operation(CopyOperation::Duplicate)
             .unwrap();
+        app_state.update();
         assert_eq!(app_state.0.design.design.strands.len(), 2);
         app_state
             .apply_copy_operation(CopyOperation::Duplicate)
             .unwrap();
+        app_state.update();
         assert_eq!(app_state.0.design.design.strands.len(), 3);
         app_state
             .apply_copy_operation(CopyOperation::Duplicate)
             .unwrap();
+        app_state.update();
         assert_eq!(app_state.0.design.design.strands.len(), 4);
     }
 
@@ -916,11 +985,14 @@ mod tests {
             .unwrap();
         assert_eq!(app_state.is_pasting(), PastingStatus::Duplication);
         app_state
-            .apply_copy_operation(CopyOperation::PositionPastingPoint(Some(Nucl {
-                helix: 1,
-                position: 5,
-                forward: true,
-            })))
+            .apply_copy_operation(CopyOperation::PositionPastingPoint(
+                Some(Nucl {
+                    helix: 1,
+                    position: 5,
+                    forward: true,
+                })
+                .map(PastePosition::Nucl),
+            ))
             .unwrap();
         assert_eq!(app_state.is_pasting(), PastingStatus::Duplication);
         app_state
@@ -1002,4 +1074,5 @@ pub enum SimulationTarget {
     Grids,
     Helices,
     Roll { target_helices: Option<Vec<usize>> },
+    Twist { grid_id: usize },
 }
