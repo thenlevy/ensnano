@@ -940,10 +940,46 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                     Transition::consequence(Consequence::NewCandidate(pivot_opt))
                 }
             }
-            WindowEvent::KeyboardInput { .. } => {
-                controller.process_keyboard(event);
-                Transition::nothing()
-            }
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        virtual_keycode: Some(key),
+                        state: ElementState::Pressed,
+                        ..
+                    },
+                ..
+            } => match *key {
+                VirtualKeyCode::Left | VirtualKeyCode::Right if ctrl(&controller.modifiers) => {
+                    let csq = Consequence::Symmetry {
+                        centers: self.rotation_pivots.clone(),
+                        helices: self
+                            .translation_pivots
+                            .clone()
+                            .into_iter()
+                            .map(|n| n.helix)
+                            .collect(),
+                        symmetry: Vec2::new(-1.0, 1.0),
+                    };
+                    Transition::consequence(csq)
+                }
+                VirtualKeyCode::Up | VirtualKeyCode::Down if ctrl(&controller.modifiers) => {
+                    let csq = Consequence::Symmetry {
+                        centers: self.rotation_pivots.clone(),
+                        helices: self
+                            .translation_pivots
+                            .clone()
+                            .into_iter()
+                            .map(|n| n.helix)
+                            .collect(),
+                        symmetry: Vec2::new(1.0, -1.0),
+                    };
+                    Transition::consequence(csq)
+                }
+                _ => {
+                    controller.process_keyboard(event);
+                    Transition::nothing()
+                }
+            },
             WindowEvent::MouseWheel { delta, .. } => {
                 controller
                     .get_camera(position.y)

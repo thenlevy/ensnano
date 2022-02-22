@@ -139,6 +139,14 @@ impl Controller {
                 center,
                 angle,
             } => Ok(self.ok_apply(|c, d| c.rotate_helices(d, helices, center, angle), design)),
+            DesignOperation::ApplySymmetryToHelices {
+                helices,
+                centers,
+                symmetry,
+            } => Ok(self.ok_apply(
+                |c, d| c.apply_symmetry_to_helices(d, helices, centers, symmetry),
+                design,
+            )),
             DesignOperation::Translation(translation) => {
                 self.apply(|c, d| c.apply_translation(d, translation), design)
             }
@@ -1560,6 +1568,32 @@ impl Controller {
         let mut new_helices = design.helices.make_mut();
         if let Some(h) = new_helices.get_mut(&h_id) {
             h.isometry2d = Some(isometry);
+        }
+        drop(new_helices);
+        design
+    }
+
+    fn apply_symmetry_to_helices(
+        &mut self,
+        mut design: Design,
+        helices_id: Vec<usize>,
+        centers: Vec<Vec2>,
+        symmetry: Vec2,
+    ) -> Design {
+        let mut new_helices = design.helices.make_mut();
+        for (h_id, center) in helices_id.iter().zip(centers.iter()) {
+            if let Some(h) = new_helices.get_mut(h_id) {
+                if let Some(isometry) = h.isometry2d.as_mut() {
+                    isometry.translation -= *center;
+                    isometry.translation.rotate_by(isometry.rotation.reversed());
+                    let mut new_rotation = isometry.rotation.into_matrix().into_homogeneous();
+                    new_rotation[0] *= symmetry.x;
+                    new_rotation[1] *= symmetry.y;
+                    isometry.translation = new_rotation.transform_vec2(isometry.translation);
+                    isometry.translation += *center;
+                }
+                h.symmetry *= symmetry;
+            }
         }
         drop(new_helices);
         design

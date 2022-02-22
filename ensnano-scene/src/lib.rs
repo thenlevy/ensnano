@@ -926,7 +926,6 @@ impl<S: AppState> Application for Scene<S> {
             Notification::ClearDesigns => self.clear_design(),
             Notification::ToggleText(value) => self.view.borrow_mut().set_draw_letter(value),
             Notification::FitRequest => self.fit_design(),
-            Notification::Save(_) => (),
             Notification::CameraTarget((target, up)) => {
                 self.set_camera_target(target, up, &older_state);
                 self.notify(SceneNotification::CameraMoved);
