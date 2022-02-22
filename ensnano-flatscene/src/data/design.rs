@@ -200,6 +200,11 @@ impl<R: DesignReader> Design2d<R> {
                 left: nucl.position - 1,
                 right: nucl.position + 1,
                 isometry,
+                symmetry: self
+                    .design
+                    .get_raw_helix(helix)
+                    .map(|h| h.symmetry)
+                    .unwrap_or(Vec2::one()),
                 visible: self.design.get_visibility_helix(helix).unwrap_or(false),
             });
         }
@@ -232,6 +237,11 @@ impl<R: DesignReader> Design2d<R> {
                         left: -1,
                         right: 1,
                         isometry,
+                        symmetry: self
+                            .design
+                            .get_raw_helix(*h_id)
+                            .map(|h| h.symmetry)
+                            .unwrap_or(Vec2::one()),
                         visible: self.design.get_visibility_helix(*h_id).unwrap_or(false),
                     });
                 } else {
@@ -401,6 +411,7 @@ pub struct Helix2d {
     /// The largest position of a nucleotide of the the helix
     pub right: isize,
     pub isometry: Isometry2,
+    pub symmetry: Vec2,
     pub visible: bool,
 }
 

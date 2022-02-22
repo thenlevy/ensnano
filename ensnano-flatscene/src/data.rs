@@ -229,6 +229,7 @@ impl<R: DesignReader> Data<R> {
                     h.left,
                     h.right,
                     h.isometry,
+                    h.symmetry,
                     flat_helix,
                     h.id,
                     h.visible,

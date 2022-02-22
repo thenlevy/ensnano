@@ -1356,6 +1356,10 @@ pub struct Helix {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub isometry2d: Option<Isometry2>,
 
+    #[serde(default = "Vec2::one")]
+    /// Symmetry applied inside the representation of the helix in 2d
+    pub symmetry: Vec2,
+
     /// Roll of the helix. A roll equal to 0 means that the nucleotide 0 of the forward strand is
     /// at point (0., 1., 0.) in the helix's coordinate.
     #[serde(default)]
@@ -1396,6 +1400,7 @@ impl Helix {
             orientation,
             grid_position: None,
             isometry2d: None,
+            symmetry: Vec2::one(),
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
@@ -1469,6 +1474,7 @@ impl Helix {
             visible: true,
             roll: 0f32,
             isometry2d: Some(isometry2d),
+            symmetry: Vec2::one(),
             locked_for_simulations: false,
         })
     }
@@ -1480,6 +1486,7 @@ impl Helix {
             position: origin,
             orientation,
             isometry2d: None,
+            symmetry: Vec2::one(),
             grid_position: None,
             visible: true,
             roll: 0f32,
@@ -1493,6 +1500,7 @@ impl Helix {
             position,
             orientation: grid.orientation,
             isometry2d: None,
+            symmetry: Vec2::one(),
             grid_position: Some(GridPosition {
                 grid: g_id,
                 x,
@@ -1553,6 +1561,7 @@ impl Helix {
             roll: 0.,
             visible: true,
             isometry2d: None,
+            symmetry: Vec2::one(),
             locked_for_simulations: false,
         }
     }

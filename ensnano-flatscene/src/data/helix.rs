@@ -50,6 +50,7 @@ pub struct Helix {
     /// The first nucleotide that is not drawn
     right: isize,
     pub isometry: Isometry2,
+    pub symmetry: Vec2,
     scale: f32,
     color: u32,
     z_index: i32,
@@ -77,6 +78,7 @@ impl Helix {
         left: isize,
         right: isize,
         isometry: Isometry2,
+        symmetry: Vec2,
         flat_id: FlatHelix,
         real_id: usize,
         visible: bool,
@@ -87,6 +89,7 @@ impl Helix {
             left,
             right,
             isometry,
+            symmetry,
             scale: 1f32,
             color: HELIX_BORDER_COLOR,
             z_index: 500,
