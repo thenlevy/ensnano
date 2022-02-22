@@ -25,6 +25,7 @@ use ensnano_design::Nucl;
 use ensnano_interactor::consts::*;
 use ensnano_utils::{
     chars2d::{Line, Sentence, TextDrawer},
+    full_isometry::FullIsometry,
     instance::Instance,
 };
 use lyon::math::{rect, Point};
@@ -49,8 +50,7 @@ pub struct Helix {
     left: isize,
     /// The first nucleotide that is not drawn
     right: isize,
-    pub isometry: Isometry2,
-    pub symmetry: Vec2,
+    pub isometry: FullIsometry,
     scale: f32,
     color: u32,
     z_index: i32,
@@ -85,11 +85,11 @@ impl Helix {
         _basis_map: Arc<HashMap<Nucl, char, RandomState>>,
         _groups: Arc<BTreeMap<usize, bool>>,
     ) -> Self {
+        let full_isometry = FullIsometry::from_isommetry_symmetry(isometry, symmetry);
         Self {
             left,
             right,
-            isometry,
-            symmetry,
+            isometry: full_isometry,
             scale: 1f32,
             color: HELIX_BORDER_COLOR,
             z_index: 500,
@@ -110,7 +110,7 @@ impl Helix {
         } else {
             log::error!("real id does not exist {}", self.real_id);
         }
-        self.isometry = helix2d.isometry;
+        self.isometry = FullIsometry::from_isommetry_symmetry(helix2d.isometry, helix2d.symmetry);
     }
 
     pub fn background_vertices(&self) -> Vertices {
@@ -280,7 +280,7 @@ impl Helix {
     pub fn get_click(&self, x: f32, y: f32) -> Option<(isize, bool)> {
         let click = {
             let ret = Vec2::new(x, y);
-            let iso = self.isometry.inversed().into_homogeneous_matrix();
+            let iso = self.isometry.into_homogeneous_matrix().inversed();
             iso.transform_point2(ret)
         };
         if click.y <= 0. || click.y >= 2. {
@@ -318,7 +318,7 @@ impl Helix {
     pub fn click_on_handle(&self, x: f32, y: f32) -> Option<HelixHandle> {
         let click = {
             let ret = Vec2::new(x, y);
-            let iso = self.isometry.inversed().into_homogeneous_matrix();
+            let iso = self.isometry.into_homogeneous_matrix().inversed();
             iso.transform_point2(ret)
         };
         if click.y <= 0. || click.y >= 2. {
@@ -340,7 +340,7 @@ impl Helix {
     pub fn get_click_unbounded(&self, x: f32, y: f32) -> (isize, bool) {
         let click = {
             let ret = Vec2::new(x, y);
-            let iso = self.isometry.inversed().into_homogeneous_matrix();
+            let iso = self.isometry.into_homogeneous_matrix().inversed();
             iso.transform_point2(ret)
         };
         let forward = click.y <= 1.;
@@ -358,7 +358,9 @@ impl Helix {
     }
 
     pub fn get_pivot(&self, position: isize) -> Vec2 {
-        self.isometry * (self.scale * Vec2::new(position as f32, 1.))
+        self.isometry
+            .into_homogeneous_matrix()
+            .transform_point2(self.scale * Vec2::new(position as f32, 1.))
     }
 
     pub fn set_color(&mut self, color: u32) {
