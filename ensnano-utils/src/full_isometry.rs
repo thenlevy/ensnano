@@ -41,7 +41,10 @@ impl FullIsometry {
         Mat3::from_translation(self.translation) * sym_rot
     }
 
-    pub fn matrix_without_symetry(self) -> Mat3 {
-        self.rotation.into_matrix().into_homogeneous()
+    pub fn matrix_with_transposed_symetry(self) -> Mat3 {
+        let mut sym_rot = self.rotation.into_matrix().into_homogeneous();
+        sym_rot[0] *= self.symmetry.y;
+        sym_rot[1] *= self.symmetry.x;
+        Mat3::from_translation(self.translation) * sym_rot
     }
 }

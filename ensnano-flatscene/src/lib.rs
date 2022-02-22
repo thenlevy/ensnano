@@ -403,6 +403,20 @@ impl<S: AppState> FlatScene<S> {
                     },
                 )
             }
+            Consequence::Symmetry {
+                helices,
+                centers,
+                symmetry,
+            } => {
+                let helices = helices.into_iter().map(|fh| fh.real).collect();
+                self.requests.lock().unwrap().apply_design_operation(
+                    DesignOperation::ApplySymmetryToHelices {
+                        helices,
+                        symmetry,
+                        centers,
+                    },
+                )
+            }
             Consequence::InitBuilding(nucl) => {
                 let mut nucls = ensnano_interactor::extract_nucls_and_xover_ends(
                     app_state.get_selection(),

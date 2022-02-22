@@ -77,19 +77,17 @@ impl Helix {
     pub fn new(
         left: isize,
         right: isize,
-        isometry: Isometry2,
-        symmetry: Vec2,
+        isometry: FullIsometry,
         flat_id: FlatHelix,
         real_id: usize,
         visible: bool,
         _basis_map: Arc<HashMap<Nucl, char, RandomState>>,
         _groups: Arc<BTreeMap<usize, bool>>,
     ) -> Self {
-        let full_isometry = FullIsometry::from_isommetry_symmetry(isometry, symmetry);
         Self {
             left,
             right,
-            isometry: full_isometry,
+            isometry,
             scale: 1f32,
             color: HELIX_BORDER_COLOR,
             z_index: 500,
@@ -110,7 +108,7 @@ impl Helix {
         } else {
             log::error!("real id does not exist {}", self.real_id);
         }
-        self.isometry = FullIsometry::from_isommetry_symmetry(helix2d.isometry, helix2d.symmetry);
+        self.isometry = helix2d.isometry;
     }
 
     pub fn background_vertices(&self) -> Vertices {
@@ -619,7 +617,7 @@ impl Helix {
                 .transform_point2(-Vec2::unit_y()),
             direction: self
                 .isometry
-                .matrix_without_symetry()
+                .matrix_with_transposed_symetry()
                 .transform_vec2(Vec2::unit_x()),
         }
     }
@@ -632,7 +630,7 @@ impl Helix {
                 .transform_point2(Vec2::zero()),
             direction: self
                 .isometry
-                .matrix_without_symetry()
+                .matrix_with_transposed_symetry()
                 .transform_vec2(Vec2::unit_x()),
         }
     }
@@ -645,7 +643,7 @@ impl Helix {
                 .transform_point2(2. * Vec2::unit_y()),
             direction: self
                 .isometry
-                .matrix_without_symetry()
+                .matrix_with_transposed_symetry()
                 .transform_vec2(-Vec2::unit_x()),
         }
     }
