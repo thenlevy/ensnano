@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use ultraviolet::{Isometry2, Mat3, Rotor2, Vec2};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub struct FullIsometry {
     pub translation: Vec2,
     pub rotation: Rotor2,

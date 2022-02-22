@@ -592,12 +592,6 @@ impl<R: DesignReader> Data<R> {
         ret
     }
 
-    pub fn save_isometry(&mut self) {
-        for h in self.helices.iter() {
-            //self.design.set_isometry(h.flat_id, ensnano_design::transform::Isometry2::new(h.isometry);
-        }
-    }
-
     pub fn is_xover_end(&self, nucl: &FlatNucl) -> Option<bool> {
         self.design.is_xover_end(&nucl.to_real())
     }

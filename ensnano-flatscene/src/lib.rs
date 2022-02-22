@@ -503,7 +503,6 @@ impl<S: AppState> Application for FlatScene<S> {
     fn on_notify(&mut self, notification: Notification) {
         match notification {
             Notification::FitRequest => self.controller[self.selected_design].fit(),
-            Notification::Save(d_id) => self.data[d_id].borrow_mut().save_isometry(),
             Notification::ToggleText(b) => {
                 self.view[self.selected_design].borrow_mut().set_show_sec(b)
             }

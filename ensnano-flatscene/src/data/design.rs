@@ -265,13 +265,6 @@ impl<R: DesignReader> Design2d<R> {
         &self.pasted_strands
     }
 
-    pub fn set_isometry(&self, helix: FlatHelix, isometry: Isometry2) {
-        self.requests
-            .lock()
-            .unwrap()
-            .set_isometry(helix.real, isometry);
-    }
-
     pub fn flip_visibility(&mut self, flat_helix: FlatHelix, apply_to_other: bool) {
         if apply_to_other {
             let visibility = if self.last_flip_other == Some(flat_helix) {
