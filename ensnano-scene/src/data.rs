@@ -137,7 +137,7 @@ impl<R: DesignReader> Data<R> {
             self.handle_need_opdate = false;
         }
         if app_state.candidates_set_was_updated(older_app_state) {
-            self.update_candidate(app_state.get_candidates());
+            self.update_candidate(app_state.get_candidates(), app_state);
         }
         if self.pivot_update {
             self.update_pivot();
@@ -345,7 +345,11 @@ impl<R: DesignReader> Data<R> {
     }*/
 
     /// Return the instances of selected spheres
-    pub fn get_selected_spheres(&self, selection: &[Selection]) -> Rc<Vec<RawDnaInstance>> {
+    pub fn get_selected_spheres<S: AppState>(
+        &self,
+        selection: &[Selection],
+        app_state: &S,
+    ) -> Rc<Vec<RawDnaInstance>> {
         let mut ret = Vec::new();
         for selection in selection.iter() {
             for element in self
@@ -354,13 +358,14 @@ impl<R: DesignReader> Data<R> {
             {
                 match element {
                     SceneElement::DesignElement(d_id, id) => {
-                        if let Some(instance) = self.designs[*d_id as usize].make_instance(
+                        let instances = self.designs[*d_id as usize].make_instance(
                             *id,
                             SELECTED_COLOR,
                             SELECT_SCALE_FACTOR,
-                        ) {
-                            ret.push(instance)
-                        }
+                            Some(design3d::ExpandWith::Spheres)
+                                .filter(|_| !app_state.show_insertion_representents()),
+                        );
+                        ret.extend(instances)
                     }
                     SceneElement::PhantomElement(phantom_element) => {
                         if let Some(instance) = self
@@ -385,7 +390,11 @@ impl<R: DesignReader> Data<R> {
     }
 
     /// Return the instances of selected tubes
-    pub fn get_selected_tubes(&self, selection: &[Selection]) -> Rc<Vec<RawDnaInstance>> {
+    pub fn get_selected_tubes<S: AppState>(
+        &self,
+        selection: &[Selection],
+        app_state: &S,
+    ) -> Rc<Vec<RawDnaInstance>> {
         let mut ret = Vec::new();
         for selection in selection.iter() {
             for element in self
@@ -394,13 +403,14 @@ impl<R: DesignReader> Data<R> {
             {
                 match element {
                     SceneElement::DesignElement(d_id, id) => {
-                        if let Some(instance) = self.designs[*d_id as usize].make_instance(
+                        let instance = self.designs[*d_id as usize].make_instance(
                             *id,
                             SELECTED_COLOR,
                             SELECT_SCALE_FACTOR,
-                        ) {
-                            ret.push(instance)
-                        }
+                            Some(design3d::ExpandWith::Tubes)
+                                .filter(|_| !app_state.show_insertion_representents()),
+                        );
+                        ret.extend(instance)
                     }
                     SceneElement::PhantomElement(phantom_element) => {
                         if let Some(instance) = self
@@ -425,7 +435,11 @@ impl<R: DesignReader> Data<R> {
     }
 
     /// Return the instances of candidate spheres
-    pub fn get_candidate_spheres(&self, candidates: &[Selection]) -> Rc<Vec<RawDnaInstance>> {
+    pub fn get_candidate_spheres<S: AppState>(
+        &self,
+        candidates: &[Selection],
+        app_state: &S,
+    ) -> Rc<Vec<RawDnaInstance>> {
         let mut ret = Vec::new();
         for candidate in candidates.iter() {
             for element in self
@@ -434,13 +448,14 @@ impl<R: DesignReader> Data<R> {
             {
                 match element {
                     SceneElement::DesignElement(d_id, id) => {
-                        if let Some(instance) = self.designs[*d_id as usize].make_instance(
+                        let instances = self.designs[*d_id as usize].make_instance(
                             *id,
                             CANDIDATE_COLOR,
                             SELECT_SCALE_FACTOR,
-                        ) {
-                            ret.push(instance)
-                        }
+                            Some(design3d::ExpandWith::Spheres)
+                                .filter(|_| !app_state.show_insertion_representents()),
+                        );
+                        ret.extend(instances);
                     }
                     SceneElement::PhantomElement(phantom_element) => {
                         if let Some(instance) = self
@@ -465,7 +480,11 @@ impl<R: DesignReader> Data<R> {
     }
 
     /// Return the instances of candidate tubes
-    pub fn get_candidate_tubes(&self, candidates: &[Selection]) -> Rc<Vec<RawDnaInstance>> {
+    pub fn get_candidate_tubes<S: AppState>(
+        &self,
+        candidates: &[Selection],
+        app_state: &S,
+    ) -> Rc<Vec<RawDnaInstance>> {
         let mut ret = Vec::new();
         for candidate in candidates.iter() {
             for element in self
@@ -474,13 +493,14 @@ impl<R: DesignReader> Data<R> {
             {
                 match element {
                     SceneElement::DesignElement(d_id, id) => {
-                        if let Some(instance) = self.designs[*d_id as usize].make_instance(
+                        let instances = self.designs[*d_id as usize].make_instance(
                             *id,
                             CANDIDATE_COLOR,
                             SELECT_SCALE_FACTOR,
-                        ) {
-                            ret.push(instance)
-                        }
+                            Some(design3d::ExpandWith::Tubes)
+                                .filter(|_| !app_state.show_insertion_representents()),
+                        );
+                        ret.extend(instances)
                     }
                     SceneElement::PhantomElement(phantom_element) => {
                         if let Some(instance) = self
@@ -781,8 +801,8 @@ impl<R: DesignReader> Data<R> {
     /// Notify the view that the selected elements have been modified
     fn update_selection<S: AppState>(&mut self, selection: &[Selection], app_state: &S) {
         log::trace!("Update selection {:?}", selection);
-        let sphere = self.get_selected_spheres(selection);
-        let tubes = self.get_selected_tubes(selection);
+        let sphere = self.get_selected_spheres(selection, app_state);
+        let tubes = self.get_selected_tubes(selection, app_state);
         let pos: Vec3 = sphere
             .iter()
             .chain(tubes.iter())
@@ -800,11 +820,11 @@ impl<R: DesignReader> Data<R> {
         }
         self.view.borrow_mut().update(ViewUpdate::RawDna(
             Mesh::SelectedTube,
-            self.get_selected_tubes(selection),
+            self.get_selected_tubes(selection, app_state),
         ));
         self.view.borrow_mut().update(ViewUpdate::RawDna(
             Mesh::SelectedSphere,
-            self.get_selected_spheres(selection),
+            self.get_selected_spheres(selection, app_state),
         ));
         let (sphere, vec) = self.get_phantom_instances(app_state);
         self.view
@@ -1049,14 +1069,14 @@ impl<R: DesignReader> Data<R> {
     }
 
     /// Notify the view that the instances of candidates have changed
-    fn update_candidate(&mut self, candidates: &[Selection]) {
+    fn update_candidate<S: AppState>(&mut self, candidates: &[Selection], app_state: &S) {
         self.view.borrow_mut().update(ViewUpdate::RawDna(
             Mesh::CandidateTube,
-            self.get_candidate_tubes(candidates),
+            self.get_candidate_tubes(candidates, app_state),
         ));
         self.view.borrow_mut().update(ViewUpdate::RawDna(
             Mesh::CandidateSphere,
-            self.get_candidate_spheres(candidates),
+            self.get_candidate_spheres(candidates, app_state),
         ));
         let mut grids =
             if let Some(SceneElement::Grid(d_id, g_id)) = self.candidate_element.as_ref() {

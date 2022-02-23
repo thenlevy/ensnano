@@ -198,37 +198,93 @@ impl<R: DesignReader> Design3D<R> {
 
     /// Convert return an instance representing the object with identifier `id` and custom
     /// color and radius.
-    pub fn make_instance(&self, id: u32, color: u32, mut radius: f32) -> Option<RawDnaInstance> {
-        let kind = self.get_object_type(id)?;
+    pub(super) fn make_instance(
+        &self,
+        id: u32,
+        color: u32,
+        mut radius: f32,
+        expand_with: Option<ExpandWith>,
+    ) -> Vec<RawDnaInstance> {
+        let kind = self.get_object_type(id);
+
         let referential = Referential::Model;
-        let instanciable = match kind {
-            ObjectType::Bound(id1, id2) => {
-                let pos1 = self.get_design_element_position(id1, referential)?;
-                let pos2 = self.get_design_element_position(id2, referential)?;
-                let id = id | self.id << 24;
-                create_dna_bound(pos1, pos2, color, id, true)
-                    .with_radius(radius)
+        let mut ret = Vec::new();
+        if expand_with.is_none() || self.design.get_insertion_length(id) == 0 {
+            let instanciable = match kind {
+                Some(ObjectType::Bound(id1, id2)) => {
+                    let pos1 = self
+                        .get_design_element_position(id1, referential)
+                        .unwrap_or(f32::NAN * Vec3::unit_x());
+                    let pos2 = self
+                        .get_design_element_position(id2, referential)
+                        .unwrap_or(f32::NAN * Vec3::unit_x());
+                    let id = id | self.id << 24;
+                    create_dna_bound(pos1, pos2, color, id, true)
+                        .with_radius(radius)
+                        .to_raw_instance()
+                }
+                Some(ObjectType::Nucleotide(id)) => {
+                    let position = self
+                        .get_design_element_position(id, referential)
+                        .unwrap_or(f32::NAN * Vec3::unit_x());
+                    let id = id | self.id << 24;
+                    let color = Instance::color_from_au32(color);
+                    let small = self.design.has_small_spheres_nucl_id(id);
+                    if radius > 1.01 && small {
+                        radius *= 2.5;
+                    }
+                    radius = if small { radius / 3.5 } else { radius };
+                    SphereInstance {
+                        position,
+                        radius,
+                        color,
+                        id,
+                    }
                     .to_raw_instance()
-            }
-            ObjectType::Nucleotide(id) => {
-                let position = self.get_design_element_position(id, referential)?;
-                let id = id | self.id << 24;
-                let color = Instance::color_from_au32(color);
-                let small = self.design.has_small_spheres_nucl_id(id);
-                if radius > 1.01 && small {
-                    radius *= 2.5;
                 }
-                radius = if small { radius / 3.5 } else { radius };
-                SphereInstance {
-                    position,
-                    radius,
-                    color,
-                    id,
-                }
-                .to_raw_instance()
+                _ => return vec![],
+            };
+            ret.push(instanciable);
+        }
+        if let Some(ExpandWith::Tubes) = expand_with {
+            for loopout_bond in self
+                .design
+                .get_all_loopout_bonds()
+                .iter()
+                .filter(|lb| lb.repr_bond_identifier == id)
+            {
+                ret.push(
+                    create_dna_bound(
+                        loopout_bond.position_prime5,
+                        loopout_bond.position_prime3,
+                        color,
+                        loopout_bond.repr_bond_identifier,
+                        true,
+                    )
+                    .with_radius(radius)
+                    .to_raw_instance(),
+                )
             }
-        };
-        Some(instanciable)
+        }
+        if let Some(ExpandWith::Spheres) = expand_with {
+            for loopout_nucl in self
+                .design
+                .get_all_loopout_nucl()
+                .iter()
+                .filter(|ln| ln.repr_bond_identifier == id)
+            {
+                ret.push(
+                    SphereInstance {
+                        position: loopout_nucl.position,
+                        color: Instance::color_from_au32(color),
+                        id: loopout_nucl.repr_bond_identifier,
+                        radius,
+                    }
+                    .to_raw_instance(),
+                );
+            }
+        }
+        ret
     }
 
     /// Convert return an instance representing the object with identifier `id`
@@ -883,6 +939,11 @@ fn create_prime3_cone(source: Vec3, dest: Vec3, color: u32) -> RawDnaInstance {
         radius: 1.5 * SPHERE_RADIUS,
     }
     .to_raw_instance()
+}
+
+pub(super) enum ExpandWith {
+    Spheres,
+    Tubes,
 }
 
 pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
