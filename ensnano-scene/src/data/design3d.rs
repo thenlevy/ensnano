@@ -89,19 +89,24 @@ impl<R: DesignReader> Design3D<R> {
     */
 
     /// Return the list of raw sphere instances to be displayed to represent the design
-    pub fn get_spheres_raw(&self) -> Rc<Vec<RawDnaInstance>> {
-        let ids = self.design.get_all_visible_nucl_ids();
+    pub fn get_spheres_raw(&self, show_insertion_representents: bool) -> Rc<Vec<RawDnaInstance>> {
+        let mut ids = self.design.get_all_visible_nucl_ids();
+        if !show_insertion_representents {
+            ids.retain(|id| self.design.get_insertion_length(*id) == 0)
+        }
         let mut ret = self.id_to_raw_instances(ids);
-        for loopout_nucl in self.design.get_all_loopout_nucl() {
-            ret.push(
-                SphereInstance {
-                    position: loopout_nucl.position,
-                    color: Instance::color_from_u32(loopout_nucl.color),
-                    id: loopout_nucl.repr_bond_identifier,
-                    radius: 1.,
-                }
-                .to_raw_instance(),
-            );
+        if !show_insertion_representents {
+            for loopout_nucl in self.design.get_all_loopout_nucl() {
+                ret.push(
+                    SphereInstance {
+                        position: loopout_nucl.position,
+                        color: Instance::color_from_u32(loopout_nucl.color),
+                        id: loopout_nucl.repr_bond_identifier,
+                        radius: 1.,
+                    }
+                    .to_raw_instance(),
+                );
+            }
         }
         Rc::new(ret)
     }
@@ -168,20 +173,25 @@ impl<R: DesignReader> Design3D<R> {
     */
 
     /// Return the list of tube instances to be displayed to represent the design
-    pub fn get_tubes_raw(&self) -> Rc<Vec<RawDnaInstance>> {
-        let ids = self.design.get_all_visible_bound_ids();
+    pub fn get_tubes_raw(&self, show_insertion_representents: bool) -> Rc<Vec<RawDnaInstance>> {
+        let mut ids = self.design.get_all_visible_bound_ids();
+        if !show_insertion_representents {
+            ids.retain(|id| self.design.get_insertion_length(*id) == 0);
+        }
         let mut ret = self.id_to_raw_instances(ids);
-        for loopout_bond in self.design.get_all_loopout_bonds() {
-            ret.push(
-                create_dna_bound(
-                    loopout_bond.position_prime5,
-                    loopout_bond.position_prime3,
-                    loopout_bond.color,
-                    loopout_bond.repr_bond_identifier,
-                    false,
+        if !show_insertion_representents {
+            for loopout_bond in self.design.get_all_loopout_bonds() {
+                ret.push(
+                    create_dna_bound(
+                        loopout_bond.position_prime5,
+                        loopout_bond.position_prime3,
+                        loopout_bond.color,
+                        loopout_bond.repr_bond_identifier,
+                        false,
+                    )
+                    .to_raw_instance(),
                 )
-                .to_raw_instance(),
-            )
+            }
         }
         Rc::new(ret)
     }
@@ -1187,4 +1197,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_all_h_bonds(&self) -> &[HBond];
     fn get_all_loopout_nucl(&self) -> &[LoopoutNucl];
     fn get_all_loopout_bonds(&self) -> &[LoopoutBond];
+    fn get_insertion_length(&self, bond_id: u32) -> usize;
 }

@@ -131,6 +131,10 @@ impl App3D for AppState {
         };
         sign * crate::consts::scroll_sensitivity_convertion(self.0.parameters.scroll_sensitivity)
     }
+
+    fn show_insertion_representents(&self) -> bool {
+        self.0.show_insertion_representents
+    }
 }
 
 #[cfg(test)]

@@ -132,6 +132,7 @@ impl<R: DesignReader> Data<R> {
         if app_state.design_was_modified(older_app_state)
             || app_state.suggestion_parameters_were_updated(older_app_state)
             || app_state.draw_options_were_updated(older_app_state)
+            || app_state.insertion_bond_display_was_modified(older_app_state)
         {
             for d in self.designs.iter_mut() {
                 d.thick_helices = app_state.get_draw_options().thick_helices;
@@ -1260,10 +1261,16 @@ impl<R: DesignReader> Data<R> {
         let mut grids = Vec::new();
         let mut cones = Vec::new();
         for design in self.designs.iter() {
-            for sphere in design.get_spheres_raw().iter() {
+            for sphere in design
+                .get_spheres_raw(app_state.show_insertion_representents())
+                .iter()
+            {
                 spheres.push(*sphere);
             }
-            for tube in design.get_tubes_raw().iter() {
+            for tube in design
+                .get_tubes_raw(app_state.show_insertion_representents())
+                .iter()
+            {
                 tubes.push(*tube);
             }
             letters = design.get_letter_instances();

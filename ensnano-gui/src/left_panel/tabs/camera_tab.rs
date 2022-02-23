@@ -127,6 +127,11 @@ impl CameraTab {
             Some(self.background3d),
             Message::Background3D,
         ));
+        ret = ret.push(Checkbox::new(
+            app_state.expand_insertions(),
+            "Expand insertions",
+            Message::SetExpandInsertions,
+        ));
 
         Scrollable::new(&mut self.scroll).push(ret).into()
     }

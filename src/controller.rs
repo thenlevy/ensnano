@@ -228,6 +228,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn check_backup(&mut self);
     fn flip_split_views(&mut self);
     fn start_twist(&mut self, g_id: usize);
+    fn set_expand_insertions(&mut self, expand: bool);
 }
 
 pub struct LoadDesignError(String);

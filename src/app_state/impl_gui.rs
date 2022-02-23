@@ -142,6 +142,10 @@ impl GuiState for AppState {
     fn want_thick_helices(&self) -> bool {
         self.0.parameters.thick_helices
     }
+
+    fn expand_insertions(&self) -> bool {
+        !self.0.show_insertion_representents
+    }
 }
 
 #[cfg(test)]

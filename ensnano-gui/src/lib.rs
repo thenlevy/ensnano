@@ -200,6 +200,7 @@ pub trait Requests: 'static + Send {
     fn align_horizon(&mut self);
     fn download_origamis(&mut self);
     fn set_dna_parameters(&mut self, param: Parameters);
+    fn set_expand_insertions(&mut self, expand: bool);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -991,6 +992,7 @@ pub trait AppState:
     fn get_scroll_sensitivity(&self) -> f32;
     fn get_invert_y_scroll(&self) -> bool;
     fn want_thick_helices(&self) -> bool;
+    fn expand_insertions(&self) -> bool;
 }
 
 pub trait DesignReader: 'static {

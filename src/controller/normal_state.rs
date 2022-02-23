@@ -254,6 +254,10 @@ impl State for NormalState {
                     Box::new(ChangindDnaParameters(param)),
                     self,
                 )),
+                Action::SetExpandInsertions(b) => {
+                    main_state.set_expand_insertions(b);
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -462,4 +466,5 @@ pub enum Action {
     FlipSplitViews,
     Twist(usize),
     SetDnaParameters(Parameters),
+    SetExpandInsertions(bool),
 }

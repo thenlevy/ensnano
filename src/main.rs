@@ -1895,6 +1895,11 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     fn start_twist(&mut self, g_id: usize) {
         self.main_state.start_twist(g_id);
     }
+
+    fn set_expand_insertions(&mut self, expand: bool) {
+        self.main_state
+            .modify_state(|app| app.with_expand_insertion_set(expand), None);
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};

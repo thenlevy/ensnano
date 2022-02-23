@@ -184,6 +184,7 @@ pub enum Message<S> {
     StopSimulation,
     StartTwist,
     NewDnaParameters(NamedParameter),
+    SetExpandInsertions(bool),
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -771,6 +772,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 .lock()
                 .unwrap()
                 .set_dna_parameters(parameters.value),
+            Message::SetExpandInsertions(b) => {
+                self.requests.lock().unwrap().set_expand_insertions(b)
+            }
         };
         Command::none()
     }

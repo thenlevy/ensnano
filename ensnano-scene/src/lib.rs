@@ -1068,6 +1068,11 @@ pub trait AppState: Clone {
     fn get_draw_options(&self) -> DrawOptions;
     fn draw_options_were_updated(&self, other: &Self) -> bool;
     fn get_scroll_sensitivity(&self) -> f32;
+    fn show_insertion_representents(&self) -> bool;
+
+    fn insertion_bond_display_was_modified(&self, other: &Self) -> bool {
+        self.show_insertion_representents() != other.show_insertion_representents()
+    }
 }
 
 pub trait Requests {
