@@ -443,7 +443,29 @@ impl DesignContent {
                             position: nucl.position,
                             forward: nucl.forward,
                         });
-                        nucl_id = id;
+                        if let Some(prev_pos) = prev_loopout_pos.take() {
+                            loopout_bonds.push(LoopoutBond {
+                                position_prime5: prev_pos,
+                                position_prime3: position.into(),
+                                color,
+                                repr_bond_identifier: id,
+                            });
+                        }
+                        nucl_id = if let Some(old_nucl) = old_nucl {
+                            let bound_id = id;
+                            id += 1;
+                            let bound = (old_nucl, nucl);
+                            object_type
+                                .insert(bound_id, ObjectType::Bound(old_nucl_id.unwrap(), id));
+                            identifier_bound.insert(bound, bound_id);
+                            nucleotides_involved.insert(bound_id, bound);
+                            color_map.insert(bound_id, color);
+                            strand_map.insert(bound_id, *s_id);
+                            helix_map.insert(bound_id, nucl.helix);
+                            id
+                        } else {
+                            id
+                        };
                         id += 1;
                         object_type.insert(nucl_id, ObjectType::Nucleotide(nucl_id));
                         nucleotide.insert(nucl_id, nucl);
@@ -468,26 +490,6 @@ impl DesignContent {
                         suggestion_maker.add_nucl(nucl, position, groups.as_ref());
                         let position = [position[0] as f32, position[1] as f32, position[2] as f32];
                         space_position.insert(nucl_id, position);
-                        if let Some(prev_pos) = prev_loopout_pos.take() {
-                            loopout_bonds.push(LoopoutBond {
-                                position_prime5: prev_pos,
-                                position_prime3: position.into(),
-                                color,
-                                repr_bond_identifier: id,
-                            });
-                        }
-                        if let Some(old_nucl) = old_nucl {
-                            let bound_id = id;
-                            id += 1;
-                            let bound = (old_nucl, nucl);
-                            object_type
-                                .insert(bound_id, ObjectType::Bound(old_nucl_id.unwrap(), nucl_id));
-                            identifier_bound.insert(bound, bound_id);
-                            nucleotides_involved.insert(bound_id, bound);
-                            color_map.insert(bound_id, color);
-                            strand_map.insert(bound_id, *s_id);
-                            helix_map.insert(bound_id, nucl.helix);
-                        }
                         old_nucl = Some(nucl);
                         old_nucl_id = Some(nucl_id);
                     }
