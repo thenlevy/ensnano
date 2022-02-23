@@ -35,6 +35,8 @@ use ultraviolet::{Bivec3, Mat3};
 
 mod roller;
 pub use roller::{PhysicalSystem, RollInterface, RollPresenter};
+mod twister;
+pub use twister::{TwistInterface, TwistPresenter, Twister};
 
 const MAX_DERIVATIVE_NORM: f32 = 1e4;
 
@@ -1335,6 +1337,11 @@ pub enum SimulationOperation<'pres, 'reader> {
         reader: &'reader mut dyn SimulationReader,
         target_helices: Option<Vec<usize>>,
     },
+    StartTwist {
+        grid_id: usize,
+        presenter: &'pres dyn TwistPresenter,
+        reader: &'reader mut dyn SimulationReader,
+    },
 }
 
 pub trait SimulationReader {
@@ -1679,7 +1686,7 @@ fn make_grid_system(
     time_span: (f32, f32),
     rigid_paramaters: RigidBodyConstants,
 ) -> Result<GridsSystem, ErrOperation> {
-    let intervals = presenter.get_design().get_intervals();
+    let intervals = presenter.get_design().strands.get_intervals();
     let parameters = presenter
         .get_design()
         .parameters

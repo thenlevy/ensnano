@@ -16,6 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::app_state::PastePosition;
+
+use super::download_intervals::DownloadIntervals;
 use super::*;
 use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::Nucl;
@@ -41,6 +44,7 @@ impl State for NormalState {
                     }
                 }
                 Action::DownloadStaplesRequest => Box::new(DownloadStaples::default()),
+                Action::DownloadOrigamiRequest => Box::new(DownloadIntervals::default()),
                 Action::SetScaffoldSequence { shift } => Box::new(SetScaffoldSequence::init(shift)),
                 Action::Exit => Quit::quit(main_state.need_save()),
                 Action::ToggleSplit(mode) => {
@@ -54,10 +58,6 @@ impl State for NormalState {
                 }
                 Action::ChangeUiSize(size) => {
                     main_state.change_ui_size(size);
-                    self
-                }
-                Action::InvertScrollY(inverted) => {
-                    main_state.invert_scroll_y(inverted);
                     self
                 }
                 Action::ErrorMsg(msg) => {
@@ -230,8 +230,22 @@ impl State for NormalState {
                     main_state.update_camera(camera_id);
                     self
                 }
+                Action::Toggle2D => {
+                    main_state.toggle_2d();
+                    self
+                }
+
+                Action::MakeAllSuggestedXover { doubled } => {
+                    main_state.make_all_suggested_xover(doubled);
+                    self
+                }
+
                 Action::FlipSplitViews => {
                     main_state.flip_split_views();
+                    self
+                }
+                Action::Twist(g_id) => {
+                    main_state.start_twist(g_id);
                     self
                 }
                 action => {
@@ -361,6 +375,7 @@ pub enum Action {
     SaveAs,
     QuickSave,
     DownloadStaplesRequest,
+    DownloadOrigamiRequest,
     /// Trigger the sequence of action that will set the scaffold of the sequence.
     SetScaffoldSequence {
         shift: usize,
@@ -391,7 +406,7 @@ pub enum Action {
     StopSimulation,
     RollHelices(f32),
     Copy,
-    PasteCandidate(Option<Nucl>),
+    PasteCandidate(Option<PastePosition>),
     InitPaste,
     ApplyPaste,
     Duplicate,
@@ -425,5 +440,10 @@ pub enum Action {
     SelectCamera(ensnano_design::CameraId),
     SelectFavoriteCamera(u32),
     UpdateCamera(ensnano_design::CameraId),
+    Toggle2D,
+    MakeAllSuggestedXover {
+        doubled: bool,
+    },
     FlipSplitViews,
+    Twist(usize),
 }

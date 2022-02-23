@@ -234,13 +234,11 @@ impl CameraShortcut {
     }
 
     fn set_camera_widget<S: AppState>(&mut self, app: &S) {
-        let favourite_camera = app.get_reader().get_favourite_camera();
         self.camera_widgets = app
             .get_reader()
             .get_all_cameras()
             .iter()
             .map(|cam| {
-                let favourite = favourite_camera == Some(cam.0);
                 let being_edited = self.camera_being_edited == Some(cam.0);
                 let name = if being_edited {
                     self.camera_input_name
@@ -250,7 +248,7 @@ impl CameraShortcut {
                 } else {
                     cam.1
                 };
-                CameraWidget::new(name.to_string(), favourite, being_edited, cam.0)
+                CameraWidget::new(name.to_string(), being_edited, cam.0)
             })
             .collect();
     }
@@ -285,7 +283,6 @@ impl CameraShortcut {
 
 struct CameraWidget {
     name: String,
-    favourite: bool,
     being_edited: bool,
     camera_id: CameraId,
 }
@@ -301,10 +298,9 @@ struct CameraWidgetState {
 }
 
 impl CameraWidget {
-    fn new(name: String, favourite: bool, being_edited: bool, camera_id: CameraId) -> Self {
+    fn new(name: String, being_edited: bool, camera_id: CameraId) -> Self {
         Self {
             name,
-            favourite,
             being_edited,
             camera_id,
         }
@@ -328,26 +324,9 @@ impl CameraWidget {
             Text::new(&self.name).into()
         };
 
-        let favourite_icon = if self.favourite {
-            LightIcon::Star
-        } else {
-            LightIcon::StarOutline
-        };
-
-        let _favourite_button: Button<'a, Message<S>> =
-            light_icon_btn(&mut state.favourite_btn, favourite_icon, ui_size)
-                .on_press(Message::SetCameraFavorite(self.camera_id));
-
         let select_camera_btn =
             light_icon_btn(&mut state.select_camera_btn, LightIcon::Visibility, ui_size)
                 .on_press(Message::SelectCamera(self.camera_id));
-
-        let update_camera_btn = light_icon_btn(
-            &mut state.update_camera_btn,
-            LightIcon::PhotoCamera,
-            ui_size,
-        )
-        .on_press(Message::UpdateCamera(self.camera_id));
 
         let edit_button = light_icon_btn(&mut state.edit_name_btn, LightIcon::Edit, ui_size)
             .on_press(Message::StartEditCameraName(self.camera_id));
@@ -361,8 +340,6 @@ impl CameraWidget {
             .push(edit_button)
             .push(iced::Space::with_width(iced::Length::Fill))
             .push(select_camera_btn)
-            .push(update_camera_btn)
-            //.push(favourite_button) 😔😔😔
             .push(delete_button)
             .into()
     }

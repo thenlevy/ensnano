@@ -16,14 +16,14 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
-use ensnano_design::{Domain, Helix, Nucl, Parameters};
+use ensnano_design::{Domain, Helix, HelixCollection, Nucl, Parameters};
 use std::io::Write;
 use std::path::Path;
 use ultraviolet::Vec3;
 
-const BACKBONE_TO_CM: f32 = 0.34;
+pub(super) const BACKBONE_TO_CM: f32 = 0.34;
 
-struct OxDnaNucl {
+pub struct OxDnaNucl {
     position: Vec3,
     backbone_base: Vec3,
     normal: Vec3,
@@ -103,7 +103,7 @@ struct OxDnaBound {
     prime3: isize,
 }
 
-trait OxDnaHelix {
+pub(super) trait OxDnaHelix {
     fn ox_dna_nucl(&self, nucl_idx: isize, forward: bool, parameters: &Parameters) -> OxDnaNucl;
 }
 
@@ -146,11 +146,12 @@ impl Presenter {
             for d in s.domains.iter() {
                 if let Domain::HelixDomain(dom) = d {
                     for position in dom.iter() {
-                        let ox_nucl = self.current_design.helices[&dom.helix].ox_dna_nucl(
-                            position,
-                            dom.forward,
-                            &parameters,
-                        );
+                        let ox_nucl = self
+                            .current_design
+                            .helices
+                            .get(&dom.helix)
+                            .unwrap()
+                            .ox_dna_nucl(position, dom.forward, &parameters);
                         boundaries[0] = boundaries[0].max(2. * ox_nucl.position.x.abs());
                         boundaries[1] = boundaries[1].max(2. * ox_nucl.position.y.abs());
                         boundaries[2] = boundaries[2].max(2. * ox_nucl.position.z.abs());

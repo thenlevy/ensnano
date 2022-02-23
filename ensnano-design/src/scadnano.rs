@@ -40,8 +40,8 @@ fn default_grid() -> String {
 impl ScadnanoDesign {
     pub fn default_grid_descriptor(&self) -> Result<GridDescriptor, ScadnanoImportError> {
         let grid_type = match self.grid.as_str() {
-            "square" => Ok(GridTypeDescr::Square),
-            "honeycomb" => Ok(GridTypeDescr::Honeycomb),
+            "square" => Ok(GridTypeDescr::Square { twist: None }),
+            "honeycomb" => Ok(GridTypeDescr::Honeycomb { twist: None }),
             grid_type => {
                 println!("Unsported grid type: {}", grid_type);
                 Err(ScadnanoImportError::UnsuportedGridType(
@@ -73,8 +73,8 @@ pub struct ScadnanoGroup {
 impl ScadnanoGroup {
     pub fn to_grid_desc(&self) -> Result<GridDescriptor, ScadnanoImportError> {
         let grid_type = match self.grid.as_str() {
-            "square" => Ok(GridTypeDescr::Square),
-            "honeycomb" => Ok(GridTypeDescr::Honeycomb),
+            "square" => Ok(GridTypeDescr::Square { twist: None }),
+            "honeycomb" => Ok(GridTypeDescr::Honeycomb { twist: None }),
             grid_type => {
                 println!("Unsported grid type: {}", grid_type);
                 Err(ScadnanoImportError::UnsuportedGridType(
@@ -194,4 +194,50 @@ pub enum ScadnanoImportError {
     UnsuportedGridType(String),
     InvalidColor(String),
     MissingField(String),
+}
+
+#[derive(Default)]
+pub(super) struct ScadnanoInsertionsDeletions {
+    count: BTreeMap<usize, BTreeMap<isize, isize>>,
+}
+
+impl ScadnanoInsertionsDeletions {
+    pub fn read_domain(&mut self, domain: &ScadnanoDomain) {
+        match domain {
+            ScadnanoDomain::Loopout { .. } => (),
+            ScadnanoDomain::HelixDomain {
+                deletions,
+                helix,
+                insertions,
+                ..
+            } => {
+                if let Some(vec) = deletions {
+                    let entry = self.count.entry(*helix).or_default();
+                    for d in vec.iter() {
+                        let count_entry = entry.entry(*d).or_default();
+                        *count_entry -= 1;
+                    }
+                }
+                if let Some(vec) = insertions {
+                    let entry = self.count.entry(*helix).or_default();
+                    for insertion in vec.iter() {
+                        let position = insertion[0];
+                        let count = insertion[1];
+                        let count_entry = entry.entry(position).or_default();
+                        *count_entry += count;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn adjust(&self, position: isize, helix: usize) -> isize {
+        let mut ret = position;
+        if let Some(counts) = self.count.get(&helix) {
+            for (_, c) in counts.iter().take_while(|(y, _)| **y <= position) {
+                ret += *c / 2
+            }
+        }
+        ret
+    }
 }

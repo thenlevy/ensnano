@@ -130,6 +130,8 @@ pub enum ElementType {
     Overlay(usize),
     /// An area that has not been attributed to an element
     Unattributed,
+    /// A stereographic version of the 3D view
+    StereographicScene,
 }
 
 impl ElementType {
@@ -142,7 +144,7 @@ impl ElementType {
 
     pub fn is_scene(&self) -> bool {
         match self {
-            ElementType::Scene | ElementType::FlatScene => true,
+            ElementType::StereographicScene | ElementType::Scene | ElementType::FlatScene => true,
             _ => false,
         }
     }

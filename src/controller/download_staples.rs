@@ -171,6 +171,7 @@ fn download_staples(
 pub trait StaplesDownloader {
     fn download_staples(&self) -> Result<DownloadStappleOk, DownloadStappleError>;
     fn write_staples_xlsx(&self, xlsx_path: &PathBuf);
+    fn write_intervals(&self, origami_path: &PathBuf);
     fn default_shift(&self) -> Option<usize>;
 }
 

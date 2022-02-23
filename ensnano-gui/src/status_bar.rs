@@ -88,18 +88,20 @@ pub struct StatusBar<R: Requests, S: AppState> {
     slider_state: slider::State,
     app_state: S,
     ui_size: UiSize,
+    message: Option<String>,
 }
 
 impl<R: Requests, S: AppState> StatusBar<R, S> {
-    pub fn new(requests: Arc<Mutex<R>>) -> Self {
+    pub fn new(requests: Arc<Mutex<R>>, state: &S) -> Self {
         Self {
             info_values: Vec::new(),
             operation: None,
             requests,
             progress: None,
             slider_state: Default::default(),
-            app_state: Default::default(),
+            app_state: state.clone(),
             ui_size: Default::default(),
+            message: None,
         }
     }
 
@@ -167,6 +169,7 @@ pub enum Message<S: AppState> {
     NewApplicationState(S),
     UiSizeChanged(UiSize),
     TabPressed,
+    Message(Option<String>),
 }
 
 impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
@@ -198,6 +201,7 @@ impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
             Message::NewApplicationState(state) => self.app_state = state,
             Message::UiSizeChanged(ui_size) => self.set_ui_size(ui_size),
             Message::TabPressed => self.process_tab(),
+            Message::Message(message) => self.message = message,
         }
         Command::none()
     }
@@ -205,10 +209,19 @@ impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
     fn view(&mut self) -> Element<Message<S>, iced_wgpu::Renderer> {
         self.update_operation();
         let content = if self.progress.is_some() {
+            self.operation = None;
+            self.message = None;
             self.view_progress()
         } else if let Some(building_info) = self.app_state.get_strand_building_state() {
+            self.operation = None;
+            self.message = None;
             Row::new()
                 .push(Text::new(building_info.to_info()).size(self.ui_size.main_text()))
+                .into()
+        } else if let Some(ref message) = self.message {
+            self.operation = None;
+            Row::new()
+                .push(Text::new(message).size(self.ui_size.main_text()))
                 .into()
         } else if let Some(operation) = self.operation.as_mut() {
             log::trace!("operation is some");

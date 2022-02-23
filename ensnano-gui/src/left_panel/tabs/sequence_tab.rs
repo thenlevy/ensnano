@@ -21,6 +21,7 @@ pub struct SequenceTab {
     scroll: scrollable::State,
     button_scaffold: button::State,
     button_stapples: button::State,
+    button_origamis: button::State,
     toggle_text_value: bool,
     scaffold_position_str: String,
     scaffold_position: usize,
@@ -172,7 +173,24 @@ macro_rules! add_download_staples_button {
         )
         .height(Length::Units($ui_size.button()))
         .on_press(Message::StapplesRequested);
-        $ret = $ret.push(button_stapples);
+        let button_origamis = Button::new(
+            &mut $self.button_origamis,
+            iced::Text::new("Export Origamis"),
+        )
+        .height(Length::Units($ui_size.button()))
+        .on_press(Message::OrigamisRequested);
+        $ret = $ret.push(button_stapples).push(button_origamis);
+    };
+}
+
+macro_rules! add_rainbow_scaffold_checkbox {
+    ($ret: ident, $ui_size: ident, $app_state: ident) => {
+        $ret = $ret.push(right_checkbox(
+            $app_state.get_reader().rainbow_scaffold(),
+            "Rainbow Scaffold",
+            Message::RainbowScaffold,
+            $ui_size,
+        ));
     };
 }
 
@@ -182,6 +200,7 @@ impl SequenceTab {
             scroll: Default::default(),
             button_stapples: Default::default(),
             button_scaffold: Default::default(),
+            button_origamis: Default::default(),
             toggle_text_value: false,
             scaffold_position_str: "0".to_string(),
             scaffold_position: 0,
@@ -213,6 +232,9 @@ impl SequenceTab {
         add_scaffold_from_to_selection_buttons!(ret, self, ui_size, app_state);
         extra_jump!(ret);
         add_scaffold_info!(ret, self, ui_size, app_state);
+        extra_jump!(ret);
+
+        add_rainbow_scaffold_checkbox!(ret, ui_size, app_state);
         extra_jump!(ret);
 
         add_set_scaffold_sequence_button!(ret, self, ui_size);

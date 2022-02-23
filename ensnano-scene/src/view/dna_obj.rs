@@ -168,6 +168,90 @@ impl Instanciable for SphereInstance {
 
 impl DnaObject for SphereInstance {}
 
+pub struct StereographicSphereAndPlane {
+    pub position: Vec3,
+    pub orientation: Rotor3,
+    pub ratio: f32,
+}
+
+impl Instanciable for StereographicSphereAndPlane {
+    type Vertex = DnaVertex;
+    type RawInstance = RawDnaInstance;
+    type Ressource = ();
+
+    fn vertices() -> Vec<DnaVertex> {
+        let mut ret = SphereInstance::vertices();
+        let z = -SPHERE_RADIUS;
+        let x = SPHERE_RADIUS;
+        let y = SPHERE_RADIUS;
+        let normal = Vec3::unit_y();
+
+        ret.push(DnaVertex {
+            position: [-x, -y, z],
+            normal: normal.into(),
+        });
+
+        ret.push(DnaVertex {
+            position: [-x, y, z],
+            normal: normal.into(),
+        });
+
+        ret.push(DnaVertex {
+            position: [x, -y, z],
+            normal: normal.into(),
+        });
+
+        ret.push(DnaVertex {
+            position: [x, y, z],
+            normal: normal.into(),
+        });
+        ret
+    }
+
+    fn indices() -> Vec<u16>
+    where
+        Self: Sized,
+    {
+        let mut ret = SphereInstance::indices();
+        let idx_0 = SphereInstance::vertices().len() as u16;
+        ret.extend([idx_0, idx_0 + 1, idx_0 + 2, idx_0 + 1, idx_0 + 2, idx_0 + 3]);
+        ret
+    }
+
+    fn vertex_module(device: &wgpu::Device) -> wgpu::ShaderModule {
+        device.create_shader_module(&wgpu::include_spirv!("dna_obj.vert.spv"))
+    }
+
+    fn fragment_module(device: &wgpu::Device) -> wgpu::ShaderModule {
+        device.create_shader_module(&wgpu::include_spirv!("dna_obj.frag.spv"))
+    }
+
+    fn primitive_topology() -> wgpu::PrimitiveTopology
+    where
+        Self: Sized,
+    {
+        wgpu::PrimitiveTopology::TriangleList
+    }
+
+    fn to_raw_instance(&self) -> Self::RawInstance {
+        use ensnano_utils::instance::Instance;
+        let color =
+            Instance::color_from_au32(ensnano_interactor::consts::STEREOGRAPHIC_SPHERE_COLOR);
+        let model = Mat4::from_translation(self.position)
+            * self.orientation.into_matrix().into_homogeneous();
+        let scale = ensnano_interactor::consts::STEREOGRAPHIC_SPHERE_RADIUS
+            / ensnano_interactor::consts::SPHERE_RADIUS
+            * Vec3::new(self.ratio, 1., 1.);
+        RawDnaInstance {
+            model,
+            color,
+            scale,
+            id: 0,
+            inversed_model: model.inversed(),
+        }
+    }
+}
+
 pub struct TubeInstance {
     pub position: Vec3,
     pub rotor: Rotor3,
@@ -351,3 +435,57 @@ impl Instanciable for ConeInstance {
 }
 
 impl DnaObject for ConeInstance {}
+
+pub struct Ellipsoid {
+    pub scale: Vec3,
+    pub orientation: Rotor3,
+    pub sphere: SphereInstance,
+}
+
+impl Instanciable for Ellipsoid {
+    type Vertex = DnaVertex;
+    type RawInstance = RawDnaInstance;
+    type Ressource = ();
+
+    fn vertices() -> Vec<Self::Vertex> {
+        SphereInstance::vertices()
+    }
+
+    fn indices() -> Vec<u16>
+    where
+        Self: Sized,
+    {
+        SphereInstance::indices()
+    }
+
+    fn fragment_module(device: &wgpu::Device) -> wgpu::ShaderModule
+    where
+        Self: Sized,
+    {
+        SphereInstance::fragment_module(device)
+    }
+
+    fn vertex_module(device: &wgpu::Device) -> wgpu::ShaderModule
+    where
+        Self: Sized,
+    {
+        SphereInstance::vertex_module(device)
+    }
+
+    fn primitive_topology() -> wgpu::PrimitiveTopology
+    where
+        Self: Sized,
+    {
+        SphereInstance::primitive_topology()
+    }
+
+    fn to_raw_instance(&self) -> Self::RawInstance {
+        let mut ret = self.sphere.to_raw_instance();
+        let model = Mat4::from_translation(self.sphere.position)
+            * self.orientation.into_matrix().into_homogeneous();
+        ret.scale = self.scale;
+        ret.model = model;
+        ret.inversed_model = model.inversed();
+        ret
+    }
+}

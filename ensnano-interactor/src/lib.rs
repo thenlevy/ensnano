@@ -21,7 +21,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
-    grid::{GridDescriptor, GridPosition, Hyperboloid},
+    grid::{GridDescriptor, GridObject, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
     Nucl,
 };
@@ -37,9 +37,7 @@ pub use strand_builder::*;
 pub mod consts;
 pub mod torsion;
 use ensnano_organizer::GroupId;
-
-#[macro_use]
-extern crate log;
+mod operation_labels;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum ObjectType {
@@ -94,9 +92,13 @@ pub enum DesignOperation {
     Translation(DesignTranslation),
     /// Add an helix on a grid
     AddGridHelix {
-        position: GridPosition,
+        position: HelixGridPosition,
         start: isize,
         length: usize,
+    },
+    AddTwoPointsBezier {
+        start: HelixGridPosition,
+        end: HelixGridPosition,
     },
     RmHelices {
         h_ids: Vec<usize>,
@@ -204,8 +206,8 @@ pub enum DesignOperation {
     FlipAnchors {
         nucls: Vec<Nucl>,
     },
-    AttachHelix {
-        helix: usize,
+    AttachObject {
+        object: GridObject,
         grid: usize,
         x: isize,
         y: isize,
@@ -223,6 +225,7 @@ pub enum DesignOperation {
     CreateNewCamera {
         position: Vec3,
         orientation: Rotor3,
+        pivot_position: Option<Vec3>,
     },
     SetFavouriteCamera(ensnano_design::CameraId),
     UpdateCamera {
@@ -242,6 +245,18 @@ pub enum DesignOperation {
         grid_id: usize,
         orientation: Rotor3,
     },
+    SetGridNbTurn {
+        grid_id: usize,
+        nb_turn: f32,
+    },
+    MakeSeveralXovers {
+        xovers: Vec<(Nucl, Nucl)>,
+        doubled: bool,
+    },
+    CheckXovers {
+        xovers: Vec<usize>,
+    },
+    SetRainbowScaffold(bool),
 }
 
 /// An action performed on the application
@@ -291,6 +306,20 @@ pub enum IsometryTarget {
     Grids(Vec<usize>),
     /// The pivot of a group
     GroupPivot(GroupId),
+    /// The control points of bezier curves
+    ControlPoint(Vec<(usize, BezierControlPoint)>),
+}
+
+impl ToString for IsometryTarget {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Design => "Design".into(),
+            Self::Helices(hs, _) => format!("Helices {:?}", hs),
+            Self::Grids(gs) => format!("Grids {:?}", gs),
+            Self::GroupPivot(_) => "Group pivot".into(),
+            Self::ControlPoint(_) => "Bezier control point".into(),
+        }
+    }
 }
 
 /// A stucture that defines an helix on a grid
@@ -307,6 +336,7 @@ pub struct HyperboloidRequest {
     pub length: f32,
     pub shift: f32,
     pub radius_shift: f32,
+    pub nb_turn: f64,
 }
 
 impl HyperboloidRequest {
@@ -317,6 +347,7 @@ impl HyperboloidRequest {
             shift: self.shift,
             radius_shift: self.radius_shift,
             forced_radius: None,
+            nb_turn_per_100_nt: self.nb_turn,
         }
     }
 }
@@ -368,6 +399,7 @@ pub enum SimulationState {
     RigidGrid,
     RigidHelices,
     Paused,
+    Twisting { grid_id: usize },
 }
 
 impl SimulationState {
@@ -507,5 +539,48 @@ impl SuggestionParameters {
         let mut ret = self.clone();
         ret.include_xover_ends = include_xover_ends;
         ret
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CheckXoversParameter {
+    None,
+    Checked,
+    Unchecked,
+    Both,
+}
+
+impl Default for CheckXoversParameter {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl ToString for CheckXoversParameter {
+    fn to_string(&self) -> String {
+        match self {
+            Self::None => String::from("None"),
+            Self::Checked => String::from("Checked"),
+            Self::Unchecked => String::from("Unchecked"),
+            Self::Both => String::from("Both"),
+        }
+    }
+}
+
+impl CheckXoversParameter {
+    pub const ALL: &'static [Self] = &[Self::None, Self::Checked, Self::Unchecked, Self::Both];
+
+    pub fn wants_checked(&self) -> bool {
+        match self {
+            Self::Checked | Self::Both => true,
+            Self::None | Self::Unchecked => false,
+        }
+    }
+
+    pub fn wants_unchecked(&self) -> bool {
+        match self {
+            Self::Unchecked | Self::Both => true,
+            Self::None | Self::Checked => false,
+        }
     }
 }

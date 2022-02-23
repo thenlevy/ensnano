@@ -52,7 +52,7 @@ impl PhysicalSystem {
         target_helices: Option<Vec<usize>>,
         reader: &mut dyn SimulationReader,
     ) -> Arc<Mutex<RollInterface>> {
-        let intervals_map = presenter.get_design().get_intervals();
+        let intervals_map = presenter.get_design().strands.get_intervals();
         let helices: Vec<Helix> = presenter.get_helices().values().cloned().collect();
         let keys: Vec<usize> = presenter.get_helices().keys().cloned().collect();
         let parameters = presenter
@@ -96,7 +96,7 @@ impl PhysicalSystem {
                 let grad = self.roller.solve_one_step(&mut self.data, 1e-3);
                 log::trace!("grad {}", grad);
                 interface_ptr.lock().unwrap().stabilized = grad < 0.1;
-                interface_ptr.lock().unwrap().new_state = Some(self.data.get_simulation_state())
+                interface_ptr.lock().unwrap().new_state = Some(self.data.get_roll_state())
             }
         });
     }
@@ -106,7 +106,7 @@ fn angle_aoc2(p: &Parameters) -> f32 {
     2. * PI / p.bases_per_turn
 }
 
-fn dist_ac(p: &Parameters) -> f32 {
+pub(super) fn dist_ac(p: &Parameters) -> f32 {
     (dist_ac2(p) * dist_ac2(p) + p.z_step * p.z_step).sqrt()
 }
 
@@ -130,14 +130,15 @@ pub(super) fn cross_over_force(
 
     let norm = K_SPRING * (real_dist - dist_ac(parameters));
 
-    let theta_self = me.theta(n_self, b_self, parameters);
-    let theta_other = other.theta(n_other, b_other, parameters);
-
     // vec_self is the derivative of the position of self w.r.t. theta
     // postion of self is [0, sin(theta), cos(theta)]
     // so the derivative is [0, cos(theta), -sin(theta)]
-    let vec_self = me.rotate_point([0., theta_self.cos(), -theta_self.sin()].into());
-    let vec_other = other.rotate_point([0., theta_other.cos(), -theta_other.sin()].into());
+
+    let derivative_shift = std::f32::consts::FRAC_PI_2;
+    let vec_self = me.shifted_space_pos(parameters, n_self, b_self, derivative_shift)
+        - me.axis_position(parameters, n_self);
+    let vec_other = other.shifted_space_pos(parameters, n_other, b_other, derivative_shift)
+        - other.axis_position(parameters, n_other);
 
     (
         (0..3)
@@ -149,7 +150,7 @@ pub(super) fn cross_over_force(
     )
 }
 
-struct RollSystem {
+pub(super) struct RollSystem {
     speed: Vec<f32>,
     acceleration: Vec<f32>,
     time_scale: f32,
@@ -182,6 +183,14 @@ impl RollSystem {
         }
     }
 
+    fn support_helix_data_idx(helix: &Helix, data: &DesignData) -> Option<usize> {
+        helix
+            .support_helix
+            .as_ref()
+            .and_then(|h_id| data.helix_map.get(h_id))
+            .cloned()
+    }
+
     fn update_acceleration(&mut self, data: &DesignData) {
         let cross_overs = &data.xovers;
         for i in 0..self.acceleration.len() {
@@ -195,17 +204,33 @@ impl RollSystem {
             let h2 = data.helix_map.get(&n2.helix).unwrap();
             let me = &data.helices[*h1];
             let other = &data.helices[*h2];
-            let (delta_1, delta_2) = cross_over_force(
-                me,
-                other,
-                &data.parameters,
-                n1.position,
-                n1.forward,
-                n2.position,
-                n2.forward,
-            );
-            self.acceleration[*h1] += delta_1 / MASS_HELIX * self.must_roll[*h1];
-            self.acceleration[*h2] += delta_2 / MASS_HELIX * self.must_roll[*h2];
+
+            if Self::support_helix_data_idx(&me, data).unwrap_or(*h1)
+                != Self::support_helix_data_idx(&other, data).unwrap_or(*h2)
+            {
+                let (delta_1, delta_2) = cross_over_force(
+                    me,
+                    other,
+                    &data.parameters,
+                    n1.position,
+                    n1.forward,
+                    n2.position,
+                    n2.forward,
+                );
+
+                if let Some(support_h1) = me.support_helix.and_then(|id| data.helix_map.get(&id)) {
+                    self.acceleration[*support_h1] += delta_1 / MASS_HELIX * self.must_roll[*h1];
+                } else {
+                    self.acceleration[*h1] += delta_1 / MASS_HELIX * self.must_roll[*h1];
+                }
+
+                if let Some(support_h2) = other.support_helix.and_then(|id| data.helix_map.get(&id))
+                {
+                    self.acceleration[*support_h2] += delta_2 / MASS_HELIX * self.must_roll[*h2];
+                } else {
+                    self.acceleration[*h2] += delta_2 / MASS_HELIX * self.must_roll[*h2];
+                }
+            }
         }
     }
 
@@ -215,9 +240,27 @@ impl RollSystem {
         }
     }
 
+    fn get_roll_from_support(data: &DesignData, h_id: usize) -> Option<f32> {
+        let child = data.helices.get(h_id)?;
+        let mother_id = child
+            .support_helix
+            .as_ref()
+            .and_then(|id| data.helix_map.get(id))?;
+        let mother = data.helices.get(*mother_id)?;
+        Some(mother.roll)
+    }
+
     fn update_rolls(&mut self, data: &mut DesignData, dt: f32) {
         for i in 0..self.speed.len() {
-            data.helices[i].roll(self.speed[i] * dt);
+            if data.helices[i].support_helix.is_none() {
+                data.helices[i].roll(self.speed[i] * dt);
+            }
+        }
+
+        for i in 0..self.speed.len() {
+            if let Some(roll) = Self::get_roll_from_support(&data, i) {
+                data.helices[i].roll = roll;
+            }
         }
     }
 
@@ -240,6 +283,7 @@ impl RollSystem {
     pub fn solve_one_step(&mut self, data: &mut DesignData, lr: f32) -> f32 {
         self.time_scale = 1.;
         self.update_acceleration(data);
+        log::trace!("acceleration {:?}", self.acceleration);
         let grad = self
             .acceleration
             .iter()
@@ -294,7 +338,7 @@ pub struct DesignData {
 }
 
 impl DesignData {
-    fn get_simulation_state(&self) -> RollState {
+    fn get_roll_state(&self) -> RollState {
         let mut ret = HashMap::new();
         for (k, n) in self.helix_map.iter() {
             ret.insert(*k, self.helices[*n].clone());
@@ -324,10 +368,9 @@ pub struct RollState(HashMap<usize, Helix>);
 
 impl super::SimulationUpdate for RollState {
     fn update_design(&self, design: &mut ensnano_design::Design) {
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        let mut new_helices = design.helices.make_mut();
         for (i, h) in self.0.iter() {
-            new_helices.insert(*i, Arc::new(h.clone()));
+            new_helices.insert(*i, h.clone());
         }
-        design.helices = Arc::new(new_helices)
     }
 }

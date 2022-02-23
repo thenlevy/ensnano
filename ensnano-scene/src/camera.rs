@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::maths_3d;
-use super::{ClickMode, PhySize};
+use super::{ClickMode, PhySize, Stereography};
 use ensnano_design::ultraviolet;
 use ensnano_utils::winit;
 use std::cell::RefCell;
@@ -83,6 +83,7 @@ pub struct Projection {
     fovy: f32,
     znear: f32,
     zfar: f32,
+    pub stereographic_zoom: f32,
 }
 
 pub type ProjectionPtr = Rc<RefCell<Projection>>;
@@ -94,6 +95,7 @@ impl Projection {
             fovy,
             znear,
             zfar,
+            stereographic_zoom: ensnano_interactor::consts::DEFAULT_STEREOGRAPHIC_ZOOM,
         }
     }
 
@@ -126,7 +128,6 @@ impl Projection {
 
 pub struct CameraController {
     speed: f32,
-    pub sensitivity: f32,
     amount_up: f32,
     amount_down: f32,
     amount_left: f32,
@@ -174,10 +175,9 @@ impl From<FiniteVec3> for Vec3 {
 }
 
 impl CameraController {
-    pub fn new(speed: f32, sensitivity: f32, camera: CameraPtr, projection: ProjectionPtr) -> Self {
+    pub fn new(speed: f32, camera: CameraPtr, projection: ProjectionPtr) -> Self {
         Self {
             speed,
-            sensitivity,
             amount_left: 0.0,
             amount_right: 0.0,
             amount_up: 0.0,
@@ -286,7 +286,13 @@ impl CameraController {
         self.pivot_point = point
     }
 
-    pub fn get_projection(&self, origin: Vec3, x: f64, y: f64) -> Vec3 {
+    pub fn get_projection(
+        &self,
+        origin: Vec3,
+        x: f64,
+        y: f64,
+        streography: Option<&Stereography>,
+    ) -> Vec3 {
         let plane = Plane {
             origin,
             normal: (self.camera.borrow().position - origin),
@@ -298,6 +304,7 @@ impl CameraController {
             self.projection.clone(),
             x as f32,
             y as f32,
+            streography,
         )
         .unwrap_or(origin)
     }
@@ -316,6 +323,17 @@ impl CameraController {
             MouseScrollDelta::LineDelta(_, scroll) => scroll.min(1.).max(-1.) * 10.,
             MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => *scroll as f32,
         };
+    }
+
+    pub fn update_stereographic_zoom(&mut self, delta: &MouseScrollDelta) {
+        let direction = match delta {
+            MouseScrollDelta::LineDelta(_, scroll) => scroll.signum(),
+            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => {
+                scroll.signum() as f32
+            }
+        };
+        self.projection.borrow_mut().stereographic_zoom *=
+            ensnano_interactor::consts::STEREOGRAPHIC_ZOOM_STEP.powf(direction);
     }
 
     /// Rotate the head of the camera on its yz plane and xz plane according to the values of
@@ -363,17 +381,66 @@ impl CameraController {
     }
 
     /// Move the camera according to the keyboard input
-    fn move_camera(&mut self, dt: Duration) {
+    fn move_camera<S: super::AppState>(
+        &mut self,
+        dt: Duration,
+        modifier: &ModifiersState,
+        app_state: &S,
+    ) {
         let dt = dt.as_secs_f32();
 
         // Move forward/backward and left/right
         let right = self.camera.borrow().right_vec();
         let up_vec = self.camera.borrow().up_vec();
+        let forward_vec = self.camera.borrow().direction();
 
+        let (amount_right, amount_roll_right, amount_rotate_right) = if modifier.shift() {
+            (0., 0., self.amount_right)
+        } else if modifier.alt() {
+            (0., self.amount_right, 0.)
+        } else {
+            (self.amount_right, 0., 0.)
+        };
+
+        let (amount_left, amount_roll_left, amount_rotate_left) = if modifier.shift() {
+            (0., 0., self.amount_left)
+        } else if modifier.alt() {
+            (0., self.amount_left, 0.)
+        } else {
+            (self.amount_left, 0., 0.)
+        };
+
+        let (amount_up, amount_forward, amount_rotate_up) = if modifier.alt() {
+            (0., 0., self.amount_up)
+        } else if modifier.shift() {
+            (0., self.amount_up, 0.)
+        } else {
+            (self.amount_up, 0., 0.)
+        };
+
+        let (amount_down, amount_backward, amount_rotate_down) = if modifier.alt() {
+            (0., 0., self.amount_down)
+        } else if modifier.shift() {
+            (0., self.amount_down, 0.)
+        } else {
+            (self.amount_down, 0., 0.)
+        };
+
+        let rotation_speed = 0.1;
         {
             let mut camera = self.camera.borrow_mut();
-            camera.position += right * (self.amount_right - self.amount_left) * self.speed * dt;
-            camera.position += up_vec * (self.amount_up - self.amount_down) * self.speed * dt;
+            camera.position += right * (amount_right - amount_left) * self.speed * dt;
+            camera.position += up_vec * (amount_up - amount_down) * self.speed * dt;
+            camera.position += forward_vec * (amount_forward - amount_backward) * self.speed * dt;
+            camera.rotor = Rotor3::from_rotation_xz(
+                (amount_rotate_left - amount_rotate_right) * rotation_speed * self.speed * dt,
+            ) * camera.rotor;
+            camera.rotor = Rotor3::from_rotation_yz(
+                (amount_rotate_down - amount_rotate_up) * rotation_speed * self.speed * dt,
+            ) * camera.rotor;
+            camera.rotor = Rotor3::from_rotation_xy(
+                (amount_roll_left - amount_roll_right) * rotation_speed * self.speed * dt,
+            ) * camera.rotor;
         }
 
         let pivot = self.zoom_plane.as_ref().and_then(|plane| {
@@ -392,6 +459,7 @@ impl CameraController {
                     self.projection.clone(),
                     self.x_scroll,
                     self.y_scroll,
+                    None,
                 )
             } else {
                 None
@@ -419,13 +487,20 @@ impl CameraController {
         };
         {
             let mut camera = self.camera.borrow_mut();
-            camera.position += scrollward * self.scroll * self.speed * self.sensitivity * 33e-3;
+            camera.position +=
+                scrollward * self.scroll * self.speed * app_state.get_scroll_sensitivity() * 33e-3;
         }
         self.cam0 = self.camera.borrow().clone();
         self.scroll = 0.;
     }
 
-    pub fn update_camera(&mut self, dt: Duration, click_mode: ClickMode) {
+    pub fn update_camera<S: super::AppState>(
+        &mut self,
+        dt: Duration,
+        click_mode: ClickMode,
+        modifier: &ModifiersState,
+        app_state: &S,
+    ) {
         if self.processed_move {
             match click_mode {
                 ClickMode::RotateCam => self.process_angles(),
@@ -433,7 +508,7 @@ impl CameraController {
             }
         }
         if self.is_moving() {
-            self.move_camera(dt);
+            self.move_camera(dt, modifier, app_state);
         }
     }
 
@@ -615,36 +690,4 @@ impl CameraController {
 struct Plane {
     origin: Vec3,
     normal: Vec3,
-}
-
-struct RotationCenter {
-    center: Vec3,
-    dir: f32,
-    right: f32,
-    up: f32,
-}
-
-impl Camera {
-    fn save_target(&self, point: Vec3) -> RotationCenter {
-        let to_point = point - self.position;
-        let up = to_point.dot(self.up_vec());
-        let right = to_point.dot(self.right_vec());
-        let dir = to_point.dot(self.direction());
-        RotationCenter {
-            center: point,
-            dir,
-            up,
-            right,
-        }
-    }
-
-    fn apply_target(&mut self, target: RotationCenter) {
-        let new_direction = self.direction();
-        let new_up = self.up_vec();
-        let new_right = self.right_vec();
-        self.position = target.center
-            - target.dir * new_direction
-            - target.up * new_up
-            - target.right * new_right
-    }
 }

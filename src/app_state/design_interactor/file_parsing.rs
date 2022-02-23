@@ -33,7 +33,7 @@ impl DesignInteractor {
         let mut xover_ids: IdGenerator<(Nucl, Nucl)> = Default::default();
         let mut design = read_file(json_path)?;
         design.update_version();
-        design.remove_empty_domains();
+        design.strands.remove_empty_domains();
         for s in design.strands.values_mut() {
             s.read_junctions(&mut xover_ids, true);
         }
@@ -81,6 +81,7 @@ fn read_file<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Design, ParseD
             log::info!("ok cadnano");
             Ok(Design::from_cadnano(cadnano))
         } else {
+            log::error!("{:?}", design.err().unwrap());
             // The file is not in any supported format
             //message("Unrecognized file format".into(), rfd::MessageLevel::Error);
             Err(ParseDesignError::UnrecognizedFileFormat)
@@ -102,6 +103,7 @@ impl std::convert::From<ScadnanoImportError> for ParseDesignError {
 
 #[cfg(test)]
 mod tests {
+    use ensnano_design::HelixCollection;
 
     fn one_helix_path() -> PathBuf {
         let mut ret = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));

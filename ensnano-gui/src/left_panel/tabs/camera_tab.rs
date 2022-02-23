@@ -31,6 +31,7 @@ pub struct CameraTab {
     background3d_picklist: pick_list::State<Background3D>,
     pub rendering_mode: RenderingMode,
     rendering_mode_picklist: pick_list::State<RenderingMode>,
+    check_xover_picklist: pick_list::State<CheckXoversParameter>,
 }
 
 impl CameraTab {
@@ -45,10 +46,15 @@ impl CameraTab {
             background3d_picklist: Default::default(),
             rendering_mode: Default::default(),
             rendering_mode_picklist: Default::default(),
+            check_xover_picklist: Default::default(),
         }
     }
 
-    pub fn view<'a, S: AppState>(&'a mut self, ui_size: UiSize) -> Element<'a, Message<S>> {
+    pub fn view<'a, S: AppState>(
+        &'a mut self,
+        ui_size: UiSize,
+        app_state: &S,
+    ) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(5);
         section!(ret, ui_size, "Camera");
         subsection!(ret, ui_size, "Visibility");
@@ -77,6 +83,34 @@ impl CameraTab {
             .on_press(Message::AllVisible),
         );
         ret = ret.push(self.fog.view(&ui_size));
+
+        ret = ret.push(right_checkbox(
+            app_state.show_h_bonds(),
+            "Show H-bonds",
+            Message::ShowHBonds,
+            ui_size,
+        ));
+        ret = ret.push(right_checkbox(
+            app_state.show_stereographic_camera(),
+            "Show stereographic camera",
+            Message::ShowStereographicCamera,
+            ui_size,
+        ));
+
+        ret = ret.push(right_checkbox(
+            app_state.follow_stereographic_camera(),
+            "Follow stereographic camera",
+            Message::FollowStereographicCamera,
+            ui_size,
+        ));
+
+        subsection!(ret, ui_size, "Highlight Xovers");
+        ret = ret.push(PickList::new(
+            &mut self.check_xover_picklist,
+            CheckXoversParameter::ALL,
+            Some(app_state.get_checked_xovers_parameters()),
+            Message::CheckXoversParameter,
+        ));
 
         subsection!(ret, ui_size, "Rendering");
         ret = ret.push(Text::new("Style"));

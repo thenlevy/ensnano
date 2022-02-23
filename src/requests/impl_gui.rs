@@ -54,7 +54,7 @@ impl GuiRequests for Requests {
     }
 
     fn invert_scroll(&mut self, inverted: bool) {
-        self.keep_proceed.push_back(Action::InvertScrollY(inverted));
+        self.set_invert_y_scroll = Some(inverted)
     }
 
     fn resize_2d_helices(&mut self, all: bool) {
@@ -357,12 +357,58 @@ impl GuiRequests for Requests {
         ))
     }
 
+    fn toggle_2d(&mut self) {
+        self.keep_proceed.push_back(Action::Toggle2D)
+    }
+
+    fn set_nb_turn(&mut self, grid_id: usize, nb_turn: f32) {
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::SetGridNbTurn {
+                grid_id,
+                nb_turn,
+            }))
+    }
+
+    fn set_check_xover_parameters(&mut self, paramters: CheckXoversParameter) {
+        self.check_xover_parameters = Some(paramters);
+    }
+
+    fn follow_stereographic_camera(&mut self, follow: bool) {
+        self.follow_stereographic_camera = Some(follow);
+    }
+
     fn flip_split_views(&mut self) {
         self.keep_proceed.push_back(Action::FlipSplitViews);
     }
 
+    fn set_rainbow_scaffold(&mut self, rainbow: bool) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::SetRainbowScaffold(rainbow),
+        ))
+    }
+
+    fn set_show_stereographic_camera(&mut self, show: bool) {
+        self.set_show_stereographic_camera = Some(show);
+    }
+
+    fn set_show_h_bonds(&mut self, show: bool) {
+        self.set_show_h_bonds = Some(show);
+    }
+
+    fn set_thick_helices(&mut self, thick: bool) {
+        self.set_thick_helices = Some(thick)
+    }
+
+    fn start_twist_simulation(&mut self, grid_id: usize) {
+        self.twist_simulation = Some(grid_id);
+    }
+
     fn align_horizon(&mut self) {
         self.horizon_targeted = Some(());
+    }
+
+    fn download_origamis(&mut self) {
+        self.keep_proceed.push_back(Action::DownloadOrigamiRequest);
     }
 }
 

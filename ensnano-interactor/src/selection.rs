@@ -15,7 +15,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use ensnano_design::grid::GridPosition;
+use ensnano_design::grid::HelixGridPosition;
+pub use ensnano_design::BezierControlPoint;
 use ensnano_design::{Nucl, Strand};
 use std::collections::BTreeSet;
 
@@ -31,6 +32,10 @@ pub enum Selection {
     Helix(u32, u32),
     Grid(u32, usize),
     Phantom(PhantomElement),
+    BezierControlPoint {
+        helix_id: usize,
+        bezier_control: BezierControlPoint,
+    },
     Nothing,
 }
 
@@ -39,11 +44,15 @@ pub enum Selection {
 pub enum CenterOfSelection {
     Nucleotide(u32, Nucl),
     Bound(u32, Nucl, Nucl),
-    GridPosition {
+    HelixGridPosition {
         design: u32,
         grid_id: usize,
         x: isize,
         y: isize,
+    },
+    BezierControlPoint {
+        helix_id: usize,
+        bezier_control: BezierControlPoint,
     },
 }
 
@@ -65,6 +74,7 @@ impl Selection {
             Selection::Grid(d, _) => Some(*d),
             Selection::Phantom(pe) => Some(pe.design_id),
             Selection::Nothing => None,
+            Selection::BezierControlPoint { .. } => Some(0),
             Selection::Xover(d, _) => Some(*d),
         }
     }
@@ -127,6 +137,7 @@ impl Selection {
             }
             Self::Bound(_, n1, n2) => Some(vec![n1.helix, n2.helix]),
             Self::Nothing => Some(vec![]),
+            Self::BezierControlPoint { .. } => None,
         }
     }
 
@@ -313,11 +324,49 @@ pub fn list_of_helices(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
                 }
                 helices.insert(*h_id as usize);
             }
-            s if s.get_design() == Some(design_id) => (),
             _ => return None,
         }
     }
     Some((design_id as usize, helices.into_iter().collect()))
+}
+
+pub fn extract_helices(selection: &[Selection]) -> Vec<usize> {
+    let mut ret = Vec::new();
+    for s in selection.iter() {
+        if let Selection::Helix(_, h_id) = s {
+            ret.push(*h_id as usize);
+        }
+    }
+    ret.dedup();
+    ret
+}
+
+pub fn extract_helices_with_controls(selection: &[Selection]) -> Vec<usize> {
+    let mut ret = Vec::new();
+    for s in selection.iter() {
+        if let Selection::Helix(_, h_id) = s {
+            ret.push(*h_id as usize);
+        } else if let Selection::BezierControlPoint { helix_id, .. } = s {
+            ret.push(*helix_id);
+        }
+    }
+    ret.dedup();
+    ret
+}
+
+pub fn extract_control_points(selection: &[Selection]) -> Vec<(usize, BezierControlPoint)> {
+    let mut ret = Vec::new();
+    for s in selection.iter() {
+        if let Selection::BezierControlPoint {
+            helix_id,
+            bezier_control,
+        } = s
+        {
+            ret.push((*helix_id, *bezier_control));
+        }
+    }
+    ret.dedup();
+    ret
 }
 
 pub fn set_of_helices_containing_selection(
@@ -545,7 +594,7 @@ impl PhantomElement {
 }
 
 pub trait DesignReader {
-    fn get_grid_position_of_helix(&self, h_id: usize) -> Option<GridPosition>;
+    fn get_grid_position_of_helix(&self, h_id: usize) -> Option<HelixGridPosition>;
     fn get_xover_id(&self, pair: &(Nucl, Nucl)) -> Option<usize>;
     fn get_xover_with_id(&self, id: usize) -> Option<(Nucl, Nucl)>;
     fn get_strand_with_id(&self, id: usize) -> Option<&Strand>;
@@ -589,6 +638,7 @@ impl SelectionConversion for DnaElementKey {
                     }
                 }
                 Selection::Nothing => None,
+                Selection::BezierControlPoint { .. } => None, //TODO make DNAelement out of these
             }
         } else {
             None

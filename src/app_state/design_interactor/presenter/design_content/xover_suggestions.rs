@@ -107,11 +107,12 @@ impl XoverSuggestions {
         let mut ret = vec![];
         for (a, b, _) in suggestion {
             if !used.contains(a) && !used.contains(b) {
-                let a_end = design.is_strand_end(a).to_opt();
-                let b_end = design.is_strand_end(b).to_opt();
+                let a_end = design.strands.is_strand_end(a).to_opt();
+                let b_end = design.strands.is_strand_end(b).to_opt();
                 if !matches!(a_end.zip(b_end), Some((a, b)) if a == b)
                     && (suggestion_parameters.include_xover_ends
-                        || (!design.is_true_xover_end(a) && !design.is_true_xover_end(b)))
+                        || (!design.strands.is_true_xover_end(a)
+                            && !design.strands.is_true_xover_end(b)))
                 {
                     ret.push((*a, *b));
                     used.insert(a);
@@ -167,14 +168,14 @@ impl XoverSuggestions {
                                             .sqrt();
                                         if dist < LEN_CRIT
                                             && (suggestion_parameters.include_scaffold
-                                                || design.get_strand_nucl(nucl)
+                                                || design.strands.get_strand_nucl(nucl)
                                                     != design.scaffold_id)
                                             && (suggestion_parameters.include_scaffold
-                                                || design.get_strand_nucl(red_nucl)
+                                                || design.strands.get_strand_nucl(red_nucl)
                                                     != design.scaffold_id)
                                             && (suggestion_parameters.include_intra_strand
-                                                || design.get_strand_nucl(nucl)
-                                                    != design.get_strand_nucl(red_nucl))
+                                                || design.strands.get_strand_nucl(nucl)
+                                                    != design.strands.get_strand_nucl(red_nucl))
                                         {
                                             ret.push((*red_nucl, dist));
                                         }
@@ -216,13 +217,14 @@ impl XoverSuggestions {
                                         .sqrt();
                                     if dist < LEN_CRIT
                                         && (suggestion_parameters.include_scaffold
-                                            || design.get_strand_nucl(nucl) != design.scaffold_id)
+                                            || design.strands.get_strand_nucl(nucl)
+                                                != design.scaffold_id)
                                         && (suggestion_parameters.include_scaffold
-                                            || design.get_strand_nucl(red_nucl)
+                                            || design.strands.get_strand_nucl(red_nucl)
                                                 != design.scaffold_id)
                                         && (suggestion_parameters.include_intra_strand
-                                            || design.get_strand_nucl(nucl)
-                                                != design.get_strand_nucl(red_nucl))
+                                            || design.strands.get_strand_nucl(nucl)
+                                                != design.strands.get_strand_nucl(red_nucl))
                                     {
                                         ret.push((*red_nucl, dist));
                                     }

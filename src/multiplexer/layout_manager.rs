@@ -25,7 +25,7 @@ use super::ElementType;
 const RESIZE_REGION_WIDTH: f64 = 0.001;
 
 /// A node of a `LayoutTree`
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum LayoutNode {
     /// A leaf of a `LayoutTree`. Represents an area that can be drawn on.
     /// The first 4 attributes represents the boundaries of the area, expressed between 0. and 1.,
@@ -239,11 +239,19 @@ impl LayoutTree {
     ) {
         self.area[node_id]
             .borrow_mut()
-            .resize_click(position, clicked_position, old_proportion)
+            .resize_click(position, clicked_position, old_proportion);
+        if log::log_enabled!(log::Level::Debug) {
+            log::debug!("node {} resized", node_id);
+            log::debug!("{:#?}", self.area[node_id]);
+        }
     }
 
     pub fn get_proportion(&self, region: usize) -> Option<f64> {
         self.area.get(region).and_then(|a| a.borrow().proportion())
+    }
+
+    pub fn log_tree(&self) {
+        println!("{:#?}", self.root);
     }
 }
 

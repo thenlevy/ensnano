@@ -63,11 +63,19 @@ fn read_scaffold_seq(
                     };
                     let basis = sequence.next();
                     let basis_compl = compl(basis);
-                    if let Some((basis, basis_compl)) = basis.zip(basis_compl) {
-                        basis_map.insert(nucl, basis);
-                        if nucl_collection.contains_nucl(&nucl.compl()) {
-                            basis_map.insert(nucl.compl(), basis_compl);
+                    if let Some(virtual_compl) =
+                        Nucl::map_to_virtual_nucl(nucl.compl(), &design.helices)
+                    {
+                        if let Some((basis, basis_compl)) = basis.zip(basis_compl) {
+                            basis_map.insert(nucl, basis);
+                            if let Some(real_compl) =
+                                nucl_collection.virtual_to_real(&virtual_compl)
+                            {
+                                basis_map.insert(*real_compl, basis_compl);
+                            }
                         }
+                    } else {
+                        log::error!("Could not get virtual mapping of {:?}", nucl.compl());
                     }
                 }
             } else if let Domain::Insertion { nb_nucl, .. } = domain {

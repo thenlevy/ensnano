@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ensnano_design::{Axis, Domain, Nucl};
+use ensnano_design::{Axis, Domain, Nucl, OwnedAxis};
 
 use std::cmp::Ordering;
 use ultraviolet::Mat4;
@@ -28,7 +28,7 @@ pub struct StrandBuilder {
     /// The initial position of the moving end
     pub initial_position: isize,
     /// Axis of the support helix on which the domain lies
-    pub axis: Axis,
+    pub axis: OwnedAxis,
     /// The identifier of the domain being eddited
     identifier: DomainIdentifier,
     /// The fixed_end of the domain being eddited, `None` if the domain is new and can go in both
@@ -70,7 +70,7 @@ impl StrandBuilder {
     pub fn init_empty(
         identifier: DomainIdentifier,
         nucl: Nucl,
-        axis: Axis,
+        axis: OwnedAxis,
         neighbour: Option<NeighbourDescriptor>,
         de_novo: bool,
     ) -> Self {
@@ -122,7 +122,7 @@ impl StrandBuilder {
     pub fn init_existing(
         identifier: DomainIdentifier,
         nucl: Nucl,
-        axis: Axis,
+        axis: OwnedAxis,
         other_end: Option<isize>,
         neighbour: Option<NeighbourDescriptor>,
         stick: bool,
@@ -350,11 +350,15 @@ impl StrandBuilder {
     /// Convert the axis in the world's coordinate. This function is used at the creation of the
     /// builder.
     pub fn transformed(self, model_matrix: &Mat4) -> Self {
-        let new_axis = self.axis.transformed(model_matrix);
+        let new_axis = self.axis.borrow().transformed(model_matrix).to_owned();
         Self {
             axis: new_axis,
             ..self
         }
+    }
+
+    pub fn get_axis<'a>(&'a self) -> Axis<'a> {
+        self.axis.borrow()
     }
 
     /// Return the identifier of the design being eddited

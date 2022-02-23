@@ -47,14 +47,14 @@ impl FromCadnano for Design {
                 Vec3::zero(),
                 Rotor3::identity(),
                 Default::default(),
-                GridType::honneycomb(),
+                GridType::honneycomb(None),
             )
         } else {
             Grid::new(
                 Vec3::zero(),
                 Rotor3::identity(),
                 Default::default(),
-                GridType::square(),
+                GridType::square(None),
             )
         };
         for (i, v) in vstrands.iter().enumerate() {
@@ -86,7 +86,7 @@ impl FromCadnano for Design {
             }
         }
         println!("color {:?}", colors);
-        design.helices = Arc::new(helices);
+        design._set_helices(helices);
         design
     }
 }
