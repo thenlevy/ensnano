@@ -16,9 +16,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use super::messages::CHANGING_DNA_PARAMETERS_WARNING;
 use super::*;
 use ensnano_design::group_attributes::GroupPivot;
-use ensnano_design::Nucl;
+use ensnano_design::{Nucl, Parameters};
 use ensnano_interactor::{graphics::FogParameters, HyperboloidOperation};
 
 /// User is interacting with graphical components.
@@ -234,6 +235,11 @@ impl State for NormalState {
                     main_state.flip_split_views();
                     self
                 }
+                Action::SetDnaParameters(param) => Box::new(YesNo::new(
+                    CHANGING_DNA_PARAMETERS_WARNING,
+                    Box::new(ChangindDnaParameters(param)),
+                    self,
+                )),
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -242,6 +248,15 @@ impl State for NormalState {
         } else {
             self
         }
+    }
+}
+
+struct ChangindDnaParameters(Parameters);
+
+impl State for ChangindDnaParameters {
+    fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
+        main_state.apply_operation(DesignOperation::SetDnaParameters { parameters: self.0 });
+        Box::new(NormalState)
     }
 }
 
@@ -426,4 +441,5 @@ pub enum Action {
     SelectFavoriteCamera(u32),
     UpdateCamera(ensnano_design::CameraId),
     FlipSplitViews,
+    SetDnaParameters(Parameters),
 }

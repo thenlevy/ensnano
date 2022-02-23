@@ -134,6 +134,14 @@ impl Controller {
                 center,
                 angle,
             } => Ok(self.ok_apply(|c, d| c.rotate_helices(d, helices, center, angle), design)),
+            DesignOperation::ApplySymmetryToHelices {
+                helices,
+                centers,
+                symmetry,
+            } => Ok(self.ok_apply(
+                |c, d| c.apply_symmetry_to_helices(d, helices, centers, symmetry),
+                design,
+            )),
             DesignOperation::Translation(translation) => {
                 self.apply(|c, d| c.apply_translation(d, translation), design)
             }
@@ -253,6 +261,13 @@ impl Controller {
                 |c, d| c.set_grid_orientation(d, grid_id, orientation),
                 design,
             ),
+            DesignOperation::SetDnaParameters { parameters } => Ok(self.ok_apply(
+                |_, mut d| {
+                    d.parameters = Some(parameters);
+                    d
+                },
+                design,
+            )),
         }
     }
 
@@ -1443,6 +1458,34 @@ impl Controller {
             mutate_in_arc(h, |h| h.isometry2d = Some(isometry));
             design.helices = Arc::new(new_helices);
         }
+        design
+    }
+
+    fn apply_symmetry_to_helices(
+        &mut self,
+        mut design: Design,
+        helices_id: Vec<usize>,
+        centers: Vec<Vec2>,
+        symmetry: Vec2,
+    ) -> Design {
+        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        for (h_id, center) in helices_id.iter().zip(centers.iter()) {
+            if let Some(h) = new_helices.get_mut(h_id) {
+                mutate_in_arc(h, |h| {
+                    if let Some(isometry) = h.isometry2d.as_mut() {
+                        isometry.translation -= *center;
+                        isometry.translation.rotate_by(isometry.rotation.reversed());
+                        let mut new_rotation = isometry.rotation.into_matrix().into_homogeneous();
+                        new_rotation[0] *= symmetry.x;
+                        new_rotation[1] *= symmetry.y;
+                        isometry.translation = new_rotation.transform_vec2(isometry.translation);
+                        isometry.translation += *center;
+                    }
+                    h.symmetry *= symmetry;
+                })
+            }
+        }
+        design.helices = Arc::new(new_helices);
         design
     }
 

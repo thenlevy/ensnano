@@ -81,6 +81,7 @@ impl Design {
                 locked_for_simulations: false,
                 grid_position,
                 isometry2d: None,
+                symmetry: old_helix.symmetry,
             });
             new_helices.insert(*new_h_id, new_helix);
         }

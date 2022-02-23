@@ -41,6 +41,9 @@ pub type EnsnTree = OrganizerTree<DnaElementKey>;
 pub mod group_attributes;
 use group_attributes::GroupAttribute;
 
+mod parameters;
+pub use parameters::*;
+
 /// Re-export ultraviolet for linear algebra
 pub use ultraviolet::*;
 
@@ -1354,84 +1357,6 @@ impl Iterator for DomainIter {
     }
 }
 
-/// DNA geometric parameters.
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
-pub struct Parameters {
-    /// Distance between two consecutive bases along the axis of a
-    /// helix, in nanometers.
-    pub z_step: f32,
-    /// Radius of a helix, in nanometers.
-    pub helix_radius: f32,
-    /// Number of bases per turn in nanometers.
-    pub bases_per_turn: f32,
-    /// Minor groove angle. DNA helices have a "minor groove" and a
-    /// "major groove", meaning that two paired nucleotides are not at
-    /// opposite positions around a double helix (i.e. at an angle of
-    /// 180°), but instead have a different angle.
-    ///
-    /// Strands are directed. The "normal" direction is called "5' to
-    /// 3'" (named after parts of the nucleotides). This parameter is
-    /// the small angle, which is clockwise from the normal strand to
-    /// the reverse strand.
-    pub groove_angle: f32,
-
-    /// Gap between two neighbouring helices.
-    pub inter_helix_gap: f32,
-}
-
-impl Parameters {
-    /// Default values for the parameters of DNA, taken from the litterature (Wikipedia, Cargo
-    /// sorting paper, Woo 2011).
-    pub const DEFAULT: Parameters = Parameters {
-        // z-step and helix radius from: Wikipedia
-        z_step: 0.332,
-        helix_radius: 1.,
-        // bases per turn from Woo Rothemund (Nature Chemistry).
-        bases_per_turn: 10.44,
-        // minor groove 12 Å, major groove 22 Å total 34 Å
-        groove_angle: 2. * PI * 12. / 34.,
-        // From Paul's paper.
-        inter_helix_gap: 0.65,
-    };
-
-    pub fn from_codenano(codenano_param: &codenano::Parameters) -> Self {
-        Self {
-            z_step: codenano_param.z_step as f32,
-            helix_radius: codenano_param.helix_radius as f32,
-            bases_per_turn: codenano_param.bases_per_turn as f32,
-            groove_angle: codenano_param.groove_angle as f32,
-            inter_helix_gap: codenano_param.inter_helix_gap as f32,
-        }
-    }
-
-    pub fn formated_string(&self) -> String {
-        use std::fmt::Write;
-        let mut ret = String::new();
-        writeln!(&mut ret, "  Z step: {:.3} nm", self.z_step).unwrap_or_default();
-        writeln!(&mut ret, "  Helix radius: {:.2} nm", self.helix_radius).unwrap_or_default();
-        writeln!(&mut ret, "  #Bases per turn: {:.2}", self.bases_per_turn).unwrap_or_default();
-        writeln!(
-            &mut ret,
-            "  Minor groove angle: {:.1}°",
-            self.groove_angle.to_degrees()
-        )
-        .unwrap_or_default();
-        writeln!(
-            &mut ret,
-            "  Inter helix gap: {:.2} nm",
-            self.inter_helix_gap
-        )
-        .unwrap_or_default();
-        ret
-    }
-}
-
-impl std::default::Default for Parameters {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
 /// A DNA helix. All bases of all strands must be on a helix.
 ///
 /// The three angles are illustrated in the following image, from [the NASA website](https://www.grc.nasa.gov/www/k-12/airplane/rotations.html):
@@ -1461,6 +1386,10 @@ pub struct Helix {
     /// Representation of the helix in 2d
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub isometry2d: Option<Isometry2>,
+
+    #[serde(default = "Vec2::one")]
+    /// Symmetry applied inside the representation of the helix in 2d
+    pub symmetry: Vec2,
 
     /// Roll of the helix. A roll equal to 0 means that the nucleotide 0 of the forward strand is
     /// at point (0., 1., 0.) in the helix's coordinate.
@@ -1502,6 +1431,7 @@ impl Helix {
             orientation,
             grid_position: None,
             isometry2d: None,
+            symmetry: Vec2::one(),
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
@@ -1575,6 +1505,7 @@ impl Helix {
             visible: true,
             roll: 0f32,
             isometry2d: Some(isometry2d),
+            symmetry: Vec2::one(),
             locked_for_simulations: false,
         })
     }
@@ -1586,6 +1517,7 @@ impl Helix {
             position: origin,
             orientation,
             isometry2d: None,
+            symmetry: Vec2::one(),
             grid_position: None,
             visible: true,
             roll: 0f32,
@@ -1599,6 +1531,7 @@ impl Helix {
             position,
             orientation: grid.orientation,
             isometry2d: None,
+            symmetry: Vec2::one(),
             grid_position: Some(GridPosition {
                 grid: g_id,
                 x,
@@ -1627,8 +1560,13 @@ impl Helix {
     /// 3D position of a nucleotide on this helix. `n` is the position along the axis, and `forward` is true iff the 5' to 3' direction of the strand containing that nucleotide runs in the same direction as the axis of the helix.
     pub fn space_pos(&self, p: &Parameters, n: isize, forward: bool) -> Vec3 {
         let theta = self.theta(n, forward, p);
+        let delta_inclination = if forward {
+            p.inclination / 2.
+        } else {
+            -p.inclination / 2.
+        };
         let mut ret = Vec3::new(
-            n as f32 * p.z_step,
+            n as f32 * p.z_step - delta_inclination,
             theta.sin() * p.helix_radius,
             theta.cos() * p.helix_radius,
         );
@@ -1654,6 +1592,7 @@ impl Helix {
             roll: 0.,
             visible: true,
             isometry2d: None,
+            symmetry: Vec2::one(),
             locked_for_simulations: false,
         }
     }

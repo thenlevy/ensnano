@@ -364,6 +364,10 @@ impl GuiRequests for Requests {
     fn align_horizon(&mut self) {
         self.horizon_targeted = Some(());
     }
+
+    fn set_dna_parameters(&mut self, param: ensnano_design::Parameters) {
+        self.keep_proceed.push_back(Action::SetDnaParameters(param));
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

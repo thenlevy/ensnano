@@ -89,6 +89,11 @@ pub enum Consequence {
         center: Vec2,
         angle: f32,
     },
+    Symmetry {
+        helices: Vec<FlatHelix>,
+        centers: Vec<Vec2>,
+        symmetry: Vec2,
+    },
 }
 
 impl<S: AppState> Controller<S> {

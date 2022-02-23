@@ -17,11 +17,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
+use ensnano_design::NamedParameter;
 
 pub struct ParametersTab {
     size_pick_list: pick_list::State<UiSize>,
     scroll: scrollable::State,
     scroll_sensitivity_factory: RequestFactory<ScrollSentivity>,
+    dna_parameters_picklist: pick_list::State<NamedParameter>,
     pub invert_y_scroll: bool,
 }
 
@@ -31,6 +33,7 @@ impl ParametersTab {
             size_pick_list: Default::default(),
             scroll: Default::default(),
             scroll_sensitivity_factory: RequestFactory::new(FactoryId::Scroll, ScrollSentivity {}),
+            dna_parameters_picklist: Default::default(),
             invert_y_scroll: false,
         }
     }
@@ -69,7 +72,13 @@ impl ParametersTab {
         ));
 
         extra_jump!(10, ret);
-        section!(ret, ui_size, "DNA parameters");
+        section!(ret, ui_size, "P-stick model");
+        ret = ret.push(PickList::new(
+            &mut self.dna_parameters_picklist,
+            &ensnano_design::NAMED_DNA_PARAMETERS[..],
+            Some(app_state.get_dna_parameters().name().clone()),
+            Message::NewDnaParameters,
+        ));
         for line in app_state.get_dna_parameters().formated_string().lines() {
             ret = ret.push(Text::new(line));
         }

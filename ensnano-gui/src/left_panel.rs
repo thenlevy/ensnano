@@ -50,7 +50,7 @@ use super::{
     text_btn, AppState, DesignReader, OverlayType, Requests, UiSize,
 };
 
-use ensnano_design::{grid::GridTypeDescr, ultraviolet};
+use ensnano_design::{grid::GridTypeDescr, ultraviolet, NamedParameter};
 mod color_picker;
 use color_picker::ColorPicker;
 mod sequence_input;
@@ -176,6 +176,7 @@ pub enum Message<S> {
     NewSuggestionParameters(SuggestionParameters),
     ContextualValueChanged(ValueKind, usize, String),
     ContextualValueSubmitted(ValueKind),
+    NewDnaParameters(NamedParameter),
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -734,6 +735,11 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::ContextualValueChanged(kind, n, val) => {
                 self.contextual_panel.update_builder_value(kind, n, val);
             }
+            Message::NewDnaParameters(parameters) => self
+                .requests
+                .lock()
+                .unwrap()
+                .set_dna_parameters(parameters.value),
         };
         Command::none()
     }
