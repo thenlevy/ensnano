@@ -289,35 +289,3 @@ impl Strand {
         }
     }
 }
-
-impl Parameters {
-    /// The angle AOC_2 where
-    ///
-    /// * A is a base on the helix
-    /// * B is the base paired to A
-    /// * O is the projection of A on the axis of the helix
-    /// * C is the 3' neighbour of A
-    /// * C_2 is the projection of C in the AOB plane
-    fn angle_aoc2(&self) -> f32 {
-        TAU / self.bases_per_turn
-    }
-
-    /// The distance |AC| where
-    ///
-    /// * A is a base on the helix
-    /// * C is the 3' neighbour of A
-    fn dist_ac(&self) -> f32 {
-        (self.dist_ac2() * self.dist_ac2() + self.z_step * self.z_step).sqrt()
-    }
-
-    /// The distance |AC_2| where
-    ///
-    /// * A is a base on the helix
-    /// * B is the base paired to A
-    /// * O is the projection of A on the axis of the helix
-    /// * C is the 3' neighbour of A
-    /// * C_2 is the projection of C in the AOB plane
-    fn dist_ac2(&self) -> f32 {
-        SQRT_2 * (1. - self.angle_aoc2().cos()).sqrt() * self.helix_radius
-    }
-}
