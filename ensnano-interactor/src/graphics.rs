@@ -149,3 +149,20 @@ impl ElementType {
         }
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct LoopoutNucl {
+    pub position: Vec3,
+    pub color: u32,
+    /// The identifier of the bond representing the whole loopout involving this nucleotide
+    pub repr_bond_identifier: u32,
+}
+
+#[derive(Clone, Debug)]
+pub struct LoopoutBond {
+    pub position_prime5: Vec3,
+    pub position_prime3: Vec3,
+    pub color: u32,
+    /// The identifier of the bond representing the whole loopout involving this bond
+    pub repr_bond_identifier: u32,
+}
