@@ -43,12 +43,52 @@ pub struct Parameters {
 
     /// Gap between two neighbouring helices.
     pub inter_helix_gap: f32,
+
+    /// The inclination of paired phosphates relative to the helical axis
+    #[serde(default)]
+    pub inclination: f32,
 }
 
+const INTER_CENTER_GAP: f32 =
+    Parameters::OLD_ENSNANO.helix_radius + Parameters::OLD_ENSNANO.inter_helix_gap / 2.;
+
 impl Parameters {
-    /// Default values for the parameters of DNA, taken from the litterature (Wikipedia, Cargo
+    /// Value used for versions >= 0.4.1.
+    /// Taken from "Design Principles for Single-Stranded RNA Origami Structures, Geary & Andersen
+    /// 2014
+    pub const GEARY_2014_DNA: Parameters = {
+        let helix_radius = 0.93;
+        Parameters {
+            z_step: 0.34,
+            helix_radius,
+            bases_per_turn: 10.44,
+            groove_angle: 170.4 / 180.0 * std::f32::consts::PI,
+            inclination: 0.375,
+            // From Paul's paper.
+            inter_helix_gap: 2. * (INTER_CENTER_GAP - helix_radius),
+        }
+    };
+
+    /// Value used for RNA designs
+    /// Taken from "Design Principles for Single-Stranded RNA Origami Structures, Geary & Andersen
+    /// 2014
+    pub const GEARY_2014_RNA: Parameters = {
+        let helix_radius = 0.87;
+        Parameters {
+            helix_radius,
+            z_step: 0.281,
+            inclination: -0.745,
+            groove_angle: 139.9 / 180.0 * std::f32::consts::PI,
+            bases_per_turn: 11.0,
+            inter_helix_gap: 2. * (INTER_CENTER_GAP - helix_radius),
+        }
+    };
+
+    pub const DEFAULT: Self = Self::GEARY_2014_DNA;
+
+    /// Values used in version perior to 0.4.1, taken from the litterature (Wikipedia, Cargo
     /// sorting paper, Woo 2011).
-    pub const DEFAULT: Parameters = Parameters {
+    pub const OLD_ENSNANO: Parameters = Parameters {
         // z-step and helix radius from: Wikipedia
         z_step: 0.332,
         helix_radius: 1.,
@@ -58,6 +98,8 @@ impl Parameters {
         groove_angle: 2. * PI * 12. / 34.,
         // From Paul's paper.
         inter_helix_gap: 0.65,
+        // Previous version of ENSnano did not have an inclination parameter
+        inclination: 0.0,
     };
 
     pub fn from_codenano(codenano_param: &codenano::Parameters) -> Self {
@@ -67,21 +109,18 @@ impl Parameters {
             bases_per_turn: codenano_param.bases_per_turn as f32,
             groove_angle: codenano_param.groove_angle as f32,
             inter_helix_gap: codenano_param.inter_helix_gap as f32,
+            inclination: 0.0,
         }
     }
 
     pub fn formated_string(&self) -> String {
         use std::fmt::Write;
         let mut ret = String::new();
-        writeln!(&mut ret, "  Z step: {:.3} nm", self.z_step).unwrap_or_default();
-        writeln!(&mut ret, "  Helix radius: {:.2} nm", self.helix_radius).unwrap_or_default();
-        writeln!(&mut ret, "  #Bases per turn: {:.2}", self.bases_per_turn).unwrap_or_default();
-        writeln!(
-            &mut ret,
-            "  Minor groove angle: {:.1}°",
-            self.groove_angle.to_degrees()
-        )
-        .unwrap_or_default();
+        writeln!(&mut ret, "  Radius: {:.3} nm", self.helix_radius).unwrap_or_default();
+        writeln!(&mut ret, "  Rise: {:.3} nm", self.z_step).unwrap_or_default();
+        writeln!(&mut ret, "  Inclination {:.3} nm", self.inclination).unwrap_or_default();
+        writeln!(&mut ret, "  Helicity: {:.2} bp", self.bases_per_turn).unwrap_or_default();
+        writeln!(&mut ret, "  Axis: {:.1}°", self.groove_angle.to_degrees()).unwrap_or_default();
         writeln!(
             &mut ret,
             "  Inter helix gap: {:.2} nm",
@@ -128,7 +167,64 @@ impl Parameters {
     pub fn dist_ac2(&self) -> f32 {
         SQRT_2 * (1. - self.angle_aoc2().cos()).sqrt() * self.helix_radius
     }
+
+    pub fn name(&self) -> &'static NamedParameter {
+        let mut best_name = &NAMED_DNA_PARAMETERS[0];
+        let mut best_delta = f32::INFINITY;
+        for p in NAMED_DNA_PARAMETERS.iter() {
+            let delta = self.delta_model(&p.value);
+            if delta < best_delta {
+                best_name = p;
+                best_delta = delta;
+            }
+        }
+        best_name
+    }
+
+    fn delta_model(&self, other: &Self) -> f32 {
+        (self.inclination - other.inclination).abs()
+            + (self.helix_radius - other.helix_radius).abs()
+            + (self.inter_helix_gap - other.inter_helix_gap).abs()
+            + (self.groove_angle - other.groove_angle).abs()
+            + (self.z_step - other.z_step).abs()
+            + (self.bases_per_turn - other.bases_per_turn).abs()
+    }
 }
+
+#[derive(Clone, Debug)]
+pub struct NamedParameter {
+    pub name: &'static str,
+    pub value: Parameters,
+}
+
+impl ToString for NamedParameter {
+    fn to_string(&self) -> String {
+        self.name.to_string()
+    }
+}
+
+pub const NAMED_DNA_PARAMETERS: [NamedParameter; 3] = [
+    NamedParameter {
+        name: "Old ENSnano",
+        value: Parameters::OLD_ENSNANO,
+    },
+    NamedParameter {
+        name: "Geary 2014",
+        value: Parameters::GEARY_2014_DNA,
+    },
+    NamedParameter {
+        name: "Geary 2014 RNA",
+        value: Parameters::GEARY_2014_RNA,
+    },
+];
+
+impl PartialEq for NamedParameter {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl Eq for NamedParameter {}
 
 #[cfg(test)]
 mod tests {

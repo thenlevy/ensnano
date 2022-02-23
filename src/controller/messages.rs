@@ -103,3 +103,6 @@ pub const DESIGN_FILTERS: Filters = &[
 ];
 
 pub const SEQUENCE_FILTERS: Filters = &[("Text files", &["txt"])];
+
+pub const CHANGING_DNA_PARAMETERS_WARNING: &'static str =
+    "Are you sure that you want to change DNA parameters?";

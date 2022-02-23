@@ -29,7 +29,7 @@ use super::{
 };
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use ultraviolet::{DVec3, Isometry2, Mat4, Rotor3, Vec3};
+use ultraviolet::{DVec3, Isometry2, Mat4, Rotor3, Vec2, Vec3};
 
 /// A structure maping helices identifier to `Helix` objects
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
@@ -197,6 +197,10 @@ pub struct Helix {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub isometry2d: Option<Isometry2>,
 
+    #[serde(default = "Vec2::one")]
+    /// Symmetry applied inside the representation of the helix in 2d
+    pub symmetry: Vec2,
+
     /// Roll of the helix. A roll equal to 0 means that the nucleotide 0 of the forward strand is
     /// at point (0., 1., 0.) in the helix's coordinate.
     #[serde(default)]
@@ -253,6 +257,7 @@ impl Helix {
             orientation,
             grid_position: None,
             isometry2d: None,
+            symmetry: Vec2::one(),
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
@@ -332,6 +337,7 @@ impl Helix {
             visible: true,
             roll: 0f32,
             isometry2d: Some(isometry2d),
+            symmetry: Vec2::one(),
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
@@ -374,6 +380,7 @@ impl Helix {
             position: origin,
             orientation,
             isometry2d: None,
+            symmetry: Vec2::one(),
             grid_position: None,
             visible: true,
             roll: 0f32,
@@ -393,6 +400,7 @@ impl Helix {
             position,
             orientation: grid.orientation,
             isometry2d: None,
+            symmetry: Vec2::one(),
             grid_position: Some(HelixGridPosition {
                 grid: g_id,
                 x,
@@ -418,6 +426,7 @@ impl Helix {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
             isometry2d: None,
+            symmetry: Vec2::one(),
             grid_position: None,
             visible: true,
             roll: 0f32,
@@ -511,6 +520,7 @@ impl Helix {
             position,
             orientation: Rotor3::identity(),
             isometry2d: None,
+            symmetry: Vec2::one(),
             grid_position: Some(grid_pos_start),
             visible: true,
             roll: 0f32,
@@ -558,19 +568,22 @@ impl Helix {
 
     /// 3D position of a nucleotide on this helix. `n` is the position along the axis, and `forward` is true iff the 5' to 3' direction of the strand containing that nucleotide runs in the same direction as the axis of the helix.
     pub fn space_pos(&self, p: &Parameters, n: isize, forward: bool) -> Vec3 {
-        let n = n + self.initial_nt_index;
-        let theta = self.theta(n, forward, p);
-        self.theta_n_to_space_pos(p, n, theta)
+        self.shifted_space_pos(p, n, forward, 0.0)
     }
 
-    fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32) -> Vec3 {
+    fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32, forward: bool) -> Vec3 {
         if let Some(curve) = self.instanciated_curve.as_ref() {
             if let Some(point) = curve.as_ref().nucl_pos(n, theta as f64, p) {
                 return dvec_to_vec(point);
             }
         }
+        let delta_inclination = if forward {
+            p.inclination / 2.
+        } else {
+            -p.inclination / 2.
+        };
         let mut ret = Vec3::new(
-            n as f32 * p.z_step,
+            n as f32 * p.z_step - delta_inclination,
             theta.sin() * p.helix_radius,
             theta.cos() * p.helix_radius,
         );
@@ -583,7 +596,7 @@ impl Helix {
     pub fn shifted_space_pos(&self, p: &Parameters, n: isize, forward: bool, shift: f32) -> Vec3 {
         let n = self.initial_nt_index + n;
         let theta = self.theta(n, forward, p) + shift;
-        self.theta_n_to_space_pos(p, n, theta)
+        self.theta_n_to_space_pos(p, n, theta, forward)
     }
 
     ///Return an helix that makes an ideal cross-over with self at postion n
@@ -602,6 +615,7 @@ impl Helix {
             roll: 0.,
             visible: true,
             isometry2d: None,
+            symmetry: Vec2::one(),
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,

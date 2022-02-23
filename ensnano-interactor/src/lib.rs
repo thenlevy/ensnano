@@ -23,7 +23,7 @@ use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{GridDescriptor, GridObject, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
-    Nucl,
+    Nucl, Parameters,
 };
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 pub mod graphics;
@@ -184,6 +184,11 @@ pub enum DesignOperation {
         center: Vec2,
         angle: f32,
     },
+    ApplySymmetryToHelices {
+        helices: Vec<usize>,
+        centers: Vec<Vec2>,
+        symmetry: Vec2,
+    },
     SetIsometry {
         helix: usize,
         isometry: Isometry2,
@@ -257,6 +262,9 @@ pub enum DesignOperation {
         xovers: Vec<usize>,
     },
     SetRainbowScaffold(bool),
+    SetDnaParameters {
+        parameters: Parameters,
+    },
 }
 
 /// An action performed on the application

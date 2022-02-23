@@ -50,7 +50,7 @@ use super::{
     text_btn, AppState, FogParameters as Fog, OverlayType, Requests, UiSize,
 };
 
-use ensnano_design::{grid::GridTypeDescr, ultraviolet};
+use ensnano_design::{grid::GridTypeDescr, ultraviolet, NamedParameter};
 mod color_picker;
 use color_picker::ColorPicker;
 mod sequence_input;
@@ -183,6 +183,7 @@ pub enum Message<S> {
     RainbowScaffold(bool),
     StopSimulation,
     StartTwist,
+    NewDnaParameters(NamedParameter),
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -765,6 +766,11 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 }
             }
             Message::OrigamisRequested => self.requests.lock().unwrap().download_origamis(),
+            Message::NewDnaParameters(parameters) => self
+                .requests
+                .lock()
+                .unwrap()
+                .set_dna_parameters(parameters.value),
         };
         Command::none()
     }

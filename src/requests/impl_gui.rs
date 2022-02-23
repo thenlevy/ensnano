@@ -410,6 +410,10 @@ impl GuiRequests for Requests {
     fn download_origamis(&mut self) {
         self.keep_proceed.push_back(Action::DownloadOrigamiRequest);
     }
+
+    fn set_dna_parameters(&mut self, param: ensnano_design::Parameters) {
+        self.keep_proceed.push_back(Action::SetDnaParameters(param));
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

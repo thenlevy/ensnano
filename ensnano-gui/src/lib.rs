@@ -199,6 +199,7 @@ pub trait Requests: 'static + Send {
     fn set_thick_helices(&mut self, thick: bool);
     fn align_horizon(&mut self);
     fn download_origamis(&mut self);
+    fn set_dna_parameters(&mut self, param: Parameters);
 }
 
 #[derive(Clone, Debug, PartialEq)]
