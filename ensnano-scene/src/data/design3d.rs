@@ -24,6 +24,7 @@ use super::{ultraviolet, LetterInstance, SceneElement};
 use ensnano_design::{grid::GridPosition, Nucl};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::{
+    graphics::{LoopoutBond, LoopoutNucl},
     phantom_helix_encoder_bound, phantom_helix_encoder_nucl, ObjectType, PhantomElement,
     Referential, PHANTOM_RANGE,
 };
@@ -87,12 +88,12 @@ impl<R: DesignReader> Design3D<R> {
     pub fn get_spheres_raw(&self) -> Rc<Vec<RawDnaInstance>> {
         let ids = self.design.get_all_visible_nucl_ids();
         let mut ret = self.id_to_raw_instances(ids);
-        for (pos, color) in self.design.get_all_loopout_nucl() {
+        for loopout_nucl in self.design.get_all_loopout_nucl() {
             ret.push(
                 SphereInstance {
-                    position: *pos,
-                    color: Instance::color_from_u32(*color),
-                    id: 0,
+                    position: loopout_nucl.position,
+                    color: Instance::color_from_u32(loopout_nucl.color),
+                    id: loopout_nucl.repr_bond_identifier,
                     radius: 1.,
                 }
                 .to_raw_instance(),
@@ -166,8 +167,17 @@ impl<R: DesignReader> Design3D<R> {
     pub fn get_tubes_raw(&self) -> Rc<Vec<RawDnaInstance>> {
         let ids = self.design.get_all_visible_bound_ids();
         let mut ret = self.id_to_raw_instances(ids);
-        for (a, b, color) in self.design.get_all_loopout_bonds() {
-            ret.push(create_dna_bound(*a, *b, *color, 0, false).to_raw_instance())
+        for loopout_bond in self.design.get_all_loopout_bonds() {
+            ret.push(
+                create_dna_bound(
+                    loopout_bond.position_prime5,
+                    loopout_bond.position_prime3,
+                    loopout_bond.color,
+                    loopout_bond.repr_bond_identifier,
+                    false,
+                )
+                .to_raw_instance(),
+            )
         }
         Rc::new(ret)
     }
@@ -920,6 +930,6 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)>;
-    fn get_all_loopout_nucl(&self) -> &[(Vec3, u32)];
-    fn get_all_loopout_bonds(&self) -> &[(Vec3, Vec3, u32)];
+    fn get_all_loopout_nucl(&self) -> &[LoopoutNucl];
+    fn get_all_loopout_bonds(&self) -> &[LoopoutBond];
 }

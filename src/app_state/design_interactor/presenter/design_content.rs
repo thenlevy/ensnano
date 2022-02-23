@@ -22,7 +22,10 @@ use ahash::RandomState;
 use ensnano_design::elements::DnaElement;
 use ensnano_design::grid::GridPosition;
 use ensnano_design::*;
-use ensnano_interactor::ObjectType;
+use ensnano_interactor::{
+    graphics::{LoopoutBond, LoopoutNucl},
+    ObjectType,
+};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
@@ -91,8 +94,10 @@ pub(super) struct DesignContent {
     pub elements: Vec<DnaElement>,
     pub suggestions: Vec<(Nucl, Nucl)>,
     pub(super) grid_manager: GridManager,
-    pub loopout_nucls: Vec<(Vec3, u32)>,
-    pub loopout_bonds: Vec<(Vec3, Vec3, u32)>,
+    pub loopout_nucls: Vec<LoopoutNucl>,
+    pub loopout_bonds: Vec<LoopoutBond>,
+    /// Maps bonds identifier to the length of the corresponding insertion.
+    pub insertion_length: HashMap<u32, usize, RandomState>,
 }
 
 impl DesignContent {
@@ -378,12 +383,12 @@ impl DesignContent {
         let mut id = 0u32;
         let mut nucl_id;
         let mut old_nucl: Option<Nucl> = None;
-        let mut old_nucl_id = None;
-        let mut old_pos: Option<Vec3> = None;
+        let mut old_nucl_id: Option<u32> = None;
         let mut elements = Vec::new();
         let mut prime3_set = Vec::new();
         let mut new_junctions: JunctionsIds = Default::default();
         let mut suggestion_maker = XoverSuggestions::default();
+        let mut insertion_length = HashMap::default();
         xover_ids.agree_on_next_id(&mut new_junctions);
         let mut grid_manager = GridManager::new_from_design(&design);
         if *old_grid_ptr != Some(Arc::as_ptr(&design.grids) as usize) {
@@ -398,6 +403,7 @@ impl DesignContent {
             let strand_seq = strand.sequence.as_ref().filter(|s| s.is_ascii());
             let color = strand.color;
             let mut last_xover_junction: Option<&mut DomainJunction> = None;
+            let mut prev_loopout_pos = None;
             for (i, domain) in strand.domains.iter_mut().enumerate() {
                 if let Some((prime5, prime3)) = old_nucl.clone().zip(domain.prime5_end()) {
                     Self::update_junction(
@@ -462,7 +468,15 @@ impl DesignContent {
                         suggestion_maker.add_nucl(nucl, position, groups.as_ref());
                         let position = [position[0] as f32, position[1] as f32, position[2] as f32];
                         space_position.insert(nucl_id, position);
-                        if let Some(old_nucl) = old_nucl.take() {
+                        if let Some(prev_pos) = prev_loopout_pos.take() {
+                            loopout_bonds.push(LoopoutBond {
+                                position_prime5: prev_pos,
+                                position_prime3: position.into(),
+                                color,
+                                repr_bond_identifier: id,
+                            });
+                        }
+                        if let Some(old_nucl) = old_nucl {
                             let bound_id = id;
                             id += 1;
                             let bound = (old_nucl, nucl);
@@ -473,12 +487,9 @@ impl DesignContent {
                             color_map.insert(bound_id, color);
                             strand_map.insert(bound_id, *s_id);
                             helix_map.insert(bound_id, nucl.helix);
-                        } else if let Some(prev_pos) = old_pos.take() {
-                            loopout_bonds.push((prev_pos, position.into(), color));
                         }
                         old_nucl = Some(nucl);
                         old_nucl_id = Some(nucl_id);
-                        old_pos = Some(position.into());
                     }
                     if strand.junctions.len() <= i {
                         log::debug!("{:?}", strand.junctions);
@@ -491,16 +502,26 @@ impl DesignContent {
                 {
                     if let Some(instanciation) = instanciation.as_ref() {
                         for pos in instanciation.as_ref().pos().iter() {
-                            println!("Pushing loopout nucl {:?}", pos);
-                            loopout_nucls.push((*pos, color));
-                            if let Some(prev_pos) = old_pos.take() {
-                                loopout_bonds.push((prev_pos, *pos, color));
+                            loopout_nucls.push(LoopoutNucl {
+                                position: *pos,
+                                color,
+                                repr_bond_identifier: id,
+                            });
+                            if let Some(prev_pos) =
+                                prev_loopout_pos.take().or(old_nucl_id
+                                    .and_then(|id| space_position.get(&id).map(Vec3::from)))
+                            {
+                                loopout_bonds.push(LoopoutBond {
+                                    position_prime5: prev_pos,
+                                    position_prime3: *pos,
+                                    color,
+                                    repr_bond_identifier: id,
+                                });
                             }
-                            old_pos = Some(*pos);
+                            prev_loopout_pos = Some(*pos);
                         }
                     }
-                    old_nucl = None;
-                    old_nucl_id = None;
+                    insertion_length.insert(id, *nb_nucl);
                     strand_position += *nb_nucl;
                     last_xover_junction = Some(&mut strand.junctions[i]);
                 }
@@ -509,6 +530,16 @@ impl DesignContent {
                 let nucl = strand.get_5prime().unwrap();
                 let prime5_id = nucl_collection.get_identifier(&nucl).unwrap();
                 let bound_id = id;
+                if let Some((prev_pos, position)) =
+                    prev_loopout_pos.take().zip(space_position.get(&prime5_id))
+                {
+                    loopout_bonds.push(LoopoutBond {
+                        position_prime5: prev_pos,
+                        position_prime3: position.into(),
+                        color,
+                        repr_bond_identifier: id,
+                    });
+                }
                 id += 1;
                 let bound = (old_nucl.unwrap(), nucl);
                 object_type.insert(
@@ -549,7 +580,6 @@ impl DesignContent {
             }
             old_nucl = None;
             old_nucl_id = None;
-            old_pos = None;
         }
         for g_id in 0..grid_manager.grids.len() {
             elements.push(DnaElement::Grid {
@@ -582,6 +612,7 @@ impl DesignContent {
             suggestions: vec![],
             loopout_bonds,
             loopout_nucls,
+            insertion_length,
         };
         let suggestions = suggestion_maker.get_suggestions(&design, suggestion_parameters);
         ret.suggestions = suggestions;
