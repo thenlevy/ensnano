@@ -634,16 +634,17 @@ impl DesignContent {
         let is_xover = bound.0.prime3() != bound.1;
         match junction {
             DomainJunction::Adjacent if is_xover => {
-                panic!("DomainJunction::Adjacent between non adjacent nucl")
+                let id = new_xover_ids.insert(bound);
+                *junction = DomainJunction::IdentifiedXover(id);
             }
             DomainJunction::UnindentifiedXover | DomainJunction::IdentifiedXover(_)
                 if !is_xover =>
             {
-                panic!("Xover between adjacent nucls")
+                *junction = DomainJunction::Adjacent;
             }
-            s @ DomainJunction::UnindentifiedXover => {
+            DomainJunction::UnindentifiedXover => {
                 let id = new_xover_ids.insert(bound);
-                *s = DomainJunction::IdentifiedXover(id);
+                *junction = DomainJunction::IdentifiedXover(id);
             }
             DomainJunction::IdentifiedXover(id) => {
                 new_xover_ids.insert_at(bound, *id);
