@@ -48,7 +48,11 @@ impl CameraTab {
         }
     }
 
-    pub fn view<'a, S: AppState>(&'a mut self, ui_size: UiSize) -> Element<'a, Message<S>> {
+    pub fn view<'a, S: AppState>(
+        &'a mut self,
+        ui_size: UiSize,
+        app_state: &S,
+    ) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(5);
         section!(ret, ui_size, "Camera");
         subsection!(ret, ui_size, "Visibility");
@@ -92,6 +96,11 @@ impl CameraTab {
             &ALL_BACKGROUND3D[..],
             Some(self.background3d),
             Message::Background3D,
+        ));
+        ret = ret.push(Checkbox::new(
+            app_state.expand_insertions(),
+            "Expand insertions",
+            Message::SetExpandInsertions,
         ));
 
         Scrollable::new(&mut self.scroll).push(ret).into()

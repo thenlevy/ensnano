@@ -177,6 +177,7 @@ pub enum Message<S> {
     ContextualValueChanged(ValueKind, usize, String),
     ContextualValueSubmitted(ValueKind),
     NewDnaParameters(NamedParameter),
+    SetExpandInsertions(bool),
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -740,6 +741,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 .lock()
                 .unwrap()
                 .set_dna_parameters(parameters.value),
+            Message::SetExpandInsertions(b) => {
+                self.requests.lock().unwrap().set_expand_insertions(b)
+            }
         };
         Command::none()
     }
@@ -759,7 +763,8 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             )
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Videocam))),
-                self.camera_tab.view(self.ui_size.clone()),
+                self.camera_tab
+                    .view(self.ui_size.clone(), &self.application_state),
             )
             .push(
                 TabLabel::Icon(ICON_PHYSICAL_ENGINE),

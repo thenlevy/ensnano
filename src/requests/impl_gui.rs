@@ -368,6 +368,11 @@ impl GuiRequests for Requests {
     fn set_dna_parameters(&mut self, param: ensnano_design::Parameters) {
         self.keep_proceed.push_back(Action::SetDnaParameters(param));
     }
+
+    fn set_expand_insertions(&mut self, expand: bool) {
+        self.keep_proceed
+            .push_back(Action::SetExpandInsertions(expand))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

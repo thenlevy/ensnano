@@ -1697,6 +1697,11 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     fn flip_split_views(&mut self) {
         self.notify_apps(Notification::FlipSplitViews)
     }
+
+    fn set_expand_insertions(&mut self, expand: bool) {
+        self.main_state
+            .modify_state(|app| app.with_expand_insertion_set(expand), false);
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};

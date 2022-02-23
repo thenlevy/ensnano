@@ -116,6 +116,7 @@ impl<R: DesignReader> Data<R> {
         }
         if app_state.design_was_modified(older_app_state)
             || app_state.suggestion_parameters_were_updated(older_app_state)
+            || app_state.insertion_bond_display_was_modified(older_app_state)
         {
             self.update_instances(app_state);
         }
@@ -1144,10 +1145,16 @@ impl<R: DesignReader> Data<R> {
         let mut grids = Vec::new();
         let mut cones = Vec::new();
         for design in self.designs.iter() {
-            for sphere in design.get_spheres_raw().iter() {
+            for sphere in design
+                .get_spheres_raw(app_state.show_insertion_representents())
+                .iter()
+            {
                 spheres.push(*sphere);
             }
-            for tube in design.get_tubes_raw().iter() {
+            for tube in design
+                .get_tubes_raw(app_state.show_insertion_representents())
+                .iter()
+            {
                 tubes.push(*tube);
             }
             letters = design.get_letter_instances();
@@ -1287,11 +1294,17 @@ impl<R: DesignReader> Data<R> {
     }
 
     fn get_number_spheres(&self) -> usize {
-        self.designs.iter().map(|d| d.get_spheres_raw().len()).sum()
+        self.designs
+            .iter()
+            .map(|d| d.get_spheres_raw(false).len())
+            .sum()
     }
 
     fn get_number_tubes(&self) -> usize {
-        self.designs.iter().map(|d| d.get_tubes_raw().len()).sum()
+        self.designs
+            .iter()
+            .map(|d| d.get_tubes_raw(false).len())
+            .sum()
     }
 
     pub fn get_widget_basis<S: AppState>(&self, app_state: &S) -> Option<Rotor3> {

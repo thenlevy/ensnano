@@ -323,6 +323,17 @@ impl Reader3D for DesignReader {
     fn get_all_loopout_bonds(&self) -> &[LoopoutBond] {
         &self.presenter.content.loopout_bonds
     }
+
+    fn get_insertion_length(&self, bond_id: u32) -> usize {
+        // If the bond is not is the keys of insertion_length it means that it does not represent
+        // an insertion
+        self.presenter
+            .content
+            .insertion_length
+            .get(&bond_id)
+            .cloned()
+            .unwrap_or(0)
+    }
 }
 
 impl Presenter {}

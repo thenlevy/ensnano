@@ -190,6 +190,7 @@ pub trait Requests: 'static + Send {
     fn flip_split_views(&mut self);
     fn align_horizon(&mut self);
     fn set_dna_parameters(&mut self, param: Parameters);
+    fn set_expand_insertions(&mut self, expand: bool);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -926,6 +927,7 @@ pub trait AppState:
     fn get_strand_building_state(&self) -> Option<StrandBuildingStatus>;
     fn get_selected_group(&self) -> Option<GroupId>;
     fn get_suggestion_parameters(&self) -> &SuggestionParameters;
+    fn expand_insertions(&self) -> bool;
 }
 
 pub trait DesignReader: 'static {

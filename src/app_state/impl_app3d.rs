@@ -100,6 +100,10 @@ impl App3D for AppState {
     fn suggestion_parameters_were_updated(&self, other: &Self) -> bool {
         self.0.suggestion_parameters != other.0.suggestion_parameters
     }
+
+    fn show_insertion_representents(&self) -> bool {
+        self.0.show_insertion_representents
+    }
 }
 
 #[cfg(test)]
