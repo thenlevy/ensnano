@@ -86,10 +86,7 @@ impl<R: DesignReader> Design3D<R> {
 
     /// Return the list of raw sphere instances to be displayed to represent the design
     pub fn get_spheres_raw(&self, show_insertion_representents: bool) -> Rc<Vec<RawDnaInstance>> {
-        let mut ids = self.design.get_all_visible_nucl_ids();
-        if !show_insertion_representents {
-            ids.retain(|id| self.design.get_insertion_length(*id) == 0)
-        }
+        let ids = self.design.get_all_visible_nucl_ids();
         let mut ret = self.id_to_raw_instances(ids);
         if !show_insertion_representents {
             for loopout_nucl in self.design.get_all_loopout_nucl() {
@@ -209,7 +206,10 @@ impl<R: DesignReader> Design3D<R> {
 
         let referential = Referential::Model;
         let mut ret = Vec::new();
-        if expand_with.is_none() || self.design.get_insertion_length(id) == 0 {
+        if expand_with.is_none()
+            || self.design.get_insertion_length(id) == 0
+            || matches!(kind, Some(ObjectType::Nucleotide(_)))
+        {
             let instanciable = match kind {
                 Some(ObjectType::Bound(id1, id2)) => {
                     let pos1 = self
