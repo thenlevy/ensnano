@@ -751,10 +751,18 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::InsertionLengthSubmitted => {
                 if let Some(request) = self.contextual_panel.get_insertion_request() {
-                    self.requests
-                        .lock()
-                        .unwrap()
-                        .set_insertion_length(request.selection, request.length)
+                    if let Some(insertion_point) = self
+                        .application_state
+                        .get_reader()
+                        .get_insertion_point(&request.selection)
+                    {
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .set_insertion_length(insertion_point, request.length)
+                    } else {
+                        log::error!("No insertion point for {:?}", request.selection);
+                    }
                 }
             }
         };

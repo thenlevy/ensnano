@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::gui::{Requests as GuiRequests, RigidBodyParametersRequest};
-use ensnano_interactor::{RigidBodyConstants, RollRequest};
+use ensnano_interactor::{InsertionPoint, RigidBodyConstants, RollRequest};
 use std::collections::BTreeSet;
 
 use super::*;
@@ -374,9 +374,12 @@ impl GuiRequests for Requests {
             .push_back(Action::SetExpandInsertions(expand))
     }
 
-    fn set_insertion_length(&mut self, selection: Selection, length: usize) {
+    fn set_insertion_length(&mut self, insertion_point: InsertionPoint, length: usize) {
         self.keep_proceed.push_back(Action::DesignOperation(
-            DesignOperation::SetInsertionLength { length, selection },
+            DesignOperation::SetInsertionLength {
+                length,
+                insertion_point,
+            },
         ))
     }
 }

@@ -20,6 +20,7 @@ use ensnano_design::{elements::DnaElement, CameraId};
 
 use super::*;
 use crate::gui::DesignReader as ReaderGui;
+use ensnano_interactor::InsertionPoint;
 use ultraviolet::Rotor3;
 
 impl ReaderGui for DesignReader {
@@ -126,6 +127,38 @@ impl ReaderGui for DesignReader {
                     .get(&bond_id)
                     .cloned()
                     .or(Some(0))
+            }
+            _ => None,
+        }
+    }
+
+    fn get_insertion_point(&self, selection: &Selection) -> Option<InsertionPoint> {
+        match selection {
+            Selection::Bound(_, n1, _n2) => Some(InsertionPoint {
+                nucl: *n1,
+                nucl_is_prime5_of_insertion: true,
+            }),
+            Selection::Xover(_, xover_id) => {
+                let (n1, _n2) = self.presenter.junctions_ids.get_element(*xover_id)?;
+                Some(InsertionPoint {
+                    nucl: n1,
+                    nucl_is_prime5_of_insertion: true,
+                })
+            }
+            Selection::Nucleotide(_, nucl) => {
+                if let Some(s_id) = self.prime5_of_which_strand(*nucl) {
+                    Some(InsertionPoint {
+                        nucl: *nucl,
+                        nucl_is_prime5_of_insertion: false,
+                    })
+                } else if let Some(s_id) = self.prime3_of_which_strand(*nucl) {
+                    Some(InsertionPoint {
+                        nucl: *nucl,
+                        nucl_is_prime5_of_insertion: true,
+                    })
+                } else {
+                    None
+                }
             }
             _ => None,
         }
