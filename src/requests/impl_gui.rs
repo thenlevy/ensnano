@@ -373,6 +373,12 @@ impl GuiRequests for Requests {
         self.keep_proceed
             .push_back(Action::SetExpandInsertions(expand))
     }
+
+    fn set_insertion_length(&mut self, selection: Selection, length: usize) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::SetInsertionLength { length, selection },
+        ))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

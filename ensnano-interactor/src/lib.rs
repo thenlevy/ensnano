@@ -250,6 +250,10 @@ pub enum DesignOperation {
     SetDnaParameters {
         parameters: Parameters,
     },
+    SetInsertionLength {
+        length: usize,
+        selection: Selection,
+    },
 }
 
 /// An action performed on the application

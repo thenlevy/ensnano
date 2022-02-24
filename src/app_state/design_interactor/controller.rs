@@ -268,6 +268,7 @@ impl Controller {
                 },
                 design,
             )),
+            DesignOperation::SetInsertionLength { .. } => todo!(),
         }
     }
 

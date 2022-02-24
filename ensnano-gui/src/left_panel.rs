@@ -178,6 +178,8 @@ pub enum Message<S> {
     ContextualValueSubmitted(ValueKind),
     NewDnaParameters(NamedParameter),
     SetExpandInsertions(bool),
+    InsertionLengthInput(String),
+    InsertionLengthSubmitted,
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -743,6 +745,17 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 .set_dna_parameters(parameters.value),
             Message::SetExpandInsertions(b) => {
                 self.requests.lock().unwrap().set_expand_insertions(b)
+            }
+            Message::InsertionLengthInput(s) => {
+                self.contextual_panel.update_insertion_length_input(s);
+            }
+            Message::InsertionLengthSubmitted => {
+                if let Some(request) = self.contextual_panel.get_insertion_request() {
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .set_insertion_length(request.selection, request.length)
+                }
             }
         };
         Command::none()

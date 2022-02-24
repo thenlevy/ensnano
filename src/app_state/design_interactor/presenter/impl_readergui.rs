@@ -95,4 +95,39 @@ impl ReaderGui for DesignReader {
             .get(g_id)
             .map(|g| (g.position, g.orientation))
     }
+
+    fn get_insertion_length(&self, selection: &Selection) -> Option<usize> {
+        match selection {
+            Selection::Bound(_, n1, n2) => {
+                let bond_id = self
+                    .presenter
+                    .content
+                    .identifier_bound
+                    .get(&(*n1, *n2))
+                    .or(self.presenter.content.identifier_bound.get(&(*n2, *n1)))?;
+                self.presenter
+                    .content
+                    .insertion_length
+                    .get(&bond_id)
+                    .cloned()
+                    .or(Some(0))
+            }
+            Selection::Xover(_, xover_id) => {
+                let (n1, n2) = self.presenter.junctions_ids.get_element(*xover_id)?;
+                let bond_id = self
+                    .presenter
+                    .content
+                    .identifier_bound
+                    .get(&(n1, n2))
+                    .or(self.presenter.content.identifier_bound.get(&(n2, n1)))?;
+                self.presenter
+                    .content
+                    .insertion_length
+                    .get(&bond_id)
+                    .cloned()
+                    .or(Some(0))
+            }
+            _ => None,
+        }
+    }
 }
