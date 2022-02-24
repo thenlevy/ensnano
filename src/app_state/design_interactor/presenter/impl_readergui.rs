@@ -146,12 +146,12 @@ impl ReaderGui for DesignReader {
                 })
             }
             Selection::Nucleotide(_, nucl) => {
-                if let Some(s_id) = self.prime5_of_which_strand(*nucl) {
+                if let Some(_s_id) = self.prime5_of_which_strand(*nucl) {
                     Some(InsertionPoint {
                         nucl: *nucl,
                         nucl_is_prime5_of_insertion: false,
                     })
-                } else if let Some(s_id) = self.prime3_of_which_strand(*nucl) {
+                } else if let Some(_s_id) = self.prime3_of_which_strand(*nucl) {
                     Some(InsertionPoint {
                         nucl: *nucl,
                         nucl_is_prime5_of_insertion: true,

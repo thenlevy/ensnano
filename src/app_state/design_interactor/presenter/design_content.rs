@@ -575,6 +575,19 @@ impl DesignContent {
                     });
                 }
             } else {
+                if let Some(len) = insertion_length.remove(&id) {
+                    insertion_length.insert(id - 1, len);
+                    for loopout_nucl in loopout_nucls.iter_mut() {
+                        if loopout_nucl.repr_bond_identifier == id {
+                            loopout_nucl.repr_bond_identifier = id - 1;
+                        }
+                    }
+                    for loopout_bond in loopout_bonds.iter_mut() {
+                        if loopout_bond.repr_bond_identifier == id {
+                            loopout_bond.repr_bond_identifier = id - 1;
+                        }
+                    }
+                }
                 if let Some(nucl) = old_nucl {
                     let color = strand.color;
                     prime3_set.push(Prime3End { nucl, color });
