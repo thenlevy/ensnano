@@ -437,6 +437,7 @@ impl Strand {
             let dom2 = self.domains[n + 1].clone();
             self.domains.get_mut(n).unwrap().merge(&dom2);
             self.domains.remove(n + 1);
+            self.junctions.remove(n);
         }
     }
 
