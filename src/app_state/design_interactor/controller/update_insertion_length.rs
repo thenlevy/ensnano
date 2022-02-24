@@ -42,9 +42,57 @@ impl Controller {
                 let d_id = insertion_mut.domain_id;
                 strand_mut.domains.remove(d_id);
                 strand_mut.junctions.remove(d_id);
+                strand_mut.merge_consecutive_domains();
                 Ok(design)
             }
+        } else if length > 0 {
+            // if the nucl is the 5' end of the insertion we want it to be the 3' end of the
+            // resulting strand, and therefore be on the 5' end of the split
+            let forced_end = Some(!insertion_point.nucl_is_prime5_of_insertion);
+
+            let s_2 = Self::split_strand(&mut design, &insertion_point.nucl, forced_end)?;
+            let strand_mut = design
+                .strands
+                .get_mut(&s_id)
+                .ok_or(ErrOperation::StrandDoesNotExist(s_id))?;
+            if insertion_point.nucl_is_prime5_of_insertion {
+                // The nucl is the 3' end of the splited strand
+                let insertion_junction_id = strand_mut.domains.len();
+                strand_mut.domains.push(Domain::new_insertion(length));
+                strand_mut
+                    .junctions
+                    .insert(insertion_junction_id, DomainJunction::Adjacent);
+                if let Some(strand) = design.strands.get(&s_2) {
+                    if strand.length() > 0 {
+                        if s_2 != s_id {
+                            Self::merge_strands(&mut design, s_id, s_2)?;
+                        } else {
+                            Self::make_cycle(&mut design, s_id, true)?;
+                        }
+                    } else {
+                        design.strands.remove(&s_2);
+                    }
+                }
+            } else {
+                // the nucl is the 5' end of the splited strand
+                strand_mut.domains.insert(0, Domain::new_insertion(length));
+                strand_mut.junctions.insert(0, DomainJunction::Adjacent);
+                if let Some(strand) = design.strands.get(&s_2) {
+                    if strand.length() > 0 {
+                        if s_2 != s_id {
+                            Self::merge_strands(&mut design, s_2, s_id)?;
+                        } else {
+                            Self::make_cycle(&mut design, s_id, true)?;
+                        }
+                    } else {
+                        design.strands.remove(&s_2);
+                    }
+                }
+            }
+
+            Ok(design)
         } else {
+            // Nothing to do
             Err(ErrOperation::NotImplemented)
         }
     }

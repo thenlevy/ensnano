@@ -2152,6 +2152,7 @@ impl Controller {
         } else {
             *strand.junctions.last_mut().unwrap() = DomainJunction::Prime3;
         }
+        strand.merge_consecutive_domains();
         Ok(())
     }
 
