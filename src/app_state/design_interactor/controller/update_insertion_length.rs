@@ -34,10 +34,19 @@ impl Controller {
             .strands
             .get_mut(&s_id)
             .ok_or(ErrOperation::StrandDoesNotExist(s_id))?;
-        let insertion_mut = get_insertion_length_mut(strand_mut, insertion_point)
-            .ok_or(ErrOperation::NotImplemented)?;
-        *insertion_mut = length;
-        Ok(design)
+        if let Some(insertion_mut) = get_insertion_length_mut(strand_mut, insertion_point) {
+            if length > 0 {
+                *insertion_mut.length = length;
+                Ok(design)
+            } else {
+                let d_id = insertion_mut.domain_id;
+                strand_mut.domains.remove(d_id);
+                strand_mut.junctions.remove(d_id);
+                Ok(design)
+            }
+        } else {
+            Err(ErrOperation::NotImplemented)
+        }
     }
 }
 
@@ -46,7 +55,7 @@ impl Controller {
 fn get_insertion_length_mut<'a>(
     strand: &'a mut Strand,
     insertion_point: InsertionPoint,
-) -> Option<&'a mut usize> {
+) -> Option<InsertionMut<'a>> {
     let mut insertion_id: Option<usize> = None;
     let domains_iterator: Box<dyn Iterator<Item = ((usize, &Domain), (usize, &Domain))>> =
         if strand.cyclic {
@@ -79,7 +88,7 @@ fn get_insertion_length_mut<'a>(
         }
     } else {
         for ((d_id, d_insertion), (_, d_nucl)) in domains_iterator {
-            if d_nucl.prime3_end() == Some(insertion_point.nucl) {
+            if d_nucl.prime5_end() == Some(insertion_point.nucl) {
                 if let Domain::Insertion { .. } = d_insertion {
                     insertion_id = Some(d_id);
                 } else {
@@ -93,8 +102,16 @@ fn get_insertion_length_mut<'a>(
     if let Some(Domain::Insertion { nb_nucl, .. }) =
         insertion_id.and_then(move |id| strand.domains.get_mut(id))
     {
-        Some(nb_nucl)
+        Some(InsertionMut {
+            domain_id: insertion_id.unwrap(),
+            length: nb_nucl,
+        })
     } else {
         None
     }
+}
+
+struct InsertionMut<'a> {
+    domain_id: usize,
+    length: &'a mut usize,
 }
