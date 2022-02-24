@@ -128,6 +128,25 @@ impl ReaderGui for DesignReader {
                     .cloned()
                     .or(Some(0))
             }
+            Selection::Nucleotide(_, nucl) => {
+                let nucl_id = self
+                    .presenter
+                    .content
+                    .nucl_collection
+                    .get_identifier(nucl)?;
+                if self.prime5_of_which_strand(*nucl).is_some()
+                    || self.prime3_of_which_strand(*nucl).is_some()
+                {
+                    self.presenter
+                        .content
+                        .insertion_length
+                        .get(&nucl_id)
+                        .cloned()
+                        .or(Some(0))
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }

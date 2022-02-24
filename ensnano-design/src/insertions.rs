@@ -19,7 +19,7 @@ use super::*;
 
 use rand::Rng;
 use rand_distr::StandardNormal;
-use std::f32::consts::{PI, SQRT_2, TAU};
+use std::f32::consts::{PI, TAU};
 
 const EPSILON_DESC: f32 = 0.05;
 
@@ -277,7 +277,6 @@ impl Strand {
                 .as_ref()
                 .map(|i| i.descriptor.is_up_to_date(&descriptor))
                 .unwrap_or(false);
-            println!("Up to date {}", up_to_date);
             if !up_to_date {
                 *instanciation = Some(Arc::new(InstanciatedInsertion {
                     instanciation: descriptor.instanciate(parameters),
