@@ -153,6 +153,7 @@ pub(super) struct ContextualPanel<S: AppState> {
     strand_name_state: text_input::State,
     builder: Option<InstantiatedBuilder<S>>,
     twist_button: button::State,
+    insertion_length_state: InsertionLengthState,
 }
 
 impl<S: AppState> ContextualPanel<S> {
@@ -168,6 +169,7 @@ impl<S: AppState> ContextualPanel<S> {
             strand_name_state: Default::default(),
             builder: None,
             twist_button: Default::default(),
+            insertion_length_state: Default::default(),
         }
     }
 
@@ -215,6 +217,7 @@ impl<S: AppState> ContextualPanel<S> {
             })
             .and_then(|id| app_state.get_reader().xover_length(id));
 
+        self.insertion_length_state.update_selection(selection);
         let info_values = values_of_selection(selection, app_state.get_reader().as_ref());
         if self.show_tutorial {
             column = column.push(
@@ -317,6 +320,26 @@ impl<S: AppState> ContextualPanel<S> {
             if let Some(info) = info_values.get(1) {
                 column = column.push(Text::new(info));
             }
+
+            if let Some(len) = app_state.get_reader().get_insertion_length(&selection) {
+                let real_len_string = len.to_string();
+                let text_input_content = self
+                    .insertion_length_state
+                    .input_str
+                    .as_ref()
+                    .unwrap_or(&real_len_string);
+                column = column.push(
+                    Row::new().push(Text::new("Loopout")).push(
+                        TextInput::new(
+                            &mut self.insertion_length_state.state,
+                            "",
+                            text_input_content,
+                            Message::InsertionLengthInput,
+                        )
+                        .on_submit(Message::InsertionLengthSubmitted),
+                    ),
+                );
+            }
         }
 
         Scrollable::new(&mut self.scroll).push(column).into()
@@ -365,6 +388,7 @@ impl<S: AppState> ContextualPanel<S> {
         self.add_strand_menu.has_keyboard_priority()
             || self.strand_name_state.is_focused()
             || self.builder_has_keyboard_priority()
+            || self.insertion_length_state.has_keyboard_priority()
     }
 
     fn builder_has_keyboard_priority(&self) -> bool {
@@ -414,6 +438,22 @@ impl<S: AppState> ContextualPanel<S> {
             log::error!("Cannot submit value: No instanciated builder");
             None
         }
+    }
+
+    pub fn update_insertion_length_input(&mut self, input: String) {
+        self.insertion_length_state.input_str = Some(input);
+    }
+
+    pub fn get_insertion_request(&self) -> Option<InsertionRequest> {
+        let length = self
+            .insertion_length_state
+            .input_str
+            .as_ref()
+            .and_then(|s| s.parse::<usize>().ok())?;
+        Some(InsertionRequest {
+            selection: self.insertion_length_state.selection.clone(),
+            length,
+        })
     }
 }
 
@@ -876,4 +916,38 @@ impl AddStrandMenu {
         ret = ret.push(row);
         ret.into()
     }
+}
+
+struct InsertionLengthState {
+    state: text_input::State,
+    selection: Selection,
+    input_str: Option<String>,
+}
+
+impl Default for InsertionLengthState {
+    fn default() -> Self {
+        Self {
+            state: Default::default(),
+            selection: Selection::Nothing,
+            input_str: None,
+        }
+    }
+}
+
+impl InsertionLengthState {
+    fn update_selection(&mut self, selection: &Selection) {
+        if selection != &self.selection {
+            self.input_str = None;
+            self.selection = selection.clone();
+        }
+    }
+
+    fn has_keyboard_priority(&self) -> bool {
+        self.state.is_focused()
+    }
+}
+
+pub(super) struct InsertionRequest {
+    pub selection: Selection,
+    pub length: usize,
 }

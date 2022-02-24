@@ -62,6 +62,8 @@ pub use simulations::{
     SimulationInterface, SimulationOperation, SimulationReader, TwistPresenter,
 };
 
+mod update_insertion_length;
+
 #[derive(Clone, Default)]
 pub(super) struct Controller {
     color_idx: usize,
@@ -298,7 +300,15 @@ impl Controller {
                 },
                 design,
             )),
+            DesignOperation::SetInsertionLength {
+                insertion_point,
+                length,
+            } => self.apply(
+                |c, d| c.update_insertion_length(d, insertion_point, length),
+                design,
+            ),
         };
+
         if let Ok(ret) = &mut ret {
             ret.0.set_label(label);
         }

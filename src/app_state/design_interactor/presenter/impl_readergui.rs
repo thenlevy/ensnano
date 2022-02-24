@@ -20,6 +20,7 @@ use ensnano_design::{elements::DnaElement, CameraId};
 
 use super::*;
 use crate::gui::DesignReader as ReaderGui;
+use ensnano_interactor::InsertionPoint;
 use ultraviolet::Rotor3;
 
 impl ReaderGui for DesignReader {
@@ -134,5 +135,91 @@ impl ReaderGui for DesignReader {
 
     fn rainbow_scaffold(&self) -> bool {
         self.presenter.current_design.rainbow_scaffold
+    }
+
+    fn get_insertion_length(&self, selection: &Selection) -> Option<usize> {
+        match selection {
+            Selection::Bound(_, n1, n2) => {
+                let bond_id = self
+                    .presenter
+                    .content
+                    .identifier_bound
+                    .get(&(*n1, *n2))
+                    .or(self.presenter.content.identifier_bound.get(&(*n2, *n1)))?;
+                self.presenter
+                    .content
+                    .insertion_length
+                    .get(&bond_id)
+                    .cloned()
+                    .or(Some(0))
+            }
+            Selection::Xover(_, xover_id) => {
+                let (n1, n2) = self.presenter.junctions_ids.get_element(*xover_id)?;
+                let bond_id = self
+                    .presenter
+                    .content
+                    .identifier_bound
+                    .get(&(n1, n2))
+                    .or(self.presenter.content.identifier_bound.get(&(n2, n1)))?;
+                self.presenter
+                    .content
+                    .insertion_length
+                    .get(&bond_id)
+                    .cloned()
+                    .or(Some(0))
+            }
+            Selection::Nucleotide(_, nucl) => {
+                let nucl_id = self
+                    .presenter
+                    .content
+                    .nucl_collection
+                    .get_identifier(nucl)?;
+                if self.prime5_of_which_strand(*nucl).is_some()
+                    || self.prime3_of_which_strand(*nucl).is_some()
+                {
+                    self.presenter
+                        .content
+                        .insertion_length
+                        .get(&nucl_id)
+                        .cloned()
+                        .or(Some(0))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn get_insertion_point(&self, selection: &Selection) -> Option<InsertionPoint> {
+        match selection {
+            Selection::Bound(_, n1, _n2) => Some(InsertionPoint {
+                nucl: *n1,
+                nucl_is_prime5_of_insertion: true,
+            }),
+            Selection::Xover(_, xover_id) => {
+                let (n1, _n2) = self.presenter.junctions_ids.get_element(*xover_id)?;
+                Some(InsertionPoint {
+                    nucl: n1,
+                    nucl_is_prime5_of_insertion: true,
+                })
+            }
+            Selection::Nucleotide(_, nucl) => {
+                if let Some(_s_id) = self.prime5_of_which_strand(*nucl) {
+                    Some(InsertionPoint {
+                        nucl: *nucl,
+                        nucl_is_prime5_of_insertion: false,
+                    })
+                } else if let Some(_s_id) = self.prime3_of_which_strand(*nucl) {
+                    Some(InsertionPoint {
+                        nucl: *nucl,
+                        nucl_is_prime5_of_insertion: true,
+                    })
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
     }
 }

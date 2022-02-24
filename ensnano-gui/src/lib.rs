@@ -51,7 +51,8 @@ use ensnano_design::{
 use ensnano_interactor::graphics::FogParameters;
 use ensnano_interactor::{
     graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
-    CheckXoversParameter, Selection, SimulationState, SuggestionParameters, WidgetBasis,
+    CheckXoversParameter, InsertionPoint, Selection, SimulationState, SuggestionParameters,
+    WidgetBasis,
 };
 use ensnano_interactor::{operation::Operation, ScaffoldInfo};
 use ensnano_interactor::{ActionMode, HyperboloidRequest, RollRequest, SelectionMode};
@@ -201,6 +202,7 @@ pub trait Requests: 'static + Send {
     fn download_origamis(&mut self);
     fn set_dna_parameters(&mut self, param: Parameters);
     fn set_expand_insertions(&mut self, expand: bool);
+    fn set_insertion_length(&mut self, insertion_point: InsertionPoint, length: usize);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1013,6 +1015,8 @@ pub trait DesignReader: 'static {
     fn xover_length(&self, xover_id: usize) -> Option<(f32, Option<f32>)>;
     fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize>;
     fn rainbow_scaffold(&self) -> bool;
+    fn get_insertion_length(&self, selection: &Selection) -> Option<usize>;
+    fn get_insertion_point(&self, selection: &Selection) -> Option<InsertionPoint>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
