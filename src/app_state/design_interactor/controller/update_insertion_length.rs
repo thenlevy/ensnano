@@ -27,6 +27,74 @@ impl Controller {
         insertion_point: InsertionPoint,
         length: usize,
     ) -> Result<Design, ErrOperation> {
-        Err(ErrOperation::NotImplemented)
+        let s_id = design
+            .get_strand_nucl(&insertion_point.nucl)
+            .ok_or(ErrOperation::NuclDoesNotExist(insertion_point.nucl))?;
+        let strand_mut = design
+            .strands
+            .get_mut(&s_id)
+            .ok_or(ErrOperation::StrandDoesNotExist(s_id))?;
+        let insertion_mut = get_insertion_length_mut(strand_mut, insertion_point)
+            .ok_or(ErrOperation::NotImplemented)?;
+        *insertion_mut = length;
+        Ok(design)
+    }
+}
+
+/// If there already is an insertion at insertion point, return a mutable reference to its
+/// length. Otherwise return None
+fn get_insertion_length_mut<'a>(
+    strand: &'a mut Strand,
+    insertion_point: InsertionPoint,
+) -> Option<&'a mut usize> {
+    let mut insertion_id: Option<usize> = None;
+    let domains_iterator: Box<dyn Iterator<Item = ((usize, &Domain), (usize, &Domain))>> =
+        if strand.cyclic {
+            Box::new(
+                strand
+                    .domains
+                    .iter()
+                    .enumerate()
+                    .zip(strand.domains.iter().cycle().enumerate().skip(1)),
+            )
+        } else {
+            Box::new(
+                strand
+                    .domains
+                    .iter()
+                    .enumerate()
+                    .zip(strand.domains.iter().enumerate().skip(1)),
+            )
+        };
+    if insertion_point.nucl_is_prime5_of_insertion {
+        for ((_, d_nucl), (d_id, d_insertion)) in domains_iterator {
+            if d_nucl.prime3_end() == Some(insertion_point.nucl) {
+                if let Domain::Insertion { .. } = d_insertion {
+                    insertion_id = Some(d_id);
+                } else {
+                    insertion_id = None;
+                }
+                break;
+            }
+        }
+    } else {
+        for ((d_id, d_insertion), (_, d_nucl)) in domains_iterator {
+            if d_nucl.prime3_end() == Some(insertion_point.nucl) {
+                if let Domain::Insertion { .. } = d_insertion {
+                    insertion_id = Some(d_id);
+                } else {
+                    insertion_id = None;
+                }
+                break;
+            }
+        }
+    }
+
+    if let Some(Domain::Insertion { nb_nucl, .. }) =
+        insertion_id.and_then(move |id| strand.domains.get_mut(id))
+    {
+        Some(nb_nucl)
+    } else {
+        None
     }
 }
