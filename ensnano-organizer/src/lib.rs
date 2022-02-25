@@ -1588,9 +1588,10 @@ impl<E: OrganizerElement> GroupContent<E> {
             Self::Placeholder => (false, fake_id),
             Self::Leaf { element, id, .. } => (!elements.contains(element), id),
             Self::Node { childrens, id, .. } => {
-                let _ret = childrens
-                    .iter()
-                    .all(|c| c.delete_useless_leaves(ids_to_remove, elements));
+                let mut _ret = true;
+                for c in childrens.iter() {
+                    _ret &= c.delete_useless_leaves(ids_to_remove, elements);
+                }
                 // Decomment this to also remove empty groups (ret, id)
                 (false, id)
             }
