@@ -205,6 +205,7 @@ pub const COLOR_THYMINE: u32 = 0x00_0000CC;
 pub const COLOR_GUANINE: u32 = 0x00_00CC00;
 pub const COLOR_CYTOSINE: u32 = 0x00_CC00CC;
 pub const UNKONW_BASE_COLOR: u32 = 0x00_77_88_99;
+pub const REGULAR_H_BOND_COLOR: u32 = 0x_29_26_26;
 
 pub const fn basis_color(basis: char) -> u32 {
     match basis {

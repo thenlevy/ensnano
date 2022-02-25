@@ -225,6 +225,7 @@ impl<R: DesignReader> Design3D<R> {
         let mut hbonds = Vec::new();
         let mut ellipsoids = Vec::new();
         for hbond in self.design.get_all_h_bonds() {
+            /*
             let forward_bond = create_dna_bound(
                 hbond.forward.backbone,
                 hbond.forward.center_of_mass,
@@ -232,13 +233,15 @@ impl<R: DesignReader> Design3D<R> {
                 0,
                 false,
             );
+            */
             let backward_bond = create_dna_bound(
                 hbond.backward.backbone,
-                hbond.backward.center_of_mass,
-                hbond.backward.backbone_color,
+                hbond.forward.backbone,
+                REGULAR_H_BOND_COLOR,
                 0,
                 false,
             );
+            /*
             let forward_ellipsoid = Ellipsoid {
                 orientation: forward_bond.rotor,
                 scale: BASIS_SCALE,
@@ -265,6 +268,8 @@ impl<R: DesignReader> Design3D<R> {
             hbonds.push(backward_bond.to_raw_instance());
             ellipsoids.push(backward_ellipsoid.to_raw_instance());
             ellipsoids.push(forward_ellipsoid.to_raw_instance());
+            */
+            hbonds.push(backward_bond.to_raw_instance());
         }
         (hbonds, ellipsoids)
     }
