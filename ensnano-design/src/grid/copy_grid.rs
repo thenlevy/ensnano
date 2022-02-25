@@ -73,6 +73,7 @@ impl Design {
             }
             let mut new_helix = Helix::new(Vec3::zero(), Rotor3::identity());
             new_helix.grid_position = grid_position;
+            new_helix.symmetry = old_helix.symmetry;
             let mut helices_mut = self.helices.make_mut();
             helices_mut.insert(*new_h_id, new_helix);
         }

@@ -91,8 +91,6 @@ pub enum Notification {
     FitRequest,
     /// The designs have been deleted
     ClearDesigns,
-    /// A save request has been filled
-    Save(usize),
     /// The 3d camera must face a given target
     CameraTarget((Vec3, Vec3)),
     TeleportCamera(Camera3D),

@@ -29,7 +29,7 @@ use super::{
 };
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use ultraviolet::{DVec3, Isometry2, Mat4, Rotor3, Vec3};
+use ultraviolet::{DVec3, Isometry2, Mat4, Rotor3, Vec2, Vec3};
 
 /// A structure maping helices identifier to `Helix` objects
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
@@ -197,6 +197,10 @@ pub struct Helix {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub isometry2d: Option<Isometry2>,
 
+    #[serde(default = "Vec2::one")]
+    /// Symmetry applied inside the representation of the helix in 2d
+    pub symmetry: Vec2,
+
     /// Roll of the helix. A roll equal to 0 means that the nucleotide 0 of the forward strand is
     /// at point (0., 1., 0.) in the helix's coordinate.
     #[serde(default)]
@@ -253,6 +257,7 @@ impl Helix {
             orientation,
             grid_position: None,
             isometry2d: None,
+            symmetry: Vec2::one(),
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
@@ -332,6 +337,7 @@ impl Helix {
             visible: true,
             roll: 0f32,
             isometry2d: Some(isometry2d),
+            symmetry: Vec2::one(),
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,
@@ -374,6 +380,7 @@ impl Helix {
             position: origin,
             orientation,
             isometry2d: None,
+            symmetry: Vec2::one(),
             grid_position: None,
             visible: true,
             roll: 0f32,
@@ -393,6 +400,7 @@ impl Helix {
             position,
             orientation: grid.orientation,
             isometry2d: None,
+            symmetry: Vec2::one(),
             grid_position: Some(HelixGridPosition {
                 grid: g_id,
                 x,
@@ -418,6 +426,7 @@ impl Helix {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
             isometry2d: None,
+            symmetry: Vec2::one(),
             grid_position: None,
             visible: true,
             roll: 0f32,
@@ -511,6 +520,7 @@ impl Helix {
             position,
             orientation: Rotor3::identity(),
             isometry2d: None,
+            symmetry: Vec2::one(),
             grid_position: Some(grid_pos_start),
             visible: true,
             roll: 0f32,
@@ -605,6 +615,7 @@ impl Helix {
             roll: 0.,
             visible: true,
             isometry2d: None,
+            symmetry: Vec2::one(),
             locked_for_simulations: false,
             curve: None,
             instanciated_curve: None,

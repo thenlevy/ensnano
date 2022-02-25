@@ -184,6 +184,11 @@ pub enum DesignOperation {
         center: Vec2,
         angle: f32,
     },
+    ApplySymmetryToHelices {
+        helices: Vec<usize>,
+        centers: Vec<Vec2>,
+        symmetry: Vec2,
+    },
     SetIsometry {
         helix: usize,
         isometry: Isometry2,
