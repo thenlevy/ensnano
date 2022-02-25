@@ -24,6 +24,7 @@ pub mod bindgroup_manager;
 pub mod camera2d;
 pub mod chars2d;
 pub mod circles2d;
+pub mod full_isometry;
 pub mod id_generator;
 pub mod instance;
 pub mod light;

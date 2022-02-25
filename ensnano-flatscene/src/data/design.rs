@@ -23,6 +23,7 @@ use super::{Flat, HelixVec, Nucl, Strand};
 use ahash::RandomState;
 use ensnano_design::{ultraviolet, Extremity, Helix as DesignHelix, Strand as StrandDesign};
 use ensnano_interactor::{torsion::Torsion, Referential};
+use ensnano_utils::full_isometry::FullIsometry;
 use ultraviolet::{Isometry2, Rotor2, Vec2, Vec3};
 
 pub(super) struct Design2d<R: DesignReader> {
@@ -195,6 +196,13 @@ impl<R: DesignReader> Design2d<R> {
                 self.requests.lock().unwrap().set_isometry(helix, iso);
                 iso
             };
+            let isometry = FullIsometry::from_isommetry_symmetry(
+                isometry,
+                self.design
+                    .get_raw_helix(helix)
+                    .map(|h| h.symmetry)
+                    .unwrap_or(Vec2::one()),
+            );
             self.helices.push(Helix2d {
                 id: helix,
                 left: nucl.position - 1,
@@ -225,19 +233,24 @@ impl<R: DesignReader> Design2d<R> {
                     self.requests.lock().unwrap().set_isometry(*h_id, iso);
                     iso
                 };
+                let symmetry = self
+                    .design
+                    .get_raw_helix(*h_id)
+                    .map(|h| h.symmetry)
+                    .unwrap_or(Vec2::one());
                 if !self.id_map.contains_key(h_id) {
                     self.id_map.insert(*h_id, FlatIdx(self.helices.len()));
                     self.helices.push(Helix2d {
                         id: *h_id,
                         left: -1,
                         right: 1,
-                        isometry,
+                        isometry: FullIsometry::from_isommetry_symmetry(isometry, symmetry),
                         visible: self.design.get_visibility_helix(*h_id).unwrap_or(false),
                     });
                 } else {
                     let flat = self.id_map.get(h_id).unwrap();
                     let helix2d = &mut self.helices[*flat];
-                    helix2d.isometry = isometry;
+                    helix2d.isometry = FullIsometry::from_isommetry_symmetry(isometry, symmetry);
                 }
             }
         }
@@ -253,13 +266,6 @@ impl<R: DesignReader> Design2d<R> {
 
     pub fn get_pasted_strand(&self) -> &[Strand] {
         &self.pasted_strands
-    }
-
-    pub fn set_isometry(&self, helix: FlatHelix, isometry: Isometry2) {
-        self.requests
-            .lock()
-            .unwrap()
-            .set_isometry(helix.real, isometry);
     }
 
     pub fn flip_visibility(&mut self, flat_helix: FlatHelix, apply_to_other: bool) {
@@ -400,7 +406,7 @@ pub struct Helix2d {
     pub left: isize,
     /// The largest position of a nucleotide of the the helix
     pub right: isize,
-    pub isometry: Isometry2,
+    pub isometry: FullIsometry,
     pub visible: bool,
 }
 
