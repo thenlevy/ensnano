@@ -609,6 +609,23 @@ impl<E: OrganizerElement> Organizer<E> {
         }
     }
 
+    fn delete_useless_leaves(&mut self, elements: BTreeSet<E::Key>) -> bool {
+        let mut ids_to_remove: Vec<NodeId> = Vec::new();
+        for g in self.groups.iter_mut() {
+            g.delete_useless_leaves(&mut ids_to_remove, &elements);
+        }
+        ids_to_remove.sort_unstable();
+        if ids_to_remove.len() > 0 {
+            for id in ids_to_remove.iter().rev() {
+                self.pop_id_no_recompute(id);
+            }
+            self.recompute_id();
+            true
+        } else {
+            false
+        }
+    }
+
     fn replace_id(&mut self, content: GroupContent<E>, id: &NodeId) {
         if let Some(id) = get_group_id(id) {
             if id.len() < 2 {
@@ -711,7 +728,8 @@ impl<E: OrganizerElement> Organizer<E> {
         self.must_update_tree = true;
     }
 
-    pub fn update_elements(&mut self, elements: &[E]) {
+    /// Update the elements in the tree and return true if the tree graph was modified
+    pub fn update_elements(&mut self, elements: &[E]) -> bool {
         for s in self.sections.iter_mut() {
             s.elements.clear();
             s.content.clear();
@@ -721,7 +739,9 @@ impl<E: OrganizerElement> Organizer<E> {
             let section_id: usize = key.section().into();
             self.sections[section_id].add_element(e.clone());
         }
+        let ret = self.delete_useless_leaves(elements.iter().map(|e| e.key()).collect());
         self.update_attributes();
+        ret
     }
 
     fn update_attributes(&mut self) {
@@ -1549,6 +1569,36 @@ impl<E: OrganizerElement> GroupContent<E> {
             Self::Leaf { .. } => None,
             Self::Placeholder => None,
         }
+    }
+
+    /// Auxiliary function for deletion of useless leaves.
+    ///
+    /// If self is a Leaf return true iff it owns an element that is *not* in elements.keys(), and
+    /// in this case adds its own node identifier to `ids_to_remove`
+    ///
+    /// If self is a group, apply recursievely this process to all its children and then return
+    /// true iff all the children need to be removed.
+    fn delete_useless_leaves(
+        &self,
+        ids_to_remove: &mut Vec<NodeId>,
+        elements: &BTreeSet<E::Key>,
+    ) -> bool {
+        let fake_id = &vec![];
+        let (ret, id) = match self {
+            Self::Placeholder => (false, fake_id),
+            Self::Leaf { element, id, .. } => (!elements.contains(element), id),
+            Self::Node { childrens, id, .. } => {
+                let _ret = childrens
+                    .iter()
+                    .all(|c| c.delete_useless_leaves(ids_to_remove, elements));
+                // Decomment this to also remove empty groups (ret, id)
+                (false, id)
+            }
+        };
+        if ret {
+            ids_to_remove.push(id.clone());
+        }
+        ret
     }
 }
 
