@@ -45,7 +45,7 @@ pub struct Design3D<R: DesignReader> {
 impl<R: DesignReader> Design3D<R> {
     pub fn new(design: R, id: u32) -> Self {
         let mut symbol_map = HashMap::new();
-        for (s_id, s) in BASIS_SYMBOLS.iter().enumerate() {
+        for (s_id, s) in PRINTABLE_CHARS.iter().enumerate() {
             symbol_map.insert(*s, s_id);
         }
         Self {
@@ -126,7 +126,7 @@ impl<R: DesignReader> Design3D<R> {
 
     pub fn get_letter_instances(&self) -> Vec<Vec<LetterInstance>> {
         let ids = self.design.get_all_nucl_ids();
-        let mut vecs = vec![Vec::new(); NB_BASIS_SYMBOLS];
+        let mut vecs = vec![Vec::new(); NB_PRINTABLE_CHARS];
         for id in ids {
             let pos = self.design.get_symbol_position(id);
             let symbol = self.design.get_symbol(id);
