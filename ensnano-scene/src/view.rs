@@ -153,7 +153,7 @@ impl View {
             label: None,
         };
         log::info!("Create letter drawer");
-        let letter_drawer = BASIS_SYMBOLS
+        let letter_drawer = ensnano_interactor::consts::PRINTABLE_CHARS
             .iter()
             .map(|c| {
                 let letter = Letter::new(*c, device.clone(), queue.clone());

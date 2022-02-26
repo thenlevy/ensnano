@@ -198,19 +198,15 @@ impl View {
             CircleKind::RotationWidget,
         );
         let rectangle = Rectangle::new(&device, queue.clone());
-        let chars = [
-            'A', 'T', 'G', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', 'n', 't',
-            'm', '.', '/', ' ', '(', ')', '?',
-        ];
 
         let text_drawer_top = TextDrawer::new(
-            &chars,
+            ensnano_interactor::consts::PRINTABLE_CHARS,
             device.clone(),
             queue.clone(),
             globals_top.get_layout(),
         );
         let text_drawer_bottom = TextDrawer::new(
-            &chars,
+            ensnano_interactor::consts::PRINTABLE_CHARS,
             device.clone(),
             queue.clone(),
             globals_bottom.get_layout(),
