@@ -451,7 +451,7 @@ impl<R: DesignReader> Data<R> {
                         let instances = self.designs[*d_id as usize].make_instance(
                             *id,
                             CANDIDATE_COLOR,
-                            SELECT_SCALE_FACTOR,
+                            CANDIDATE_SCALE_FACTOR,
                             Some(design3d::ExpandWith::Spheres)
                                 .filter(|_| !app_state.show_insertion_representents()),
                         );
@@ -465,7 +465,7 @@ impl<R: DesignReader> Data<R> {
                                 d.make_instance_phantom(
                                     phantom_element,
                                     CANDIDATE_COLOR,
-                                    SELECT_SCALE_FACTOR,
+                                    CANDIDATE_SCALE_FACTOR,
                                 )
                             })
                         {
@@ -496,7 +496,7 @@ impl<R: DesignReader> Data<R> {
                         let instances = self.designs[*d_id as usize].make_instance(
                             *id,
                             CANDIDATE_COLOR,
-                            SELECT_SCALE_FACTOR,
+                            CANDIDATE_SCALE_FACTOR,
                             Some(design3d::ExpandWith::Tubes)
                                 .filter(|_| !app_state.show_insertion_representents()),
                         );
@@ -510,7 +510,7 @@ impl<R: DesignReader> Data<R> {
                                 d.make_instance_phantom(
                                     phantom_element,
                                     CANDIDATE_COLOR,
-                                    SELECT_SCALE_FACTOR,
+                                    CANDIDATE_SCALE_FACTOR,
                                 )
                             })
                         {

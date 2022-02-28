@@ -35,7 +35,8 @@ pub const NB_SECTOR_SPHERE: u16 = 12;
 
 pub const NB_SECTOR_CIRCLE: u16 = 36;
 
-pub const SELECT_SCALE_FACTOR: f32 = 1.3;
+pub const CANDIDATE_SCALE_FACTOR: f32 = 1.3;
+pub const SELECT_SCALE_FACTOR: f32 = 1. + 2. * (CANDIDATE_SCALE_FACTOR - 1.);
 
 pub const RIGHT_HANDLE_ID: u32 = 0;
 pub const UP_HANDLE_ID: u32 = 1;
