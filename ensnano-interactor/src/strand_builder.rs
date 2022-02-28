@@ -219,7 +219,12 @@ impl StrandBuilder {
         self.moving_end.position += 1;
         let desc = design
             .get_neighbour_nucl(self.moving_end.right())
-            .filter(|neighbour| !ignored_domains.contains(&neighbour.identifier));
+            .filter(|neighbour| {
+                !ignored_domains
+                    .iter()
+                    .any(|d| d.is_same_domain_than(&neighbour.identifier))
+            })
+            .filter(|neighbour| neighbour.identifier.start != self.identifier.start);
         if let Some(ref desc) = desc {
             if self.attach_neighbour(desc) {
                 self.max_pos = self.max_pos.or(Some(desc.fixed_end - 1));
@@ -242,7 +247,12 @@ impl StrandBuilder {
         self.moving_end.position -= 1;
         let desc = design
             .get_neighbour_nucl(self.moving_end.left())
-            .filter(|neighbour| !ignored_domains.contains(&neighbour.identifier));
+            .filter(|neighbour| {
+                !ignored_domains
+                    .iter()
+                    .any(|d| d.is_same_domain_than(&neighbour.identifier))
+            })
+            .filter(|neighbour| neighbour.identifier.start != self.identifier.start);
         if let Some(ref desc) = desc {
             if self.attach_neighbour(desc) {
                 self.min_pos = self.min_pos.or(Some(desc.fixed_end + 1));
