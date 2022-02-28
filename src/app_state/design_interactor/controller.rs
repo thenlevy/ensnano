@@ -893,6 +893,19 @@ impl Controller {
         }
     }
 
+    pub(super) fn get_new_selection(&self) -> Option<Vec<Selection>> {
+        if let ControllerState::BuildingStrand { builders, .. } = &self.state {
+            Some(
+                builders
+                    .iter()
+                    .map(|b| Selection::Nucleotide(0, b.moving_end))
+                    .collect(),
+            )
+        } else {
+            None
+        }
+    }
+
     pub(super) fn is_in_persistant_state(&self) -> StatePersitance {
         match self.state {
             ControllerState::Normal => StatePersitance::Persistant,

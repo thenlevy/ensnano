@@ -124,7 +124,7 @@ use ensnano_interactor::consts;
 mod multiplexer;
 use ensnano_flatscene as flatscene;
 use ensnano_interactor::{
-    graphics::{DrawArea, ElementType, SplitMode},
+    graphics::{ElementType, SplitMode},
     operation::Operation,
     ActionMode, Selection, SelectionMode,
 };
@@ -1172,6 +1172,9 @@ impl MainState {
             Ok(Some(old_state)) => self.save_old_state(old_state),
             Ok(None) => (),
             Err(e) => log::warn!("{:?}", e),
+        }
+        if let Some(new_selection) = self.app_state.get_new_selection() {
+            self.modify_state(|s| s.with_selection(new_selection, None), false)
         }
     }
 
