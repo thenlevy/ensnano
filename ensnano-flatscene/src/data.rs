@@ -172,10 +172,12 @@ impl<R: DesignReader> Data<R> {
         let mut candidate_highlight = Vec::new();
         for s in self.design.get_strands().iter() {
             if selected_strands.contains(&s.id) {
-                selection_highlight.push(s.highlighted(SELECTED_COLOR));
+                selection_highlight
+                    .push(s.highlighted(SELECTED_COLOR, SELECTED_STRAND_HIGHLIGHT_FACTOR_2D));
             }
             if candidate_strands.contains(&s.id) {
-                candidate_highlight.push(s.highlighted(CANDIDATE_COLOR));
+                candidate_highlight
+                    .push(s.highlighted(CANDIDATE_COLOR, CANDIDATE_STRAND_HIGHLIGHT_FACTOR_2D));
             }
         }
         for xover in selected_xovers.iter() {

@@ -22,6 +22,7 @@ use super::super::{FlatHelix, FlatIdx, FlatNucl, Requests};
 use super::{Flat, HelixVec, Nucl, Strand};
 use ahash::RandomState;
 use ensnano_design::{ultraviolet, Extremity, Helix as DesignHelix, Strand as StrandDesign};
+use ensnano_interactor::consts::CANDIDATE_STRAND_HIGHLIGHT_FACTOR_2D;
 use ensnano_interactor::{torsion::Torsion, Referential};
 use ensnano_utils::full_isometry::FullIsometry;
 use ultraviolet::{Isometry2, Rotor2, Vec2, Vec3};
@@ -96,7 +97,7 @@ impl<R: DesignReader> Design2d<R> {
                 flat_strand,
                 insertions,
                 *strand_id,
-                false,
+                None,
             ));
         }
         let nucls_opt = self.design.get_copy_points();
@@ -112,7 +113,13 @@ impl<R: DesignReader> Design2d<R> {
                     .iter()
                     .filter_map(|n| FlatNucl::from_real(n, self.id_map()))
                     .collect();
-                Strand::new(color, flat_strand, vec![], 0, true)
+                Strand::new(
+                    color,
+                    flat_strand,
+                    vec![],
+                    0,
+                    Some(CANDIDATE_STRAND_HIGHLIGHT_FACTOR_2D),
+                )
             })
             .collect();
 
@@ -369,7 +376,7 @@ impl<R: DesignReader> Design2d<R> {
             .iter()
             .filter_map(|n| FlatNucl::from_real(n, self.id_map()))
             .collect();
-        Strand::new(0, flat_nucls, vec![], 0, false).highlighted(color)
+        Strand::new(0, flat_nucls, vec![], 0, None).highlighted(color, 1.)
     }
 
     pub fn get_nucl_id(&self, nucl: Nucl) -> Option<u32> {
