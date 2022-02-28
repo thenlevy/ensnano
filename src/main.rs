@@ -1265,9 +1265,11 @@ impl MainState {
             ret.set_extension(crate::consts::ENS_BACKUP_EXTENSION);
             ret
         };
-        self.app_state
-            .get_design_reader()
-            .save_design(&path, save_info)?;
+        if self.app_state.is_in_stable_state() {
+            self.app_state
+                .get_design_reader()
+                .save_design(&path, save_info)?;
+        }
 
         println!("Saved backup to {}", path.to_string_lossy());
         Ok(())
