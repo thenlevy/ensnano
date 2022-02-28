@@ -155,3 +155,5 @@ pub const CANDIDATE_STRAND_HIGHLIGHT_FACTOR_2D: f32 = 1.7;
 /// The factor by which the width of selected hilighted strands is multiplied
 pub const SELECTED_STRAND_HIGHLIGHT_FACTOR_2D: f32 =
     1. + 2. * (CANDIDATE_STRAND_HIGHLIGHT_FACTOR_2D - 1.);
+
+pub const SELECTION_2D_CYCLE_TIME_LIMIT_MS: u64 = 2_000;
