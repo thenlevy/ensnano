@@ -1083,7 +1083,7 @@ impl View {
             let candidate_color = ensnano_interactor::consts::CANDIDATE_COLOR;
             if let Some(h1) = self.helices.get(n.helix.flat.0) {
                 let mut c = h1.get_circle_nucl(n.position, n.forward, candidate_color);
-                c.set_radius(std::f32::consts::FRAC_1_SQRT_2);
+                c.set_radius(1. / 2.);
                 circles.push(c)
             } else {
                 log::error!("Could not get flat helix {}", n.helix.flat.0);

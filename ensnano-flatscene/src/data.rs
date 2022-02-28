@@ -172,10 +172,12 @@ impl<R: DesignReader> Data<R> {
         let mut candidate_highlight = Vec::new();
         for s in self.design.get_strands().iter() {
             if selected_strands.contains(&s.id) {
-                selection_highlight.push(s.highlighted(SELECTED_COLOR));
+                selection_highlight
+                    .push(s.highlighted(SELECTED_COLOR, SELECTED_STRAND_HIGHLIGHT_FACTOR_2D));
             }
             if candidate_strands.contains(&s.id) {
-                candidate_highlight.push(s.highlighted(CANDIDATE_COLOR));
+                candidate_highlight
+                    .push(s.highlighted(CANDIDATE_COLOR, CANDIDATE_STRAND_HIGHLIGHT_FACTOR_2D));
             }
         }
         for xover in selected_xovers.iter() {
@@ -887,6 +889,7 @@ impl<R: DesignReader> Data<R> {
                     if let Some(s_id) = self.get_strand_id(nucl) {
                         selection_pool.push(Selection::Strand(self.id, s_id as u32));
                     }
+                    selection_pool.push(Selection::Nothing);
                     log::info!("selection pool {:?}", selection_pool);
                     let selection = self.last_click.select(&mut selection_pool);
                     log::info!(
@@ -1151,20 +1154,35 @@ impl ToFlatInfo for super::StrandBuildingStatus {
     }
 }
 
-#[derive(Default)]
 struct LastClick {
     counter: usize,
+    last_click_time: std::time::Instant,
     nucl: Option<FlatNucl>,
+}
+
+impl Default for LastClick {
+    fn default() -> Self {
+        Self {
+            counter: 0,
+            last_click_time: std::time::Instant::now(),
+            nucl: None,
+        }
+    }
 }
 
 impl LastClick {
     pub fn click_on(&mut self, nucl: FlatNucl) {
-        if self.nucl == Some(nucl) {
+        let now = std::time::Instant::now();
+        if self.nucl == Some(nucl)
+            && (now - self.last_click_time)
+                < std::time::Duration::from_millis(SELECTION_2D_CYCLE_TIME_LIMIT_MS)
+        {
             self.counter += 1;
         } else {
             self.counter = 0;
             self.nucl = Some(nucl);
         }
+        self.last_click_time = now;
     }
 
     pub fn select(&self, pool: &mut Vec<Selection>) -> Selection {

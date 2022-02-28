@@ -27,9 +27,6 @@ use lyon::tessellation::{StrokeVertex, StrokeVertexConstructor};
 
 type Vertices = lyon::tessellation::VertexBuffers<StrandVertex, u16>;
 
-/// The factor by which the width of hilighted strands is multiplied
-const HIGHLIGHT_FACTOR: f32 = 1.7;
-
 macro_rules! point {
     ($point: ident) => {
         Point::new($point.x, $point.y)
@@ -41,7 +38,7 @@ pub struct Strand {
     pub points: Vec<FlatNucl>,
     pub insertions: Vec<FlatNucl>,
     pub id: usize,
-    pub highlight: bool,
+    pub highlight: Option<f32>,
 }
 
 impl Strand {
@@ -50,7 +47,7 @@ impl Strand {
         points: Vec<FlatNucl>,
         insertions: Vec<FlatNucl>,
         id: usize,
-        highlight: bool,
+        highlight: Option<f32>,
     ) -> Self {
         Self {
             color,
@@ -62,7 +59,7 @@ impl Strand {
     }
 
     fn get_path_color(&self) -> [f32; 4] {
-        let color = if self.highlight {
+        let color = if self.highlight.is_some() {
             ensnano_utils::instance::Instance::color_from_au32(self.color)
         } else {
             ensnano_utils::instance::Instance::color_from_u32(self.color)
@@ -172,7 +169,7 @@ impl Strand {
                     &mut vertices,
                     WithAttributes {
                         color,
-                        highlight: false,
+                        highlight: None,
                     },
                 ),
             )
@@ -180,10 +177,10 @@ impl Strand {
         vertices
     }
 
-    pub fn highlighted(&self, color: u32) -> Self {
+    pub fn highlighted(&self, color: u32, highlight_thickness: f32) -> Self {
         Self {
             color,
-            highlight: true,
+            highlight: Some(highlight_thickness),
             points: self.points.clone(),
             insertions: self.insertions.clone(),
             ..*self.clone()
@@ -203,7 +200,7 @@ pub struct StrandVertex {
 
 pub struct WithAttributes {
     color: [f32; 4],
-    highlight: bool,
+    highlight: Option<f32>,
 }
 
 const THINNING_POWER: f32 = 1.3;
@@ -217,8 +214,8 @@ impl StrokeVertexConstructor<StrandVertex> for WithAttributes {
             .abs()
             .powf(THINNING_POWER)
             .max(MINIMUM_THICKNESS);
-        if self.highlight {
-            width *= HIGHLIGHT_FACTOR;
+        if let Some(thickness) = self.highlight {
+            width *= thickness;
         }
         let color = self.color;
 
@@ -227,8 +224,8 @@ impl StrokeVertexConstructor<StrandVertex> for WithAttributes {
         } else {
             vertex.interpolated_attributes()[0]
         };
-        if self.highlight {
-            depth *= 0.99;
+        if let Some(thickness) = self.highlight {
+            depth *= 0.99 + (thickness / 1000.)
         }
 
         StrandVertex {

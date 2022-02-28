@@ -35,7 +35,8 @@ pub const NB_SECTOR_SPHERE: u16 = 12;
 
 pub const NB_SECTOR_CIRCLE: u16 = 36;
 
-pub const SELECT_SCALE_FACTOR: f32 = 1.3;
+pub const CANDIDATE_SCALE_FACTOR: f32 = 1.3;
+pub const SELECT_SCALE_FACTOR: f32 = 1. + 2. * (CANDIDATE_SCALE_FACTOR - 1.);
 
 pub const RIGHT_HANDLE_ID: u32 = 0;
 pub const UP_HANDLE_ID: u32 = 1;
@@ -239,3 +240,11 @@ pub const PRINTABLE_CHARS: &'static [char] = &[
     't', 'm', '.', '/', ' ', '(', ')', '?',
 ];
 pub const NB_PRINTABLE_CHARS: usize = PRINTABLE_CHARS.len();
+
+/// The factor by which the width of candidate hilighted strands is multiplied
+pub const CANDIDATE_STRAND_HIGHLIGHT_FACTOR_2D: f32 = 1.7;
+/// The factor by which the width of selected hilighted strands is multiplied
+pub const SELECTED_STRAND_HIGHLIGHT_FACTOR_2D: f32 =
+    1. + 2. * (CANDIDATE_STRAND_HIGHLIGHT_FACTOR_2D - 1.);
+
+pub const SELECTION_2D_CYCLE_TIME_LIMIT_MS: u64 = 2_000;
