@@ -1264,7 +1264,7 @@ impl MainState {
             Err(e) => log::warn!("{:?}", e),
         }
         if let Some(new_selection) = self.app_state.get_new_selection() {
-            self.modify_state(|s| s.with_selection(new_selection, None), false)
+            self.modify_state(|s| s.with_selection(new_selection, None), None)
         }
     }
 
