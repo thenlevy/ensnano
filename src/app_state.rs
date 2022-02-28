@@ -459,6 +459,12 @@ impl AppState {
     pub fn is_building_hyperboloid(&self) -> bool {
         self.0.design.is_building_hyperboloid()
     }
+
+    pub fn with_expand_insertion_set(self, expand: bool) -> Self {
+        let mut ret = (*self.0).clone();
+        ret.show_insertion_representents = !expand;
+        Self(AddressPointer::new(ret))
+    }
 }
 
 #[derive(Clone, Default)]
@@ -477,6 +483,7 @@ struct AppState_ {
     strand_on_new_helix: Option<NewHelixStrand>,
     center_of_selection: Option<CenterOfSelection>,
     suggestion_parameters: SuggestionParameters,
+    show_insertion_representents: bool,
 }
 
 #[derive(Clone, Default)]

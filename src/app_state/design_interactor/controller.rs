@@ -58,6 +58,8 @@ pub use simulations::{
     SimulationInterface, SimulationOperation, SimulationReader,
 };
 
+mod update_insertion_length;
+
 #[derive(Clone, Default)]
 pub(super) struct Controller {
     color_idx: usize,
@@ -268,6 +270,13 @@ impl Controller {
                 },
                 design,
             )),
+            DesignOperation::SetInsertionLength {
+                insertion_point,
+                length,
+            } => self.apply(
+                |c, d| c.update_insertion_length(d, insertion_point, length),
+                design,
+            ),
         }
     }
 
@@ -1353,6 +1362,7 @@ pub enum ErrOperation {
     FinishFirst,
     CameraDoesNotExist(CameraId),
     GridCopyError(ensnano_design::grid::GridCopyError),
+    CouldNotGetPrime3of(usize),
 }
 
 impl Controller {
@@ -2099,30 +2109,44 @@ impl Controller {
             .ok_or(ErrOperation::StrandDoesNotExist(strand_id))?;
         if cyclic {
             let first_last_domains = (strand.domains.iter().next(), strand.domains.iter().last());
-            let merge_insertions =
-                if let (Some(Domain::Insertion(n1)), Some(Domain::Insertion(n2))) =
-                    first_last_domains
-                {
-                    Some(n1 + n2)
-                } else {
-                    None
-                };
+            let (merge_insertions, replace) = if let (
+                Some(Domain::Insertion { nb_nucl: n1, .. }),
+                Some(Domain::Insertion { nb_nucl: n2, .. }),
+            ) = first_last_domains
+            {
+                (Some(n1 + n2), true)
+            } else if let Some(Domain::Insertion { nb_nucl: n1, .. }) = strand.domains.iter().next()
+            {
+                if cfg!(test) {
+                    println!("First domain is insertion");
+                }
+                (Some(*n1), false)
+            } else {
+                (None, false)
+            };
             if let Some(n) = merge_insertions {
                 // If the strand starts and finishes by an Insertion, merge the insertions.
                 // TODO UNITTEST for this specific case
-                *strand.domains.last_mut().unwrap() = Domain::Insertion(n);
+                if replace {
+                    *strand.domains.last_mut().unwrap() = Domain::new_insertion(n);
+                } else {
+                    strand.domains.push(Domain::new_insertion(n));
+                    strand
+                        .junctions
+                        .insert(strand.junctions.len() - 1, DomainJunction::Adjacent);
+                }
                 // remove the first insertions
                 strand.domains.remove(0);
                 strand.junctions.remove(0);
             }
 
             let first_last_domains = (strand.domains.iter().next(), strand.domains.iter().last());
-            let skip_last = if let (_, Some(Domain::Insertion(_))) = first_last_domains {
+            let skip_last = if let (_, Some(Domain::Insertion { .. })) = first_last_domains {
                 1
             } else {
                 0
             };
-            let skip_first = if let (Some(Domain::Insertion(_)), _) = first_last_domains {
+            let skip_first = if let (Some(Domain::Insertion { .. }), _) = first_last_domains {
                 1
             } else {
                 0
@@ -2142,6 +2166,7 @@ impl Controller {
         } else {
             *strand.junctions.last_mut().unwrap() = DomainJunction::Prime3;
         }
+        strand.merge_consecutive_domains();
         Ok(())
     }
 

@@ -51,7 +51,7 @@ use ensnano_design::{
 use ensnano_interactor::graphics::FogParameters;
 use ensnano_interactor::{
     graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
-    Selection, SimulationState, SuggestionParameters, WidgetBasis,
+    InsertionPoint, Selection, SimulationState, SuggestionParameters, WidgetBasis,
 };
 use ensnano_interactor::{operation::Operation, ScaffoldInfo};
 use ensnano_interactor::{ActionMode, HyperboloidRequest, RollRequest, SelectionMode};
@@ -190,6 +190,8 @@ pub trait Requests: 'static + Send {
     fn flip_split_views(&mut self);
     fn align_horizon(&mut self);
     fn set_dna_parameters(&mut self, param: Parameters);
+    fn set_expand_insertions(&mut self, expand: bool);
+    fn set_insertion_length(&mut self, insertion_point: InsertionPoint, length: usize);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -926,6 +928,7 @@ pub trait AppState:
     fn get_strand_building_state(&self) -> Option<StrandBuildingStatus>;
     fn get_selected_group(&self) -> Option<GroupId>;
     fn get_suggestion_parameters(&self) -> &SuggestionParameters;
+    fn expand_insertions(&self) -> bool;
 }
 
 pub trait DesignReader: 'static {
@@ -942,6 +945,8 @@ pub trait DesignReader: 'static {
     fn get_all_cameras(&self) -> Vec<(CameraId, &str)>;
     fn get_favourite_camera(&self) -> Option<CameraId>;
     fn get_grid_position_and_orientation(&self, g_id: usize) -> Option<(Vec3, Rotor3)>;
+    fn get_insertion_length(&self, selection: &Selection) -> Option<usize>;
+    fn get_insertion_point(&self, selection: &Selection) -> Option<InsertionPoint>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

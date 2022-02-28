@@ -177,6 +177,9 @@ pub enum Message<S> {
     ContextualValueChanged(ValueKind, usize, String),
     ContextualValueSubmitted(ValueKind),
     NewDnaParameters(NamedParameter),
+    SetExpandInsertions(bool),
+    InsertionLengthInput(String),
+    InsertionLengthSubmitted,
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -740,6 +743,28 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 .lock()
                 .unwrap()
                 .set_dna_parameters(parameters.value),
+            Message::SetExpandInsertions(b) => {
+                self.requests.lock().unwrap().set_expand_insertions(b)
+            }
+            Message::InsertionLengthInput(s) => {
+                self.contextual_panel.update_insertion_length_input(s);
+            }
+            Message::InsertionLengthSubmitted => {
+                if let Some(request) = self.contextual_panel.get_insertion_request() {
+                    if let Some(insertion_point) = self
+                        .application_state
+                        .get_reader()
+                        .get_insertion_point(&request.selection)
+                    {
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .set_insertion_length(insertion_point, request.length)
+                    } else {
+                        log::error!("No insertion point for {:?}", request.selection);
+                    }
+                }
+            }
         };
         Command::none()
     }
@@ -759,7 +784,8 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             )
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Videocam))),
-                self.camera_tab.view(self.ui_size.clone()),
+                self.camera_tab
+                    .view(self.ui_size.clone(), &self.application_state),
             )
             .push(
                 TabLabel::Icon(ICON_PHYSICAL_ENGINE),

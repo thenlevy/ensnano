@@ -27,6 +27,9 @@ impl Strand {
         for d in self.domains.iter() {
             writeln!(&mut ret, "{}", d).unwrap_or_default();
         }
+        if self.cyclic {
+            writeln!(&mut ret, "[cycle]").unwrap_or_default();
+        }
         ret
     }
 }
@@ -34,7 +37,7 @@ impl Strand {
 impl fmt::Display for Domain {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Insertion(n) => write!(f, "[@{}]", n),
+            Self::Insertion { nb_nucl, .. } => write!(f, "[@{}]", nb_nucl),
             Self::HelixDomain(dom) => write!(f, "{}", dom),
         }
     }

@@ -24,6 +24,7 @@ use super::{ultraviolet, LetterInstance, SceneElement};
 use ensnano_design::{grid::GridPosition, Nucl};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::{
+    graphics::{LoopoutBond, LoopoutNucl},
     phantom_helix_encoder_bound, phantom_helix_encoder_nucl, ObjectType, PhantomElement,
     Referential, PHANTOM_RANGE,
 };
@@ -84,9 +85,23 @@ impl<R: DesignReader> Design3D<R> {
     */
 
     /// Return the list of raw sphere instances to be displayed to represent the design
-    pub fn get_spheres_raw(&self) -> Rc<Vec<RawDnaInstance>> {
+    pub fn get_spheres_raw(&self, show_insertion_representents: bool) -> Rc<Vec<RawDnaInstance>> {
         let ids = self.design.get_all_visible_nucl_ids();
-        Rc::new(self.id_to_raw_instances(ids))
+        let mut ret = self.id_to_raw_instances(ids);
+        if !show_insertion_representents {
+            for loopout_nucl in self.design.get_all_loopout_nucl() {
+                ret.push(
+                    SphereInstance {
+                        position: loopout_nucl.position,
+                        color: Instance::color_from_u32(loopout_nucl.color),
+                        id: loopout_nucl.repr_bond_identifier,
+                        radius: 1.,
+                    }
+                    .to_raw_instance(),
+                );
+            }
+        }
+        Rc::new(ret)
     }
 
     pub fn get_pasted_strand(&self) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
@@ -120,7 +135,10 @@ impl<R: DesignReader> Design3D<R> {
         (spheres, tubes)
     }
 
-    pub fn get_letter_instances(&self) -> Vec<Vec<LetterInstance>> {
+    pub fn get_letter_instances(
+        &self,
+        show_insertion_representents: bool,
+    ) -> Vec<Vec<LetterInstance>> {
         let ids = self.design.get_all_nucl_ids();
         let mut vecs = vec![Vec::new(); NB_PRINTABLE_CHARS];
         for id in ids {
@@ -139,6 +157,23 @@ impl<R: DesignReader> Design3D<R> {
                 }
             }
         }
+        if !show_insertion_representents {
+            for loopout_nucl in self.design.get_all_loopout_nucl() {
+                if let Some(symbol) = loopout_nucl.basis {
+                    let pos = loopout_nucl.position;
+                    if let Some(id) = self.symbol_map.get(&symbol) {
+                        let instance = LetterInstance {
+                            position: pos,
+                            color: ultraviolet::Vec4::new(0., 0., 0., 1.),
+                            design_id: self.id,
+                            scale: 1.,
+                            shift: Vec3::zero(),
+                        };
+                        vecs[*id].push(instance);
+                    }
+                }
+            }
+        }
         vecs
     }
 
@@ -151,9 +186,27 @@ impl<R: DesignReader> Design3D<R> {
     */
 
     /// Return the list of tube instances to be displayed to represent the design
-    pub fn get_tubes_raw(&self) -> Rc<Vec<RawDnaInstance>> {
-        let ids = self.design.get_all_visible_bound_ids();
-        Rc::new(self.id_to_raw_instances(ids))
+    pub fn get_tubes_raw(&self, show_insertion_representents: bool) -> Rc<Vec<RawDnaInstance>> {
+        let mut ids = self.design.get_all_visible_bound_ids();
+        if !show_insertion_representents {
+            ids.retain(|id| self.design.get_insertion_length(*id) == 0);
+        }
+        let mut ret = self.id_to_raw_instances(ids);
+        if !show_insertion_representents {
+            for loopout_bond in self.design.get_all_loopout_bonds() {
+                ret.push(
+                    create_dna_bound(
+                        loopout_bond.position_prime5,
+                        loopout_bond.position_prime3,
+                        loopout_bond.color,
+                        loopout_bond.repr_bond_identifier,
+                        false,
+                    )
+                    .to_raw_instance(),
+                )
+            }
+        }
+        Rc::new(ret)
     }
 
     pub fn get_model_matrix(&self) -> Mat4 {
@@ -162,37 +215,96 @@ impl<R: DesignReader> Design3D<R> {
 
     /// Convert return an instance representing the object with identifier `id` and custom
     /// color and radius.
-    pub fn make_instance(&self, id: u32, color: u32, mut radius: f32) -> Option<RawDnaInstance> {
-        let kind = self.get_object_type(id)?;
+    pub(super) fn make_instance(
+        &self,
+        id: u32,
+        color: u32,
+        mut radius: f32,
+        expand_with: Option<ExpandWith>,
+    ) -> Vec<RawDnaInstance> {
+        let kind = self.get_object_type(id);
+
         let referential = Referential::Model;
-        let instanciable = match kind {
-            ObjectType::Bound(id1, id2) => {
-                let pos1 = self.get_design_element_position(id1, referential)?;
-                let pos2 = self.get_design_element_position(id2, referential)?;
-                let id = id | self.id << 24;
-                create_dna_bound(pos1, pos2, color, id, true)
-                    .with_radius(radius)
+        let mut ret = Vec::new();
+        if expand_with.is_none()
+            || self.design.get_insertion_length(id) == 0
+            || matches!(kind, Some(ObjectType::Nucleotide(_)))
+        {
+            let instanciable = match kind {
+                Some(ObjectType::Bound(id1, id2)) => {
+                    let pos1 = self
+                        .get_design_element_position(id1, referential)
+                        .unwrap_or(f32::NAN * Vec3::unit_x());
+                    let pos2 = self
+                        .get_design_element_position(id2, referential)
+                        .unwrap_or(f32::NAN * Vec3::unit_x());
+                    let id = id | self.id << 24;
+                    create_dna_bound(pos1, pos2, color, id, true)
+                        .with_radius(radius)
+                        .to_raw_instance()
+                }
+                Some(ObjectType::Nucleotide(id)) => {
+                    let position = self
+                        .get_design_element_position(id, referential)
+                        .unwrap_or(f32::NAN * Vec3::unit_x());
+                    let id = id | self.id << 24;
+                    let color = Instance::color_from_au32(color);
+                    let small = self.design.has_small_spheres_nucl_id(id);
+                    if radius > 1.01 && small {
+                        radius *= 2.5;
+                    }
+                    radius = if small { radius / 3.5 } else { radius };
+                    SphereInstance {
+                        position,
+                        radius,
+                        color,
+                        id,
+                    }
                     .to_raw_instance()
-            }
-            ObjectType::Nucleotide(id) => {
-                let position = self.get_design_element_position(id, referential)?;
-                let id = id | self.id << 24;
-                let color = Instance::color_from_au32(color);
-                let small = self.design.has_small_spheres_nucl_id(id);
-                if radius > 1.01 && small {
-                    radius *= 2.5;
                 }
-                radius = if small { radius / 3.5 } else { radius };
-                SphereInstance {
-                    position,
-                    radius,
-                    color,
-                    id,
-                }
-                .to_raw_instance()
+                _ => return vec![],
+            };
+            ret.push(instanciable);
+        }
+        if let Some(ExpandWith::Tubes) = expand_with {
+            for loopout_bond in self
+                .design
+                .get_all_loopout_bonds()
+                .iter()
+                .filter(|lb| lb.repr_bond_identifier == id)
+            {
+                ret.push(
+                    create_dna_bound(
+                        loopout_bond.position_prime5,
+                        loopout_bond.position_prime3,
+                        color,
+                        loopout_bond.repr_bond_identifier,
+                        true,
+                    )
+                    .with_radius(radius)
+                    .to_raw_instance(),
+                )
             }
-        };
-        Some(instanciable)
+        }
+        if let Some(ExpandWith::Spheres) = expand_with {
+            for loopout_nucl in self
+                .design
+                .get_all_loopout_nucl()
+                .iter()
+                .filter(|ln| ln.repr_bond_identifier == id)
+            {
+                ret.push(
+                    SphereInstance {
+                        position: loopout_nucl.position,
+                        color: Instance::color_from_au32(color),
+                        id: loopout_nucl.repr_bond_identifier,
+                        radius,
+                    }
+                    .to_raw_instance(),
+                );
+            }
+        }
+        ret
     }
 
     /// Convert return an instance representing the object with identifier `id`
@@ -849,6 +961,11 @@ fn create_prime3_cone(source: Vec3, dest: Vec3, color: u32) -> RawDnaInstance {
     .to_raw_instance()
 }
 
+pub(super) enum ExpandWith {
+    Spheres,
+    Tubes,
+}
+
 pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     /// Return the identifier of all the visible nucleotides
     fn get_all_visible_nucl_ids(&self) -> Vec<u32>;
@@ -904,4 +1021,7 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn get_all_prime3_nucl(&self) -> Vec<(Vec3, Vec3, u32)>;
+    fn get_all_loopout_nucl(&self) -> &[LoopoutNucl];
+    fn get_all_loopout_bonds(&self) -> &[LoopoutBond];
+    fn get_insertion_length(&self, bond_id: u32) -> usize;
 }

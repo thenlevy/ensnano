@@ -240,6 +240,10 @@ impl State for NormalState {
                     Box::new(ChangindDnaParameters(param)),
                     self,
                 )),
+                Action::SetExpandInsertions(b) => {
+                    main_state.set_expand_insertions(b);
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -442,4 +446,5 @@ pub enum Action {
     UpdateCamera(ensnano_design::CameraId),
     FlipSplitViews,
     SetDnaParameters(Parameters),
+    SetExpandInsertions(bool),
 }

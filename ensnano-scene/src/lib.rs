@@ -917,6 +917,11 @@ pub trait AppState: Clone {
     fn get_current_group_pivot(&self) -> Option<ensnano_design::group_attributes::GroupPivot>;
     fn get_current_group_id(&self) -> Option<ensnano_design::GroupId>;
     fn suggestion_parameters_were_updated(&self, other: &Self) -> bool;
+    fn show_insertion_representents(&self) -> bool;
+
+    fn insertion_bond_display_was_modified(&self, other: &Self) -> bool {
+        self.show_insertion_representents() != other.show_insertion_representents()
+    }
 }
 
 pub trait Requests {

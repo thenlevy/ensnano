@@ -19,7 +19,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 use crate::scene::GridInstance;
 use ensnano_design::{grid::GridPosition, Nucl};
-use ensnano_interactor::{ObjectType, Referential};
+use ensnano_interactor::{
+    graphics::{LoopoutBond, LoopoutNucl},
+    ObjectType, Referential,
+};
 use std::collections::HashSet;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
@@ -311,6 +314,25 @@ impl Reader3D for DesignReader {
         } else {
             false
         }
+    }
+
+    fn get_all_loopout_nucl(&self) -> &[LoopoutNucl] {
+        &self.presenter.content.loopout_nucls
+    }
+
+    fn get_all_loopout_bonds(&self) -> &[LoopoutBond] {
+        &self.presenter.content.loopout_bonds
+    }
+
+    fn get_insertion_length(&self, bond_id: u32) -> usize {
+        // If the bond is not is the keys of insertion_length it means that it does not represent
+        // an insertion
+        self.presenter
+            .content
+            .insertion_length
+            .get(&bond_id)
+            .cloned()
+            .unwrap_or(0)
     }
 }
 

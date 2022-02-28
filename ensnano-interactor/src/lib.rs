@@ -250,6 +250,16 @@ pub enum DesignOperation {
     SetDnaParameters {
         parameters: Parameters,
     },
+    SetInsertionLength {
+        length: usize,
+        insertion_point: InsertionPoint,
+    },
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct InsertionPoint {
+    pub nucl: Nucl,
+    pub nucl_is_prime5_of_insertion: bool,
 }
 
 /// An action performed on the application

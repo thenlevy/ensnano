@@ -114,6 +114,10 @@ impl GuiState for AppState {
     fn get_suggestion_parameters(&self) -> &SuggestionParameters {
         &self.0.suggestion_parameters
     }
+
+    fn expand_insertions(&self) -> bool {
+        !self.0.show_insertion_representents
+    }
 }
 
 #[cfg(test)]
