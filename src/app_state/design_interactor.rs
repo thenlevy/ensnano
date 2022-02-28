@@ -334,6 +334,10 @@ impl DesignInteractor {
             label: crate::consts::UPDATE_VISIBILITY_SIEVE_LABEL.into(),
         }
     }
+
+    pub(super) fn get_new_selection(&self) -> Option<Vec<Selection>> {
+        self.controller.get_new_selection()
+    }
 }
 
 /// An opperation has been successfully applied to the design, resulting in a new modifed

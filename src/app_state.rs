@@ -551,6 +551,10 @@ impl AppState {
         ret.show_insertion_representents = !expand;
         Self(AddressPointer::new(ret))
     }
+
+    pub(super) fn get_new_selection(&self) -> Option<Vec<Selection>> {
+        self.0.design.get_new_selection()
+    }
 }
 
 #[derive(Derivative)]
