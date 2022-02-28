@@ -268,10 +268,7 @@ pub fn sanitize_domains(domains: &[Domain], cyclic: bool) -> Vec<Domain> {
         match d {
             Domain::HelixDomain(_) => {
                 if let Some(n) = current_insertion.take() {
-                    ret.push(Domain::Insertion {
-                        nb_nucl: n,
-                        instanciation: None,
-                    });
+                    ret.push(Domain::new_insertion(n));
                 }
                 ret.push(d.clone());
             }
@@ -291,23 +288,14 @@ pub fn sanitize_domains(domains: &[Domain], cyclic: bool) -> Vec<Domain> {
                 ret.remove(0);
                 n += nb_nucl;
             }
-            ret.push(Domain::Insertion {
-                nb_nucl: n,
-                instanciation: None,
-            });
+            ret.push(Domain::new_insertion(n));
         } else {
-            ret.push(Domain::Insertion {
-                nb_nucl: n,
-                instanciation: None,
-            });
+            ret.push(Domain::new_insertion(n));
         }
     } else if cyclic {
         if let Domain::Insertion { nb_nucl, .. } = ret[0].clone() {
             ret.remove(0);
-            ret.push(Domain::Insertion {
-                nb_nucl,
-                instanciation: None,
-            });
+            ret.push(Domain::new_insertion(nb_nucl));
         }
     }
     ret
@@ -649,13 +637,8 @@ impl Strand {
     fn add_insertion_at_dom_position(&mut self, d_id: usize, pos: usize, insertion_size: usize) {
         if let Some((prime5, prime3)) = self.domains[d_id].split(pos) {
             self.domains[d_id] = prime3;
-            self.domains.insert(
-                d_id,
-                Domain::Insertion {
-                    nb_nucl: insertion_size,
-                    instanciation: None,
-                },
-            );
+            self.domains
+                .insert(d_id, Domain::new_insertion(insertion_size));
             self.domains.insert(d_id, prime5);
         } else {
             println!("Could not split");
@@ -689,6 +672,8 @@ pub enum Domain {
         nb_nucl: usize,
         #[serde(skip, default)]
         instanciation: Option<Arc<InstanciatedInsertion>>,
+        #[serde(default)]
+        sequence: Option<Cow<'static, str>>,
     },
 }
 
@@ -785,7 +770,7 @@ impl Domain {
                     sequence: None,
                 })]
             }
-            ScadnanoDomain::Loopout{ loopout: n } => vec![Self::Insertion{nb_nucl: *n, instanciation: None}]
+            ScadnanoDomain::Loopout{ loopout: n } => vec![Self::new_insertion(*n)]
         }
     }
 
@@ -1037,6 +1022,7 @@ impl Domain {
         Self::Insertion {
             nb_nucl,
             instanciation: None,
+            sequence: None,
         }
     }
 }

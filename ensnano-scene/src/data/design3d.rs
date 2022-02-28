@@ -139,7 +139,10 @@ impl<R: DesignReader> Design3D<R> {
         (spheres, tubes)
     }
 
-    pub fn get_letter_instances(&self) -> Vec<Vec<LetterInstance>> {
+    pub fn get_letter_instances(
+        &self,
+        show_insertion_representents: bool,
+    ) -> Vec<Vec<LetterInstance>> {
         let ids = self.design.get_all_nucl_ids();
         let mut vecs = vec![Vec::new(); NB_PRINTABLE_CHARS];
         for id in ids {
@@ -155,6 +158,23 @@ impl<R: DesignReader> Design3D<R> {
                         shift: Vec3::zero(),
                     };
                     vecs[*id].push(instance);
+                }
+            }
+        }
+        if !show_insertion_representents {
+            for loopout_nucl in self.design.get_all_loopout_nucl() {
+                if let Some(symbol) = loopout_nucl.basis {
+                    let pos = loopout_nucl.position;
+                    if let Some(id) = self.symbol_map.get(&symbol) {
+                        let instance = LetterInstance {
+                            position: pos,
+                            color: ultraviolet::Vec4::new(0., 0., 0., 1.),
+                            design_id: self.id,
+                            scale: 1.,
+                            shift: Vec3::zero(),
+                        };
+                        vecs[*id].push(instance);
+                    }
                 }
             }
         }

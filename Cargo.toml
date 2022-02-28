@@ -5,7 +5,7 @@ members = [ "ensnano-design", "ensnano-interactor", "ensnano-organizer", "ensnan
 name = "ensnano"
 version = "0.4.1"
 authors = ["thenlevy <nicolaspierrelevy@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "GPL-3.0-or-later"
 resolver = "2"
 

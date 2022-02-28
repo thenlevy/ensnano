@@ -263,6 +263,7 @@ impl Strand {
         if let Some(Domain::Insertion {
             nb_nucl,
             instanciation,
+            ..
         }) = self.domains.get_mut(d_id)
         {
             let descriptor = InsertionDescriptor {

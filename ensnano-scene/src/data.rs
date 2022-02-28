@@ -1293,7 +1293,7 @@ impl<R: DesignReader> Data<R> {
             {
                 tubes.push(*tube);
             }
-            letters = design.get_letter_instances();
+            letters = design.get_letter_instances(app_state.show_insertion_representents());
             for grid in design.get_grid().iter().filter(|g| g.visible) {
                 grids.push(grid.clone());
             }
