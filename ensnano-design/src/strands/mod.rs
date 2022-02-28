@@ -264,19 +264,32 @@ pub struct Strand {
 pub fn sanitize_domains(domains: &[Domain], cyclic: bool) -> Vec<Domain> {
     let mut ret = Vec::with_capacity(domains.len());
     let mut current_insertion: Option<usize> = None;
+    let mut current_seq: String = String::new();
     for d in domains {
         match d {
             Domain::HelixDomain(_) => {
                 if let Some(n) = current_insertion.take() {
-                    ret.push(Domain::new_insertion(n));
+                    ret.push(Domain::Insertion {
+                        nb_nucl: n,
+                        sequence: Some(current_seq.clone().into()),
+                        instanciation: None,
+                    });
                 }
                 ret.push(d.clone());
             }
-            Domain::Insertion { nb_nucl: m, .. } => {
+            Domain::Insertion {
+                nb_nucl: m,
+                sequence,
+                ..
+            } => {
                 if let Some(n) = current_insertion {
                     current_insertion = Some(n + m);
+                    if let Some(seq) = sequence {
+                        current_seq.push_str(seq);
+                    }
                 } else {
                     current_insertion = Some(*m);
+                    current_seq = sequence.as_ref().map(|s| s.to_string()).unwrap_or_default();
                 }
             }
         }

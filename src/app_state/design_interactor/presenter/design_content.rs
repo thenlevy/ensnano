@@ -612,6 +612,7 @@ impl DesignContent {
                                         .as_ref()
                                         .and_then(|s| s.as_bytes().get(strand_position))
                                 });
+                            println!("sequence {:?}", dom_seq);
                             loopout_nucls.push(LoopoutNucl {
                                 position: *pos,
                                 color,
