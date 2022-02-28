@@ -13,6 +13,7 @@
 - Make it possible to tilt the 3D view with shift + RClick, and the 2D view with alt + Left/Right
 - Make it possible to apply a symetry transformation to the 2d view by pressing ctrl/⌘ + Left/Up/Right/Down
 - Introduce a new DNA parameter: inclination
+- Make it possible to add single stranded insertions (a.k.a. loopouts) in strands
 
 ## 0.4.0
 - Remaps mouse buttons in the 2D view.
