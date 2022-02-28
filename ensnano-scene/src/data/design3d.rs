@@ -46,7 +46,7 @@ pub struct Design3D<R: DesignReader> {
 impl<R: DesignReader> Design3D<R> {
     pub fn new(design: R, id: u32) -> Self {
         let mut symbol_map = HashMap::new();
-        for (s_id, s) in BASIS_SYMBOLS.iter().enumerate() {
+        for (s_id, s) in PRINTABLE_CHARS.iter().enumerate() {
             symbol_map.insert(*s, s_id);
         }
         Self {
@@ -141,7 +141,7 @@ impl<R: DesignReader> Design3D<R> {
 
     pub fn get_letter_instances(&self) -> Vec<Vec<LetterInstance>> {
         let ids = self.design.get_all_nucl_ids();
-        let mut vecs = vec![Vec::new(); NB_BASIS_SYMBOLS];
+        let mut vecs = vec![Vec::new(); NB_PRINTABLE_CHARS];
         for id in ids {
             let pos = self.design.get_symbol_position(id);
             let symbol = self.design.get_symbol(id);
@@ -315,6 +315,7 @@ impl<R: DesignReader> Design3D<R> {
         let mut hbonds = Vec::new();
         let mut ellipsoids = Vec::new();
         for hbond in self.design.get_all_h_bonds() {
+            /*
             let forward_bond = create_dna_bound(
                 hbond.forward.backbone,
                 hbond.forward.center_of_mass,
@@ -322,13 +323,15 @@ impl<R: DesignReader> Design3D<R> {
                 0,
                 false,
             );
+            */
             let backward_bond = create_dna_bound(
                 hbond.backward.backbone,
-                hbond.backward.center_of_mass,
-                hbond.backward.backbone_color,
+                hbond.forward.backbone,
+                REGULAR_H_BOND_COLOR,
                 0,
                 false,
             );
+            /*
             let forward_ellipsoid = Ellipsoid {
                 orientation: forward_bond.rotor,
                 scale: BASIS_SCALE,
@@ -355,6 +358,8 @@ impl<R: DesignReader> Design3D<R> {
             hbonds.push(backward_bond.to_raw_instance());
             ellipsoids.push(backward_ellipsoid.to_raw_instance());
             ellipsoids.push(forward_ellipsoid.to_raw_instance());
+            */
+            hbonds.push(backward_bond.to_raw_instance());
         }
         (hbonds, ellipsoids)
     }

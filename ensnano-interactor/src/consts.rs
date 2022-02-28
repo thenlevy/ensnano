@@ -92,9 +92,6 @@ pub fn bezier_control_id(control_point: BezierControlPoint) -> u32 {
     }
 }
 
-pub const BASIS_SYMBOLS: &[char] = &['A', 'T', 'G', 'C', '*'];
-pub const NB_BASIS_SYMBOLS: usize = BASIS_SYMBOLS.len();
-
 pub const BASE_SCROLL_SENSITIVITY: f32 = 0.12;
 
 pub fn scroll_sensitivity_convertion(sensitivity: f32) -> f32 {
@@ -205,6 +202,7 @@ pub const COLOR_THYMINE: u32 = 0x00_0000CC;
 pub const COLOR_GUANINE: u32 = 0x00_00CC00;
 pub const COLOR_CYTOSINE: u32 = 0x00_CC00CC;
 pub const UNKONW_BASE_COLOR: u32 = 0x00_77_88_99;
+pub const REGULAR_H_BOND_COLOR: u32 = 0x_29_26_26;
 
 pub const fn basis_color(basis: char) -> u32 {
     match basis {
@@ -235,3 +233,9 @@ pub const GREY_UNKNOWN_NUCL_VEC4: Vec4 = Vec4 {
     z: GREY_UNKNOWN_NUCL,
     w: 1.,
 };
+
+pub const PRINTABLE_CHARS: &'static [char] = &[
+    'A', 'T', 'G', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', 'n', 't', 'm', '.',
+    '/', ' ', '(', ')', '?',
+];
+pub const NB_PRINTABLE_CHARS: usize = PRINTABLE_CHARS.len();

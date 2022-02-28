@@ -59,7 +59,7 @@ impl Parameters {
     pub const GEARY_2014_DNA: Parameters = {
         let helix_radius = 0.93;
         Parameters {
-            z_step: 0.34,
+            z_step: 0.332,
             helix_radius,
             bases_per_turn: 10.44,
             groove_angle: 170.4 / 180.0 * std::f32::consts::PI,
