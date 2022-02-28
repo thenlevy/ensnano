@@ -262,7 +262,7 @@ impl Instanciable for StereographicSphereAndPlane {
             id: 0,
             inversed_model: model.inversed(),
             expected_length: 0.,
-            _padding: [0. ; 3],
+            _padding: [0.; 3],
         }
     }
 }
