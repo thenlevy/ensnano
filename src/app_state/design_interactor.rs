@@ -526,17 +526,17 @@ mod tests {
         )
     }
 
-    #[test]
+    const INSERTION_LEN_0: usize = 3;
+    const INSERTION_LEN_1: usize = 7;
+    const INSERTION_LEN_2: usize = 12;
+    const INSERTION_LEN_3: usize = 45;
+    const INSERTION_LEN_4: usize = 97;
+
     /// Test insertions on prime5 of strand, in middle of domains in prime 5 of xover in prime 3 of
     /// xover and in prime3 of strand
-    fn insertions_on_non_cyclic_strand() {
+    fn non_cyclic_strand_with_insertions() -> AppState {
         // A design with one strand h1: -1 -> 7 ; h2: -1 <- 7 ; h3: 0 -> 9
         let mut app_state = pastable_design();
-        let insertion_len_0 = 3;
-        let insertion_len_1 = 7;
-        let insertion_len_2 = 12;
-        let insertion_len_3 = 45;
-        let insertion_len_4 = 97;
 
         // prime5 of strand
         app_state
@@ -549,7 +549,7 @@ mod tests {
                     },
                     nucl_is_prime5_of_insertion: false,
                 },
-                length: insertion_len_0,
+                length: INSERTION_LEN_0,
             })
             .unwrap();
         app_state.update();
@@ -565,7 +565,7 @@ mod tests {
                     },
                     nucl_is_prime5_of_insertion: true,
                 },
-                length: insertion_len_1,
+                length: INSERTION_LEN_1,
             })
             .unwrap();
         app_state.update();
@@ -581,7 +581,7 @@ mod tests {
                     },
                     nucl_is_prime5_of_insertion: true,
                 },
-                length: insertion_len_2,
+                length: INSERTION_LEN_2,
             })
             .unwrap();
         app_state.update();
@@ -597,7 +597,7 @@ mod tests {
                     },
                     nucl_is_prime5_of_insertion: false,
                 },
-                length: insertion_len_3,
+                length: INSERTION_LEN_3,
             })
             .unwrap();
         app_state.update();
@@ -613,11 +613,16 @@ mod tests {
                     },
                     nucl_is_prime5_of_insertion: true,
                 },
-                length: insertion_len_4,
+                length: INSERTION_LEN_4,
             })
             .unwrap();
         app_state.update();
+        app_state
+    }
 
+    #[test]
+    fn insertions_on_non_cyclic_strand_have_correct_effect_on_topology() {
+        let app_state = non_cyclic_strand_with_insertions();
         let strand = app_state
             .0
             .design
@@ -628,7 +633,109 @@ mod tests {
             .expect("No strand 0");
         let expected_result = format!(
             "[@{}] [H1: -1 -> 3] [@{}] [H1: 4 -> 7] [@{}] [H2: -1 <- 7] [@{}] [H3: 0 -> 9] [@{}]",
-            insertion_len_0, insertion_len_1, insertion_len_2, insertion_len_3, insertion_len_4
+            INSERTION_LEN_0, INSERTION_LEN_1, INSERTION_LEN_2, INSERTION_LEN_3, INSERTION_LEN_4
+        );
+        assert_good_strand(strand, expected_result);
+    }
+
+    #[test]
+    fn making_a_strand_cyclic_with_insertions_on_prime5_and_prime3() {
+        let mut app_state = non_cyclic_strand_with_insertions();
+        app_state
+            .apply_design_op(DesignOperation::Xover {
+                prime5_id: 0,
+                prime3_id: 0,
+            })
+            .unwrap();
+        app_state.update();
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&0)
+            .expect("No strand 0");
+        let expected_result =
+            format!(
+            "[H1: -1 -> 3] [@{}] [H1: 4 -> 7] [@{}] [H2: -1 <- 7] [@{}] [H3: 0 -> 9] [@{}] [cycle]",
+            INSERTION_LEN_1, INSERTION_LEN_2, INSERTION_LEN_3, INSERTION_LEN_4 + INSERTION_LEN_0
+        );
+        assert_good_strand(strand, expected_result);
+    }
+
+    #[test]
+    fn making_a_strand_cyclic_with_insertions_on_prime5() {
+        let mut app_state = non_cyclic_strand_with_insertions();
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 3,
+                        position: 9,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: true,
+                },
+                length: 0,
+            })
+            .unwrap();
+        app_state
+            .apply_design_op(DesignOperation::Xover {
+                prime5_id: 0,
+                prime3_id: 0,
+            })
+            .unwrap();
+        app_state.update();
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&0)
+            .expect("No strand 0");
+        let expected_result = format!(
+            "[H1: -1 -> 3] [@{}] [H1: 4 -> 7] [@{}] [H2: -1 <- 7] [@{}] [H3: 0 -> 9] [@{}] [cycle]",
+            INSERTION_LEN_1, INSERTION_LEN_2, INSERTION_LEN_3, INSERTION_LEN_0
+        );
+        assert_good_strand(strand, expected_result);
+    }
+
+    #[test]
+    fn making_a_strand_cyclic_with_insertions_on_prime3() {
+        let mut app_state = non_cyclic_strand_with_insertions();
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 1,
+                        position: -1,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: false,
+                },
+                length: 0,
+            })
+            .unwrap();
+        app_state
+            .apply_design_op(DesignOperation::Xover {
+                prime5_id: 0,
+                prime3_id: 0,
+            })
+            .unwrap();
+        app_state.update();
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&0)
+            .expect("No strand 0");
+        let expected_result = format!(
+            "[H1: -1 -> 3] [@{}] [H1: 4 -> 7] [@{}] [H2: -1 <- 7] [@{}] [H3: 0 -> 9] [@{}] [cycle]",
+            INSERTION_LEN_1, INSERTION_LEN_2, INSERTION_LEN_3, INSERTION_LEN_4
         );
         assert_good_strand(strand, expected_result);
     }
