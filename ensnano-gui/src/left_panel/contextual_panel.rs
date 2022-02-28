@@ -320,26 +320,26 @@ impl<S: AppState> ContextualPanel<S> {
             if let Some(info) = info_values.get(1) {
                 column = column.push(Text::new(info));
             }
+        }
 
-            if let Some(len) = app_state.get_reader().get_insertion_length(&selection) {
-                let real_len_string = len.to_string();
-                let text_input_content = self
-                    .insertion_length_state
-                    .input_str
-                    .as_ref()
-                    .unwrap_or(&real_len_string);
-                column = column.push(
-                    Row::new().push(Text::new("Loopout")).push(
-                        TextInput::new(
-                            &mut self.insertion_length_state.state,
-                            "",
-                            text_input_content,
-                            Message::InsertionLengthInput,
-                        )
-                        .on_submit(Message::InsertionLengthSubmitted),
-                    ),
-                );
-            }
+        if let Some(len) = app_state.get_reader().get_insertion_length(&selection) {
+            let real_len_string = len.to_string();
+            let text_input_content = self
+                .insertion_length_state
+                .input_str
+                .as_ref()
+                .unwrap_or(&real_len_string);
+            column = column.push(
+                Row::new().push(Text::new("Loopout")).push(
+                    TextInput::new(
+                        &mut self.insertion_length_state.state,
+                        "",
+                        text_input_content,
+                        Message::InsertionLengthInput,
+                    )
+                    .on_submit(Message::InsertionLengthSubmitted),
+                ),
+            );
         }
 
         Scrollable::new(&mut self.scroll).push(column).into()
