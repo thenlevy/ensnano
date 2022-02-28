@@ -427,6 +427,13 @@ mod tests {
         AppState::import_design(&path).ok().unwrap()
     }
 
+    /// A design with one cyclic strand h1: -1 -> 7 ; h2: -1 <- 7 ; h3: 0 -> 9 that can be pasted on
+    /// helices 4, 5 and 6
+    fn pastable_cyclic() -> AppState {
+        let path = test_path("pastable_cyclic.json");
+        AppState::import_design(&path).ok().unwrap()
+    }
+
     fn fake_design_update(state: &mut AppState) {
         let design = state.0.design.design.clone_inner();
         let new_state = std::mem::take(state);
@@ -517,6 +524,275 @@ mod tests {
             strand.junctions,
             vec![DomainJunction::IdentifiedXover(0), DomainJunction::Prime3]
         )
+    }
+
+    #[test]
+    /// Test insertions on prime5 of strand, in middle of domains in prime 5 of xover in prime 3 of
+    /// xover and in prime3 of strand
+    fn insertions_on_non_cyclic_strand() {
+        // A design with one strand h1: -1 -> 7 ; h2: -1 <- 7 ; h3: 0 -> 9
+        let mut app_state = pastable_design();
+        let insertion_len_0 = 3;
+        let insertion_len_1 = 7;
+        let insertion_len_2 = 12;
+        let insertion_len_3 = 45;
+        let insertion_len_4 = 97;
+
+        // prime5 of strand
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 1,
+                        position: -1,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: false,
+                },
+                length: insertion_len_0,
+            })
+            .unwrap();
+        app_state.update();
+
+        // middle of domain
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 1,
+                        position: 3,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: true,
+                },
+                length: insertion_len_1,
+            })
+            .unwrap();
+        app_state.update();
+
+        // prime5 of xover
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 1,
+                        position: 7,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: true,
+                },
+                length: insertion_len_2,
+            })
+            .unwrap();
+        app_state.update();
+
+        // prime3 of xover
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 3,
+                        position: 0,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: false,
+                },
+                length: insertion_len_3,
+            })
+            .unwrap();
+        app_state.update();
+
+        //prime3 of strand
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 3,
+                        position: 9,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: true,
+                },
+                length: insertion_len_4,
+            })
+            .unwrap();
+        app_state.update();
+
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&0)
+            .expect("No strand 0");
+        let expected_result = format!(
+            "[@{}] [H1: -1 -> 3] [@{}] [H1: 4 -> 7] [@{}] [H2: -1 <- 7] [@{}] [H3: 0 -> 9] [@{}]",
+            insertion_len_0, insertion_len_1, insertion_len_2, insertion_len_3, insertion_len_4
+        );
+        assert_good_strand(strand, expected_result);
+    }
+
+    #[test]
+    /// Test insertions on prime5 of strand, in middle of domains in prime 5 of xover in prime 3 of
+    /// xover and in prime3 of strand
+    fn insertions_on_cyclic_strand() {
+        // A design with one strand h1: -1 -> 7 ; h2: -1 <- 7 ; h3: 0 -> 9
+        let mut app_state = pastable_cyclic();
+        let insertion_len_0 = 3;
+        let insertion_len_1 = 7;
+        let insertion_len_2 = 12;
+        let insertion_len_3 = 45;
+        let insertion_len_4 = 97;
+
+        // prime5 of strand
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 1,
+                        position: -1,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: false,
+                },
+                length: insertion_len_0,
+            })
+            .unwrap();
+        app_state.update();
+
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&0)
+            .expect("No strand 0");
+        let expected_result = format!(
+            "[H1: -1 -> 7] [H2: -1 <- 7] [H3: 0 -> 9] [@{}] [cycle]",
+            insertion_len_0
+        );
+        assert_good_strand(strand, expected_result);
+
+        // middle of domain
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 1,
+                        position: 3,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: true,
+                },
+                length: insertion_len_1,
+            })
+            .unwrap();
+        app_state.update();
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&0)
+            .expect("No strand 0");
+        let expected_result = format!(
+            "[H1: -1 -> 3] [@{}] [H1: 4 -> 7] [H2: -1 <- 7] [H3: 0 -> 9] [@{}] [cycle]",
+            insertion_len_1, insertion_len_0
+        );
+        assert_good_strand(strand, expected_result);
+
+        // prime5 of xover
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 1,
+                        position: 7,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: true,
+                },
+                length: insertion_len_2,
+            })
+            .unwrap();
+        app_state.update();
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&0)
+            .expect("No strand 0");
+        let expected_result = format!(
+            "[H1: -1 -> 3] [@{}] [H1: 4 -> 7] [@{}] [H2: -1 <- 7] [H3: 0 -> 9] [@{}] [cycle]",
+            insertion_len_1, insertion_len_2, insertion_len_0
+        );
+        assert_good_strand(strand, expected_result);
+
+        // prime3 of xover
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 3,
+                        position: 0,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: false,
+                },
+                length: insertion_len_3,
+            })
+            .unwrap();
+        app_state.update();
+
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&0)
+            .expect("No strand 0");
+        let expected_result = format!(
+            "[H1: -1 -> 3] [@{}] [H1: 4 -> 7] [@{}] [H2: -1 <- 7] [@{}] [H3: 0 -> 9] [@{}] [cycle]",
+            insertion_len_1, insertion_len_2, insertion_len_3, insertion_len_0
+        );
+        assert_good_strand(strand, expected_result);
+
+        //prime3 of strand
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 3,
+                        position: 9,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: true,
+                },
+                length: insertion_len_4,
+            })
+            .unwrap();
+        app_state.update();
+
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&0)
+            .expect("No strand 0");
+        let expected_result =
+            format!(
+            "[H1: -1 -> 3] [@{}] [H1: 4 -> 7] [@{}] [H2: -1 <- 7] [@{}] [H3: 0 -> 9] [@{}] [cycle]",
+            insertion_len_1, insertion_len_2, insertion_len_3, insertion_len_4 + insertion_len_0
+        );
+        assert_good_strand(strand, expected_result);
     }
 
     #[test]
