@@ -894,13 +894,19 @@ impl Controller {
     }
 
     pub(super) fn get_new_selection(&self) -> Option<Vec<Selection>> {
-        if let ControllerState::BuildingStrand { builders, .. } = &self.state {
+        if let ControllerState::BuildingStrand {
+            builders,
+            initializing,
+            ..
+        } = &self.state
+        {
             Some(
                 builders
                     .iter()
                     .map(|b| Selection::Nucleotide(0, b.moving_end))
                     .collect(),
             )
+            .filter(|_| !initializing)
         } else {
             None
         }
@@ -1561,6 +1567,7 @@ impl Controller {
                     .ok_or(ErrOperation::CannotBuildOn(nucl))?,
             );
         }
+        log::info!("Ingnored domains: {:?}", ignored_domains);
         self.state = ControllerState::BuildingStrand {
             builders,
             initializing: true,
@@ -1609,8 +1616,12 @@ impl Controller {
         // stick to the neighbour if it is its direct neighbour. This is because we want don't want
         // to create a gap between neighbouring domains
         let stick = neighbour_desc
-            .filter(|d| (d.identifier.domain as isize - desc.identifier.domain as isize).abs() < 1)
+            .filter(|d| {
+                (d.identifier.domain as isize - desc.identifier.domain as isize).abs() < 1
+                    && d.identifier.strand == desc.identifier.strand
+            })
             .is_some();
+        log::info!("stick {}", stick);
         if left.filter(filter).and(right.filter(filter)).is_some() {
             // TODO maybe we should do something else ?
             return None;

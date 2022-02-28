@@ -84,7 +84,8 @@ impl Presenter {
         let right = self.current_design.get_neighbour_nucl(nucl.right());
         if self.content.nucl_collection.contains_nucl(&nucl) {
             if let Some(desc) = self.current_design.get_neighbour_nucl(nucl) {
-                let filter = |d: &NeighbourDescriptor| d.identifier != desc.identifier;
+                let filter =
+                    |d: &NeighbourDescriptor| !(d.identifier.is_same_domain_than(&desc.identifier));
                 !left.filter(filter).and(right.filter(filter)).is_some()
             } else {
                 false
