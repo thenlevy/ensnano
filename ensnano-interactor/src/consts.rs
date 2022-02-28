@@ -235,7 +235,7 @@ pub const GREY_UNKNOWN_NUCL_VEC4: Vec4 = Vec4 {
 };
 
 pub const PRINTABLE_CHARS: &'static [char] = &[
-    'A', 'T', 'G', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', 'n', 't', 'm', '.',
-    '/', ' ', '(', ')', '?',
+    'A', 'T', 'G', 'C', 'N', 'K', 'U', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', 'n',
+    't', 'm', '.', '/', ' ', '(', ')', '?',
 ];
 pub const NB_PRINTABLE_CHARS: usize = PRINTABLE_CHARS.len();
