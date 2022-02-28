@@ -540,6 +540,7 @@ impl DesignContent {
                             position: nucl.position,
                             forward: nucl.forward,
                         });
+                        let color = rainbow_iterator.next().unwrap_or(color);
                         if let Some(prev_pos) = prev_loopout_pos.take() {
                             loopout_bonds.push(LoopoutBond {
                                 position_prime5: prev_pos,
@@ -568,7 +569,6 @@ impl DesignContent {
                         nucleotide.insert(nucl_id, nucl);
                         nucl_collection.insert(nucl, nucl_id);
                         strand_map.insert(nucl_id, *s_id);
-                        let color = rainbow_iterator.next().unwrap_or(color);
                         color_map.insert(nucl_id, color);
                         helix_map.insert(nucl_id, nucl.helix);
                         let basis = dom_seq
@@ -603,6 +603,7 @@ impl DesignContent {
                 {
                     if let Some(instanciation) = instanciation.as_ref() {
                         for (dom_position, pos) in instanciation.as_ref().pos().iter().enumerate() {
+                            let color = rainbow_iterator.next().unwrap_or(color);
                             let basis = dom_seq
                                 .as_ref()
                                 .and_then(|s| s.as_bytes().get(dom_position))
