@@ -27,6 +27,9 @@ impl Strand {
         for d in self.domains.iter() {
             writeln!(&mut ret, "{}", d).unwrap_or_default();
         }
+        if self.cyclic {
+            writeln!(&mut ret, "[cycle]").unwrap_or_default();
+        }
         ret
     }
 }

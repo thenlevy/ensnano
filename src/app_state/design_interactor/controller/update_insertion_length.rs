@@ -35,6 +35,20 @@ impl Controller {
             .strands
             .get_mut(&s_id)
             .ok_or(ErrOperation::StrandDoesNotExist(s_id))?;
+
+        let cyclic = strand_mut.cyclic;
+        if cyclic {
+            let prime3 = strand_mut
+                .get_3prime()
+                .ok_or(ErrOperation::CouldNotGetPrime3of(s_id))?;
+            Self::split_strand(&mut design.strands, &prime3, None)?;
+        }
+
+        let strand_mut = design
+            .strands
+            .get_mut(&s_id)
+            .ok_or(ErrOperation::StrandDoesNotExist(s_id))?;
+
         if let Some(insertion_mut) = get_insertion_length_mut(strand_mut, insertion_point) {
             if length > 0 {
                 *insertion_mut.length = length;
@@ -82,6 +96,10 @@ impl Controller {
                     if strand.length() > 0 {
                         if s_2 != s_id {
                             Self::merge_strands(&mut design.strands, s_2, s_id)?;
+                            // The merged strand has id `s_2`, set it back to `s_id`
+                            if let Some(merged_strand) = design.strands.remove(&s_2) {
+                                design.strands.insert(s_id, merged_strand);
+                            }
                         } else {
                             Self::make_cycle(&mut design.strands, s_id, true)?;
                         }
@@ -89,6 +107,9 @@ impl Controller {
                         design.strands.remove(&s_2);
                     }
                 }
+            }
+            if cyclic {
+                Self::make_cycle(&mut design.strands, s_id, true)?;
             }
 
             Ok(design)

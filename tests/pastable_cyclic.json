@@ -248,7 +248,8 @@
           }
         }
       ],
-      "color": 4279832335
+      "color": 4279832335,
+      "cyclic": true
     }
   },
   "parameters": {
