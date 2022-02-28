@@ -500,14 +500,24 @@ impl DesignContent {
                 } else if let Domain::Insertion {
                     nb_nucl,
                     instanciation,
+                    sequence: dom_seq,
                 } = domain
                 {
                     if let Some(instanciation) = instanciation.as_ref() {
-                        for pos in instanciation.as_ref().pos().iter() {
+                        for (dom_position, pos) in instanciation.as_ref().pos().iter().enumerate() {
+                            let basis = dom_seq
+                                .as_ref()
+                                .and_then(|s| s.as_bytes().get(dom_position))
+                                .or_else(|| {
+                                    strand_seq
+                                        .as_ref()
+                                        .and_then(|s| s.as_bytes().get(strand_position))
+                                });
                             loopout_nucls.push(LoopoutNucl {
                                 position: *pos,
                                 color,
                                 repr_bond_identifier: id,
+                                basis: basis.and_then(|b| b.clone().try_into().ok()),
                             });
                             if let Some(prev_pos) =
                                 prev_loopout_pos.take().or(old_nucl_id
@@ -521,10 +531,10 @@ impl DesignContent {
                                 });
                             }
                             prev_loopout_pos = Some(*pos);
+                            strand_position += 1;
                         }
                     }
                     insertion_length.insert(id, *nb_nucl);
-                    strand_position += *nb_nucl;
                     last_xover_junction = Some(&mut strand.junctions[i]);
                 }
             }

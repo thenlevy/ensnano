@@ -154,6 +154,7 @@ pub struct LoopoutNucl {
     pub color: u32,
     /// The identifier of the bond representing the whole loopout involving this nucleotide
     pub repr_bond_identifier: u32,
+    pub basis: Option<char>,
 }
 
 #[derive(Clone, Debug)]
