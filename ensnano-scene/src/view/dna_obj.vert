@@ -33,6 +33,7 @@ struct Instances {
     vec3 scale;
     uint id;
     mat4 inversed_model;
+    float expected_length;
 };
 
 layout(std430, set=2, binding=0) 
@@ -40,8 +41,8 @@ buffer InstancesBlock {
     readonly Instances instances[];
 };
 
-const float LOW_CRIT = 1.01;
-const float HIGH_CRIT = 1.4;
+const float LOW_CRIT = 1. / 0.7;
+const float HIGH_CRIT = 2. / 0.7;
 
 void main() {
     int model_idx = int(instances[gl_InstanceIndex].id >> 24);
@@ -62,15 +63,18 @@ void main() {
     v_normal = normal_matrix * a_normal;
     v_color = instances[gl_InstanceIndex].color;
     vec3 scale = instances[gl_InstanceIndex].scale;
-    if (scale.x > LOW_CRIT && abs(scale.x - scale.y) > 1e-5 && instances[gl_InstanceIndex].id > 0.0) {
-       scale.y *= 1.3;
-       scale.z *= 1.3;
-       float shade = smoothstep(LOW_CRIT, HIGH_CRIT, scale.x);
-       float grey = 0.25 - 0.25 * shade;
-       if (v_color.w > 0.99) {
-           v_color = vec4(grey, grey, grey, 1.);
-       }
-    } 
+    float expected_length = instances[gl_InstanceIndex].expected_length;
+    if (expected_length > 0.) {
+        if (scale.x > expected_length * LOW_CRIT) {
+           scale.y *= 1.3;
+           scale.z *= 1.3;
+           float shade = smoothstep(expected_length * LOW_CRIT, expected_length * HIGH_CRIT, scale.x);
+           float grey = 0.25 - 0.25 * shade;
+           if (v_color.w > 0.99) {
+               v_color = vec4(grey, grey, grey, 1.);
+           }
+        } 
+    }
     vec4 model_space = model_matrix * vec4(a_position * scale, 1.0); 
 
     if (scale.y < 0.8) {
