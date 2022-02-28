@@ -334,6 +334,14 @@ impl Reader3D for DesignReader {
             .cloned()
             .unwrap_or(0)
     }
+
+    fn get_expected_bond_length(&self) -> f32 {
+        self.presenter
+            .current_design
+            .parameters
+            .unwrap_or_default()
+            .dist_ac()
+    }
 }
 
 impl Presenter {}

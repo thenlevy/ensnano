@@ -112,6 +112,7 @@ impl Parameters {
             self.inter_helix_gap
         )
         .unwrap_or_default();
+        writeln!(&mut ret, " Expected xover length: {:.2} nm", self.dist_ac()).unwrap_or_default();
         ret
     }
 }

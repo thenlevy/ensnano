@@ -63,6 +63,17 @@ pub struct RawDnaInstance {
     pub scale: Vec3,
     pub id: u32,
     pub inversed_model: Mat4,
+    pub expected_length: f32,
+    _padding: [f32; 3],
+}
+
+impl RawDnaInstance {
+    pub fn with_expected_length(self, expected_length: f32) -> Self {
+        Self {
+            expected_length,
+            ..self
+        }
+    }
 }
 
 pub struct SphereInstance {
@@ -142,6 +153,8 @@ impl Instanciable for SphereInstance {
             scale: Vec3::new(self.radius, self.radius, self.radius),
             id: self.id,
             inversed_model: model.inversed(),
+            expected_length: 0.,
+            _padding: [0.; 3],
         }
     }
 
@@ -247,6 +260,8 @@ impl Instanciable for TubeInstance {
             scale: Vec3::new(self.length, self.radius, self.radius),
             id: self.id,
             inversed_model: model.inversed(),
+            expected_length: 0.,
+            _padding: [0.; 3],
         }
     }
 }
@@ -346,6 +361,8 @@ impl Instanciable for ConeInstance {
             scale: Vec3::new(self.length, self.radius, self.radius),
             id: self.id,
             inversed_model: model.inversed(),
+            expected_length: 0.,
+            _padding: [0.; 3],
         }
     }
 }

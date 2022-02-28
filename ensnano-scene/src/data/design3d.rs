@@ -191,7 +191,12 @@ impl<R: DesignReader> Design3D<R> {
         if !show_insertion_representents {
             ids.retain(|id| self.design.get_insertion_length(*id) == 0);
         }
-        let mut ret = self.id_to_raw_instances(ids);
+        let expected_length = self.design.get_expected_bond_length();
+        let mut ret: Vec<_> = self
+            .id_to_raw_instances(ids)
+            .into_iter()
+            .map(|x| x.with_expected_length(expected_length))
+            .collect();
         if !show_insertion_representents {
             for loopout_bond in self.design.get_all_loopout_bonds() {
                 ret.push(
@@ -202,7 +207,8 @@ impl<R: DesignReader> Design3D<R> {
                         loopout_bond.repr_bond_identifier,
                         false,
                     )
-                    .to_raw_instance(),
+                    .to_raw_instance()
+                    .with_expected_length(expected_length),
                 )
             }
         }
@@ -1024,4 +1030,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_all_loopout_nucl(&self) -> &[LoopoutNucl];
     fn get_all_loopout_bonds(&self) -> &[LoopoutBond];
     fn get_insertion_length(&self, bond_id: u32) -> usize;
+    fn get_expected_bond_length(&self) -> f32;
 }

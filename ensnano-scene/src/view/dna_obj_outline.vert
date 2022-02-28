@@ -26,6 +26,7 @@ struct Instances {
     vec3 scale;
     uint id;
     mat4 model_inversed;
+    float expected_length;
 };
 
 layout(std430, set=2, binding=0) 
