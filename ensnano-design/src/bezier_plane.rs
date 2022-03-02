@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use ultraviolet::{Rotor3, Vec3};
+use ultraviolet::{Rotor3, Vec2, Vec3};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BezierPlaneDescriptor {
@@ -101,4 +101,22 @@ impl<'a> Drop for BezierPlanesMut<'a> {
     fn drop(&mut self) {
         *self.source = BezierPlanes(Arc::new(std::mem::take(&mut self.new_map)))
     }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub struct BezierPathId(usize);
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct BezierPaths(Arc<BTreeMap<usize, BezierPath>>);
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct BezierPath {
+    pub edges: Vec<BezierEdge>,
+    pub cyclic: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BezierEdge {
+    pub plane_id: BezierPlaneId,
+    pub position: Vec2,
 }
