@@ -17,13 +17,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::super::maths_3d::{Basis3D, UnalignedBoundaries};
 use super::super::view::{
-    ConeInstance, Ellipsoid, Instanciable, RawDnaInstance, SphereInstance, TubeInstance,
+    ConeInstance, Ellipsoid, Instanciable, RawDnaInstance, Sheet2D, SphereInstance, TubeInstance,
 };
 use super::super::GridInstance;
 use super::{ultraviolet, LetterInstance, SceneElement};
 use ensnano_design::grid::{GridObject, GridPosition};
 use ensnano_design::{grid::HelixGridPosition, Nucl};
-use ensnano_design::{CubicBezierConstructor, CurveDescriptor};
+use ensnano_design::{BezierPlaneCollection, CubicBezierConstructor, CurveDescriptor, Parameters};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::{
     graphics::{LoopoutBond, LoopoutNucl},
@@ -1105,6 +1105,23 @@ impl<R: DesignReader> Design3D<R> {
             }
         }
     }
+
+    pub fn get_bezier_sheets(&self) -> Vec<Sheet2D> {
+        let parameters = self.design.get_parameters();
+        self.design
+            .get_bezier_planes()
+            .values()
+            .map(|desc| Sheet2D {
+                position: desc.position,
+                orientation: desc.orientation,
+                min_x: -3. * 48.0 * parameters.z_step,
+                max_x: 3. * 48.0 * parameters.z_step,
+                min_y: -3. * 48.0 * parameters.z_step,
+                max_y: 3. * 48.0 * parameters.z_step,
+                graduation_unit: 48.0 * parameters.z_step,
+            })
+            .collect()
+    }
 }
 
 fn make_bezier_controll(
@@ -1289,4 +1306,6 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_all_loopout_bonds(&self) -> &[LoopoutBond];
     fn get_insertion_length(&self, bond_id: u32) -> usize;
     fn get_expected_bond_length(&self) -> f32;
+    fn get_bezier_planes(&self) -> &dyn BezierPlaneCollection;
+    fn get_parameters(&self) -> Parameters;
 }

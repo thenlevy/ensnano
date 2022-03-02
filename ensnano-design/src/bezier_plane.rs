@@ -42,6 +42,34 @@ pub trait BezierPlaneCollection {
     fn contains_key(&self, id: &BezierPlaneId) -> bool;
 }
 
+impl BezierPlaneCollection for BezierPlanes {
+    fn get(&self, id: &BezierPlaneId) -> Option<&BezierPlaneDescriptor> {
+        self.0.get(id).map(|d| d.as_ref())
+    }
+
+    fn iter<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = (&'a BezierPlaneId, &'a BezierPlaneDescriptor)> + 'a> {
+        Box::new(self.0.iter().map(|(id, arc)| (id, arc.as_ref())))
+    }
+
+    fn values<'a>(&'a self) -> Box<dyn Iterator<Item = &'a BezierPlaneDescriptor> + 'a> {
+        Box::new(self.0.values().map(|arc| arc.as_ref()))
+    }
+
+    fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = &'a BezierPlaneId> + 'a> {
+        Box::new(self.0.keys())
+    }
+
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn contains_key(&self, id: &BezierPlaneId) -> bool {
+        self.0.contains_key(id)
+    }
+}
+
 impl BezierPlanes {
     pub fn make_mut<'a>(&'a mut self) -> BezierPlanesMut<'a> {
         let new_map = BTreeMap::clone(&self.0);

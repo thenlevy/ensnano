@@ -22,6 +22,7 @@ use ensnano_utils::wgpu;
 use ultraviolet::{Mat4, Rotor3, Vec2, Vec3};
 use wgpu::{include_spirv, Device};
 
+#[derive(Debug, Clone)]
 pub struct Sheet2D {
     pub position: Vec3,
     pub orientation: Rotor3,
@@ -37,8 +38,8 @@ pub struct Sheet2D {
 pub struct Sheet2DRaw {
     pub model: Mat4,
     pub min_x: f32,
-    pub min_y: f32,
     pub max_x: f32,
+    pub min_y: f32,
     pub max_y: f32,
     pub graduation_unit: f32,
     _padding: [f32; 3],

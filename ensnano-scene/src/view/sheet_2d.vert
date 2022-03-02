@@ -42,6 +42,7 @@ void main() {
                          (max_y - min_y) * a_position.y + min_y);
 
     v_tex_pos = plane_position;
+    graduation_unit = instances[gl_InstanceIndex].graduation_unit;
 
     mat4 model_matrix = instances[gl_InstanceIndex].model;
 

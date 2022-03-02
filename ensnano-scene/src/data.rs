@@ -1350,6 +1350,11 @@ impl<R: DesignReader> Data<R> {
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::BaseEllipsoid, Rc::new(ellipsoids)));
+
+        let sheet_instances = self.designs[0].get_bezier_sheets();
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::BezierSheets(sheet_instances));
     }
 
     fn update_discs<S: AppState>(&mut self, app_state: &S) {

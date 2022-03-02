@@ -70,6 +70,7 @@ pub use letter::LetterInstance;
 use maths_3d::unproject_point_on_line;
 use rotation_widget::RotationWidget;
 pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidgetOrientation};
+pub use sheet_2d::Sheet2D;
 use text::Letter;
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
@@ -126,6 +127,7 @@ pub struct View {
     skybox_cube: InstanceDrawer<SkyBox>,
     fog_parameters: FogParameters,
     stereography: Stereography,
+    sheets_drawer: InstanceDrawer<Sheet2D>,
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -292,6 +294,16 @@ impl View {
         );
         skybox_cube.new_instances(vec![SkyBox::new(500.)]);
 
+        let sheets_drawer = InstanceDrawer::new(
+            device.clone(),
+            queue.clone(),
+            &viewer.get_layout_desc(),
+            &model_bg_desc,
+            (),
+            false,
+            "2d sheets",
+        );
+
         Self {
             camera,
             projection,
@@ -318,6 +330,7 @@ impl View {
             skybox_cube,
             fog_parameters: FogParameters::new(),
             stereography,
+            sheets_drawer,
         }
     }
 
@@ -414,6 +427,9 @@ impl View {
             ViewUpdate::FogCenter(center) => {
                 self.fog_parameters.alt_fog_center = center;
                 self.update_viewers();
+            }
+            ViewUpdate::BezierSheets(sheets) => {
+                self.sheets_drawer.new_instances(sheets);
             }
         }
     }
@@ -619,6 +635,11 @@ impl View {
                         self.models.get_bindgroup(),
                     )
                 }
+                self.sheets_drawer.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    self.models.get_bindgroup(),
+                )
             }
 
             if draw_type.wants_widget() && !stereographic {
@@ -938,6 +959,7 @@ pub enum ViewUpdate {
     RawDna(Mesh, Rc<Vec<RawDnaInstance>>),
     Fog(FogParameters),
     FogCenter(Option<Vec3>),
+    BezierSheets(Vec<Sheet2D>),
 }
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone, Hash)]

@@ -34,5 +34,5 @@ void main() {
             );
     darken = 1.2 - 0.2 * smoothstep(grid_width * 0.9, grid_width, big_bar_coeff);
     out_color /= darken;
-    out_color.w = 0.3;
+    out_color.w = 0.8;
 }
