@@ -24,6 +24,7 @@ use std::sync::Arc;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
+pub use bezier_plane::*;
 pub use ultraviolet;
 use ultraviolet::{Rotor3, Vec3};
 
@@ -58,6 +59,7 @@ pub use parameters::*;
 /// Re-export ultraviolet for linear algebra
 pub use ultraviolet::*;
 
+mod bezier_plane;
 mod insertions;
 #[cfg(test)]
 mod tests;
@@ -151,6 +153,9 @@ pub struct Design {
 
     #[serde(skip, default)]
     cached_curve: Arc<CurveCache>,
+
+    #[serde(default)]
+    pub bezier_planes: BezierPlanes,
 }
 
 /// An immuatable reference to a design whose helices and grid data are guaranteed to be up-to
@@ -282,6 +287,7 @@ impl Design {
             rainbow_scaffold: false,
             instanciated_grid_data: None,
             cached_curve: Default::default(),
+            bezier_planes: Default::default(),
         }
     }
 
