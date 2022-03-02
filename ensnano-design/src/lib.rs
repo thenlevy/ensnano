@@ -158,6 +158,9 @@ pub struct Design {
 
     #[serde(default)]
     pub bezier_planes: BezierPlanes,
+
+    #[serde(default)]
+    pub bezier_paths: BezierPaths,
 }
 
 /// An immuatable reference to a design whose helices and grid data are guaranteed to be up-to
@@ -290,6 +293,7 @@ impl Design {
             instanciated_grid_data: None,
             cached_curve: Default::default(),
             bezier_planes: Default::default(),
+            bezier_paths: Default::default(),
         }
     }
 

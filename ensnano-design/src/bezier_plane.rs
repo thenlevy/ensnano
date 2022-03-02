@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::collection::{Collection, HasMap};
+use super::collection::HasMap;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use ultraviolet::{Rotor3, Vec2, Vec3};
@@ -77,7 +77,51 @@ impl<'a> Drop for BezierPlanesMut<'a> {
 pub struct BezierPathId(usize);
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct BezierPaths(Arc<BTreeMap<usize, BezierPath>>);
+pub struct BezierPaths(Arc<BTreeMap<BezierPathId, Arc<BezierPath>>>);
+
+impl HasMap for BezierPaths {
+    type Key = BezierPathId;
+    type Item = BezierPath;
+    fn get_map(&self) -> &BTreeMap<Self::Key, Arc<Self::Item>> {
+        self.0.as_ref()
+    }
+}
+
+pub struct BezierPathsMut<'a> {
+    source: &'a mut BezierPaths,
+    new_map: BTreeMap<BezierPathId, Arc<BezierPath>>,
+}
+
+impl BezierPaths {
+    pub fn make_mut<'a>(&'a mut self) -> BezierPathsMut<'a> {
+        BezierPathsMut {
+            new_map: BTreeMap::clone(&self.0),
+            source: self,
+        }
+    }
+}
+
+impl<'a> BezierPathsMut<'a> {
+    pub fn create_path(&mut self, first_edge: BezierEdge) {
+        let new_key = self
+            .new_map
+            .keys()
+            .max()
+            .map(|m| BezierPathId(m.0 + 1))
+            .unwrap_or_default();
+        let new_path = BezierPath {
+            edges: vec![first_edge],
+            cyclic: false,
+        };
+        self.new_map.insert(new_key, Arc::new(new_path));
+    }
+}
+
+impl<'a> Drop for BezierPathsMut<'a> {
+    fn drop(&mut self) {
+        *self.source = BezierPaths(Arc::new(std::mem::take(&mut self.new_map)))
+    }
+}
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct BezierPath {
