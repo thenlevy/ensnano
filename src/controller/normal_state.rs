@@ -147,6 +147,17 @@ impl State for NormalState {
                     }
                     self
                 }
+                Action::AddBezierPlane => {
+                    if let Some((position, orientation)) = main_state.get_grid_creation_position() {
+                        main_state.apply_operation(DesignOperation::AddBezierPlane {
+                            desc: ensnano_design::BezierPlaneDescriptor {
+                                position,
+                                orientation,
+                            },
+                        })
+                    }
+                    self
+                }
                 Action::RigidHelicesSimulation { parameters } => {
                     main_state.start_helix_simulation(parameters);
                     self

@@ -49,6 +49,7 @@ mod instances_drawer;
 mod letter;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
+mod sheet_2d;
 
 use super::maths_3d::{self, distance_to_cursor_with_penalty};
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
