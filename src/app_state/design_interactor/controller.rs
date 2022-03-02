@@ -25,8 +25,8 @@ use ensnano_design::{
         Hyperboloid,
     },
     group_attributes::GroupPivot,
-    mutate_in_arc, BezierEnd, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helices,
-    Helix, HelixCollection, Nucl, Strand, Strands, UpToDateDesign,
+    mutate_in_arc, BezierEnd, BezierPlaneDescriptor, CameraId, CurveDescriptor, Design, Domain,
+    DomainJunction, Helices, Helix, HelixCollection, Nucl, Strand, Strands, UpToDateDesign,
 };
 use ensnano_interactor::{
     operation::Operation, BezierControlPoint, HyperboloidOperation, SimulationState,
@@ -307,6 +307,9 @@ impl Controller {
                 |c, d| c.update_insertion_length(d, insertion_point, length),
                 design,
             ),
+            DesignOperation::AddBezierPlane { desc } => {
+                Ok(self.ok_apply(|c, d| c.add_bezier_plane(d, desc), design))
+            }
         };
 
         if let Ok(ret) = &mut ret {
@@ -1114,6 +1117,12 @@ impl Controller {
         let mut new_grids = Vec::clone(design.grids.as_ref());
         new_grids.push(descriptor);
         design.grids = Arc::new(new_grids);
+        design
+    }
+
+    fn add_bezier_plane(mut self, mut design: Design, descriptor: BezierPlaneDescriptor) -> Design {
+        let mut new_planes = design.bezier_planes.make_mut();
+        new_planes.push(descriptor);
         design
     }
 

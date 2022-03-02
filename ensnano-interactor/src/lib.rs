@@ -23,7 +23,7 @@ use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{GridDescriptor, GridObject, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
-    Nucl, Parameters,
+    BezierPlaneDescriptor, Nucl, Parameters,
 };
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 pub mod graphics;
@@ -268,6 +268,9 @@ pub enum DesignOperation {
     SetInsertionLength {
         length: usize,
         insertion_point: InsertionPoint,
+    },
+    AddBezierPlane {
+        desc: BezierPlaneDescriptor,
     },
 }
 
