@@ -15,8 +15,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use ensnano_design::grid::HelixGridPosition;
 pub use ensnano_design::BezierControlPoint;
+use ensnano_design::{grid::HelixGridPosition, BezierPathId};
 use ensnano_design::{Nucl, Strand};
 use std::collections::BTreeSet;
 
@@ -490,10 +490,16 @@ pub enum ActionMode {
     Build(bool),
     /// User is creating helices with two strands starting at a given position and with a given
     /// length.
-    BuildHelix { position: isize, length: usize },
+    BuildHelix {
+        position: isize,
+        length: usize,
+    },
     /// should "stick"
     /// Use can cut strands
     Cut,
+    EditBezierPath {
+        path_id: Option<BezierPathId>,
+    },
 }
 
 impl Default for ActionMode {
@@ -514,6 +520,7 @@ impl std::fmt::Display for ActionMode {
                 ActionMode::Build(_) => "Build",
                 ActionMode::BuildHelix { .. } => "Build",
                 ActionMode::Cut => "Cut",
+                ActionMode::EditBezierPath { .. } => "Edit path",
             }
         )
     }
