@@ -471,6 +471,37 @@ impl<S: AppState> Scene<S> {
                     self.on_notify(Notification::TeleportCamera(camera));
                 }
             }
+            Consequence::CreateBezierVertex { vertex, path } => {
+                if let Some(path) = path {
+                    self.requests.lock().unwrap().apply_design_operation(
+                        DesignOperation::AppendVertexToPath {
+                            path_id: path,
+                            vertex,
+                        },
+                    )
+                } else {
+                    self.requests.lock().unwrap().apply_design_operation(
+                        DesignOperation::CreateBezierPath {
+                            first_vertex: vertex,
+                        },
+                    )
+                }
+            }
+            Consequence::MoveBezierVertex {
+                x,
+                y,
+                path_id,
+                vertex_id,
+            } => self.requests.lock().unwrap().update_opperation(Arc::new(
+                TranslateBezierPathVertex {
+                    design_id: 0,
+                    path_id,
+                    vertex_id,
+                    x,
+                    y,
+                },
+            )),
+            Consequence::ReleaseBezierVertex => self.requests.lock().unwrap().suspend_op(),
         };
     }
 

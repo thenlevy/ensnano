@@ -18,17 +18,26 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 
 const NEW_BEZIER_PLANE_ICON: LightIcon = LightIcon::HistoryEdu;
+const EDIT_BEZIER_PATH_ICON: LightIcon = LightIcon::LinearScale;
 
 #[derive(Default)]
 pub struct PenTab {
     add_plane_btn: button::State,
+    edit_path_btn: button::State,
 }
 
-macro_rules! add_new_plane_button {
+macro_rules! add_buttons {
     ($ret: ident, $self:ident, $ui_size: ident) => {
         $ret = $ret.push(
-            light_icon_btn(&mut $self.add_plane_btn, NEW_BEZIER_PLANE_ICON, $ui_size)
-                .on_press(Message::NewBezierPlane),
+            Row::new()
+                .push(
+                    light_icon_btn(&mut $self.add_plane_btn, NEW_BEZIER_PLANE_ICON, $ui_size)
+                        .on_press(Message::NewBezierPlane),
+                )
+                .push(
+                    light_icon_btn(&mut $self.edit_path_btn, EDIT_BEZIER_PATH_ICON, $ui_size)
+                        .on_press(Message::StartBezierPath),
+                ),
         );
     };
 }
@@ -41,7 +50,7 @@ impl PenTab {
     ) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(5);
         section!(ret, ui_size, "Bezier Planes");
-        add_new_plane_button!(ret, self, ui_size);
+        add_buttons!(ret, self, ui_size);
         ret.into()
     }
 }

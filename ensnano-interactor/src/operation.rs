@@ -21,9 +21,9 @@ use crate::BezierControlPoint;
 use super::{DesignOperation, DesignRotation, DesignTranslation, GroupId, IsometryTarget};
 use ensnano_design::{
     grid::{GridDescriptor, GridTypeDescr},
-    Nucl,
+    BezierPathId, Nucl,
 };
-use ultraviolet::{Bivec3, Rotor3, Vec3};
+use ultraviolet::{Bivec3, Rotor3, Vec2, Vec3};
 
 pub enum ParameterField {
     Choice(Vec<String>),
@@ -364,6 +364,29 @@ impl Operation for BezierControlPointTranslation {
                 }))
             }
             _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TranslateBezierPathVertex {
+    pub design_id: usize,
+    pub path_id: BezierPathId,
+    pub vertex_id: usize,
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Operation for TranslateBezierPathVertex {
+    fn description(&self) -> String {
+        String::from("Positioning BezierPath Vertex")
+    }
+
+    fn effect(&self) -> DesignOperation {
+        DesignOperation::MoveBezierVertex {
+            path_id: self.path_id,
+            vertex_id: self.vertex_id,
+            position: Vec2::new(self.x, self.y),
         }
     }
 }

@@ -22,7 +22,7 @@ use super::{
 };
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use ensnano_design::grid::{GridObject, GridPosition, HelixGridPosition};
-use ensnano_design::Nucl;
+use ensnano_design::{BezierPathId, BezierVertex, Nucl};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::DesignReader;
 use ensnano_interactor::Selection;
@@ -120,6 +120,17 @@ pub enum Consequence {
     PivotCenter,
     CheckXovers,
     AlignWithStereo,
+    CreateBezierVertex {
+        vertex: BezierVertex,
+        path: Option<BezierPathId>,
+    },
+    MoveBezierVertex {
+        x: f32,
+        y: f32,
+        path_id: BezierPathId,
+        vertex_id: usize,
+    },
+    ReleaseBezierVertex,
 }
 
 enum TransistionConsequence {

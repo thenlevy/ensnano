@@ -490,15 +490,13 @@ pub enum ActionMode {
     Build(bool),
     /// User is creating helices with two strands starting at a given position and with a given
     /// length.
-    BuildHelix {
-        position: isize,
-        length: usize,
-    },
+    BuildHelix { position: isize, length: usize },
     /// should "stick"
     /// Use can cut strands
     Cut,
     EditBezierPath {
         path_id: Option<BezierPathId>,
+        vertex_id: Option<usize>,
     },
 }
 

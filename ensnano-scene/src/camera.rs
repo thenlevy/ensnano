@@ -683,6 +683,16 @@ impl CameraController {
         let orientation = self.camera.borrow().rotor;
         self.teleport_camera(new_position, orientation);
     }
+
+    pub fn ray(&self, x_ndc: f32, y_ndc: f32) -> (Vec3, Vec3) {
+        maths_3d::cast_ray(
+            x_ndc,
+            y_ndc,
+            self.camera.clone(),
+            self.projection.clone(),
+            None, // we don't play we grids in stereographic view
+        )
+    }
 }
 
 /// A plane in space defined by an origin and a normal

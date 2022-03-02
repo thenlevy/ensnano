@@ -190,6 +190,7 @@ pub enum Message<S> {
     InsertionLengthInput(String),
     InsertionLengthSubmitted,
     NewBezierPlane,
+    StartBezierPath,
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -802,6 +803,15 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::NewBezierPlane => {
                 self.requests.lock().unwrap().create_bezier_plane();
+            }
+            Message::StartBezierPath => {
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .change_action_mode(ActionMode::EditBezierPath {
+                        path_id: None,
+                        vertex_id: None,
+                    })
             }
         };
         Command::none()

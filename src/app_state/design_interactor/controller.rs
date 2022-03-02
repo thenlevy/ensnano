@@ -25,11 +25,13 @@ use ensnano_design::{
         Hyperboloid,
     },
     group_attributes::GroupPivot,
-    mutate_in_arc, BezierEdge, BezierEnd, BezierPlaneDescriptor, CameraId, CurveDescriptor, Design,
-    Domain, DomainJunction, Helices, Helix, HelixCollection, Nucl, Strand, Strands, UpToDateDesign,
+    mutate_in_arc, BezierEnd, BezierPathId, BezierPlaneDescriptor, BezierVertex, CameraId,
+    CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix, HelixCollection, Nucl, Strand,
+    Strands, UpToDateDesign,
 };
 use ensnano_interactor::{
-    operation::Operation, BezierControlPoint, HyperboloidOperation, SimulationState,
+    operation::{Operation, TranslateBezierPathVertex},
+    BezierControlPoint, HyperboloidOperation, SimulationState,
 };
 use ensnano_interactor::{
     DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
@@ -310,9 +312,21 @@ impl Controller {
             DesignOperation::AddBezierPlane { desc } => {
                 Ok(self.ok_apply(|c, d| c.add_bezier_plane(d, desc), design))
             }
-            DesignOperation::CreateBezierPath { first_edge } => {
-                Ok(self.ok_apply(|c, d| c.create_bezier_path(d, first_edge), design))
+            DesignOperation::CreateBezierPath { first_vertex } => {
+                Ok(self.ok_apply(|c, d| c.create_bezier_path(d, first_vertex), design))
             }
+            DesignOperation::AppendVertexToPath { path_id, vertex } => self.apply(
+                |c, d| c.append_vertex_to_bezier_path(d, path_id, vertex),
+                design,
+            ),
+            DesignOperation::MoveBezierVertex {
+                path_id,
+                vertex_id,
+                position,
+            } => self.apply(
+                |c, d| c.move_bezier_vertex(d, path_id, vertex_id, position),
+                design,
+            ),
         };
 
         if let Ok(ret) = &mut ret {
@@ -1134,11 +1148,67 @@ impl Controller {
         design
     }
 
-    fn create_bezier_path(&mut self, mut design: Design, first_edge: BezierEdge) -> Design {
+    fn create_bezier_path(&mut self, mut design: Design, first_vertex: BezierVertex) -> Design {
         let mut new_paths = design.bezier_paths.make_mut();
-        new_paths.create_path(first_edge);
+        let path_id = new_paths.create_path(first_vertex);
         drop(new_paths);
+        self.state = ControllerState::ApplyingOperation {
+            design: AddressPointer::new(design.clone()),
+            operation: Some(Arc::new(TranslateBezierPathVertex {
+                design_id: 0,
+                path_id,
+                vertex_id: 0,
+                x: first_vertex.position.x,
+                y: first_vertex.position.y,
+            })),
+        };
         design
+    }
+
+    fn append_vertex_to_bezier_path(
+        &mut self,
+        mut design: Design,
+        path_id: BezierPathId,
+        vertex: BezierVertex,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        let vertex_id = path.add_vertex(vertex);
+        drop(new_paths);
+        self.state = ControllerState::ApplyingOperation {
+            design: AddressPointer::new(design.clone()),
+            operation: Some(Arc::new(TranslateBezierPathVertex {
+                design_id: 0,
+                path_id,
+                vertex_id,
+                x: vertex.position.x,
+                y: vertex.position.y,
+            })),
+        };
+        Ok(design)
+    }
+
+    fn move_bezier_vertex(
+        &mut self,
+        mut design: Design,
+        path_id: BezierPathId,
+        vertex_id: usize,
+        position: Vec2,
+    ) -> Result<Design, ErrOperation> {
+        self.update_state_and_design(&mut design);
+
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        let vertex = path
+            .get_vertex_mut(vertex_id)
+            .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
+        vertex.position = position;
+        drop(new_paths);
+        Ok(design)
     }
 
     fn create_camera(
@@ -1515,6 +1585,8 @@ pub enum ErrOperation {
     NotPiecewiseBezier(usize),
     GridCopyError(ensnano_design::grid::GridCopyError),
     CouldNotGetPrime3of(usize),
+    PathDoesNotExist(BezierPathId),
+    VertexDoesNotExist(BezierPathId, usize),
 }
 
 impl From<ensnano_design::design_operations::ErrOperation> for ErrOperation {

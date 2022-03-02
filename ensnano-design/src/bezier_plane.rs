@@ -50,6 +50,58 @@ impl BezierPlanes {
     }
 }
 
+impl BezierPlaneDescriptor {
+    pub fn ray_intersection(
+        &self,
+        origin: Vec3,
+        direction: Vec3,
+    ) -> Option<BezierPlaneIntersection> {
+        let normal = Vec3::unit_x().rotated_by(self.orientation);
+        let denom = direction.dot(normal);
+        let depth = if denom.abs() < 1e-3 {
+            None
+        } else {
+            let d = (self.position - origin).dot(normal) / denom;
+            Some(d)
+        }?;
+        let (x, y) = {
+            let intersection = origin + depth * direction;
+            let vec = intersection - self.position;
+            let x_dir = Vec3::unit_z().rotated_by(self.orientation);
+            let y_dir = Vec3::unit_y().rotated_by(self.orientation);
+            (vec.dot(x_dir), vec.dot(y_dir))
+        };
+        Some(BezierPlaneIntersection { x, y, depth })
+    }
+}
+
+pub fn ray_bezier_plane_intersection<'a>(
+    planes: impl Iterator<Item = (&'a BezierPlaneId, &'a BezierPlaneDescriptor)>,
+    origin: Vec3,
+    direction: Vec3,
+) -> Option<(BezierPlaneId, BezierPlaneIntersection)> {
+    let mut ret: Option<(BezierPlaneId, BezierPlaneIntersection)> = None;
+    for (id, plane) in planes {
+        if let Some(intersection) = plane.ray_intersection(origin, direction) {
+            if let Some((best_id, inter)) = ret.as_mut() {
+                if inter.depth > intersection.depth {
+                    *best_id = *id;
+                    *inter = intersection;
+                }
+            } else {
+                ret = Some((*id, intersection));
+            }
+        }
+    }
+    ret
+}
+
+pub struct BezierPlaneIntersection {
+    pub x: f32,
+    pub y: f32,
+    pub depth: f32,
+}
+
 pub struct BezierPlanesMut<'a> {
     source: &'a mut BezierPlanes,
     new_map: BTreeMap<BezierPlaneId, Arc<BezierPlaneDescriptor>>,
@@ -102,7 +154,7 @@ impl BezierPaths {
 }
 
 impl<'a> BezierPathsMut<'a> {
-    pub fn create_path(&mut self, first_edge: BezierEdge) {
+    pub fn create_path(&mut self, first_vertex: BezierVertex) -> BezierPathId {
         let new_key = self
             .new_map
             .keys()
@@ -110,10 +162,15 @@ impl<'a> BezierPathsMut<'a> {
             .map(|m| BezierPathId(m.0 + 1))
             .unwrap_or_default();
         let new_path = BezierPath {
-            edges: vec![first_edge],
+            vertices: vec![first_vertex],
             cyclic: false,
         };
         self.new_map.insert(new_key, Arc::new(new_path));
+        new_key
+    }
+
+    pub fn get_mut(&mut self, id: &BezierPathId) -> Option<&mut BezierPath> {
+        self.new_map.get_mut(id).map(Arc::make_mut)
     }
 }
 
@@ -125,12 +182,23 @@ impl<'a> Drop for BezierPathsMut<'a> {
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct BezierPath {
-    pub edges: Vec<BezierEdge>,
-    pub cyclic: bool,
+    vertices: Vec<BezierVertex>,
+    cyclic: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BezierEdge {
+impl BezierPath {
+    pub fn add_vertex(&mut self, vertex: BezierVertex) -> usize {
+        self.vertices.push(vertex);
+        self.vertices.len() - 1
+    }
+
+    pub fn get_vertex_mut(&mut self, vertex_id: usize) -> Option<&mut BezierVertex> {
+        self.vertices.get_mut(vertex_id)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub struct BezierVertex {
     pub plane_id: BezierPlaneId,
     pub position: Vec2,
 }

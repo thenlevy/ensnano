@@ -23,7 +23,7 @@ use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{GridDescriptor, GridObject, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
-    BezierEdge, BezierPlaneDescriptor, Nucl, Parameters,
+    BezierPathId, BezierPlaneDescriptor, BezierVertex, Nucl, Parameters,
 };
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 pub mod graphics;
@@ -273,7 +273,16 @@ pub enum DesignOperation {
         desc: BezierPlaneDescriptor,
     },
     CreateBezierPath {
-        first_edge: BezierEdge,
+        first_vertex: BezierVertex,
+    },
+    AppendVertexToPath {
+        path_id: BezierPathId,
+        vertex: BezierVertex,
+    },
+    MoveBezierVertex {
+        path_id: BezierPathId,
+        vertex_id: usize,
+        position: Vec2,
     },
 }
 

@@ -16,7 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
-use ensnano_design::grid::GridObject;
+use crate::DesignReader;
+use ensnano_design::ultraviolet::Vec2;
+use ensnano_design::{grid::GridObject, BezierPlaneId};
 use ensnano_interactor::{ActionMode, CursorIcon};
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -117,6 +119,12 @@ impl<S: AppState> ControllerState<S> for NormalState {
         pixel_reader: &mut ElementSelector,
         app_state: &S,
     ) -> Transition<S> {
+        let path_id =
+            if let (ActionMode::EditBezierPath { path_id, .. }, _) = app_state.get_action_mode() {
+                Some(path_id)
+            } else {
+                None
+            };
         match event {
             WindowEvent::CursorMoved { .. } if app_state.is_pasting() => {
                 self.mouse_position = position;
@@ -171,6 +179,37 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 })),
                 consequences: Consequence::Nothing,
             },
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                ..
+            } if path_id.is_some() => {
+                let mouse_x = position.x / controller.area_size.width as f64;
+                let mouse_y = position.y / controller.area_size.height as f64;
+                let ray = controller
+                    .camera_controller
+                    .ray(mouse_x as f32, mouse_y as f32);
+                if let Some((plane_id, intersection)) =
+                    ensnano_design::ray_bezier_plane_intersection(
+                        app_state.get_design_reader().get_bezier_planes().iter(),
+                        ray.0,
+                        ray.1,
+                    )
+                {
+                    Transition {
+                        new_state: Some(Box::new(MovingBezierVertex { plane_id })),
+                        consequences: Consequence::CreateBezierVertex {
+                            vertex: BezierVertex {
+                                plane_id,
+                                position: Vec2::new(intersection.x, intersection.y),
+                            },
+                            path: path_id.unwrap(),
+                        },
+                    }
+                } else {
+                    Transition::nothing()
+                }
+            }
             WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
@@ -1262,6 +1301,73 @@ impl<S: AppState> ControllerState<S> for Pasting {
                     mouse_position: position,
                 })),
                 consequences: Consequence::Paste(self.element),
+            },
+            _ => Transition::nothing(),
+        }
+    }
+}
+
+struct MovingBezierVertex {
+    plane_id: BezierPlaneId,
+}
+
+impl<S: AppState> ControllerState<S> for MovingBezierVertex {
+    fn display(&self) -> Cow<'static, str> {
+        "Moving bezier vertex".into()
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller<S>,
+        pixel_reader: &mut ElementSelector,
+        app_state: &S,
+    ) -> Transition<S> {
+        match event {
+            WindowEvent::CursorMoved { .. } => {
+                let mouse_x = position.x / controller.area_size.width as f64;
+                let mouse_y = position.y / controller.area_size.height as f64;
+                let ray = controller
+                    .camera_controller
+                    .ray(mouse_x as f32, mouse_y as f32);
+                if let Some(intersection) = app_state
+                    .get_design_reader()
+                    .get_bezier_planes()
+                    .get(&self.plane_id)
+                    .and_then(|plane| plane.ray_intersection(ray.0, ray.1))
+                {
+                    if let (
+                        ActionMode::EditBezierPath {
+                            path_id: Some(path_id),
+                            vertex_id: Some(vertex_id),
+                        },
+                        _,
+                    ) = app_state.get_action_mode()
+                    {
+                        Transition::consequence(Consequence::MoveBezierVertex {
+                            x: intersection.x,
+                            y: intersection.y,
+                            path_id,
+                            vertex_id,
+                        })
+                    } else {
+                        log::error!("Bad action mode {:?}", app_state.get_action_mode().0);
+                        Transition::nothing()
+                    }
+                } else {
+                    Transition::nothing()
+                }
+            }
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: ElementState::Released,
+                ..
+            } => Transition {
+                new_state: Some(Box::new(NormalState {
+                    mouse_position: position,
+                })),
+                consequences: Consequence::ReleaseBezierVertex,
             },
             _ => Transition::nothing(),
         }
