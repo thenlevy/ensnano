@@ -467,4 +467,5 @@ pub enum Action {
     Twist(usize),
     SetDnaParameters(Parameters),
     SetExpandInsertions(bool),
+    AddBezierPlane,
 }

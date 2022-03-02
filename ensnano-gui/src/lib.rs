@@ -203,6 +203,7 @@ pub trait Requests: 'static + Send {
     fn set_dna_parameters(&mut self, param: Parameters);
     fn set_expand_insertions(&mut self, expand: bool);
     fn set_insertion_length(&mut self, insertion_point: InsertionPoint, length: usize);
+    fn create_bezier_plane(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]

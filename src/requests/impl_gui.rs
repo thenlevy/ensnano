@@ -177,6 +177,10 @@ impl GuiRequests for Requests {
         self.new_grid = Some(grid_type_descriptor);
     }
 
+    fn create_bezier_plane(&mut self) {
+        self.new_bezier_plane = Some(())
+    }
+
     fn set_candidates_keys(&mut self, candidates: Vec<DnaElementKey>) {
         self.organizer_candidates = Some(candidates);
     }

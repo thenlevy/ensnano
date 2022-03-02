@@ -1120,9 +1120,14 @@ impl Controller {
         design
     }
 
-    fn add_bezier_plane(mut self, mut design: Design, descriptor: BezierPlaneDescriptor) -> Design {
+    fn add_bezier_plane(
+        &mut self,
+        mut design: Design,
+        descriptor: BezierPlaneDescriptor,
+    ) -> Design {
         let mut new_planes = design.bezier_planes.make_mut();
         new_planes.push(descriptor);
+        drop(new_planes);
         design
     }
 

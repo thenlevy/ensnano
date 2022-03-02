@@ -81,6 +81,10 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.push_action(Action::AddGrid(grid_type));
     }
 
+    if requests.new_bezier_plane.take().is_some() {
+        main_state.push_action(Action::AddBezierPlane);
+    }
+
     if let Some(selection_mode) = requests.selection_mode.take() {
         main_state.change_selection_mode(selection_mode)
     }
