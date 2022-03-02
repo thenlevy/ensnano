@@ -20,7 +20,7 @@ use super::*;
 use crate::scene::GridInstance;
 use ensnano_design::{
     grid::{GridObject, GridPosition, HelixGridPosition},
-    BezierPlaneCollection, CurveDescriptor, Nucl,
+    BezierPlaneDescriptor, BezierPlaneId, Collection, CurveDescriptor, Nucl,
 };
 use ensnano_interactor::{
     graphics::{LoopoutBond, LoopoutNucl},
@@ -415,7 +415,9 @@ impl Reader3D for DesignReader {
         helix.curve.as_ref().map(Arc::as_ref)
     }
 
-    fn get_bezier_planes(&self) -> &dyn BezierPlaneCollection {
+    fn get_bezier_planes(
+        &self,
+    ) -> &dyn Collection<Key = BezierPlaneId, Item = BezierPlaneDescriptor> {
         &self.presenter.current_design.bezier_planes
     }
 

@@ -23,7 +23,10 @@ use super::super::GridInstance;
 use super::{ultraviolet, LetterInstance, SceneElement};
 use ensnano_design::grid::{GridObject, GridPosition};
 use ensnano_design::{grid::HelixGridPosition, Nucl};
-use ensnano_design::{BezierPlaneCollection, CubicBezierConstructor, CurveDescriptor, Parameters};
+use ensnano_design::{
+    BezierPlaneDescriptor, BezierPlaneId, Collection, CubicBezierConstructor, CurveDescriptor,
+    Parameters,
+};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::{
     graphics::{LoopoutBond, LoopoutNucl},
@@ -1306,6 +1309,8 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_all_loopout_bonds(&self) -> &[LoopoutBond];
     fn get_insertion_length(&self, bond_id: u32) -> usize;
     fn get_expected_bond_length(&self) -> f32;
-    fn get_bezier_planes(&self) -> &dyn BezierPlaneCollection;
+    fn get_bezier_planes(
+        &self,
+    ) -> &dyn Collection<Item = BezierPlaneDescriptor, Key = BezierPlaneId>;
     fn get_parameters(&self) -> Parameters;
 }
