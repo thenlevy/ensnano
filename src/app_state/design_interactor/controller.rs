@@ -31,7 +31,7 @@ use ensnano_design::{
 };
 use ensnano_interactor::{
     operation::{Operation, TranslateBezierPathVertex},
-    BezierControlPoint, HyperboloidOperation, SimulationState,
+    ActionMode, BezierControlPoint, HyperboloidOperation, SimulationState,
 };
 use ensnano_interactor::{
     DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
@@ -71,6 +71,7 @@ pub(super) struct Controller {
     color_idx: usize,
     state: ControllerState,
     clipboard: AddressPointer<Clipboard>,
+    pub(super) next_action_mode: Option<ActionMode>,
 }
 
 impl Controller {
@@ -1162,6 +1163,10 @@ impl Controller {
                 y: first_vertex.position.y,
             })),
         };
+        self.next_action_mode = Some(ActionMode::EditBezierPath {
+            path_id: Some(path_id),
+            vertex_id: Some(0),
+        });
         design
     }
 
@@ -1187,6 +1192,10 @@ impl Controller {
                 y: vertex.position.y,
             })),
         };
+        self.next_action_mode = Some(ActionMode::EditBezierPath {
+            path_id: Some(path_id),
+            vertex_id: Some(vertex_id),
+        });
         Ok(design)
     }
 

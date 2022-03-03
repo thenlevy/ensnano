@@ -19,8 +19,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::AddressPointer;
 use ensnano_design::{group_attributes::GroupAttribute, Design, HelixCollection, Parameters};
 use ensnano_interactor::{
-    operation::Operation, DesignOperation, RigidBodyConstants, Selection, SimulationState,
-    StrandBuilder, SuggestionParameters,
+    operation::Operation, ActionMode, DesignOperation, RigidBodyConstants, Selection,
+    SimulationState, StrandBuilder, SuggestionParameters,
 };
 
 mod presenter;
@@ -56,6 +56,7 @@ pub struct DesignInteractor {
     simulation_update: Option<Arc<dyn SimulationUpdate>>,
     current_operation: Option<Arc<dyn Operation>>,
     current_operation_id: usize,
+    new_action_mode: Option<ActionMode>,
 }
 
 impl DesignInteractor {
@@ -177,15 +178,17 @@ impl DesignInteractor {
         result: Result<(OkOperation, Controller), ErrOperation>,
     ) -> Result<InteractorResult, ErrOperation> {
         match result {
-            Ok((OkOperation::Replace(design), controller)) => {
+            Ok((OkOperation::Replace(design), mut controller)) => {
                 let mut ret = self.clone();
+                ret.new_action_mode = controller.next_action_mode.take();
                 ret.controller = AddressPointer::new(controller);
                 ret.design = AddressPointer::new(design);
                 Ok(InteractorResult::Replace(ret))
             }
-            Ok((OkOperation::Push { design, label }, controller)) => {
+            Ok((OkOperation::Push { design, label }, mut controller)) => {
                 let mut ret = self.clone();
                 ret.current_operation = None;
+                ret.new_action_mode = controller.next_action_mode.take();
                 ret.controller = AddressPointer::new(controller);
                 ret.design = AddressPointer::new(design);
                 Ok(InteractorResult::Push {
@@ -193,8 +196,9 @@ impl DesignInteractor {
                     label,
                 })
             }
-            Ok((OkOperation::NoOp, controller)) => {
+            Ok((OkOperation::NoOp, mut controller)) => {
                 let mut ret = self.clone();
+                ret.new_action_mode = controller.next_action_mode.take();
                 ret.controller = AddressPointer::new(controller);
                 Ok(InteractorResult::Replace(ret))
             }
@@ -337,6 +341,10 @@ impl DesignInteractor {
 
     pub(super) fn get_new_selection(&self) -> Option<Vec<Selection>> {
         self.controller.get_new_selection()
+    }
+
+    pub fn get_new_action_mode(&mut self) -> Option<ActionMode> {
+        self.new_action_mode.take()
     }
 }
 

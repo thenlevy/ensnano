@@ -303,11 +303,15 @@ impl AppState {
         log::trace!("handle operation result");
         match result {
             Ok(InteractorResult::Push {
-                interactor: design,
+                interactor: mut design,
                 label,
             }) => {
+                let new_action_mode = design.get_new_action_mode();
                 let ret = Some(self.clone());
-                let new_state = self.clone().with_interactor(design);
+                let mut new_state = self.clone().with_interactor(design);
+                if let Some(action_mode) = new_action_mode {
+                    new_state = new_state.with_action_mode(action_mode);
+                }
                 *self = new_state;
                 if let Some(state) = ret {
                     Ok(OkOperation::Undoable {
@@ -318,8 +322,12 @@ impl AppState {
                     Ok(OkOperation::NotUndoable)
                 }
             }
-            Ok(InteractorResult::Replace(design)) => {
-                let new_state = self.clone().with_interactor(design);
+            Ok(InteractorResult::Replace(mut design)) => {
+                let new_action_mode = design.get_new_action_mode();
+                let mut new_state = self.clone().with_interactor(design);
+                if let Some(action_mode) = new_action_mode {
+                    new_state = new_state.with_action_mode(action_mode);
+                }
                 *self = new_state;
                 Ok(OkOperation::NotUndoable)
             }
