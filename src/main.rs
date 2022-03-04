@@ -1370,10 +1370,10 @@ impl MainState {
             self.app_state
                 .get_design_reader()
                 .save_design(&path, save_info)?;
+            self.last_backed_up_state = self.app_state.clone();
+            println!("Saved backup to {}", path.to_string_lossy());
         }
 
-        self.last_backed_up_state = self.app_state.clone();
-        println!("Saved backup to {}", path.to_string_lossy());
         Ok(())
     }
 
