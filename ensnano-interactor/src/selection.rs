@@ -54,6 +54,10 @@ pub enum CenterOfSelection {
         helix_id: usize,
         bezier_control: BezierControlPoint,
     },
+    BezierVertex {
+        path_id: BezierPathId,
+        vertex_id: usize,
+    },
 }
 
 impl Selection {

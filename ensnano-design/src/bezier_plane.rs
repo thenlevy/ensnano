@@ -128,7 +128,7 @@ impl<'a> Drop for BezierPlanesMut<'a> {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Default)]
-pub struct BezierPathId(usize);
+pub struct BezierPathId(pub u32);
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct BezierPaths(Arc<BTreeMap<BezierPathId, Arc<BezierPath>>>);

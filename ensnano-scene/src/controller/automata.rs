@@ -183,37 +183,6 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 ..
-            } if path_id.is_some() => {
-                let mouse_x = position.x / controller.area_size.width as f64;
-                let mouse_y = position.y / controller.area_size.height as f64;
-                let ray = controller
-                    .camera_controller
-                    .ray(mouse_x as f32, mouse_y as f32);
-                if let Some((plane_id, intersection)) =
-                    ensnano_design::ray_bezier_plane_intersection(
-                        app_state.get_design_reader().get_bezier_planes().iter(),
-                        ray.0,
-                        ray.1,
-                    )
-                {
-                    Transition {
-                        new_state: Some(Box::new(MovingBezierVertex { plane_id })),
-                        consequences: Consequence::CreateBezierVertex {
-                            vertex: BezierVertex {
-                                plane_id,
-                                position: Vec2::new(intersection.x, intersection.y),
-                            },
-                            path: path_id.unwrap(),
-                        },
-                    }
-                } else {
-                    Transition::nothing()
-                }
-            }
-            WindowEvent::MouseInput {
-                state: ElementState::Pressed,
-                button: MouseButton::Left,
-                ..
             } if app_state.is_pasting() => {
                 let element = pixel_reader.set_selected_id(position);
                 let element = if let Some(SceneElement::Grid(d_id, _)) = element {
@@ -247,6 +216,44 @@ impl<S: AppState> ControllerState<S> for NormalState {
             } => {
                 let element = pixel_reader.set_selected_id(position);
                 log::info!("Clicked on {:?}", element);
+                if let Some(SceneElement::BezierVertex { vertex_id, path_id }) = element {
+                    return Transition {
+                        new_state: Some(Box::new(MovingBezierVertex {
+                            plane_id: None,
+                            vertex_id: Some(vertex_id),
+                            path_id: Some(path_id),
+                        })),
+                        consequences: Consequence::Nothing,
+                    };
+                } else if path_id.is_some() {
+                    let mouse_x = position.x / controller.area_size.width as f64;
+                    let mouse_y = position.y / controller.area_size.height as f64;
+                    let ray = controller
+                        .camera_controller
+                        .ray(mouse_x as f32, mouse_y as f32);
+                    if let Some((plane_id, intersection)) =
+                        ensnano_design::ray_bezier_plane_intersection(
+                            app_state.get_design_reader().get_bezier_planes().iter(),
+                            ray.0,
+                            ray.1,
+                        )
+                    {
+                        return Transition {
+                            new_state: Some(Box::new(MovingBezierVertex {
+                                plane_id: Some(plane_id),
+                                vertex_id: None,
+                                path_id: None,
+                            })),
+                            consequences: Consequence::CreateBezierVertex {
+                                vertex: BezierVertex {
+                                    plane_id,
+                                    position: Vec2::new(intersection.x, intersection.y),
+                                },
+                                path: path_id.unwrap(),
+                            },
+                        };
+                    }
+                }
                 match element {
                     Some(SceneElement::GridCircle(d_id, grid_position)) => {
                         if let ActionMode::BuildHelix {
@@ -1308,7 +1315,9 @@ impl<S: AppState> ControllerState<S> for Pasting {
 }
 
 struct MovingBezierVertex {
-    plane_id: BezierPlaneId,
+    plane_id: Option<BezierPlaneId>,
+    vertex_id: Option<usize>,
+    path_id: Option<BezierPathId>,
 }
 
 impl<S: AppState> ControllerState<S> for MovingBezierVertex {
@@ -1324,52 +1333,82 @@ impl<S: AppState> ControllerState<S> for MovingBezierVertex {
         pixel_reader: &mut ElementSelector,
         app_state: &S,
     ) -> Transition<S> {
-        match event {
-            WindowEvent::CursorMoved { .. } => {
-                let mouse_x = position.x / controller.area_size.width as f64;
-                let mouse_y = position.y / controller.area_size.height as f64;
-                let ray = controller
-                    .camera_controller
-                    .ray(mouse_x as f32, mouse_y as f32);
-                if let Some(intersection) = app_state
+        if let Some(plane_id) = self.plane_id.or(self
+            .path_id
+            .zip(self.vertex_id)
+            .and_then(|(path_id, vertex_id)| {
+                app_state
                     .get_design_reader()
-                    .get_bezier_planes()
-                    .get(&self.plane_id)
-                    .and_then(|plane| plane.ray_intersection(ray.0, ray.1))
-                {
-                    if let (
-                        ActionMode::EditBezierPath {
-                            path_id: Some(path_id),
-                            vertex_id: Some(vertex_id),
-                        },
-                        _,
-                    ) = app_state.get_action_mode()
+                    .get_bezier_vertex(path_id, vertex_id)
+            })
+            .map(|v| v.plane_id))
+        {
+            match event {
+                WindowEvent::CursorMoved { .. } => {
+                    let mouse_x = position.x / controller.area_size.width as f64;
+                    let mouse_y = position.y / controller.area_size.height as f64;
+                    let ray = controller
+                        .camera_controller
+                        .ray(mouse_x as f32, mouse_y as f32);
+                    if let Some(intersection) = app_state
+                        .get_design_reader()
+                        .get_bezier_planes()
+                        .get(&plane_id)
+                        .and_then(|plane| plane.ray_intersection(ray.0, ray.1))
                     {
-                        Transition::consequence(Consequence::MoveBezierVertex {
-                            x: intersection.x,
-                            y: intersection.y,
-                            path_id,
-                            vertex_id,
-                        })
+                        let path_id = self.path_id.or_else(|| {
+                            if let ActionMode::EditBezierPath { path_id, .. } =
+                                app_state.get_action_mode().0
+                            {
+                                path_id
+                            } else {
+                                None
+                            }
+                        });
+                        let vertex_id = self.vertex_id.or_else(|| {
+                            if let ActionMode::EditBezierPath { vertex_id, .. } =
+                                app_state.get_action_mode().0
+                            {
+                                vertex_id
+                            } else {
+                                None
+                            }
+                        });
+                        if let Some((path_id, vertex_id)) = path_id.zip(vertex_id) {
+                            Transition::consequence(Consequence::MoveBezierVertex {
+                                x: intersection.x,
+                                y: intersection.y,
+                                path_id,
+                                vertex_id,
+                            })
+                        } else {
+                            log::error!("Bad action mode {:?}", app_state.get_action_mode().0);
+                            Transition::nothing()
+                        }
                     } else {
-                        log::error!("Bad action mode {:?}", app_state.get_action_mode().0);
                         Transition::nothing()
                     }
-                } else {
-                    Transition::nothing()
                 }
+                WindowEvent::MouseInput {
+                    button: MouseButton::Left,
+                    state: ElementState::Released,
+                    ..
+                } => Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: position,
+                    })),
+                    consequences: Consequence::ReleaseBezierVertex,
+                },
+                _ => Transition::nothing(),
             }
-            WindowEvent::MouseInput {
-                button: MouseButton::Left,
-                state: ElementState::Released,
-                ..
-            } => Transition {
+        } else {
+            log::error!("Could not get self.plane");
+            Transition {
                 new_state: Some(Box::new(NormalState {
                     mouse_position: position,
                 })),
                 consequences: Consequence::ReleaseBezierVertex,
-            },
-            _ => Transition::nothing(),
+            }
         }
     }
 }

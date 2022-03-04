@@ -679,6 +679,7 @@ impl<R: DesignReader> Design3D<R> {
             SceneElement::WidgetElement(_)
             | SceneElement::Grid(_, _)
             | SceneElement::BezierControl { .. }
+            | SceneElement::BezierVertex { .. }
             | SceneElement::GridCircle(_, _) => None,
         }
     }
@@ -1040,13 +1041,13 @@ impl<R: DesignReader> Design3D<R> {
         let mut spheres = Vec::new();
         let mut tubes = Vec::new();
         if let Some(paths) = self.design.get_bezier_paths() {
-            for path in paths.values() {
-                for bezier_end in path.bezier_controls().iter() {
+            for (path_id, path) in paths.iter() {
+                for (vertex_id, bezier_end) in path.bezier_controls().iter().enumerate() {
                     spheres.push(
                         SphereInstance {
                             position: bezier_end.position,
                             color: [1., 0., 0., 1.].into(),
-                            id: 0,
+                            id: crate::element_selector::bezier_vertex_id(*path_id, vertex_id),
                             radius: 10.0,
                         }
                         .to_raw_instance(),
@@ -1195,6 +1196,18 @@ impl<R: DesignReader> Design3D<R> {
                 graduation_unit: 48.0 * parameters.z_step,
             })
             .collect()
+    }
+
+    pub fn get_bezier_vertex_position(
+        &self,
+        path_id: BezierPathId,
+        vertex_id: usize,
+    ) -> Option<Vec3> {
+        self.design
+            .get_bezier_paths()
+            .and_then(|m| m.get(&path_id))
+            .and_then(|p| p.get_curve_points().get(vertex_id))
+            .map(|v| ensnano_design::utils::dvec_to_vec(*v))
     }
 }
 
@@ -1385,4 +1398,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     ) -> &dyn Collection<Item = BezierPlaneDescriptor, Key = BezierPlaneId>;
     fn get_parameters(&self) -> Parameters;
     fn get_bezier_paths(&self) -> Option<&BTreeMap<BezierPathId, Arc<InstanciatedPath>>>;
+    fn get_bezier_vertex(&self, path_id: BezierPathId, vertex_id: usize) -> Option<BezierVertex>;
 }

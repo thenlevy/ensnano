@@ -1014,6 +1014,7 @@ impl<R: DesignReader> Data<R> {
                         let set = ret.entry(0).or_insert_with(HashMap::new);
                         set.insert(helix_id as u32, false);
                     }
+                    SceneElement::BezierVertex { .. } => (),
                 }
             }
         }
@@ -1684,6 +1685,9 @@ impl<R: DesignReader> Data<R> {
                 helix_id,
                 bezier_control,
             }),
+            CenterOfSelection::BezierVertex { path_id, vertex_id } => {
+                Some(SceneElement::BezierVertex { path_id, vertex_id })
+            }
         }
     }
 
@@ -1778,6 +1782,9 @@ impl<R: DesignReader> Data<R> {
                 helix_id,
                 bezier_control,
             }),
+            SceneElement::BezierVertex { vertex_id, path_id } => {
+                Some(CenterOfSelection::BezierVertex { path_id, vertex_id })
+            }
         }
     }
 

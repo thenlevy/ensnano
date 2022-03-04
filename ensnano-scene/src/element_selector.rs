@@ -19,6 +19,7 @@ use std::rc::Rc;
 
 use super::{Device, DrawArea, DrawType, Queue, ViewPtr};
 use ensnano_design::grid::GridPosition;
+use ensnano_design::BezierPathId;
 use ensnano_interactor::{phantom_helix_decoder, BezierControlPoint, PhantomElement};
 use ensnano_utils as utils;
 use futures::executor;
@@ -243,6 +244,10 @@ pub enum SceneElement {
         helix_id: usize,
         bezier_control: BezierControlPoint,
     },
+    BezierVertex {
+        path_id: BezierPathId,
+        vertex_id: usize,
+    },
 }
 
 impl SceneElement {
@@ -254,6 +259,7 @@ impl SceneElement {
             SceneElement::Grid(d, _) => Some(*d),
             SceneElement::GridCircle(d, _) => Some(*d),
             SceneElement::BezierControl { .. } => None,
+            SceneElement::BezierVertex { .. } => Some(0),
         }
     }
 
@@ -315,7 +321,16 @@ impl SceneReader {
         } else {
             match self.draw_type {
                 DrawType::Grid => Some(SceneElement::Grid(a, color as usize)),
-                DrawType::Design => Some(SceneElement::DesignElement(a, color)),
+                DrawType::Design => {
+                    if a == 0xFE {
+                        Some(SceneElement::BezierVertex {
+                            path_id: BezierPathId(r >> 16),
+                            vertex_id: (g + b) as usize,
+                        })
+                    } else {
+                        Some(SceneElement::DesignElement(a, color))
+                    }
+                }
                 DrawType::Phantom => {
                     Some(SceneElement::PhantomElement(phantom_helix_decoder(color)))
                 }
@@ -326,4 +341,8 @@ impl SceneReader {
             }
         }
     }
+}
+
+pub fn bezier_vertex_id(path_id: BezierPathId, vertex_id: usize) -> u32 {
+    (0xFE << 24) | ((path_id.0) << 16) | (vertex_id as u32)
 }

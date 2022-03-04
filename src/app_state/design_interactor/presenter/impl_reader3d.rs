@@ -434,6 +434,19 @@ impl Reader3D for DesignReader {
     fn get_parameters(&self) -> Parameters {
         self.presenter.current_design.parameters.unwrap_or_default()
     }
+
+    fn get_bezier_vertex(
+        &self,
+        path_id: ensnano_design::BezierPathId,
+        vertex_id: usize,
+    ) -> Option<ensnano_design::BezierVertex> {
+        self.presenter
+            .current_design
+            .bezier_paths
+            .get(&path_id)
+            .and_then(|p| p.vertices().get(vertex_id))
+            .cloned()
+    }
 }
 
 #[cfg(test)]
