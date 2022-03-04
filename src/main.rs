@@ -1237,7 +1237,10 @@ impl MainState {
         self.app_state
             .get_design_reader()
             .save_design(path, save_info)?;
-        self.last_saved_state = self.app_state.clone();
+
+        if self.app_state.is_in_stable_state() {
+            self.last_saved_state = self.app_state.clone();
+        }
         self.path_to_current_design = Some(path.clone());
         self.update_current_file_name();
         Ok(())
