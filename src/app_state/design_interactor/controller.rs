@@ -965,6 +965,7 @@ impl Controller {
                     OperationCompatibility::FinishFirst
                 }
             }
+            ControllerState::WithPausedSimulation { .. } => OperationCompatibility::FinishFirst,
             _ => OperationCompatibility::Incompatible,
         }
     }
@@ -1028,7 +1029,7 @@ impl Controller {
             ControllerState::WithPendingStrandDuplication { .. } => StatePersitance::Persistant,
             ControllerState::WithPendingXoverDuplication { .. } => StatePersitance::Persistant,
             ControllerState::WithPendingHelicesDuplication { .. } => StatePersitance::Persistant,
-            ControllerState::WithPausedSimulation { .. } => StatePersitance::Persistant,
+            ControllerState::WithPausedSimulation { .. } => StatePersitance::NeedFinish,
             ControllerState::SettingRollHelices { .. } => StatePersitance::NeedFinish,
             ControllerState::ChangingStrandName { .. } => StatePersitance::NeedFinish,
             _ => StatePersitance::Transitory,
@@ -3016,7 +3017,7 @@ impl ControllerState {
             Self::OptimizingScaffoldPosition => self.clone(),
             Self::Simulating { .. } => self.clone(),
             Self::SimulatingGrids { .. } => self.clone(),
-            Self::WithPausedSimulation { .. } => self.clone(),
+            Self::WithPausedSimulation { .. } => Self::Normal,
             Self::Rolling { .. } => Self::Normal,
             Self::SettingRollHelices => Self::Normal,
             Self::Twisting { .. } => Self::Normal,
