@@ -1293,6 +1293,9 @@ impl<R: DesignReader> Data<R> {
             {
                 tubes.push(*tube);
             }
+            let (bezier_spheres, bezier_tubes) = design.get_bezier_paths_elements();
+            spheres.extend(bezier_spheres);
+            tubes.extend(bezier_tubes);
             letters = design.get_letter_instances(app_state.show_insertion_representents());
             for grid in design.get_grid().iter().filter(|g| g.visible) {
                 grids.push(grid.clone());

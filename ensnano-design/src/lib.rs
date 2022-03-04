@@ -161,13 +161,17 @@ pub struct Design {
 
     #[serde(default)]
     pub bezier_paths: BezierPaths,
+
+    #[serde(skip)]
+    instanciated_paths: Option<BezierPathData>,
 }
 
-/// An immuatable reference to a design whose helices and grid data are guaranteed to be up-to
+/// An immuatable reference to a design whose helices pahts and grid data are guaranteed to be up-to
 /// date.
 pub struct UpToDateDesign<'a> {
     pub design: &'a Design,
     pub grid_data: &'a GridData,
+    pub paths_data: &'a BezierPathData,
 }
 
 impl Design {
@@ -178,11 +182,16 @@ impl Design {
     /// Having an option to not mutate the design is meant to prevent unecessary run-time cloning
     /// of the design
     pub fn try_get_up_to_date<'a>(&'a self) -> Option<UpToDateDesign<'a>> {
+        let paths_data = self
+            .instanciated_paths
+            .as_ref()
+            .filter(|data| !data.need_update(&self.bezier_planes, &self.bezier_paths))?;
         if let Some(data) = self.instanciated_grid_data.as_ref() {
             if data.is_up_to_date(&self) {
                 Some(UpToDateDesign {
                     design: self,
                     grid_data: data,
+                    paths_data,
                 })
             } else {
                 None
@@ -194,6 +203,22 @@ impl Design {
 
     /// Update self if necessary and returns an up-to-date reference to self.
     pub fn get_up_to_date<'a>(&'a mut self) -> UpToDateDesign<'a> {
+        let parameters = self.parameters.as_ref().unwrap_or(&Parameters::DEFAULT);
+        if let Some(paths_data) = self.instanciated_paths.as_ref() {
+            if let Some(new_data) = paths_data.updated(
+                self.bezier_planes.clone(),
+                self.bezier_paths.clone(),
+                parameters,
+            ) {
+                self.instanciated_paths = Some(new_data);
+            }
+        } else {
+            self.instanciated_paths = Some(BezierPathData::new(
+                self.bezier_planes.clone(),
+                self.bezier_paths.clone(),
+                parameters,
+            ));
+        }
         if self.needs_update() {
             let grid_data = GridData::new_by_updating_design(self);
             self.instanciated_grid_data = Some(grid_data);
@@ -201,6 +226,7 @@ impl Design {
         UpToDateDesign {
             design: self,
             grid_data: self.instanciated_grid_data.as_ref().unwrap(),
+            paths_data: self.instanciated_paths.as_ref().unwrap(),
         }
     }
 
@@ -294,6 +320,7 @@ impl Design {
             cached_curve: Default::default(),
             bezier_planes: Default::default(),
             bezier_paths: Default::default(),
+            instanciated_paths: None,
         }
     }
 
@@ -449,9 +476,7 @@ impl Design {
                 break;
             }
         }
-        // unwrap ok: If need_update is true, then instanciated_grid_data has just been given a
-        // value, otherwise it was already some up-to-date data
-        self.instanciated_grid_data.as_ref().unwrap()
+        self.get_up_to_date().grid_data
     }
 
     fn update_curve_bounds(&mut self) -> bool {

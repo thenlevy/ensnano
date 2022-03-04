@@ -22,8 +22,6 @@ const DISCRETISATION_STEP: usize = 100;
 const DELTA_MAX: f64 = 256.0;
 use crate::grid::{Edge, GridPosition};
 
-use self::bezier::InstanciatedPiecewiseBeizer;
-
 use super::{Helix, Parameters};
 use std::sync::Arc;
 mod bezier;
@@ -31,8 +29,8 @@ mod sphere_like_spiral;
 mod torus;
 mod twist;
 use super::GridDescriptor;
-use bezier::InstanciatedBeizerEnd;
 pub use bezier::{BezierControlPoint, BezierEnd, CubicBezierConstructor, CubicBezierControlPoint};
+pub(crate) use bezier::{InstanciatedBeizerEnd, InstanciatedPiecewiseBeizer};
 pub use sphere_like_spiral::SphereLikeSpiral;
 use std::collections::HashMap;
 pub use torus::Torus;
@@ -147,7 +145,7 @@ pub(super) struct Curve {
     /// The object describing the curve.
     geometry: Arc<dyn Curved + Sync + Send>,
     /// The precomputed points along the curve
-    positions: Vec<DVec3>,
+    pub(crate) positions: Vec<DVec3>,
     /// The precomputed orthgonal frames moving along the curve
     axis: Vec<DMat3>,
     /// The precomputed values of the curve's curvature

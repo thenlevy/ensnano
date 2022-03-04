@@ -421,6 +421,16 @@ impl Reader3D for DesignReader {
         &self.presenter.current_design.bezier_planes
     }
 
+    fn get_bezier_paths(
+        &self,
+    ) -> Option<&BTreeMap<ensnano_design::BezierPathId, Arc<ensnano_design::InstanciatedPath>>>
+    {
+        self.presenter
+            .current_design
+            .try_get_up_to_date()
+            .map(|data| data.paths_data.instanciated_paths.as_ref())
+    }
+
     fn get_parameters(&self) -> Parameters {
         self.presenter.current_design.parameters.unwrap_or_default()
     }

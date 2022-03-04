@@ -24,8 +24,8 @@ use super::{ultraviolet, LetterInstance, SceneElement};
 use ensnano_design::grid::{GridObject, GridPosition};
 use ensnano_design::{grid::HelixGridPosition, Nucl};
 use ensnano_design::{
-    BezierPlaneDescriptor, BezierPlaneId, Collection, CubicBezierConstructor, CurveDescriptor,
-    Parameters,
+    BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, Collection,
+    CubicBezierConstructor, CurveDescriptor, InstanciatedPath, Parameters,
 };
 use ensnano_interactor::consts::*;
 use ensnano_interactor::{
@@ -34,8 +34,9 @@ use ensnano_interactor::{
     PhantomElement, Referential, PHANTOM_RANGE,
 };
 use ensnano_utils::instance::Instance;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
+use std::sync::Arc;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
 /// An object that handles the 3d graphcial representation of a `Design`
@@ -1035,6 +1036,76 @@ impl<R: DesignReader> Design3D<R> {
         ret
     }
 
+    pub fn get_bezier_paths_elements(&self) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
+        let mut spheres = Vec::new();
+        let mut tubes = Vec::new();
+        if let Some(paths) = self.design.get_bezier_paths() {
+            for path in paths.values() {
+                for bezier_end in path.bezier_controls().iter() {
+                    spheres.push(
+                        SphereInstance {
+                            position: bezier_end.position,
+                            color: [1., 0., 0., 1.].into(),
+                            id: 0,
+                            radius: 10.0,
+                        }
+                        .to_raw_instance(),
+                    );
+                    spheres.push(
+                        SphereInstance {
+                            position: bezier_end.position + bezier_end.vector_out,
+                            color: Instance::color_from_u32(BEZIER_CONTROL1_COLOR),
+                            id: 0,
+                            radius: 5.0,
+                        }
+                        .to_raw_instance(),
+                    );
+                    spheres.push(
+                        SphereInstance {
+                            position: bezier_end.position - bezier_end.vector_in,
+                            color: Instance::color_from_u32(BEZIER_CONTROL1_COLOR),
+                            id: 0,
+                            radius: 5.0,
+                        }
+                        .to_raw_instance(),
+                    );
+                    tubes.push(
+                        create_dna_bound(
+                            bezier_end.position,
+                            bezier_end.position + bezier_end.vector_out,
+                            0,
+                            0,
+                            false,
+                        )
+                        .to_raw_instance(),
+                    );
+                    tubes.push(
+                        create_dna_bound(
+                            bezier_end.position,
+                            bezier_end.position - bezier_end.vector_in,
+                            0,
+                            0,
+                            false,
+                        )
+                        .to_raw_instance(),
+                    );
+                }
+                for point in path.get_curve_points().iter() {
+                    spheres.push(
+                        SphereInstance {
+                            position: Vec3::new(point.x as f32, point.y as f32, point.z as f32),
+                            color: [1., 0., 0., 1.].into(),
+                            id: 0,
+                            radius: 2.0,
+                        }
+                        .to_raw_instance(),
+                    );
+                }
+            }
+        }
+        (spheres, tubes)
+    }
+
     pub fn get_bezier_elements(&self, h_id: usize) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
         let mut spheres = Vec::new();
         let mut tubes = Vec::new();
@@ -1074,7 +1145,7 @@ impl<R: DesignReader> Design3D<R> {
             }
             (spheres, tubes)
         } else {
-            (vec![], vec![])
+            (spheres, tubes)
         }
     }
 
@@ -1313,4 +1384,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
         &self,
     ) -> &dyn Collection<Item = BezierPlaneDescriptor, Key = BezierPlaneId>;
     fn get_parameters(&self) -> Parameters;
+    fn get_bezier_paths(&self) -> Option<&BTreeMap<BezierPathId, Arc<InstanciatedPath>>>;
 }

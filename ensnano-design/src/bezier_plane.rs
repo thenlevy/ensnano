@@ -16,9 +16,11 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::collection::HasMap;
+use super::curves::{Curve, InstanciatedBeizerEnd, InstanciatedPiecewiseBeizer};
+use super::Parameters;
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use ultraviolet::{Rotor3, Vec2, Vec3};
+use ultraviolet::{DVec3, Rotor3, Vec2, Vec3};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BezierPlaneDescriptor {
@@ -195,10 +197,235 @@ impl BezierPath {
     pub fn get_vertex_mut(&mut self, vertex_id: usize) -> Option<&mut BezierVertex> {
         self.vertices.get_mut(vertex_id)
     }
+
+    pub fn vertices(&self) -> &[BezierVertex] {
+        &self.vertices
+    }
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct BezierVertex {
     pub plane_id: BezierPlaneId,
     pub position: Vec2,
+}
+
+impl BezierVertex {
+    pub fn space_position(&self, planes: &BezierPlanes) -> Option<Vec3> {
+        if let Some(plane) = planes.0.get(&self.plane_id) {
+            Some(
+                plane.position
+                    + self.position.x * Vec3::unit_z().rotated_by(plane.orientation)
+                    + self.position.y * Vec3::unit_y().rotated_by(plane.orientation),
+            )
+        } else {
+            log::error!("Could not get plane");
+            None
+        }
+    }
+}
+
+pub struct InstanciatedPath {
+    source_planes: BezierPlanes,
+    source_path: Arc<BezierPath>,
+    curve_descriptor: Option<InstanciatedPiecewiseBeizer>,
+    curve: Option<Curve>,
+}
+
+fn path_to_curve_descriptor(
+    source_planes: BezierPlanes,
+    source_path: Arc<BezierPath>,
+) -> Option<InstanciatedPiecewiseBeizer> {
+    let descriptor = if source_path.vertices.len() > 2 {
+        let mut bezier_points: Vec<_> = source_path
+            .vertices
+            .iter()
+            .zip(source_path.vertices.iter().skip(1))
+            .zip(source_path.vertices.iter().skip(2))
+            .filter_map(|((v_from, v), v_to)| {
+                let pos_from = v_from.space_position(&source_planes)?;
+                let pos = v.space_position(&source_planes)?;
+                let pos_to = v_to.space_position(&source_planes)?;
+                Some(InstanciatedBeizerEnd {
+                    position: pos,
+                    vector_in: (pos_to - pos_from) / 6.,
+                    vector_out: (pos_to - pos_from) / 6.,
+                })
+            })
+            .collect();
+        let first_point = {
+            let second_point = bezier_points.get(0)?;
+            let pos = source_path.vertices[0].space_position(&source_planes)?;
+            let control = second_point.position - second_point.vector_in;
+            InstanciatedBeizerEnd {
+                position: pos,
+                vector_out: (pos - control) / 2.,
+                vector_in: (pos - control) / 2.,
+            }
+        };
+        bezier_points.insert(0, first_point);
+        let last_point = {
+            let second_to_last_point = bezier_points.last()?;
+            // Ok to unwrap because vertices has length > 2
+            let pos = source_path
+                .vertices
+                .last()
+                .unwrap()
+                .space_position(&source_planes)?;
+            let control = second_to_last_point.position + second_to_last_point.vector_out;
+            InstanciatedBeizerEnd {
+                position: pos,
+                vector_out: (pos - control) / 2.,
+                vector_in: (pos - control) / 2.,
+            }
+        };
+        bezier_points.push(last_point);
+        Some(bezier_points)
+    } else if source_path.vertices.len() == 2 {
+        let pos_first = source_path.vertices[0].space_position(&source_planes)?;
+        let pos_last = source_path.vertices[1].space_position(&source_planes)?;
+        let vec = (pos_last - pos_first) / 3.;
+        Some(vec![
+            InstanciatedBeizerEnd {
+                position: pos_first,
+                vector_in: vec,
+                vector_out: vec,
+            },
+            InstanciatedBeizerEnd {
+                position: pos_last,
+                vector_in: -vec,
+                vector_out: -vec,
+            },
+        ])
+    } else {
+        None
+    }?;
+    Some(InstanciatedPiecewiseBeizer {
+        t_min: None,
+        t_max: Some(descriptor.len() as f64 - 1.),
+        ends: descriptor,
+    })
+}
+
+impl InstanciatedPath {
+    fn new(
+        source_planes: BezierPlanes,
+        source_path: Arc<BezierPath>,
+        parameters: &Parameters,
+    ) -> Self {
+        let descriptor = path_to_curve_descriptor(source_planes.clone(), source_path.clone());
+        let curve = descriptor.clone().map(|desc| Curve::new(desc, parameters));
+        Self {
+            source_planes,
+            source_path,
+            curve,
+            curve_descriptor: descriptor,
+        }
+    }
+
+    fn updated(
+        &self,
+        source_planes: BezierPlanes,
+        source_path: Arc<BezierPath>,
+        parameters: &Parameters,
+    ) -> Option<Self> {
+        if self.need_update(&source_planes, &source_path) {
+            Some(Self::new(source_planes, source_path, parameters))
+        } else {
+            None
+        }
+    }
+
+    fn need_update(&self, source_planes: &BezierPlanes, source_path: &Arc<BezierPath>) -> bool {
+        !Arc::ptr_eq(&source_planes.0, &self.source_planes.0)
+            || !Arc::ptr_eq(&self.source_path, &source_path)
+    }
+
+    pub fn bezier_controls(&self) -> &[InstanciatedBeizerEnd] {
+        self.curve_descriptor
+            .as_ref()
+            .map(|c| c.ends.as_slice())
+            .unwrap_or(&[])
+    }
+
+    pub fn get_curve_points(&self) -> &[DVec3] {
+        self.curve
+            .as_ref()
+            .map(|c| c.positions.as_slice())
+            .unwrap_or(&[])
+    }
+}
+
+#[derive(Clone)]
+pub struct BezierPathData {
+    source_planes: BezierPlanes,
+    source_paths: BezierPaths,
+    pub instanciated_paths: Arc<BTreeMap<BezierPathId, Arc<InstanciatedPath>>>,
+}
+
+impl BezierPathData {
+    pub fn new(
+        source_planes: BezierPlanes,
+        source_paths: BezierPaths,
+        parameters: &Parameters,
+    ) -> Self {
+        let instanciated_paths: BTreeMap<_, _> = source_paths
+            .0
+            .iter()
+            .map(|(id, path)| {
+                (
+                    *id,
+                    Arc::new(InstanciatedPath::new(
+                        source_planes.clone(),
+                        path.clone(),
+                        parameters,
+                    )),
+                )
+            })
+            .collect();
+        Self {
+            instanciated_paths: Arc::new(instanciated_paths),
+            source_planes,
+            source_paths,
+        }
+    }
+
+    pub fn need_update(&self, source_planes: &BezierPlanes, source_paths: &BezierPaths) -> bool {
+        !Arc::ptr_eq(&source_planes.0, &self.source_planes.0)
+            || !Arc::ptr_eq(&self.source_paths.0, &source_paths.0)
+    }
+
+    pub fn updated(
+        &self,
+        source_planes: BezierPlanes,
+        source_paths: BezierPaths,
+        parameters: &Parameters,
+    ) -> Option<Self> {
+        if self.need_update(&source_planes, &source_paths) {
+            let instanciated_paths: BTreeMap<_, _> = source_paths
+                .0
+                .iter()
+                .map(|(id, source_path)| {
+                    let path = if let Some(path) = self.instanciated_paths.get(id) {
+                        path.updated(source_planes.clone(), source_path.clone(), parameters)
+                            .map(|path| Arc::new(path))
+                            .unwrap_or(path.clone())
+                    } else {
+                        Arc::new(InstanciatedPath::new(
+                            source_planes.clone(),
+                            source_path.clone(),
+                            parameters,
+                        ))
+                    };
+                    (*id, path)
+                })
+                .collect();
+            Some(Self {
+                instanciated_paths: Arc::new(instanciated_paths),
+                source_planes,
+                source_paths,
+            })
+        } else {
+            None
+        }
+    }
 }
