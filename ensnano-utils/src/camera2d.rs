@@ -189,7 +189,10 @@ impl Camera {
     }
 
     /// Convert a *point* in screen ([0, x_res] * [0, y_res]) coordinate to a point in world coordiantes.
-    pub fn screen_to_world(&self, x_screen: f32, y_screen: f32) -> (f32, f32) {
+    pub fn screen_to_world(&self, x_screen: f32, mut y_screen: f32) -> (f32, f32) {
+        if self.bottom {
+            y_screen -= self.globals.resolution[1];
+        }
         let center_to_point_x = x_screen / self.globals.resolution[0] - 0.5;
         let center_to_point_y = y_screen / self.globals.resolution[1] - 0.5;
         let (x, y) = self.transform_vec(center_to_point_x, center_to_point_y);
