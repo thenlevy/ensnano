@@ -1942,7 +1942,7 @@ impl Controller {
 
         for (d_id, domain) in strand.domains.iter().enumerate() {
             if domain.prime5_end() == Some(*nucl)
-                && prev_helix != domain.helix()
+                && prev_helix != domain.half_helix()
                 && force_end != Some(false)
             {
                 // nucl is the 5' end of the next domain so it is the on the 3' end of a xover.
@@ -1976,7 +1976,7 @@ impl Controller {
                 prim5_domains.push(domain.clone());
                 prime5_junctions.push(strand.junctions[d_id].clone());
             }
-            prev_helix = domain.helix();
+            prev_helix = domain.half_helix();
         }
 
         let mut prim3_domains = Vec::new();
