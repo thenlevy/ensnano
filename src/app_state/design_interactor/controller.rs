@@ -2562,7 +2562,7 @@ impl Controller {
         source_nucl: Nucl,
         target_nucl: Nucl,
     ) -> Result<(), ErrOperation> {
-        if source_nucl.helix == target_nucl.helix {
+        if source_nucl.helix == target_nucl.helix && source_nucl.forward == target_nucl.forward {
             return Err(ErrOperation::XoverOnSameHelix);
         }
         log::info!("cross over between {:?} and {:?}", source_nucl, target_nucl);

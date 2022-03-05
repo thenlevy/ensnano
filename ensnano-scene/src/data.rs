@@ -1599,7 +1599,7 @@ impl<R: DesignReader> Data<R> {
             free_xover.target = FreeXoverEnd::Free(position);
             if let FreeXoverEnd::Nucl(origin_nucl) = free_xover.source {
                 if let Some((nucl, _)) = nucl.filter(|n| n.1 == free_xover.design_id) {
-                    if nucl.helix != origin_nucl.helix
+                    if (nucl.helix != origin_nucl.helix || nucl.forward != origin_nucl.forward)
                         && !self.designs[free_xover.design_id].both_prime3(origin_nucl, nucl)
                         && !self.designs[free_xover.design_id].both_prime5(origin_nucl, nucl)
                     {
