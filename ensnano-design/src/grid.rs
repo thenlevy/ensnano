@@ -872,10 +872,12 @@ impl GridData {
     }
 
     fn update_all_curves(&mut self, cached_curve: &mut CurveCache) {
-        let need_update = self
-            .source_helices
-            .values()
-            .any(|h| h.need_curve_update(&self.source_grids));
+        let need_update = self.source_helices.values().any(|h| {
+            self.paths_data
+                .as_ref()
+                .map(|p| h.need_curve_update(&self.source_grids, p))
+                .unwrap_or(true)
+        });
 
         if need_update {
             let mut new_helices = self.source_helices.clone();
@@ -1325,6 +1327,10 @@ impl GridPositionProvider for GridData {
         self.translate_by_edge(&position.to_helix_pos(), &edge)
             .map(|h| h.light())
     }
+
+    fn source_paths(&self) -> Option<BezierPathData> {
+        self.paths_data.clone()
+    }
 }
 
 impl GridData {
@@ -1339,7 +1345,12 @@ impl GridData {
     }
 
     pub(super) fn update_curve(&self, helix: &mut Helix, cached_curve: &mut CurveCache) {
-        if helix.need_curve_descriptor_update(&self.source_grids) {
+        if self
+            .paths_data
+            .as_ref()
+            .map(|p| helix.need_curve_descriptor_update(&self.source_grids, p))
+            .unwrap_or(true)
+        {
             self.update_instanciated_curve_descriptor(helix)
         }
 

@@ -259,8 +259,8 @@ fn path_to_curve_descriptor(
             let control = second_point.position - second_point.vector_in;
             InstanciatedBeizerEnd {
                 position: pos,
-                vector_out: (pos - control) / 2.,
-                vector_in: (pos - control) / 2.,
+                vector_out: (control - pos) / 2.,
+                vector_in: (control - pos) / 2.,
             }
         };
         bezier_points.insert(0, first_point);
@@ -293,8 +293,8 @@ fn path_to_curve_descriptor(
             },
             InstanciatedBeizerEnd {
                 position: pos_last,
-                vector_in: -vec,
-                vector_out: -vec,
+                vector_in: vec,
+                vector_out: vec,
             },
         ])
     } else {
@@ -321,7 +321,7 @@ fn curve_descriptor_to_frame(
                 .0
                 .get(&v_desc.plane_id)
                 .map(|p| Vec3::unit_x().rotated_by(p.orientation).normalized())?;
-            let right = v_instance.vector_out.normalized();
+            let right = -v_instance.vector_out.normalized();
             let front = right.cross(up).normalized();
             let orientation = Mat3::new(right, up, front).into_rotor3();
 

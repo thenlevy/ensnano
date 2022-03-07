@@ -20,7 +20,10 @@ use ultraviolet::{DMat3, DVec3, Rotor3, Vec3};
 const EPSILON: f64 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
 const DELTA_MAX: f64 = 256.0;
-use crate::grid::{Edge, GridPosition};
+use crate::{
+    grid::{Edge, GridPosition},
+    BezierPathData,
+};
 
 use super::{Helix, Parameters};
 use std::sync::Arc;
@@ -549,6 +552,7 @@ pub(super) trait GridPositionProvider {
     fn position(&self, position: GridPosition) -> Vec3;
     fn orientation(&self, grid: usize) -> Rotor3;
     fn source(&self) -> Arc<Vec<GridDescriptor>>;
+    fn source_paths(&self) -> Option<BezierPathData>;
     fn get_tengents_between_two_points(
         &self,
         p0: GridPosition,
@@ -611,12 +615,22 @@ impl InstanciatedCurveDescriptor {
 
     /// Return true if the instanciated curve descriptor was built using these curve descriptor and
     /// grid data
-    fn is_up_to_date(&self, desc: &Arc<CurveDescriptor>, grids: &Arc<Vec<GridDescriptor>>) -> bool {
+    fn is_up_to_date(
+        &self,
+        desc: &Arc<CurveDescriptor>,
+        grids: &Arc<Vec<GridDescriptor>>,
+        paths_data: &BezierPathData,
+    ) -> bool {
         if Arc::ptr_eq(&self.source, desc) {
             if let InsanciatedCurveDescriptor_::PiecewiseBezier(instanciated_descriptor) =
                 &self.instance
             {
                 Arc::ptr_eq(&instanciated_descriptor.grids, grids)
+                    && instanciated_descriptor
+                        .paths_data
+                        .as_ref()
+                        .map(|data| BezierPathData::ptr_eq(paths_data, data))
+                        .unwrap_or(false)
             } else {
                 true
             }
@@ -687,6 +701,8 @@ pub struct InstanciatedPiecewiseBezierDescriptor {
     desc: InstanciatedPiecewiseBeizer,
     /// The data that was used to map grid positions to space position
     grids: Arc<Vec<GridDescriptor>>,
+    /// The data that was used to map BezierVertex to grids
+    paths_data: Option<BezierPathData>,
 }
 
 impl InstanciatedPiecewiseBezierDescriptor {
@@ -719,8 +735,8 @@ impl InstanciatedPiecewiseBezierDescriptor {
                 let control = second_point.position - second_point.vector_in;
                 InstanciatedBeizerEnd {
                     position: pos,
-                    vector_out: (pos - control) / 2.,
-                    vector_in: (pos - control) / 2.,
+                    vector_out: (control - pos) / 2.,
+                    vector_in: (control - pos) / 2.,
                 }
             };
             bezier_points.insert(0, first_point);
@@ -752,8 +768,8 @@ impl InstanciatedPiecewiseBezierDescriptor {
                 },
                 InstanciatedBeizerEnd {
                     position: pos_last,
-                    vector_in: -vec,
-                    vector_out: -vec,
+                    vector_in: vec,
+                    vector_out: vec,
                 },
             ]
         } else {
@@ -763,6 +779,7 @@ impl InstanciatedPiecewiseBezierDescriptor {
         Self {
             desc,
             grids: grid_reader.source(),
+            paths_data: grid_reader.source_paths(),
         }
     }
 }
@@ -847,11 +864,12 @@ impl Helix {
     pub(super) fn need_curve_descriptor_update(
         &self,
         grid_data: &Arc<Vec<GridDescriptor>>,
+        paths_data: &BezierPathData,
     ) -> bool {
         if let Some(current_desc) = self.curve.as_ref() {
             self.instanciated_descriptor
                 .as_ref()
-                .filter(|desc| desc.is_up_to_date(current_desc, grid_data))
+                .filter(|desc| desc.is_up_to_date(current_desc, grid_data, paths_data))
                 .is_none()
         } else {
             // If helix should not be a curved, the descriptor is up-to-date iff there is no
@@ -860,8 +878,14 @@ impl Helix {
         }
     }
 
-    pub(super) fn need_curve_update(&self, grid_data: &Arc<Vec<GridDescriptor>>) -> bool {
-        self.need_curve_descriptor_update(grid_data) || { self.need_curve_update_only() }
+    pub(super) fn need_curve_update(
+        &self,
+        grid_data: &Arc<Vec<GridDescriptor>>,
+        paths_data: &BezierPathData,
+    ) -> bool {
+        self.need_curve_descriptor_update(grid_data, paths_data) || {
+            self.need_curve_update_only()
+        }
     }
 
     fn need_curve_update_only(&self) -> bool {
