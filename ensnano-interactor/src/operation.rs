@@ -775,6 +775,7 @@ impl Operation for CreateGrid {
             orientation: self.orientation,
             grid_type: self.grid_type,
             invisible: false,
+            bezier_vertex: None,
         })
     }
 

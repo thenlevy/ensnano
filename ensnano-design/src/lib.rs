@@ -230,6 +230,26 @@ impl Design {
         }
     }
 
+    pub fn get_up_to_date_paths<'a>(&'a mut self) -> &'a BezierPathData {
+        let parameters = self.parameters.as_ref().unwrap_or(&Parameters::DEFAULT);
+        if let Some(paths_data) = self.instanciated_paths.as_ref() {
+            if let Some(new_data) = paths_data.updated(
+                self.bezier_planes.clone(),
+                self.bezier_paths.clone(),
+                parameters,
+            ) {
+                self.instanciated_paths = Some(new_data);
+            }
+        } else {
+            self.instanciated_paths = Some(BezierPathData::new(
+                self.bezier_planes.clone(),
+                self.bezier_paths.clone(),
+                parameters,
+            ));
+        }
+        self.instanciated_paths.as_ref().unwrap()
+    }
+
     fn needs_update(&self) -> bool {
         if let Some(data) = self.instanciated_grid_data.as_ref() {
             !data.is_up_to_date(self)

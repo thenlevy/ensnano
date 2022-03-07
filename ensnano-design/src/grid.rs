@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::CurveDescriptor;
+use crate::{BezierPathData, BezierVertexId, CurveDescriptor};
 use std::collections::{HashMap, HashSet};
 
 use super::{
@@ -51,6 +51,8 @@ pub struct GridDescriptor {
     pub grid_type: GridTypeDescr,
     #[serde(default)]
     pub invisible: bool, // by default grids are visible so we store a "negative attribute"
+    #[serde(default)]
+    pub bezier_vertex: Option<BezierVertexId>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -90,13 +92,32 @@ impl GridDescriptor {
             orientation,
             grid_type: hyperboloid.desc(),
             invisible: false,
+            bezier_vertex: None,
         }
     }
 
-    pub fn to_grid(&self, parameters: Parameters) -> Grid {
+    pub fn to_grid(&self, parameters: Parameters, paths_data: &BezierPathData) -> Grid {
+        let (position, orientation) = self
+            .bezier_vertex
+            .and_then(|id| {
+                paths_data
+                    .instanciated_paths
+                    .get(&id.path_id)
+                    .and_then(|p| p.frames.as_ref().and_then(|f| f.get(id.vertex_id)))
+                    .cloned()
+            })
+            .unwrap_or_else(|| {
+                if self.bezier_vertex.is_some() {
+                    log::error!(
+                        "Could not get frame correspoding to vertex {:?}",
+                        self.bezier_vertex
+                    )
+                }
+                (self.position, self.orientation)
+            });
         Grid {
-            position: self.position,
-            orientation: self.orientation,
+            position,
+            orientation,
             invisible: self.invisible,
             grid_type: self.grid_type.to_concrete(),
             parameters,
@@ -389,6 +410,7 @@ impl Grid {
             orientation: self.orientation,
             grid_type: self.grid_type.descr(),
             invisible: self.invisible,
+            bezier_vertex: None,
         }
     }
 
@@ -687,6 +709,7 @@ pub struct GridData {
     pub no_phantoms: Arc<HashSet<usize>>,
     pub small_spheres: Arc<HashSet<usize>>,
     center_of_gravity: HashMap<usize, CenterOfGravity>,
+    paths_data: Option<BezierPathData>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -719,6 +742,12 @@ impl GridData {
             && Arc::ptr_eq(&self.source_helices.0, &design.helices.0)
             && Arc::ptr_eq(&self.no_phantoms, &design.no_phantoms)
             && Arc::ptr_eq(&self.small_spheres, &design.small_spheres)
+            && design
+                .instanciated_paths
+                .as_ref()
+                .zip(self.paths_data.as_ref())
+                .map(|(data, paths_data)| BezierPathData::ptr_eq(data, paths_data))
+                .unwrap_or(false)
     }
 
     pub fn get_visibility(&self, g_id: usize) -> bool {
@@ -731,8 +760,9 @@ impl GridData {
         let mut pos_to_object = HashMap::new();
         let parameters = design.parameters.unwrap_or_default();
         let source_grids = design.grids.clone();
+        let paths_data = design.get_up_to_date_paths().clone();
         for desc in source_grids.iter() {
-            let grid = desc.to_grid(parameters.clone());
+            let grid = desc.to_grid(parameters.clone(), &paths_data);
             grids.push(grid);
         }
         let source_helices = design.helices.clone();
@@ -765,6 +795,7 @@ impl GridData {
             no_phantoms: design.no_phantoms.clone(),
             small_spheres: design.small_spheres.clone(),
             center_of_gravity: Default::default(),
+            paths_data: Some(paths_data),
         };
         ret.reposition_all_helices();
         ret.update_all_curves(Arc::make_mut(&mut design.cached_curve));
@@ -992,6 +1023,7 @@ impl GridData {
                 orientation: square_grid.orientation,
                 grid_type: GridTypeDescr::Square { twist: None },
                 invisible: square_grid.invisible,
+                bezier_vertex: None,
             }
         } else {
             GridDescriptor {
@@ -999,6 +1031,7 @@ impl GridData {
                 orientation: hex_grid.orientation,
                 grid_type: GridTypeDescr::Honeycomb { twist: None },
                 invisible: hex_grid.invisible,
+                bezier_vertex: None,
             }
         }
     }

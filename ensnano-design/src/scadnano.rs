@@ -54,6 +54,7 @@ impl ScadnanoDesign {
             orientation: Rotor3::identity(),
             grid_type,
             invisible: false,
+            bezier_vertex: None,
         })
     }
 }
@@ -92,6 +93,7 @@ impl ScadnanoGroup {
             orientation,
             position: self.position,
             invisible: false,
+            bezier_vertex: None,
         })
     }
 }

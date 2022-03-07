@@ -101,6 +101,7 @@ impl Design {
                 orientation: base_orientation.reversed() * source_grid.orientation,
                 grid_type: source_grid.grid_type,
                 invisible: false,
+                bezier_vertex: None,
             };
 
             ret.insert(*grid_id, new_grids.len());

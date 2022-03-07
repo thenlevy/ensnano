@@ -20,7 +20,7 @@ use super::curves::{Curve, InstanciatedBeizerEnd, InstanciatedPiecewiseBeizer};
 use super::Parameters;
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use ultraviolet::{DVec3, Rotor3, Vec2, Vec3};
+use ultraviolet::{DVec3, Mat3, Rotor3, Vec2, Vec3};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BezierPlaneDescriptor {
@@ -229,6 +229,7 @@ pub struct InstanciatedPath {
     source_path: Arc<BezierPath>,
     curve_descriptor: Option<InstanciatedPiecewiseBeizer>,
     curve: Option<Curve>,
+    pub(crate) frames: Option<Vec<(Vec3, Rotor3)>>,
 }
 
 fn path_to_curve_descriptor(
@@ -306,6 +307,29 @@ fn path_to_curve_descriptor(
     })
 }
 
+fn curve_descriptor_to_frame(
+    source_planes: BezierPlanes,
+    source_path: Arc<BezierPath>,
+    desc: &InstanciatedPiecewiseBeizer,
+) -> Option<Vec<(Vec3, Rotor3)>> {
+    source_path
+        .vertices
+        .iter()
+        .zip(desc.ends.iter())
+        .map(|(v_desc, v_instance)| {
+            let up = source_planes
+                .0
+                .get(&v_desc.plane_id)
+                .map(|p| Vec3::unit_x().rotated_by(p.orientation).normalized())?;
+            let right = v_instance.vector_out.normalized();
+            let front = right.cross(up).normalized();
+            let orientation = Mat3::new(front, up, right).into_rotor3();
+
+            Some((v_instance.position, orientation))
+        })
+        .collect()
+}
+
 impl InstanciatedPath {
     fn new(
         source_planes: BezierPlanes,
@@ -313,12 +337,16 @@ impl InstanciatedPath {
         parameters: &Parameters,
     ) -> Self {
         let descriptor = path_to_curve_descriptor(source_planes.clone(), source_path.clone());
+        let frames = descriptor.as_ref().and_then(|desc| {
+            curve_descriptor_to_frame(source_planes.clone(), source_path.clone(), desc)
+        });
         let curve = descriptor.clone().map(|desc| Curve::new(desc, parameters));
         Self {
             source_planes,
             source_path,
             curve,
             curve_descriptor: descriptor,
+            frames,
         }
     }
 
@@ -360,6 +388,17 @@ pub struct BezierPathData {
     source_planes: BezierPlanes,
     source_paths: BezierPaths,
     pub instanciated_paths: Arc<BTreeMap<BezierPathId, Arc<InstanciatedPath>>>,
+}
+
+impl std::fmt::Debug for BezierPathData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BezierPathData")
+            .field(
+                "instanciated_paths",
+                &format_args!("{:p}", &self.instanciated_paths),
+            )
+            .finish()
+    }
 }
 
 impl BezierPathData {
@@ -428,4 +467,14 @@ impl BezierPathData {
             None
         }
     }
+
+    pub fn ptr_eq(a: &Self, b: &Self) -> bool {
+        Arc::ptr_eq(&a.instanciated_paths, &b.instanciated_paths)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BezierVertexId {
+    pub path_id: BezierPathId,
+    pub vertex_id: usize,
 }

@@ -313,6 +313,7 @@ impl NormalState {
                 position,
                 orientation,
                 invisible: false,
+                bezier_vertex: None,
             }))
         } else {
             println!("Could not get position and orientation for new grid");
