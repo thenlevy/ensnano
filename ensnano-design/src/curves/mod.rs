@@ -697,51 +697,69 @@ impl InstanciatedPiecewiseBezierDescriptor {
         t_max: Option<f64>,
     ) -> Self {
         log::debug!("Instanciating {:?}", points);
-        let mut tengents = Vec::with_capacity(2 * (points.len()));
-
-        // Add fake vector in for first point
-        tengents.push(Vec3::zero());
-
-        // Add vectors in and out
-        for (p0, p1) in points.iter().zip(points.iter().skip(1)) {
-            let grid_pos_start = p0.position;
-            let grid_pos_end = p1.position;
-            if let Some((mut vec_start, mut vec_end)) =
-                grid_reader.get_tengents_between_two_points(grid_pos_start, grid_pos_end)
-            {
-                vec_start *= p0.outward_coeff;
-                vec_end *= p1.inward_coeff;
-                tengents.push(vec_start);
-                tengents.push(vec_end);
-            } else {
-                tengents.push(Vec3::unit_x());
-                tengents.push(-Vec3::unit_x());
-                log::error!("Could not get tengent");
-            }
-        }
-
-        // Add fake vector out for last point
-        tengents.push(Vec3::zero());
-        let bezier_ends = points
-            .iter()
-            .enumerate()
-            .map(|(i, p)| {
-                let position = grid_reader.position(p.position);
-                let tengent_in = tengents[2 * i];
-                let tengent_out = tengents[2 * i + 1];
+        let ends = if points.len() > 2 {
+            let mut bezier_points: Vec<_> = points
+                .iter()
+                .zip(points.iter().skip(1))
+                .zip(points.iter().skip(2))
+                .map(|((v_from, v), v_to)| {
+                    let pos_from = grid_reader.position(v_from.position);
+                    let pos = grid_reader.position(v.position);
+                    let pos_to = grid_reader.position(v_to.position);
+                    InstanciatedBeizerEnd {
+                        position: pos,
+                        vector_in: (pos_to - pos_from) / 6.,
+                        vector_out: (pos_to - pos_from) / 6.,
+                    }
+                })
+                .collect();
+            let first_point = {
+                let second_point = &bezier_points[0];
+                let pos = grid_reader.position(points[0].position);
+                let control = second_point.position - second_point.vector_in;
                 InstanciatedBeizerEnd {
-                    position,
-                    // recall that the tengents are expressed in the grid's coordinates
-                    vector_in: tengent_in.rotated_by(grid_reader.orientation(p.position.grid)),
-                    vector_out: tengent_out.rotated_by(grid_reader.orientation(p.position.grid)),
+                    position: pos,
+                    vector_out: (pos - control) / 2.,
+                    vector_in: (pos - control) / 2.,
                 }
-            })
-            .collect();
-        let desc = InstanciatedPiecewiseBeizer {
-            ends: bezier_ends,
-            t_min,
-            t_max,
+            };
+            bezier_points.insert(0, first_point);
+            let last_point = {
+                // Ok to unwrap because bezier points has length > 2
+                let second_to_last_point = bezier_points.last().unwrap();
+
+                // Ok to unwrap because vertices has length > 2
+                let pos = grid_reader.position(points.last().unwrap().position);
+
+                let control = second_to_last_point.position + second_to_last_point.vector_out;
+                InstanciatedBeizerEnd {
+                    position: pos,
+                    vector_out: (pos - control) / 2.,
+                    vector_in: (pos - control) / 2.,
+                }
+            };
+            bezier_points.push(last_point);
+            bezier_points
+        } else if points.len() == 2 {
+            let pos_first = grid_reader.position(points[0].position);
+            let pos_last = grid_reader.position(points[1].position);
+            let vec = (pos_last - pos_first) / 3.;
+            vec![
+                InstanciatedBeizerEnd {
+                    position: pos_first,
+                    vector_in: vec,
+                    vector_out: vec,
+                },
+                InstanciatedBeizerEnd {
+                    position: pos_last,
+                    vector_in: -vec,
+                    vector_out: -vec,
+                },
+            ]
+        } else {
+            vec![]
         };
+        let desc = InstanciatedPiecewiseBeizer { ends, t_min, t_max };
         Self {
             desc,
             grids: grid_reader.source(),
