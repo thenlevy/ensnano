@@ -21,7 +21,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
-    grid::{GridDescriptor, GridObject, HelixGridPosition, Hyperboloid},
+    grid::{GridDescriptor, GridObject, GridTypeDescr, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
     BezierPathId, BezierPlaneDescriptor, BezierVertex, Nucl, Parameters,
 };
@@ -283,6 +283,10 @@ pub enum DesignOperation {
         path_id: BezierPathId,
         vertex_id: usize,
         position: Vec2,
+    },
+    TurnPathVerticesIntoGrid {
+        path_id: BezierPathId,
+        grid_type: GridTypeDescr,
     },
 }
 

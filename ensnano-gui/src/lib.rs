@@ -46,7 +46,7 @@ use status_bar::StatusBar;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElement, DnaElementKey},
     grid::GridTypeDescr,
-    ultraviolet, Nucl, Parameters,
+    ultraviolet, BezierPathId, Nucl, Parameters,
 };
 use ensnano_interactor::graphics::FogParameters;
 use ensnano_interactor::{
@@ -204,6 +204,7 @@ pub trait Requests: 'static + Send {
     fn set_expand_insertions(&mut self, expand: bool);
     fn set_insertion_length(&mut self, insertion_point: InsertionPoint, length: usize);
     fn create_bezier_plane(&mut self);
+    fn turn_path_into_grid(&mut self, path_id: BezierPathId, grid_type: GridTypeDescr);
 }
 
 #[derive(Clone, Debug, PartialEq)]

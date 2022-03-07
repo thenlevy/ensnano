@@ -323,7 +323,7 @@ fn curve_descriptor_to_frame(
                 .map(|p| Vec3::unit_x().rotated_by(p.orientation).normalized())?;
             let right = v_instance.vector_out.normalized();
             let front = right.cross(up).normalized();
-            let orientation = Mat3::new(front, up, right).into_rotor3();
+            let orientation = Mat3::new(right, up, front).into_rotor3();
 
             Some((v_instance.position, orientation))
         })

@@ -432,6 +432,16 @@ impl GuiRequests for Requests {
             },
         ))
     }
+
+    fn turn_path_into_grid(
+        &mut self,
+        path_id: ensnano_design::BezierPathId,
+        grid_type: GridTypeDescr,
+    ) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::TurnPathVerticesIntoGrid { path_id, grid_type },
+        ))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

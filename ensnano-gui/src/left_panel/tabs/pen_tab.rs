@@ -24,6 +24,8 @@ const EDIT_BEZIER_PATH_ICON: LightIcon = LightIcon::LinearScale;
 pub struct PenTab {
     add_plane_btn: button::State,
     edit_path_btn: button::State,
+    make_square_grid_btn: button::State,
+    make_honeycomb_grid_btn: button::State,
 }
 
 macro_rules! add_buttons {
@@ -42,15 +44,49 @@ macro_rules! add_buttons {
     };
 }
 
+macro_rules! add_grid_buttons {
+    ($ret: ident, $self: ident, $ui_size: ident, $app_state: ident) => {
+        if let ActionMode::EditBezierPath {
+            path_id: Some(path_id),
+            ..
+        } = $app_state.get_action_mode()
+        {
+            let make_square_grid_btn =
+                icon_btn(&mut $self.make_square_grid_btn, ICON_SQUARE_GRID, $ui_size).on_press(
+                    Message::TurnPathIntoGrid {
+                        path_id,
+                        grid_type: GridTypeDescr::Square { twist: None },
+                    },
+                );
+            let make_honeycomb_grid_btn = icon_btn(
+                &mut $self.make_honeycomb_grid_btn,
+                ICON_HONEYCOMB_GRID,
+                $ui_size,
+            )
+            .on_press(Message::TurnPathIntoGrid {
+                path_id,
+                grid_type: GridTypeDescr::Honeycomb { twist: None },
+            });
+
+            let grid_buttons = Row::new()
+                .push(make_square_grid_btn)
+                .push(make_honeycomb_grid_btn)
+                .spacing(5);
+            $ret = $ret.push(grid_buttons);
+        }
+    };
+}
+
 impl PenTab {
     pub fn view<'a, S: AppState>(
         &'a mut self,
         ui_size: UiSize,
-        _app_state: &S,
+        app_state: &S,
     ) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(5);
         section!(ret, ui_size, "Bezier Planes");
         add_buttons!(ret, self, ui_size);
+        add_grid_buttons!(ret, self, ui_size, app_state);
         ret.into()
     }
 }

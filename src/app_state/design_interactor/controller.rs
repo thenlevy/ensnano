@@ -25,9 +25,9 @@ use ensnano_design::{
         Hyperboloid,
     },
     group_attributes::GroupPivot,
-    mutate_in_arc, BezierEnd, BezierPathId, BezierPlaneDescriptor, BezierVertex, CameraId,
-    CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix, HelixCollection, Nucl, Strand,
-    Strands, UpToDateDesign,
+    mutate_in_arc, BezierEnd, BezierPathId, BezierPlaneDescriptor, BezierVertex, BezierVertexId,
+    CameraId, Collection, CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix,
+    HelixCollection, Nucl, Strand, Strands, UpToDateDesign,
 };
 use ensnano_interactor::{
     operation::{Operation, TranslateBezierPathVertex},
@@ -326,6 +326,10 @@ impl Controller {
                 position,
             } => self.apply(
                 |c, d| c.move_bezier_vertex(d, path_id, vertex_id, position),
+                design,
+            ),
+            DesignOperation::TurnPathVerticesIntoGrid { path_id, grid_type } => self.apply(
+                |c, d| c.turn_bezier_path_into_grids(d, path_id, grid_type),
                 design,
             ),
         };
@@ -1218,6 +1222,33 @@ impl Controller {
             .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
         vertex.position = position;
         drop(new_paths);
+        Ok(design)
+    }
+
+    fn turn_bezier_path_into_grids(
+        &mut self,
+        mut design: Design,
+        path_id: BezierPathId,
+        desc: GridTypeDescr,
+    ) -> Result<Design, ErrOperation> {
+        let path = design
+            .bezier_paths
+            .get(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        let mut new_grids = Vec::clone(&design.grids);
+        for i in 0..path.vertices().len() {
+            new_grids.push(GridDescriptor {
+                position: Vec3::zero(),
+                orientation: Rotor3::identity(),
+                grid_type: desc.clone(),
+                invisible: false,
+                bezier_vertex: Some(BezierVertexId {
+                    path_id,
+                    vertex_id: i,
+                }),
+            })
+        }
+        design.grids = Arc::new(new_grids);
         Ok(design)
     }
 

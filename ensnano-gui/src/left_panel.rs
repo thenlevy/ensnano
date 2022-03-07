@@ -1,3 +1,4 @@
+use ensnano_design::BezierPathId;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -191,6 +192,10 @@ pub enum Message<S> {
     InsertionLengthSubmitted,
     NewBezierPlane,
     StartBezierPath,
+    TurnPathIntoGrid {
+        path_id: BezierPathId,
+        grid_type: GridTypeDescr,
+    },
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -812,6 +817,12 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                         path_id: None,
                         vertex_id: None,
                     })
+            }
+            Message::TurnPathIntoGrid { path_id, grid_type } => {
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .turn_path_into_grid(path_id, grid_type);
             }
         };
         Command::none()
