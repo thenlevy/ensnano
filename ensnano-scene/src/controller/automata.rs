@@ -248,6 +248,8 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                 vertex: BezierVertex {
                                     plane_id,
                                     position: Vec2::new(intersection.x, intersection.y),
+                                    vector_in: None,
+                                    vector_out: None,
                                 },
                                 path: path_id.unwrap(),
                             },

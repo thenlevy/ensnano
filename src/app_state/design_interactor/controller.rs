@@ -2254,15 +2254,30 @@ impl Controller {
         start: isize,
         length: usize,
     ) -> Result<Design, ErrOperation> {
+        let path_id = design
+            .grids
+            .get(position.grid)
+            .and_then(|g| g.bezier_vertex)
+            .map(|v| v.path_id);
+
         let grid_manager = design.get_updated_grid_data();
         if grid_manager.pos_to_object(position.light()).is_some() {
             return Err(ErrOperation::GridPositionAlreadyUsed);
         }
-        let grid = grid_manager
-            .grids
-            .get(position.grid)
-            .ok_or(ErrOperation::GridDoesNotExist(position.grid))?;
-        let helix = Helix::new_on_grid(grid, position.x, position.y, position.grid);
+        let helix = if let Some(path_id) = path_id {
+            Helix::new_on_bezier_path(grid_manager, position, path_id)
+        } else {
+            let grid = grid_manager
+                .grids
+                .get(position.grid)
+                .ok_or(ErrOperation::GridDoesNotExist(position.grid))?;
+            Ok(Helix::new_on_grid(
+                grid,
+                position.x,
+                position.y,
+                position.grid,
+            ))
+        }?;
         let mut new_helices = design.helices.make_mut();
         let helix_id = new_helices.push_helix(helix);
         drop(new_helices);

@@ -127,7 +127,9 @@ impl<'a> Drop for BezierPlanesMut<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Default, Hash,
+)]
 pub struct BezierPathId(pub u32);
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -207,6 +209,8 @@ impl BezierPath {
 pub struct BezierVertex {
     pub plane_id: BezierPlaneId,
     pub position: Vec2,
+    pub vector_in: Option<Vec2>,
+    pub vector_out: Option<Vec2>,
 }
 
 impl BezierVertex {
@@ -386,7 +390,7 @@ impl InstanciatedPath {
 #[derive(Clone)]
 pub struct BezierPathData {
     source_planes: BezierPlanes,
-    source_paths: BezierPaths,
+    pub(crate) source_paths: BezierPaths,
     pub instanciated_paths: Arc<BTreeMap<BezierPathId, Arc<InstanciatedPath>>>,
 }
 
@@ -473,7 +477,7 @@ impl BezierPathData {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct BezierVertexId {
     pub path_id: BezierPathId,
     pub vertex_id: usize,

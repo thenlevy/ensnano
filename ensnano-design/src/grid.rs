@@ -700,7 +700,7 @@ impl GridObject {
 pub struct GridData {
     // We borrow the grids and helices from the source that was used to build the view. This ensure
     // that the data used to build this view are not modified during the view's lifetime.
-    pub(super) source_grids: Arc<Vec<GridDescriptor>>,
+    pub source_grids: Arc<Vec<GridDescriptor>>,
     source_helices: Helices,
     pub grids: Vec<Grid>,
     object_to_pos: HashMap<GridObject, HelixGridPosition>,
@@ -710,6 +710,7 @@ pub struct GridData {
     pub small_spheres: Arc<HashSet<usize>>,
     center_of_gravity: HashMap<usize, CenterOfGravity>,
     paths_data: Option<BezierPathData>,
+    pub vertex_id_to_grid: HashMap<BezierVertexId, usize>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -758,11 +759,15 @@ impl GridData {
         let mut grids = Vec::new();
         let mut object_to_pos = HashMap::new();
         let mut pos_to_object = HashMap::new();
+        let mut vertex_id_to_grid = HashMap::new();
         let parameters = design.parameters.unwrap_or_default();
         let source_grids = design.grids.clone();
         let paths_data = design.get_up_to_date_paths().clone();
-        for desc in source_grids.iter() {
+        for (g_id, desc) in source_grids.iter().enumerate() {
             let grid = desc.to_grid(parameters.clone(), &paths_data);
+            if let Some(vertex_id) = desc.bezier_vertex {
+                vertex_id_to_grid.insert(vertex_id, g_id);
+            }
             grids.push(grid);
         }
         let source_helices = design.helices.clone();
@@ -791,6 +796,7 @@ impl GridData {
             grids,
             object_to_pos,
             pos_to_object,
+            vertex_id_to_grid,
             parameters: design.parameters.unwrap_or_default(),
             no_phantoms: design.no_phantoms.clone(),
             small_spheres: design.small_spheres.clone(),

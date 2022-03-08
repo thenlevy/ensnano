@@ -18,6 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use crate::design_operations::ErrOperation;
 use crate::grid::GridAwareTranslation;
+use crate::BezierVertexId;
 
 use super::curves::*;
 use super::{
@@ -25,7 +26,7 @@ use super::{
     grid::{Grid, GridData, HelixGridPosition},
     scadnano::*,
     utils::*,
-    Nucl, Parameters,
+    BezierPathId, Collection, Nucl, Parameters,
 };
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -533,6 +534,64 @@ impl Helix {
             support_helix: None,
         };
         // we can use a fake cache because we don't need it for bezier curves.
+        let mut fake_cache = Default::default();
+        grid_manager.update_curve(&mut ret, &mut fake_cache);
+        Ok(ret)
+    }
+
+    pub fn new_on_bezier_path(
+        grid_manager: &GridData,
+        grid_pos: HelixGridPosition,
+        path_id: BezierPathId,
+    ) -> Result<Self, ErrOperation> {
+        let paths = grid_manager.source_paths();
+        let path = paths
+            .as_ref()
+            .and_then(|path_data| path_data.source_paths.get(&path_id))
+            .ok_or(ErrOperation::CouldNotGetPath(path_id))?;
+
+        let mut points = Vec::with_capacity(path.vertices().len());
+        for i in 0..(path.vertices().len()) {
+            let vertex_id = BezierVertexId {
+                path_id,
+                vertex_id: i,
+            };
+            let g_id = grid_manager
+                .vertex_id_to_grid
+                .get(&vertex_id)
+                .ok_or(ErrOperation::CouldNotGetVertex(vertex_id))?;
+            points.push(BezierEnd {
+                position: crate::grid::GridPosition {
+                    grid: *g_id,
+                    ..grid_pos.light()
+                },
+                inward_coeff: 1.,
+                outward_coeff: 1.,
+            });
+        }
+
+        let constructor = CurveDescriptor::PiecewiseBezier {
+            points,
+            t_max: None,
+            t_min: None,
+        };
+
+        let mut ret = Self {
+            position: Vec3::zero(),
+            orientation: Rotor3::identity(),
+            isometry2d: None,
+            symmetry: Vec2::one(),
+            grid_position: Some(grid_pos),
+            visible: true,
+            roll: 0f32,
+            locked_for_simulations: false,
+            curve: Some(Arc::new(constructor)),
+            instanciated_curve: None,
+            instanciated_descriptor: None,
+            delta_bbpt: 0.,
+            initial_nt_index: 0,
+            support_helix: None,
+        };
         let mut fake_cache = Default::default();
         grid_manager.update_curve(&mut ret, &mut fake_cache);
         Ok(ret)
