@@ -176,6 +176,10 @@ impl<'a> BezierPathsMut<'a> {
     pub fn get_mut(&mut self, id: &BezierPathId) -> Option<&mut BezierPath> {
         self.new_map.get_mut(id).map(Arc::make_mut)
     }
+
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut BezierPath> {
+        self.new_map.values_mut().map(Arc::make_mut)
+    }
 }
 
 impl<'a> Drop for BezierPathsMut<'a> {
@@ -202,6 +206,10 @@ impl BezierPath {
 
     pub fn vertices(&self) -> &[BezierVertex] {
         &self.vertices
+    }
+
+    pub fn vertices_mut(&mut self) -> &mut [BezierVertex] {
+        self.vertices.as_mut_slice()
     }
 }
 

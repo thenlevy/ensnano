@@ -34,8 +34,8 @@ use ensnano_interactor::{
     ActionMode, BezierControlPoint, HyperboloidOperation, SimulationState,
 };
 use ensnano_interactor::{
-    DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
-    NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
+    BezierPlaneHomothethy, DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier,
+    IsometryTarget, NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
 };
 use ensnano_organizer::GroupId;
 use std::borrow::Cow;
@@ -332,6 +332,10 @@ impl Controller {
                 |c, d| c.turn_bezier_path_into_grids(d, path_id, grid_type),
                 design,
             ),
+            DesignOperation::ApplyHomothethyOnBezierPlane { homothethy } => Ok(self.ok_apply(
+                |c, d| c.apply_homothethy_on_bezier_plane(d, homothethy),
+                design,
+            )),
         };
 
         if let Ok(ret) = &mut ret {
@@ -1250,6 +1254,35 @@ impl Controller {
         }
         design.grids = Arc::new(new_grids);
         Ok(design)
+    }
+
+    fn apply_homothethy_on_bezier_plane(
+        &mut self,
+        mut design: Design,
+        homothethy: BezierPlaneHomothethy,
+    ) -> Design {
+        self.update_state_and_design(&mut design);
+        let mut paths_mut = design.bezier_paths.make_mut();
+        let angle = {
+            let ab = homothethy.moving_corner - homothethy.origin_moving_corner;
+            ab.y.atan2(ab.x)
+        };
+        let scale = (homothethy.moving_corner - homothethy.fixed_corner).mag()
+            / (homothethy.origin_moving_corner - homothethy.fixed_corner).mag();
+        for path in paths_mut.values_mut() {
+            for v in path.vertices_mut() {
+                if v.plane_id == homothethy.plane_id {
+                    let vec = v.position - homothethy.fixed_corner;
+                    let new_norm = vec.mag() * scale;
+                    v.position = vec
+                        .normalized()
+                        .rotated_by(ensnano_design::Rotor2::from_angle(angle))
+                        * new_norm;
+                }
+            }
+        }
+        drop(paths_mut);
+        design
     }
 
     fn create_camera(

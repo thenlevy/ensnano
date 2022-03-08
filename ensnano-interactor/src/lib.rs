@@ -23,7 +23,7 @@ use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{GridDescriptor, GridObject, GridTypeDescr, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
-    BezierPathId, BezierPlaneDescriptor, BezierVertex, Nucl, Parameters,
+    BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, Nucl, Parameters,
 };
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 pub mod graphics;
@@ -287,6 +287,9 @@ pub enum DesignOperation {
     TurnPathVerticesIntoGrid {
         path_id: BezierPathId,
         grid_type: GridTypeDescr,
+    },
+    ApplyHomothethyOnBezierPlane {
+        homothethy: BezierPlaneHomothethy,
     },
 }
 
@@ -620,4 +623,12 @@ impl CheckXoversParameter {
             Self::None | Self::Checked => false,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct BezierPlaneHomothethy {
+    pub plane_id: BezierPlaneId,
+    pub fixed_corner: Vec2,
+    pub origin_moving_corner: Vec2,
+    pub moving_corner: Vec2,
 }
