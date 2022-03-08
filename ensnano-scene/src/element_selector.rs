@@ -19,7 +19,7 @@ use std::rc::Rc;
 
 use super::{Device, DrawArea, DrawType, Queue, ViewPtr};
 use ensnano_design::grid::GridPosition;
-use ensnano_design::BezierPathId;
+use ensnano_design::{BezierPathId, BezierPlaneId};
 use ensnano_interactor::{phantom_helix_decoder, BezierControlPoint, PhantomElement};
 use ensnano_utils as utils;
 use futures::executor;
@@ -248,6 +248,18 @@ pub enum SceneElement {
         path_id: BezierPathId,
         vertex_id: usize,
     },
+    PlaneCorner {
+        plane_id: BezierPlaneId,
+        corner_type: CornerType,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CornerType {
+    NorthWest,
+    NorthEast,
+    SouthWest,
+    SouthEast,
 }
 
 impl SceneElement {
@@ -260,6 +272,7 @@ impl SceneElement {
             SceneElement::GridCircle(d, _) => Some(*d),
             SceneElement::BezierControl { .. } => None,
             SceneElement::BezierVertex { .. } => Some(0),
+            SceneElement::PlaneCorner { .. } => Some(0),
         }
     }
 

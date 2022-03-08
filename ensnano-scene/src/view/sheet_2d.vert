@@ -35,8 +35,8 @@ buffer InstancesBlock {
 void main() {
     float min_x = instances[gl_InstanceIndex].min_x - 0.025;
     float max_x = instances[gl_InstanceIndex].max_x + 0.025;
-    float min_y = -instances[gl_InstanceIndex].max_y - 0.025;
-    float max_y = -instances[gl_InstanceIndex].min_y + 0.025;
+    float min_y = instances[gl_InstanceIndex].max_y - 0.025;
+    float max_y = instances[gl_InstanceIndex].min_y + 0.025;
 
     vec2 plane_position = vec2((max_x - min_x) * a_position.x + min_x,
                          (max_y - min_y) * a_position.y + min_y);

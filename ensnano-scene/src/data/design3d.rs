@@ -37,7 +37,7 @@ use ensnano_utils::instance::Instance;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
-use ultraviolet::{Mat4, Rotor3, Vec3};
+use ultraviolet::{Mat4, Rotor3, Vec2, Vec3};
 
 /// An object that handles the 3d graphcial representation of a `Design`
 pub struct Design3D<R: DesignReader> {
@@ -680,7 +680,8 @@ impl<R: DesignReader> Design3D<R> {
             | SceneElement::Grid(_, _)
             | SceneElement::BezierControl { .. }
             | SceneElement::BezierVertex { .. }
-            | SceneElement::GridCircle(_, _) => None,
+            | SceneElement::GridCircle(_, _)
+            | SceneElement::PlaneCorner { .. } => None,
         }
     }
 
@@ -1185,15 +1186,18 @@ impl<R: DesignReader> Design3D<R> {
         let parameters = self.design.get_parameters();
         self.design
             .get_bezier_planes()
-            .values()
-            .map(|desc| Sheet2D {
-                position: desc.position,
-                orientation: desc.orientation,
-                min_x: -3. * 48.0 * parameters.z_step,
-                max_x: 3. * 48.0 * parameters.z_step,
-                min_y: -3. * 48.0 * parameters.z_step,
-                max_y: 3. * 48.0 * parameters.z_step,
-                graduation_unit: 48.0 * parameters.z_step,
+            .iter()
+            .map(|(plane_id, desc)| {
+                let corners = self.design.get_corners_of_plane(*plane_id);
+                Sheet2D {
+                    position: desc.position,
+                    orientation: desc.orientation,
+                    min_x: (-3. * 48.0 * parameters.z_step).min(corners[0].x),
+                    max_x: (3. * 48.0 * parameters.z_step).max(corners[3].x),
+                    min_y: (-3. * 48.0 * parameters.z_step).min(corners[0].y),
+                    max_y: (3. * 48.0 * parameters.z_step).max(corners[3].y),
+                    graduation_unit: 48.0 * parameters.z_step,
+                }
             })
             .collect()
     }
@@ -1399,4 +1403,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_parameters(&self) -> Parameters;
     fn get_bezier_paths(&self) -> Option<&BTreeMap<BezierPathId, Arc<InstanciatedPath>>>;
     fn get_bezier_vertex(&self, path_id: BezierPathId, vertex_id: usize) -> Option<BezierVertex>;
+    fn get_corners_of_plane(&self, plane_id: BezierPlaneId) -> [Vec2; 4];
 }

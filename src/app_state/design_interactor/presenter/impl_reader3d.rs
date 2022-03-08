@@ -27,7 +27,7 @@ use ensnano_interactor::{
     BezierControlPoint, ObjectType, Referential,
 };
 use std::collections::HashSet;
-use ultraviolet::{Mat4, Rotor3, Vec3};
+use ultraviolet::{Mat4, Rotor3, Vec2, Vec3};
 
 use crate::scene::DesignReader as Reader3D;
 
@@ -446,6 +446,30 @@ impl Reader3D for DesignReader {
             .get(&path_id)
             .and_then(|p| p.vertices().get(vertex_id))
             .cloned()
+    }
+
+    fn get_corners_of_plane(&self, plane_id: BezierPlaneId) -> [Vec2; 4] {
+        let mut top = f32::INFINITY;
+        let mut bottom = f32::NEG_INFINITY;
+        let mut left = f32::INFINITY;
+        let mut right = f32::NEG_INFINITY;
+
+        for path in self.presenter.current_design.bezier_paths.values() {
+            for v in path.vertices() {
+                if v.plane_id == plane_id {
+                    top = top.min(v.position.y);
+                    bottom = bottom.max(v.position.y);
+                    left = left.min(v.position.x);
+                    right = right.max(v.position.x);
+                }
+            }
+        }
+        [
+            Vec2::new(left, top),
+            Vec2::new(right, top),
+            Vec2::new(left, bottom),
+            Vec2::new(right, bottom),
+        ]
     }
 }
 
