@@ -21,7 +21,7 @@ use crate::BezierControlPoint;
 use super::{DesignOperation, DesignRotation, DesignTranslation, GroupId, IsometryTarget};
 use ensnano_design::{
     grid::{GridDescriptor, GridTypeDescr},
-    BezierPathId, Nucl,
+    BezierPathId, BezierPlaneId, Nucl,
 };
 use ultraviolet::{Bivec3, Rotor3, Vec2, Vec3};
 
@@ -387,6 +387,31 @@ impl Operation for TranslateBezierPathVertex {
             path_id: self.path_id,
             vertex_id: self.vertex_id,
             position: Vec2::new(self.x, self.y),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TranslateBezierSheetCorner {
+    pub plane_id: BezierPlaneId,
+    pub fixed_corner: Vec2,
+    pub origin_moving_corner: Vec2,
+    pub moving_corner: Vec2,
+}
+
+impl Operation for TranslateBezierSheetCorner {
+    fn description(&self) -> String {
+        String::from("Translating BezierSheet Corner")
+    }
+
+    fn effect(&self) -> DesignOperation {
+        DesignOperation::ApplyHomothethyOnBezierPlane {
+            homothethy: crate::BezierPlaneHomothethy {
+                plane_id: self.plane_id,
+                fixed_corner: self.fixed_corner,
+                origin_moving_corner: self.origin_moving_corner,
+                moving_corner: self.moving_corner,
+            },
         }
     }
 }

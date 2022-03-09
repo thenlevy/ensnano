@@ -29,7 +29,7 @@ pub struct BezierPlaneDescriptor {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Default)]
-pub struct BezierPlaneId(usize);
+pub struct BezierPlaneId(pub u32);
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct BezierPlanes(Arc<BTreeMap<BezierPlaneId, Arc<BezierPlaneDescriptor>>>);
@@ -102,6 +102,12 @@ pub struct BezierPlaneIntersection {
     pub x: f32,
     pub y: f32,
     pub depth: f32,
+}
+
+impl BezierPlaneIntersection {
+    pub fn position(&self) -> Vec2 {
+        Vec2::new(self.x, self.y)
+    }
 }
 
 pub struct BezierPlanesMut<'a> {

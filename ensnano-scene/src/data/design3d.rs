@@ -1195,7 +1195,7 @@ impl<R: DesignReader> Design3D<R> {
                 orientation: desc.orientation,
                 min_x: ((-3. * grad_step).min(corners[0].x - delta_corners) / grad_step).floor()
                     * grad_step,
-                max_x: ((3. * grad_step).min(corners[3].x + delta_corners) / grad_step).ceil()
+                max_x: ((3. * grad_step).max(corners[3].x + delta_corners) / grad_step).ceil()
                     * grad_step,
                 min_y: ((-3. * grad_step).min(corners[0].y - delta_corners) / grad_step).floor()
                     * grad_step,
@@ -1210,7 +1210,12 @@ impl<R: DesignReader> Design3D<R> {
                 spheres.push(
                     SphereInstance {
                         color: Instance::color_from_u32(BEZIER_SHEET_CORNER_COLOR),
-                        id: u32::from_be_bytes([0xFD, 0, 0, c_id as u8]),
+                        id: u32::from_be_bytes([
+                            0xFD,
+                            c_id as u8,
+                            plane_id.0.to_be_bytes()[2],
+                            plane_id.0.to_be_bytes()[3],
+                        ]),
                         position,
                         radius: BEZIER_SHEET_CORNER_RADIUS,
                     }

@@ -16,6 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
+use crate::element_selector::CornerType;
 use crate::DesignReader;
 use ensnano_design::ultraviolet::Vec2;
 use ensnano_design::{grid::GridObject, BezierPlaneId};
@@ -216,7 +217,24 @@ impl<S: AppState> ControllerState<S> for NormalState {
             } => {
                 let element = pixel_reader.set_selected_id(position);
                 log::info!("Clicked on {:?}", element);
-                if let Some(SceneElement::BezierVertex { vertex_id, path_id }) = element {
+                if let Some(SceneElement::PlaneCorner {
+                    plane_id,
+                    corner_type,
+                }) = element
+                {
+                    let fixed_corner_position = app_state
+                        .get_design_reader()
+                        .get_corners_of_plane(plane_id)[corner_type.opposite().to_usize()];
+                    return Transition {
+                        new_state: Some(Box::new(MovingBezierCorner {
+                            plane_id,
+                            corner: corner_type,
+                            clicked_position: position,
+                            fixed_corner_position,
+                        })),
+                        consequences: Consequence::Nothing,
+                    };
+                } else if let Some(SceneElement::BezierVertex { vertex_id, path_id }) = element {
                     return Transition {
                         new_state: Some(Box::new(MovingBezierVertex {
                             plane_id: None,
@@ -1411,6 +1429,72 @@ impl<S: AppState> ControllerState<S> for MovingBezierVertex {
                 })),
                 consequences: Consequence::ReleaseBezierVertex,
             }
+        }
+    }
+}
+
+struct MovingBezierCorner {
+    plane_id: BezierPlaneId,
+    corner: CornerType,
+    clicked_position: PhysicalPosition<f64>,
+    fixed_corner_position: Vec2,
+}
+
+impl<S: AppState> ControllerState<S> for MovingBezierCorner {
+    fn display(&self) -> Cow<'static, str> {
+        "Moving bezier vertex".into()
+    }
+
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller<S>,
+        _pixel_reader: &mut ElementSelector,
+        app_state: &S,
+    ) -> Transition<S> {
+        match event {
+            WindowEvent::CursorMoved { .. } => {
+                let mouse_x = position.x / controller.area_size.width as f64;
+                let mouse_y = position.y / controller.area_size.height as f64;
+                let ray = controller
+                    .camera_controller
+                    .ray(mouse_x as f32, mouse_y as f32);
+                let ray_origin = controller.camera_controller.ray(
+                    self.clicked_position.x as f32 / controller.area_size.width as f32,
+                    self.clicked_position.y as f32 / controller.area_size.height as f32,
+                );
+                if let Some((moving_corner, original_corner_position)) = app_state
+                    .get_design_reader()
+                    .get_bezier_planes()
+                    .get(&self.plane_id)
+                    .and_then(|plane| {
+                        plane
+                            .ray_intersection(ray.0, ray.1)
+                            .zip(plane.ray_intersection(ray_origin.0, ray_origin.1))
+                    })
+                {
+                    Transition::consequence(Consequence::MoveBezierCorner {
+                        moving_corner: moving_corner.position(),
+                        original_corner_position: original_corner_position.position(),
+                        plane_id: self.plane_id,
+                        fixed_corner_position: self.fixed_corner_position,
+                    })
+                } else {
+                    Transition::nothing()
+                }
+            }
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: ElementState::Released,
+                ..
+            } => Transition {
+                new_state: Some(Box::new(NormalState {
+                    mouse_position: position,
+                })),
+                consequences: Consequence::ReleaseBezierCorner,
+            },
+            _ => Transition::nothing(),
         }
     }
 }

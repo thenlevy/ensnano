@@ -22,13 +22,13 @@ use super::{
 };
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use ensnano_design::grid::{GridObject, GridPosition, HelixGridPosition};
-use ensnano_design::{BezierPathId, BezierVertex, Nucl};
+use ensnano_design::{BezierPathId, BezierPlaneId, BezierVertex, Nucl};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::DesignReader;
 use ensnano_interactor::Selection;
 use ensnano_utils::winit::event::*;
 use std::cell::RefCell;
-use ultraviolet::{Rotor3, Vec3};
+use ultraviolet::{Rotor3, Vec2, Vec3};
 
 use super::AppState;
 
@@ -131,6 +131,13 @@ pub enum Consequence {
         vertex_id: usize,
     },
     ReleaseBezierVertex,
+    MoveBezierCorner {
+        plane_id: BezierPlaneId,
+        moving_corner: Vec2,
+        original_corner_position: Vec2,
+        fixed_corner_position: Vec2,
+    },
+    ReleaseBezierCorner,
 }
 
 enum TransistionConsequence {

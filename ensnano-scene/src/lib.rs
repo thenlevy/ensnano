@@ -502,6 +502,20 @@ impl<S: AppState> Scene<S> {
                 },
             )),
             Consequence::ReleaseBezierVertex => self.requests.lock().unwrap().suspend_op(),
+            Consequence::MoveBezierCorner {
+                plane_id,
+                original_corner_position,
+                fixed_corner_position,
+                moving_corner,
+            } => self.requests.lock().unwrap().update_opperation(Arc::new(
+                TranslateBezierSheetCorner {
+                    plane_id,
+                    origin_moving_corner: original_corner_position,
+                    fixed_corner: fixed_corner_position,
+                    moving_corner,
+                },
+            )),
+            Consequence::ReleaseBezierCorner => self.requests.lock().unwrap().suspend_op(),
         };
     }
 

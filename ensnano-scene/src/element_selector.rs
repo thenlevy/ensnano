@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use std::rc::Rc;
 
+use super::ultraviolet::Vec2;
 use super::{Device, DrawArea, DrawType, Queue, ViewPtr};
 use ensnano_design::grid::GridPosition;
 use ensnano_design::{BezierPathId, BezierPlaneId};
@@ -262,6 +263,35 @@ pub enum CornerType {
     SouthEast,
 }
 
+impl CornerType {
+    fn from_u32(x: u32) -> Self {
+        match x {
+            0 => Self::NorthWest,
+            1 => Self::NorthEast,
+            2 => Self::SouthWest,
+            _ => Self::SouthEast,
+        }
+    }
+
+    pub fn to_usize(self) -> usize {
+        match self {
+            Self::NorthWest => 0,
+            Self::NorthEast => 1,
+            Self::SouthWest => 2,
+            Self::SouthEast => 3,
+        }
+    }
+
+    pub fn opposite(self) -> Self {
+        match self {
+            Self::NorthEast => Self::SouthWest,
+            Self::NorthWest => Self::SouthEast,
+            Self::SouthEast => Self::NorthWest,
+            Self::SouthWest => Self::NorthEast,
+        }
+    }
+}
+
 impl SceneElement {
     pub fn get_design(&self) -> Option<u32> {
         match self {
@@ -339,6 +369,11 @@ impl SceneReader {
                         Some(SceneElement::BezierVertex {
                             path_id: BezierPathId(r >> 16),
                             vertex_id: (g + b) as usize,
+                        })
+                    } else if a == 0xFD {
+                        Some(SceneElement::PlaneCorner {
+                            plane_id: BezierPlaneId(g + b),
+                            corner_type: CornerType::from_u32(r >> 16),
                         })
                     } else {
                         Some(SceneElement::DesignElement(a, color))

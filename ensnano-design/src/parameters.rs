@@ -49,7 +49,8 @@ pub struct Parameters {
     pub inclination: f32,
 }
 
-const INTER_CENTER_GAP: f32 = 2.2;
+const INTER_CENTER_GAP: f32 =
+    Parameters::OLD_ENSNANO.helix_radius * 2. + Parameters::OLD_ENSNANO.inter_helix_gap;
 
 impl Parameters {
     /// Value used for versions >= 0.4.1.

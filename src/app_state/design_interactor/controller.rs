@@ -1262,11 +1262,17 @@ impl Controller {
         homothethy: BezierPlaneHomothethy,
     ) -> Design {
         self.update_state_and_design(&mut design);
+        log::info!("Applying homothethy {:?}", homothethy);
         let mut paths_mut = design.bezier_paths.make_mut();
-        let angle = {
-            let ab = homothethy.moving_corner - homothethy.origin_moving_corner;
+        let angle_origin = {
+            let ab = homothethy.origin_moving_corner - homothethy.fixed_corner;
             ab.y.atan2(ab.x)
         };
+        let angle_now = {
+            let ab = homothethy.moving_corner - homothethy.fixed_corner;
+            ab.y.atan2(ab.x)
+        };
+        let angle = angle_now - angle_origin;
         let scale = (homothethy.moving_corner - homothethy.fixed_corner).mag()
             / (homothethy.origin_moving_corner - homothethy.fixed_corner).mag();
         for path in paths_mut.values_mut() {
@@ -1277,7 +1283,8 @@ impl Controller {
                     v.position = vec
                         .normalized()
                         .rotated_by(ensnano_design::Rotor2::from_angle(angle))
-                        * new_norm;
+                        * new_norm
+                        + homothethy.fixed_corner;
                 }
             }
         }
