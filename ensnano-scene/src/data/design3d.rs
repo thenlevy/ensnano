@@ -1182,24 +1182,43 @@ impl<R: DesignReader> Design3D<R> {
         }
     }
 
-    pub fn get_bezier_sheets(&self) -> Vec<Sheet2D> {
+    pub fn get_bezier_sheets(&self) -> (Vec<Sheet2D>, Vec<RawDnaInstance>) {
         let parameters = self.design.get_parameters();
-        self.design
-            .get_bezier_planes()
-            .iter()
-            .map(|(plane_id, desc)| {
-                let corners = self.design.get_corners_of_plane(*plane_id);
-                Sheet2D {
-                    position: desc.position,
-                    orientation: desc.orientation,
-                    min_x: (-3. * 48.0 * parameters.z_step).min(corners[0].x),
-                    max_x: (3. * 48.0 * parameters.z_step).max(corners[3].x),
-                    min_y: (-3. * 48.0 * parameters.z_step).min(corners[0].y),
-                    max_y: (3. * 48.0 * parameters.z_step).max(corners[3].y),
-                    graduation_unit: 48.0 * parameters.z_step,
-                }
-            })
-            .collect()
+        let grad_step = 48.0 * parameters.z_step;
+        let delta_corners = grad_step / 5.;
+        let mut sheets = Vec::new();
+        let mut spheres = Vec::new();
+        for (plane_id, desc) in self.design.get_bezier_planes().iter() {
+            let corners = self.design.get_corners_of_plane(*plane_id);
+            sheets.push(Sheet2D {
+                position: desc.position,
+                orientation: desc.orientation,
+                min_x: ((-3. * grad_step).min(corners[0].x - delta_corners) / grad_step).floor()
+                    * grad_step,
+                max_x: ((3. * grad_step).min(corners[3].x + delta_corners) / grad_step).ceil()
+                    * grad_step,
+                min_y: ((-3. * grad_step).min(corners[0].y - delta_corners) / grad_step).floor()
+                    * grad_step,
+                max_y: ((3. * grad_step).max(corners[3].y + delta_corners) / grad_step).ceil()
+                    * grad_step,
+                graduation_unit: 48.0 * parameters.z_step,
+            });
+            for (c_id, c) in sheets.last().unwrap().corners().iter().enumerate() {
+                let position = desc.position
+                    + c.x * Vec3::unit_z().rotated_by(desc.orientation)
+                    + c.y * Vec3::unit_y().rotated_by(desc.orientation);
+                spheres.push(
+                    SphereInstance {
+                        color: Instance::color_from_u32(BEZIER_SHEET_CORNER_COLOR),
+                        id: u32::from_be_bytes([0xFD, 0, 0, c_id as u8]),
+                        position,
+                        radius: BEZIER_SHEET_CORNER_RADIUS,
+                    }
+                    .to_raw_instance(),
+                )
+            }
+        }
+        (sheets, spheres)
     }
 
     pub fn get_bezier_vertex_position(

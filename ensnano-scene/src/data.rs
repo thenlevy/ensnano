@@ -1320,6 +1320,11 @@ impl<R: DesignReader> Data<R> {
             }
         }
         self.update_free_xover(app_state.get_candidates());
+        let (sheet_instances, corner_spheres) = self.designs[0].get_bezier_sheets();
+        spheres.extend(corner_spheres);
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::BezierSheets(sheet_instances));
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::Tube, Rc::new(tubes)));
@@ -1355,11 +1360,6 @@ impl<R: DesignReader> Data<R> {
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::BaseEllipsoid, Rc::new(ellipsoids)));
-
-        let sheet_instances = self.designs[0].get_bezier_sheets();
-        self.view
-            .borrow_mut()
-            .update(ViewUpdate::BezierSheets(sheet_instances));
     }
 
     fn update_discs<S: AppState>(&mut self, app_state: &S) {

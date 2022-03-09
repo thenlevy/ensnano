@@ -67,6 +67,17 @@ impl Vertexable for SheetVertex {
     }
 }
 
+impl Sheet2D {
+    pub fn corners(&self) -> [Vec2; 4] {
+        [
+            Vec2::new(self.min_x, self.min_y),
+            Vec2::new(self.max_x, self.min_y),
+            Vec2::new(self.min_x, self.max_y),
+            Vec2::new(self.max_x, self.max_y),
+        ]
+    }
+}
+
 impl Instanciable for Sheet2D {
     type Vertex = SheetVertex;
     type Ressource = ();
