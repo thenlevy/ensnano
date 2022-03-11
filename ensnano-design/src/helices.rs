@@ -158,7 +158,7 @@ impl<'a> HelicesMut<'a> {
 
 impl<'a> AsRef<Helices> for HelicesMut<'a> {
     fn as_ref(&self) -> &Helices {
-        &self.source
+        self.source
     }
 }
 
