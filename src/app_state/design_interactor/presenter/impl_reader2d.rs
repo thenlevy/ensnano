@@ -204,6 +204,14 @@ impl Reader2D for DesignReader {
     fn get_nucl_collection(&self) -> Arc<super::design_content::NuclCollection> {
         self.presenter.content.nucl_collection.clone()
     }
+
+    fn get_abcissa_converter(&self, h_id: usize) -> ensnano_design::AbscissaConverter {
+        self.presenter
+            .current_design
+            .try_get_up_to_date()
+            .map(|data| data.grid_data.get_abscissa_converter(h_id))
+            .unwrap_or_default()
+    }
 }
 
 impl crate::flatscene::NuclCollection for super::design_content::NuclCollection {

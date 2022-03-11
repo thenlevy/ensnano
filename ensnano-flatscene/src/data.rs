@@ -234,8 +234,7 @@ impl<R: DesignReader> Data<R> {
                     flat_helix,
                     h.id,
                     h.visible,
-                    design.get_basis_map(),
-                    design.get_group_map(),
+                    h.abcissa_converter.clone(),
                 ));
                 self.nb_helices_created += 1;
             }

@@ -16,7 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::{BezierPathData, BezierPathId, BezierVertexId, CurveDescriptor};
+use crate::{
+    curves::AbscissaConverter, BezierPathData, BezierPathId, BezierVertexId, CurveDescriptor,
+};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use super::{
@@ -1176,6 +1178,18 @@ impl GridData {
             vec_start.rotated_by(grid_start.orientation.reversed()),
             vec_end.rotated_by(grid_end.orientation.reversed()),
         ))
+    }
+
+    pub fn get_abscissa_converter(&self, h_id: usize) -> AbscissaConverter {
+        self.get_real_abscissa_converter(h_id).unwrap_or_default()
+    }
+
+    fn get_real_abscissa_converter(&self, h_id: usize) -> Option<AbscissaConverter> {
+        let helix = self.source_helices.get(&h_id)?;
+        let path_id = helix.path_id?;
+        self.path_time_maps
+            .get(&path_id)
+            .map(|map| map.get_abscissa_converter(h_id))
     }
 }
 

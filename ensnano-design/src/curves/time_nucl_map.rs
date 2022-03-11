@@ -24,38 +24,69 @@ use crate::*;
 pub struct HelixTimeMap {
     nucl_time: Arc<Vec<f64>>,
     nb_negative_nucl: usize,
-    normalisation_time: f64,
+    length_normalisation: f64,
 }
 
 impl HelixTimeMap {
     pub fn x_to_nucl_conversion(&self, x: f64) -> f64 {
-        let my_time = if self.nucl_time.len() < 2 {
-            x
+        if self.nucl_time.len() < 2 {
+            x / self.length_normalisation
         } else {
-            let nucl_per_time_unit = (self.nucl_time.last().unwrap()
-                - self.nucl_time.first().unwrap())
-                / (self.nucl_time.len() as f64);
-            if x < *self.nucl_time.first().unwrap() {
-                let remainder = x - *self.nucl_time.first().unwrap() * nucl_per_time_unit;
-                self.nb_negative_nucl as f64 - remainder
-            } else if x > *self.nucl_time.last().unwrap() {
-                let remainder = x - *self.nucl_time.last().unwrap() * nucl_per_time_unit;
-                (self.nucl_time.len() - self.nb_negative_nucl) as f64 + remainder
+            let time_per_x = 1. / self.length_normalisation;
+
+            let time = time_per_x * x;
+
+            if time < *self.nucl_time.first().unwrap() {
+                let remainder_time = time - *self.nucl_time.first().unwrap();
+                self.nb_negative_nucl as f64 - remainder_time / time_per_x
+            } else if time > *self.nucl_time.last().unwrap() {
+                let remainder_time = time - *self.nucl_time.last().unwrap();
+                (self.nucl_time.len() - self.nb_negative_nucl) as f64 + remainder_time / time_per_x
             } else {
-                let n = self.find_x(x);
-                let remainder = x - self.nucl_time[n] * nucl_per_time_unit;
-                n as f64 + remainder * nucl_per_time_unit
+                let n = self.find_time(time);
+                let remainder_time = time - self.nucl_time[n];
+                n as f64 - self.nb_negative_nucl as f64 + remainder_time / time_per_x
             }
-        };
-        my_time / self.normalisation_time
+        }
     }
 
-    fn find_x(&self, x: f64) -> usize {
+    pub fn nucl_to_x_convertion(&self, n: isize) -> f64 {
+        if self.nucl_time.len() < 2
+            || n < -(self.nb_negative_nucl as isize)
+            || n > (self.nucl_time.len() - self.nb_negative_nucl) as isize
+        {
+            n as f64 * self.length_normalisation
+        } else {
+            let x_per_time = self.length_normalisation;
+            self.nucl_time[(n + self.nb_negative_nucl as isize) as usize] * x_per_time
+        }
+    }
+
+    pub fn x_conversion(&self, x: f64) -> f64 {
+        if self.nucl_time.len() < 2
+            || x < -(self.nb_negative_nucl as f64)
+            || x > (self.nucl_time.len() - self.nb_negative_nucl) as f64
+        {
+            x * self.length_normalisation
+        } else {
+            let x_per_time = self.length_normalisation;
+            let idx = (x.floor() as isize + self.nb_negative_nucl as isize) as usize;
+            if let Some(next) = self.nucl_time.get(idx + 1) {
+                (self.nucl_time[idx] + x.fract() * (*next - self.nucl_time[idx])) * x_per_time
+            } else {
+                self.nucl_time[idx] * x_per_time
+                    + x.fract() / (self.nucl_time.last().unwrap() - self.nucl_time.first().unwrap())
+                        * x_per_time
+            }
+        }
+    }
+
+    fn find_time(&self, time: f64) -> usize {
         let mut a = 0;
         let mut b = self.nucl_time.len() - 1;
         while b - a > 1 {
             let c = (a + b) / 2;
-            if self.nucl_time[c] < x {
+            if self.nucl_time[c] < time {
                 a = c;
             } else {
                 b = c;
@@ -65,13 +96,13 @@ impl HelixTimeMap {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum AbscissaConverter_ {
     Real(HelixTimeMap),
     Fake(f64),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AbscissaConverter(AbscissaConverter_);
 
 impl Default for AbscissaConverter {
@@ -84,7 +115,21 @@ impl AbscissaConverter {
     pub fn x_to_nucl_conversion(&self, x: f64) -> f64 {
         match &self.0 {
             AbscissaConverter_::Real(time_map) => time_map.x_to_nucl_conversion(x),
-            AbscissaConverter_::Fake(normalisation_time) => x * normalisation_time,
+            AbscissaConverter_::Fake(normalisation_time) => x / normalisation_time,
+        }
+    }
+
+    pub fn nucl_to_x_convertion(&self, n: isize) -> f64 {
+        match &self.0 {
+            AbscissaConverter_::Real(time_map) => time_map.nucl_to_x_convertion(n),
+            AbscissaConverter_::Fake(normalisation_time) => n as f64 / normalisation_time,
+        }
+    }
+
+    pub fn x_conversion(&self, x: f64) -> f64 {
+        match &self.0 {
+            AbscissaConverter_::Real(time_map) => time_map.x_conversion(x),
+            AbscissaConverter_::Fake(normalisation_time) => x / normalisation_time,
         }
     }
 }
@@ -92,19 +137,21 @@ impl AbscissaConverter {
 #[derive(Debug)]
 pub(crate) struct PathTimeMaps {
     time_maps: BTreeMap<usize, HelixTimeMap>,
-    normalisation_time: f64,
+    length_normalisation: f64,
 }
 
 impl PathTimeMaps {
     pub fn new(path_id: BezierPathId, helices: &[(usize, &Helix)]) -> Self {
         let mut time_maps = BTreeMap::new();
 
-        let mut normalisation_time: f64 = 1.;
+        let mut length_normalisation: f64 = 1.;
         for (_, h) in helices.iter().filter(|(_, h)| h.path_id == Some(path_id)) {
             if let Some(curve) = h.instanciated_curve.as_ref() {
                 let time_points = &curve.curve.t_nucl;
-                for (a, b) in time_points.iter().zip(time_points.iter().skip(1)) {
-                    normalisation_time = normalisation_time.min(b - a);
+                if time_points.len() > 2 {
+                    let x_per_time = (time_points.len() as f64 - 1.)
+                        / (time_points.last().unwrap() - time_points.first().unwrap());
+                    length_normalisation = length_normalisation.max(x_per_time);
                 }
             }
         }
@@ -116,14 +163,14 @@ impl PathTimeMaps {
                     HelixTimeMap {
                         nucl_time: curve.curve.t_nucl.clone(),
                         nb_negative_nucl: curve.curve.nucl_t0,
-                        normalisation_time,
+                        length_normalisation,
                     },
                 );
             }
         }
         Self {
             time_maps,
-            normalisation_time,
+            length_normalisation,
         }
     }
 
@@ -131,7 +178,7 @@ impl PathTimeMaps {
         if let Some(map) = self.time_maps.get(&h_id) {
             AbscissaConverter(AbscissaConverter_::Real(map.clone()))
         } else {
-            AbscissaConverter(AbscissaConverter_::Fake(self.normalisation_time))
+            AbscissaConverter(AbscissaConverter_::Fake(self.length_normalisation))
         }
     }
 }

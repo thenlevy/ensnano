@@ -22,7 +22,8 @@ use super::super::{FlatHelix, FlatIdx, FlatNucl, Requests};
 use super::{Flat, HelixVec, Nucl, Strand};
 use ahash::RandomState;
 use ensnano_design::{
-    ultraviolet, Extremity, Helix as DesignHelix, HelixCollection, Strand as StrandDesign,
+    ultraviolet, AbscissaConverter, Extremity, Helix as DesignHelix, HelixCollection,
+    Strand as StrandDesign,
 };
 use ensnano_interactor::consts::CANDIDATE_STRAND_HIGHLIGHT_FACTOR_2D;
 use ensnano_interactor::{torsion::Torsion, Referential};
@@ -218,6 +219,7 @@ impl<R: DesignReader> Design2d<R> {
                 right: nucl.position + 1,
                 isometry,
                 visible: self.design.get_visibility_helix(helix).unwrap_or(false),
+                abcissa_converter: Arc::new(self.design.get_abcissa_converter(helix)),
             });
         }
     }
@@ -262,6 +264,7 @@ impl<R: DesignReader> Design2d<R> {
                         right: 1,
                         isometry: FullIsometry::from_isommetry_symmetry(isometry, symmetry),
                         visible: self.design.get_visibility_helix(*h_id).unwrap_or(false),
+                        abcissa_converter: Arc::new(self.design.get_abcissa_converter(*h_id)),
                     });
                 } else {
                     let flat = self.id_map.get(h_id).unwrap();
@@ -424,6 +427,7 @@ pub struct Helix2d {
     pub right: isize,
     pub isometry: FullIsometry,
     pub visible: bool,
+    pub abcissa_converter: Arc<AbscissaConverter>,
 }
 
 impl Helix2d {
@@ -494,6 +498,7 @@ pub trait DesignReader: 'static {
     fn get_group_map(&self) -> Arc<BTreeMap<usize, bool>>;
     fn get_strand_ends(&self) -> Vec<Nucl>;
     fn get_nucl_collection(&self) -> Arc<Self::NuclCollection>;
+    fn get_abcissa_converter(&self, h_id: usize) -> AbscissaConverter;
 }
 
 pub trait NuclCollection {
