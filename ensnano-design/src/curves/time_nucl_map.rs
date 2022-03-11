@@ -38,7 +38,7 @@ impl HelixTimeMap {
 
             if time < *self.nucl_time.first().unwrap() {
                 let remainder_time = time - *self.nucl_time.first().unwrap();
-                self.nb_negative_nucl as f64 - remainder_time / time_per_x
+                self.nb_negative_nucl as f64 + remainder_time / time_per_x
             } else if time > *self.nucl_time.last().unwrap() {
                 let remainder_time = time - *self.nucl_time.last().unwrap();
                 (self.nucl_time.len() - self.nb_negative_nucl) as f64 + remainder_time / time_per_x
@@ -51,11 +51,13 @@ impl HelixTimeMap {
     }
 
     pub fn nucl_to_x_convertion(&self, n: isize) -> f64 {
-        if self.nucl_time.len() < 2
-            || n < -(self.nb_negative_nucl as isize)
+        if self.nucl_time.len() < 2 {
+            n as f64 * self.length_normalisation
+        } else if n < -(self.nb_negative_nucl as isize)
             || n >= (self.nucl_time.len() - self.nb_negative_nucl) as isize
         {
             n as f64 * self.length_normalisation
+                / (self.nucl_time.last().unwrap() - self.nucl_time.first().unwrap())
         } else {
             let x_per_time = self.length_normalisation;
             self.nucl_time[(n + self.nb_negative_nucl as isize) as usize] * x_per_time
@@ -63,11 +65,13 @@ impl HelixTimeMap {
     }
 
     pub fn x_conversion(&self, x: f64) -> f64 {
-        if self.nucl_time.len() < 2
-            || x < -(self.nb_negative_nucl as f64)
+        if self.nucl_time.len() < 2 {
+            x * self.length_normalisation
+        } else if x < -(self.nb_negative_nucl as f64)
             || x >= (self.nucl_time.len() - self.nb_negative_nucl) as f64
         {
             x * self.length_normalisation
+                / (self.nucl_time.last().unwrap() - self.nucl_time.first().unwrap())
         } else {
             let x_per_time = self.length_normalisation;
             let idx = (x.floor() as isize + self.nb_negative_nucl as isize) as usize;
