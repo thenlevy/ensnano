@@ -53,7 +53,7 @@ impl HelixTimeMap {
     pub fn nucl_to_x_convertion(&self, n: isize) -> f64 {
         if self.nucl_time.len() < 2
             || n < -(self.nb_negative_nucl as isize)
-            || n > (self.nucl_time.len() - self.nb_negative_nucl) as isize
+            || n >= (self.nucl_time.len() - self.nb_negative_nucl) as isize
         {
             n as f64 * self.length_normalisation
         } else {
@@ -65,7 +65,7 @@ impl HelixTimeMap {
     pub fn x_conversion(&self, x: f64) -> f64 {
         if self.nucl_time.len() < 2
             || x < -(self.nb_negative_nucl as f64)
-            || x > (self.nucl_time.len() - self.nb_negative_nucl) as f64
+            || x >= (self.nucl_time.len() - self.nb_negative_nucl) as f64
         {
             x * self.length_normalisation
         } else {

@@ -219,7 +219,7 @@ impl<R: DesignReader> Design2d<R> {
                 right: nucl.position + 1,
                 isometry,
                 visible: self.design.get_visibility_helix(helix).unwrap_or(false),
-                abcissa_converter: Arc::new(self.design.get_abcissa_converter(helix)),
+                abscissa_converter: Arc::new(self.design.get_abcissa_converter(helix)),
             });
         }
     }
@@ -264,12 +264,13 @@ impl<R: DesignReader> Design2d<R> {
                         right: 1,
                         isometry: FullIsometry::from_isommetry_symmetry(isometry, symmetry),
                         visible: self.design.get_visibility_helix(*h_id).unwrap_or(false),
-                        abcissa_converter: Arc::new(self.design.get_abcissa_converter(*h_id)),
+                        abscissa_converter: Arc::new(self.design.get_abcissa_converter(*h_id)),
                     });
                 } else {
                     let flat = self.id_map.get(h_id).unwrap();
                     let helix2d = &mut self.helices[*flat];
                     helix2d.isometry = FullIsometry::from_isommetry_symmetry(isometry, symmetry);
+                    helix2d.abscissa_converter = Arc::new(self.design.get_abcissa_converter(*h_id));
                 }
             }
         }
@@ -427,7 +428,7 @@ pub struct Helix2d {
     pub right: isize,
     pub isometry: FullIsometry,
     pub visible: bool,
-    pub abcissa_converter: Arc<AbscissaConverter>,
+    pub abscissa_converter: Arc<AbscissaConverter>,
 }
 
 impl Helix2d {

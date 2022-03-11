@@ -110,6 +110,7 @@ impl Helix {
             log::error!("real id does not exist {}", self.real_id);
         }
         self.isometry = helix2d.isometry;
+        self.abscissa_converter = helix2d.abscissa_converter.clone();
     }
 
     pub fn background_vertices(&self) -> Vertices {
