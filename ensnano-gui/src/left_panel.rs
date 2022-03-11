@@ -1,4 +1,3 @@
-use ensnano_design::BezierPathId;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -35,7 +34,7 @@ use ultraviolet::Vec3;
 
 use ensnano_design::{
     elements::{DnaElement, DnaElementKey},
-    CameraId,
+    BezierPathId, CameraId,
 };
 use ensnano_interactor::{
     graphics::{Background3D, RenderingMode},

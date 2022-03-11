@@ -273,11 +273,9 @@ impl BezierEnd {
         edge: Edge,
         grid_reader: &dyn GridPositionProvider,
     ) -> Option<Self> {
-        if let Some(position) = grid_reader.translate_by_edge(self.position, edge) {
-            Some(Self { position, ..self })
-        } else {
-            None
-        }
+        grid_reader
+            .translate_by_edge(self.position, edge)
+            .map(|position| Self { position, ..self })
     }
 }
 

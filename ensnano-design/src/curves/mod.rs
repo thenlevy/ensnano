@@ -29,6 +29,7 @@ use super::{Helix, Parameters};
 use std::sync::Arc;
 mod bezier;
 mod sphere_like_spiral;
+mod time_nucl_map;
 mod torus;
 mod twist;
 use super::GridDescriptor;
@@ -155,6 +156,8 @@ pub(super) struct Curve {
     curvature: Vec<f64>,
     /// The index in positions that was reached when t became non-negative
     nucl_t0: usize,
+    /// The time point at which nucleotides where positioned
+    t_nucl: Arc<Vec<f64>>,
 }
 
 impl Curve {
@@ -165,6 +168,7 @@ impl Curve {
             axis: Vec::new(),
             curvature: Vec::new(),
             nucl_t0: 0,
+            t_nucl: Arc::new(Vec::new()),
         };
         let len_segment = ret.geometry.z_step_ratio().unwrap_or(1.0) * parameters.z_step as f64;
         ret.discretize(len_segment, DISCRETISATION_STEP);
@@ -209,8 +213,10 @@ impl Curve {
         let mut t = self.geometry.t_min();
         points.push(self.geometry.position(t));
         let mut current_axis = self.itterative_axis(t, None);
+        let mut t_nucl = Vec::new();
         axis.push(current_axis);
         curvature.push(self.geometry.curvature(t));
+        t_nucl.push(t);
         let mut first_non_negative = t < 0.0;
 
         while t < self.geometry.t_max() {
@@ -238,6 +244,7 @@ impl Curve {
                     p = q;
                 }
             }
+            t_nucl.push(t);
             points.push(p);
             axis.push(current_axis);
             curvature.push(self.geometry.curvature(t));
@@ -246,6 +253,7 @@ impl Curve {
         self.axis = axis;
         self.positions = points;
         self.curvature = curvature;
+        self.t_nucl = Arc::new(t_nucl);
     }
 
     fn itterative_axis(&self, t: f64, previous: Option<&DMat3>) -> DMat3 {
@@ -274,6 +282,11 @@ impl Curve {
     pub fn axis_pos(&self, n: isize) -> Option<DVec3> {
         let idx = self.idx_convertsion(n)?;
         self.positions.get(idx).cloned()
+    }
+
+    pub fn nucl_time(&self, n: isize) -> Option<f64> {
+        let idx = self.idx_convertsion(n)?;
+        self.t_nucl.get(idx).cloned()
     }
 
     #[allow(dead_code)]
@@ -437,14 +450,14 @@ pub enum CurveDescriptor {
     },
 }
 
-const NO_BEZIER: &'static [BezierEnd] = &[];
+const NO_BEZIER: &[BezierEnd] = &[];
 
 impl CurveDescriptor {
     pub fn grid_positions_involved(&self) -> impl Iterator<Item = &GridPosition> {
         let points = if let Self::PiecewiseBezier { points, .. } = self {
             points.as_slice()
         } else {
-            &NO_BEZIER
+            NO_BEZIER
         };
         points.iter().map(|p| &p.position)
     }
@@ -531,8 +544,8 @@ impl CurveDescriptor {
                     .collect();
                 Some(Self::PiecewiseBezier {
                     points: translated_points?,
-                    t_max: t_max.clone(),
-                    t_min: t_min.clone(),
+                    t_max: *t_max,
+                    t_min: *t_min,
                 })
             }
             _ => None,
@@ -580,7 +593,7 @@ impl InstanciatedCurveDescriptor {
                 t_max,
             } => {
                 let instanciated = InstanciatedPiecewiseBezierDescriptor::instanciate(
-                    &points,
+                    points,
                     grid_reader,
                     *t_min,
                     *t_max,
@@ -589,7 +602,7 @@ impl InstanciatedCurveDescriptor {
             }
         };
         Self {
-            source: desc.clone(),
+            source: desc,
             instance,
         }
     }
@@ -663,7 +676,7 @@ impl InstanciatedCurveDescriptor {
                     .ends
                     .iter()
                     .zip(desc.ends.iter().skip(1))
-                    .map(|(p1, p2)| {
+                    .flat_map(|(p1, p2)| {
                         vec![
                             p1.position,
                             p1.position + p1.vector_out,
@@ -671,7 +684,6 @@ impl InstanciatedCurveDescriptor {
                         ]
                         .into_iter()
                     })
-                    .flatten()
                     .collect();
                 if let Some(last_point) = desc.ends.iter().last() {
                     ret.push(last_point.position);
@@ -804,7 +816,7 @@ impl InsanciatedCurveDescriptor_ {
                 }
             }
             Self::PiecewiseBezier(instanciated_descriptor) => {
-                Arc::new(Curve::new(instanciated_descriptor.desc.clone(), parameters))
+                Arc::new(Curve::new(instanciated_descriptor.desc, parameters))
             }
         }
     }
@@ -889,7 +901,7 @@ impl Helix {
     }
 
     fn need_curve_update_only(&self) -> bool {
-        let up_to_date = self.curve.as_ref().map(|source| Arc::as_ptr(source))
+        let up_to_date = self.curve.as_ref().map(Arc::as_ptr)
             == self
                 .instanciated_descriptor
                 .as_ref()

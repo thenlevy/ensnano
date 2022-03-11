@@ -43,7 +43,7 @@ impl HasMap for BezierPlanes {
 }
 
 impl BezierPlanes {
-    pub fn make_mut<'a>(&'a mut self) -> BezierPlanesMut<'a> {
+    pub fn make_mut(&mut self) -> BezierPlanesMut {
         let new_map = BTreeMap::clone(&self.0);
         BezierPlanesMut {
             source: self,
@@ -155,7 +155,7 @@ pub struct BezierPathsMut<'a> {
 }
 
 impl BezierPaths {
-    pub fn make_mut<'a>(&'a mut self) -> BezierPathsMut<'a> {
+    pub fn make_mut(&mut self) -> BezierPathsMut {
         BezierPathsMut {
             new_map: BTreeMap::clone(&self.0),
             source: self,
@@ -383,7 +383,7 @@ impl InstanciatedPath {
 
     fn need_update(&self, source_planes: &BezierPlanes, source_path: &Arc<BezierPath>) -> bool {
         !Arc::ptr_eq(&source_planes.0, &self.source_planes.0)
-            || !Arc::ptr_eq(&self.source_path, &source_path)
+            || !Arc::ptr_eq(&self.source_path, source_path)
     }
 
     pub fn bezier_controls(&self) -> &[InstanciatedBeizerEnd] {
@@ -464,8 +464,8 @@ impl BezierPathData {
                 .map(|(id, source_path)| {
                     let path = if let Some(path) = self.instanciated_paths.get(id) {
                         path.updated(source_planes.clone(), source_path.clone(), parameters)
-                            .map(|path| Arc::new(path))
-                            .unwrap_or(path.clone())
+                            .map(Arc::new)
+                            .unwrap_or_else(|| path.clone())
                     } else {
                         Arc::new(InstanciatedPath::new(
                             source_planes.clone(),

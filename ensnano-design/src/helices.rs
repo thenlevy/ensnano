@@ -226,6 +226,9 @@ pub struct Helix {
     /// to its roll
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub support_helix: Option<usize>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) path_id: Option<BezierPathId>,
 }
 
 impl Helix {
@@ -268,6 +271,7 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         }
     }
 
@@ -346,6 +350,7 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         })
     }
 
@@ -392,6 +397,7 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         }
     }
 
@@ -418,6 +424,7 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         }
     }
 
@@ -438,6 +445,7 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         }
     }
 
@@ -532,6 +540,7 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         };
         // we can use a fake cache because we don't need it for bezier curves.
         let mut fake_cache = Default::default();
@@ -591,6 +600,7 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         };
         let mut fake_cache = Default::default();
         grid_manager.update_curve(&mut ret, &mut fake_cache);
@@ -682,6 +692,7 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         }
     }
 
