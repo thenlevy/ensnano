@@ -37,6 +37,8 @@ pub use bezier::{BezierControlPoint, BezierEnd, CubicBezierConstructor, CubicBez
 pub(crate) use bezier::{InstanciatedBeizerEnd, InstanciatedPiecewiseBeizer};
 pub use sphere_like_spiral::SphereLikeSpiral;
 use std::collections::HashMap;
+pub use time_nucl_map::AbscissaConverter;
+pub(crate) use time_nucl_map::PathTimeMaps;
 pub use torus::Torus;
 use torus::TwistedTorus;
 pub use torus::{CurveDescriptor2D, TwistedTorusDescriptor};

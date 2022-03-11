@@ -16,16 +16,18 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::{BezierPathData, BezierVertexId, CurveDescriptor};
-use std::collections::{HashMap, HashSet};
+use crate::{BezierPathData, BezierPathId, BezierVertexId, CurveDescriptor};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use super::{
     curves,
     design_operations::{ErrOperation, MIN_HELICES_TO_MAKE_GRID},
-    twist_to_omega, Axis, BezierControlPoint, Design, Helices, Helix, HelixCollection, Parameters,
-    Twist,
+    twist_to_omega, Axis, BezierControlPoint, Collection, Design, Helices, Helix, HelixCollection,
+    Parameters, Twist,
 };
-use curves::{CurveCache, GridPositionProvider, InstanciatedCurve, InstanciatedCurveDescriptor};
+use curves::{
+    CurveCache, GridPositionProvider, InstanciatedCurve, InstanciatedCurveDescriptor, PathTimeMaps,
+};
 mod copy_grid;
 mod deserialize;
 mod hyperboloid;
@@ -709,6 +711,7 @@ pub struct GridData {
     center_of_gravity: HashMap<usize, CenterOfGravity>,
     paths_data: Option<BezierPathData>,
     pub vertex_id_to_grid: HashMap<BezierVertexId, usize>,
+    path_time_maps: Arc<BTreeMap<BezierPathId, Arc<PathTimeMaps>>>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -800,6 +803,7 @@ impl GridData {
             small_spheres: design.small_spheres.clone(),
             center_of_gravity: Default::default(),
             paths_data: Some(paths_data),
+            path_time_maps: Default::default(),
         };
         ret.reposition_all_helices();
         ret.update_all_curves(Arc::make_mut(&mut design.cached_curve));
@@ -887,6 +891,15 @@ impl GridData {
             let mut new_helices = self.source_helices.clone();
             for h in new_helices.make_mut().values_mut() {
                 self.update_curve(h, cached_curve);
+            }
+            let helices: Vec<(usize, &Helix)> =
+                new_helices.iter().map(|(h_id, h)| (*h_id, h)).collect();
+            if let Some(paths_data) = self.paths_data.as_ref() {
+                let maps_mut = Arc::make_mut(&mut self.path_time_maps);
+                for path_id in paths_data.source_paths.keys() {
+                    let path_time_map = PathTimeMaps::new(*path_id, &helices);
+                    maps_mut.insert(*path_id, Arc::new(path_time_map));
+                }
             }
             self.source_helices = new_helices;
         }

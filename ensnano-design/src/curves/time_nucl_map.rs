@@ -20,7 +20,7 @@ use super::*;
 use crate::*;
 
 /// A structure that can map time points to nucleotide indices.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct HelixTimeMap {
     nucl_time: Arc<Vec<f64>>,
     nb_negative_nucl: usize,
@@ -74,6 +74,12 @@ enum AbscissaConverter_ {
 #[derive(Clone)]
 pub struct AbscissaConverter(AbscissaConverter_);
 
+impl Default for AbscissaConverter {
+    fn default() -> Self {
+        Self(AbscissaConverter_::Fake(1.))
+    }
+}
+
 impl AbscissaConverter {
     pub fn x_to_nucl_conversion(&self, x: f64) -> f64 {
         match &self.0 {
@@ -83,13 +89,14 @@ impl AbscissaConverter {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct PathTimeMaps {
     time_maps: BTreeMap<usize, HelixTimeMap>,
     normalisation_time: f64,
 }
 
 impl PathTimeMaps {
-    fn new(path_id: BezierPathId, helices: &[(usize, &Helix)]) -> Self {
+    pub fn new(path_id: BezierPathId, helices: &[(usize, &Helix)]) -> Self {
         let mut time_maps = BTreeMap::new();
 
         let mut normalisation_time: f64 = 1.;
