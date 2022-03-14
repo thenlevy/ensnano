@@ -18,6 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::collection::HasMap;
 use super::curves::{Curve, InstanciatedBeizerEnd, InstanciatedPiecewiseBeizer};
 use super::Parameters;
+use crate::grid::*;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use ultraviolet::{DVec3, Mat3, Rotor3, Vec2, Vec3};
@@ -174,6 +175,7 @@ impl<'a> BezierPathsMut<'a> {
         let new_path = BezierPath {
             vertices: vec![first_vertex],
             cyclic: false,
+            grid_type: None,
         };
         self.new_map.insert(new_key, Arc::new(new_path));
         new_key
@@ -198,6 +200,8 @@ impl<'a> Drop for BezierPathsMut<'a> {
 pub struct BezierPath {
     vertices: Vec<BezierVertex>,
     cyclic: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grid_type: Option<GridTypeDescr>,
 }
 
 impl BezierPath {
@@ -225,6 +229,8 @@ pub struct BezierVertex {
     pub position: Vec2,
     pub vector_in: Option<Vec2>,
     pub vector_out: Option<Vec2>,
+    #[serde(default)]
+    pub grid_translation: Vec3,
 }
 
 impl BezierVertex {
@@ -488,6 +494,53 @@ impl BezierPathData {
 
     pub fn ptr_eq(a: &Self, b: &Self) -> bool {
         Arc::ptr_eq(&a.instanciated_paths, &b.instanciated_paths)
+    }
+
+    pub fn position_vertex(&self, vertex_id: BezierVertexId) -> Option<Vec3> {
+        let path = self.instanciated_paths.get(&vertex_id.path_id)?;
+        path.frames
+            .as_ref()
+            .and_then(|f| f.get(vertex_id.vertex_id))
+            .map(|f| f.0)
+    }
+
+    pub fn orientation_vertex(&self, vertex_id: BezierVertexId) -> Option<Rotor3> {
+        let path = self.instanciated_paths.get(&vertex_id.path_id)?;
+        path.frames
+            .as_ref()
+            .and_then(|f| f.get(vertex_id.vertex_id))
+            .map(|f| f.1)
+    }
+
+    pub fn grids(&self) -> Vec<(GridId, GridDescriptor)> {
+        self.instanciated_paths
+            .iter()
+            .flat_map(|(path_id, path)| {
+                if let Some(grid_type) = path.source_path.grid_type {
+                    path.source_path
+                        .vertices
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(vertex_id, v)| {
+                            let vertex_id = BezierVertexId {
+                                path_id: *path_id,
+                                vertex_id,
+                            };
+                            let desc = GridDescriptor {
+                                invisible: false,
+                                grid_type,
+                                orientation: self.orientation_vertex(vertex_id)?,
+                                position: self.position_vertex(vertex_id)? + v.grid_translation,
+                                bezier_vertex: Some(vertex_id),
+                            };
+                            Some((GridId::BezierPathGrid(vertex_id), desc))
+                        })
+                        .collect()
+                } else {
+                    vec![]
+                }
+            })
+            .collect()
     }
 }
 

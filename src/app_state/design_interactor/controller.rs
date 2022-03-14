@@ -1245,28 +1245,13 @@ impl Controller {
         path_id: BezierPathId,
         desc: GridTypeDescr,
     ) -> Result<Design, ErrOperation> {
-        /*
-        let path = design
-            .bezier_paths
-            .get(&path_id)
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path = new_paths
+            .get_mut(&path_id)
             .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
-        let mut new_grids = Vec::clone(&design.grids);
-        for i in 0..path.vertices().len() {
-            new_grids.push(GridDescriptor {
-                position: Vec3::zero(),
-                orientation: Rotor3::identity(),
-                grid_type: desc.clone(),
-                invisible: false,
-                bezier_vertex: Some(BezierVertexId {
-                    path_id,
-                    vertex_id: i,
-                }),
-            })
-        }
-        design.grids = Arc::new(new_grids);
-        Ok(design)*/
-        log::error!("Turning beizer path into grids not implemented");
-        Err(ErrOperation::NotImplemented)
+        path.grid_type = Some(desc);
+        drop(new_paths);
+        Ok(design)
     }
 
     fn apply_homothethy_on_bezier_plane(

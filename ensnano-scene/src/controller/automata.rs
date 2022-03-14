@@ -16,7 +16,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
-use crate::element_selector::CornerType;
 use crate::DesignReader;
 use ensnano_design::ultraviolet::Vec2;
 use ensnano_design::{
@@ -231,7 +230,6 @@ impl<S: AppState> ControllerState<S> for NormalState {
                     return Transition {
                         new_state: Some(Box::new(MovingBezierCorner {
                             plane_id,
-                            corner: corner_type,
                             clicked_position: position,
                             fixed_corner_position,
                         })),
@@ -271,6 +269,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                     position: Vec2::new(intersection.x, intersection.y),
                                     vector_in: None,
                                     vector_out: None,
+                                    grid_translation: Vec3::zero(),
                                 },
                                 path: path_id.unwrap(),
                             },
@@ -1353,7 +1352,7 @@ impl<S: AppState> ControllerState<S> for MovingBezierVertex {
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
         controller: &Controller<S>,
-        pixel_reader: &mut ElementSelector,
+        _pixel_reader: &mut ElementSelector,
         app_state: &S,
     ) -> Transition<S> {
         if let Some(plane_id) = self.plane_id.or(self
@@ -1438,7 +1437,6 @@ impl<S: AppState> ControllerState<S> for MovingBezierVertex {
 
 struct MovingBezierCorner {
     plane_id: BezierPlaneId,
-    corner: CornerType,
     clicked_position: PhysicalPosition<f64>,
     fixed_corner_position: Vec2,
 }

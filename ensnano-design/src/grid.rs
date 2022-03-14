@@ -110,28 +110,10 @@ impl GridDescriptor {
         }
     }
 
-    pub fn to_grid(&self, parameters: Parameters, paths_data: &BezierPathData) -> Grid {
-        let (position, orientation) = self
-            .bezier_vertex
-            .and_then(|id| {
-                paths_data
-                    .instanciated_paths
-                    .get(&id.path_id)
-                    .and_then(|p| p.frames.as_ref().and_then(|f| f.get(id.vertex_id)))
-                    .cloned()
-            })
-            .unwrap_or_else(|| {
-                if self.bezier_vertex.is_some() {
-                    log::error!(
-                        "Could not get frame correspoding to vertex {:?}",
-                        self.bezier_vertex
-                    )
-                }
-                (self.position, self.orientation)
-            });
+    pub fn to_grid(&self, parameters: Parameters) -> Grid {
         Grid {
-            position,
-            orientation,
+            position: self.position,
+            orientation: self.orientation,
             invisible: self.invisible,
             grid_type: self.grid_type.to_concrete(),
             parameters,
@@ -775,8 +757,11 @@ impl GridData {
         let parameters = design.parameters.unwrap_or_default();
         let source_grids = design.grids.clone();
         let paths_data = design.get_up_to_date_paths().clone();
+        for (g_id, desc) in paths_data.grids().into_iter() {
+            grids.insert(g_id, desc.to_grid(parameters));
+        }
         for (g_id, desc) in source_grids.iter() {
-            let grid = desc.to_grid(parameters, &paths_data);
+            let grid = desc.to_grid(parameters);
             if let Some(vertex_id) = desc.bezier_vertex {
                 vertex_id_to_grid.insert(vertex_id, g_id);
             }
