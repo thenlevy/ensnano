@@ -28,7 +28,6 @@ pub trait HasIcon {
 impl HasIcon for SelectionMode {
     fn icon_on(&self) -> Handle {
         let bytes = match self {
-            Self::Grid { .. } => include_bytes!("../../icons/icons/Grid-on32.png").to_vec(),
             Self::Helix => include_bytes!("../../icons/icons/Helix-on32.png").to_vec(),
             Self::Nucleotide => include_bytes!("../../icons/icons/Nucleotide-on32.png").to_vec(),
             Self::Strand => include_bytes!("../../icons/icons/Strand-on32.png").to_vec(),
@@ -39,7 +38,6 @@ impl HasIcon for SelectionMode {
 
     fn icon_off(&self) -> Handle {
         let bytes = match self {
-            Self::Grid { .. } => include_bytes!("../../icons/icons/Grid-off32.png").to_vec(),
             Self::Helix => include_bytes!("../../icons/icons/Helix-off32.png").to_vec(),
             Self::Nucleotide => include_bytes!("../../icons/icons/Nucleotide-off32.png").to_vec(),
             Self::Strand => include_bytes!("../../icons/icons/Strand-off32.png").to_vec(),

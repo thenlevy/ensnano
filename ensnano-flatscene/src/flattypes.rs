@@ -23,8 +23,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! reduces the confusion, since erros will be detected by the typechecker.
 
 use super::{HashMap, Nucl, Selection};
-use ensnano_interactor::PhantomElement;
 use ensnano_design::grid::GridId;
+use ensnano_interactor::PhantomElement;
 
 /// An helix identifier in the flatscene data structures.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]

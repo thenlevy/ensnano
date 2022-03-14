@@ -33,7 +33,7 @@ pub mod status_bar;
 mod ui_size;
 pub use ui_size::*;
 mod material_icons_light;
-pub use ensnano_design::{Camera, CameraId};
+pub use ensnano_design::{grid::GridId, Camera, CameraId};
 pub use status_bar::{CurentOpState, StrandBuildingStatus};
 mod consts;
 
@@ -117,7 +117,7 @@ pub trait Requests: 'static + Send {
     fn update_rigid_helices_simulation(&mut self, parameters: RigidBodyParametersRequest);
     /// Start of Update the rigid grids simulation
     fn update_rigid_grids_simulation(&mut self, parameters: RigidBodyParametersRequest);
-    fn start_twist_simulation(&mut self, grid_id: usize);
+    fn start_twist_simulation(&mut self, grid_id: GridId);
     /// Update the parameters of the current simulation (rigid grids or helices)
     fn update_rigid_body_simulation_parameters(&mut self, parameters: RigidBodyParametersRequest);
     fn create_new_hyperboloid(&mut self, parameters: HyperboloidRequest);
@@ -187,10 +187,10 @@ pub trait Requests: 'static + Send {
     fn update_camera(&mut self, cam_id: CameraId);
     fn set_camera_name(&mut self, cam_id: CameraId, name: String);
     fn set_suggestion_parameters(&mut self, param: SuggestionParameters);
-    fn set_grid_position(&mut self, grid_id: usize, position: Vec3);
-    fn set_grid_orientation(&mut self, grid_id: usize, orientation: Rotor3);
+    fn set_grid_position(&mut self, grid_id: GridId, position: Vec3);
+    fn set_grid_orientation(&mut self, grid_id: GridId, orientation: Rotor3);
     fn toggle_2d(&mut self);
-    fn set_nb_turn(&mut self, grid_id: usize, nb_turn: f32);
+    fn set_nb_turn(&mut self, grid_id: GridId, nb_turn: f32);
     fn set_check_xover_parameters(&mut self, paramters: CheckXoversParameter);
     fn follow_stereographic_camera(&mut self, follow: bool);
     fn set_show_stereographic_camera(&mut self, show: bool);
@@ -1000,9 +1000,9 @@ pub trait AppState:
 }
 
 pub trait DesignReader: 'static {
-    fn grid_has_persistent_phantom(&self, g_id: usize) -> bool;
-    fn grid_has_small_spheres(&self, g_id: usize) -> bool;
-    fn get_grid_shift(&self, g_id: usize) -> Option<f32>;
+    fn grid_has_persistent_phantom(&self, g_id: GridId) -> bool;
+    fn grid_has_small_spheres(&self, g_id: GridId) -> bool;
+    fn get_grid_shift(&self, g_id: GridId) -> Option<f32>;
     fn get_strand_length(&self, s_id: usize) -> Option<usize>;
     fn is_id_of_scaffold(&self, s_id: usize) -> bool;
     fn length_decomposition(&self, s_id: usize) -> String;
@@ -1012,8 +1012,8 @@ pub trait DesignReader: 'static {
     fn strand_name(&self, s_id: usize) -> String;
     fn get_all_cameras(&self) -> Vec<(CameraId, &str)>;
     fn get_favourite_camera(&self) -> Option<CameraId>;
-    fn get_grid_position_and_orientation(&self, g_id: usize) -> Option<(Vec3, Rotor3)>;
-    fn get_grid_nb_turn(&self, g_id: usize) -> Option<f32>;
+    fn get_grid_position_and_orientation(&self, g_id: GridId) -> Option<(Vec3, Rotor3)>;
+    fn get_grid_nb_turn(&self, g_id: GridId) -> Option<f32>;
     fn xover_length(&self, xover_id: usize) -> Option<(f32, Option<f32>)>;
     fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize>;
     fn rainbow_scaffold(&self) -> bool;

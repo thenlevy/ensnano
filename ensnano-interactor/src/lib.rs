@@ -439,7 +439,7 @@ pub enum SimulationState {
     RigidGrid,
     RigidHelices,
     Paused,
-    Twisting { grid_id: usize },
+    Twisting { grid_id: GridId },
 }
 
 impl SimulationState {

@@ -499,7 +499,6 @@ struct SelectionModeState {
     pub nucleotide: button::State,
     pub strand: button::State,
     pub helix: button::State,
-    pub grid: button::State,
 }
 
 impl SelectionModeState {
@@ -508,7 +507,6 @@ impl SelectionModeState {
         ret.insert(SelectionMode::Nucleotide, &mut self.nucleotide);
         ret.insert(SelectionMode::Strand, &mut self.strand);
         ret.insert(SelectionMode::Helix, &mut self.helix);
-        ret.insert(SelectionMode::Grid, &mut self.grid);
         ret
     }
 }
@@ -519,9 +517,6 @@ struct ActionModeState {
     pub translate: button::State,
     pub rotate: button::State,
     pub build: button::State,
-    pub cut: button::State,
-    pub add_grid: button::State,
-    pub add_hyperboloid: button::State,
 }
 
 impl ActionModeState {
