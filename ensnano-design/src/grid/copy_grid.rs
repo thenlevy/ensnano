@@ -23,7 +23,7 @@ use std::borrow::Cow;
 impl Design {
     pub fn copy_grids(
         &mut self,
-        grid_ids: &[usize],
+        grid_ids: &[FreeGridId],
         position: Vec3,
         orientation: Rotor3,
     ) -> Result<(), GridCopyError> {
@@ -31,7 +31,7 @@ impl Design {
             let grid_id_0 = grid_ids.get(0).ok_or(GridCopyError::NoGridToCopy)?;
             let source_grid = self
                 .grids
-                .get(*grid_id_0)
+                .get(grid_id_0)
                 .ok_or(GridCopyError::GridDoesNotExist(*grid_id_0))?;
             (
                 source_grid.position - position,
@@ -39,7 +39,8 @@ impl Design {
             )
         };
 
-        let mut new_grids = Vec::clone(self.grids.as_ref());
+        let mut grids_clone = FreeGrids::clone(&self.grids);
+        let mut new_grids = grids_clone.make_mut();
 
         let new_grid_ids = self.make_grid_copy_grid_map(
             &grid_ids,
@@ -62,7 +63,11 @@ impl Design {
                 .get(old_h_id)
                 .ok_or(GridCopyError::HelixDoesNotExist(*old_h_id))?;
             let grid_position = old_helix.grid_position.and_then(|gp| {
-                let new_grid_id = new_grid_ids.get(&gp.grid).cloned()?;
+                let new_grid_id = if let GridId::FreeGrid(id) = gp.grid {
+                    new_grid_ids.get(&FreeGridId(id)).cloned()
+                } else {
+                    None
+                }?;
                 Some(HelixGridPosition {
                     grid: new_grid_id,
                     ..gp.clone()
@@ -78,22 +83,23 @@ impl Design {
             helices_mut.insert(*new_h_id, new_helix);
         }
 
-        self.grids = Arc::new(new_grids);
+        drop(new_grids);
+        self.grids = grids_clone;
         Ok(())
     }
 
     fn make_grid_copy_grid_map(
         &self,
-        grid_ids: &[usize],
+        grid_ids: &[FreeGridId],
         base_position: Vec3,
         base_orientation: Rotor3,
-        new_grids: &mut Vec<GridDescriptor>,
-    ) -> Result<HashMap<usize, usize>, GridCopyError> {
+        new_grids: &mut FreeGridsMut,
+    ) -> Result<HashMap<FreeGridId, GridId>, GridCopyError> {
         let mut ret = HashMap::new();
         for grid_id in grid_ids.iter() {
             let source_grid = self
                 .grids
-                .get(*grid_id)
+                .get(grid_id)
                 .ok_or(GridCopyError::GridDoesNotExist(*grid_id))?;
 
             let new_grid = GridDescriptor {
@@ -104,27 +110,30 @@ impl Design {
                 bezier_vertex: None,
             };
 
-            ret.insert(*grid_id, new_grids.len());
-            new_grids.push(new_grid);
+            let new_grid_id = new_grids.push(new_grid);
+            ret.insert(*grid_id, new_grid_id);
         }
         Ok(ret)
     }
 
-    fn make_grid_copy_helix_map(&self, grid_ids: &[usize]) -> HashMap<usize, usize> {
+    fn make_grid_copy_helix_map(&self, grid_ids: &[FreeGridId]) -> HashMap<usize, usize> {
         let mut new_helix_id = self.helices.keys().max().map(|n| n + 1).unwrap_or(0);
 
         let mut ret = HashMap::new();
 
         for (h_id, h) in self.helices.iter() {
-            if matches!(h.grid_position, Some(gp) if grid_ids.contains(&gp.grid)) {
-                ret.insert(*h_id, new_helix_id);
-                new_helix_id += 1;
+            if let Some(grid_position) = h.grid_position {
+                if matches!(grid_position.grid, GridId::FreeGrid(g_id) if grid_ids.contains(&FreeGridId(g_id)))
+                {
+                    ret.insert(*h_id, new_helix_id);
+                    new_helix_id += 1;
+                }
             }
         }
         ret
     }
 
-    fn get_id_of_strands_on_grids(&self, grid_ids: &[usize]) -> Vec<usize> {
+    fn get_id_of_strands_on_grids(&self, grid_ids: &[FreeGridId]) -> Vec<usize> {
         let mut ret = Vec::new();
         for (s_id, s) in self.strands.iter() {
             let mut insert = true;
@@ -142,11 +151,11 @@ impl Design {
         ret
     }
 
-    fn helix_is_on_grids(&self, h_id: usize, grid_ids: &[usize]) -> bool {
+    fn helix_is_on_grids(&self, h_id: usize, grid_ids: &[FreeGridId]) -> bool {
         self.helices
             .get(&h_id)
             .and_then(|h| h.grid_position)
-            .filter(|gp| grid_ids.contains(&gp.grid))
+            .filter(|gp| matches!(gp.grid, GridId::FreeGrid(g_id) if grid_ids.contains(&FreeGridId(g_id))))
             .is_some()
     }
 
@@ -219,7 +228,7 @@ impl Design {
 
 #[derive(Debug)]
 pub enum GridCopyError {
-    GridDoesNotExist(usize),
+    GridDoesNotExist(FreeGridId),
     StrandDoesNotExist(usize),
     HelixIdNotInNewHelixMap(usize),
     GridNotInMap(usize),

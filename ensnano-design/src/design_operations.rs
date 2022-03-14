@@ -29,7 +29,7 @@ pub enum ErrOperation {
     NotEnoughHelices { actual: usize, needed: usize },
     GridPositionAlreadyUsed,
     HelixDoesNotExists(usize),
-    GridDoesNotExist(usize),
+    GridDoesNotExist(GridId),
     HelixCollisionDuringTranslation,
     NotEnoughBezierPoints,
     HelixIsNotPiecewiseBezier,
@@ -50,7 +50,7 @@ pub fn make_grid_from_helices(design: &mut Design, helices: &[usize]) -> Result<
 pub fn attach_object_to_grid(
     design: &mut Design,
     object: GridObject,
-    grid: usize,
+    grid: GridId,
     x: isize,
     y: isize,
 ) -> Result<(), ErrOperation> {

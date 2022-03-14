@@ -30,7 +30,7 @@ use ultraviolet::{Rotor3, Vec3};
 
 pub mod codenano;
 pub mod grid;
-use grid::{GridData, GridDescriptor};
+use grid::{FreeGrids, GridData, GridDescriptor, GridId};
 pub mod scadnano;
 pub use ensnano_organizer::{GroupId, OrganizerTree};
 use scadnano::*;
@@ -99,7 +99,7 @@ pub struct Design {
     pub scaffold_shift: Option<usize>,
 
     #[serde(default)]
-    pub grids: Arc<Vec<GridDescriptor>>,
+    pub grids: FreeGrids,
 
     /// The cross-over suggestion groups
     #[serde(skip_serializing_if = "groups_is_empty", default)]
@@ -108,7 +108,7 @@ pub struct Design {
     /// The set of identifiers of grids whose helices must not always display their phantom
     /// helices.
     #[serde(skip_serializing_if = "HashSet::is_empty", default)]
-    pub no_phantoms: Arc<HashSet<usize>>,
+    pub no_phantoms: Arc<HashSet<GridId>>,
 
     /// The set of identifiers of grids whose helices are displayed with smaller spheres for the
     /// nucleotides.
@@ -119,7 +119,7 @@ pub struct Design {
         skip_serializing_if = "HashSet::is_empty",
         default
     )]
-    pub small_spheres: Arc<HashSet<usize>>,
+    pub small_spheres: Arc<HashSet<GridId>>,
 
     /// The set of nucleotides that must not move during physical simulations
     #[serde(skip_serializing_if = "HashSet::is_empty", default)]
@@ -608,7 +608,7 @@ impl Design {
         println!("grids {:?}", grids);
         println!("helices {:?}", helices);
         Ok(Self {
-            grids: Arc::new(grids),
+            grids: FreeGrids::from_vec(grids),
             helices: Helices(Arc::new(helices)),
             strands: Strands(strands),
             small_spheres: Default::default(),
@@ -664,16 +664,6 @@ where
         .get_mut(&h_id)
         .map(|h| mutate_in_arc(h, mutation))?;
     design.helices = Helices(Arc::new(new_helices_map));
-    Some(())
-}
-
-pub fn mutate_one_grid<F>(design: &mut Design, g_id: usize, mut mutation: F) -> Option<()>
-where
-    F: FnMut(&mut GridDescriptor) + Clone,
-{
-    let mut new_grids_map = Vec::clone(&design.grids);
-    new_grids_map.get_mut(g_id).map(|g| mutation(g))?;
-    design.grids = Arc::new(new_grids_map);
     Some(())
 }
 

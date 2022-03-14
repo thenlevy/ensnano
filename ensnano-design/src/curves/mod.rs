@@ -32,7 +32,8 @@ mod sphere_like_spiral;
 mod time_nucl_map;
 mod torus;
 mod twist;
-use super::GridDescriptor;
+use super::{GridDescriptor, GridId};
+use crate::grid::*;
 pub use bezier::{BezierControlPoint, BezierEnd, CubicBezierConstructor, CubicBezierControlPoint};
 pub(crate) use bezier::{InstanciatedBeizerEnd, InstanciatedPiecewiseBeizer};
 pub use sphere_like_spiral::SphereLikeSpiral;
@@ -565,8 +566,8 @@ pub(super) struct InstanciatedCurveDescriptor {
 
 pub(super) trait GridPositionProvider {
     fn position(&self, position: GridPosition) -> Vec3;
-    fn orientation(&self, grid: usize) -> Rotor3;
-    fn source(&self) -> Arc<Vec<GridDescriptor>>;
+    fn orientation(&self, grid: GridId) -> Rotor3;
+    fn source(&self) -> FreeGrids;
     fn source_paths(&self) -> Option<BezierPathData>;
     fn get_tengents_between_two_points(
         &self,
@@ -633,14 +634,14 @@ impl InstanciatedCurveDescriptor {
     fn is_up_to_date(
         &self,
         desc: &Arc<CurveDescriptor>,
-        grids: &Arc<Vec<GridDescriptor>>,
+        grids: &FreeGrids,
         paths_data: &BezierPathData,
     ) -> bool {
         if Arc::ptr_eq(&self.source, desc) {
             if let InsanciatedCurveDescriptor_::PiecewiseBezier(instanciated_descriptor) =
                 &self.instance
             {
-                Arc::ptr_eq(&instanciated_descriptor.grids, grids)
+                FreeGrids::ptr_eq(&instanciated_descriptor.grids, grids)
                     && instanciated_descriptor
                         .paths_data
                         .as_ref()
@@ -714,7 +715,7 @@ pub struct InstanciatedPiecewiseBezierDescriptor {
     /// The instanciated descriptor
     desc: InstanciatedPiecewiseBeizer,
     /// The data that was used to map grid positions to space position
-    grids: Arc<Vec<GridDescriptor>>,
+    grids: FreeGrids,
     /// The data that was used to map BezierVertex to grids
     paths_data: Option<BezierPathData>,
 }
@@ -877,7 +878,7 @@ impl AsRef<Curve> for InstanciatedCurve {
 impl Helix {
     pub(super) fn need_curve_descriptor_update(
         &self,
-        grid_data: &Arc<Vec<GridDescriptor>>,
+        grid_data: &FreeGrids,
         paths_data: &BezierPathData,
     ) -> bool {
         if let Some(current_desc) = self.curve.as_ref() {
@@ -894,7 +895,7 @@ impl Helix {
 
     pub(super) fn need_curve_update(
         &self,
-        grid_data: &Arc<Vec<GridDescriptor>>,
+        grid_data: &FreeGrids,
         paths_data: &BezierPathData,
     ) -> bool {
         self.need_curve_descriptor_update(grid_data, paths_data) || {

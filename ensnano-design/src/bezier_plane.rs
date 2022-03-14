@@ -491,7 +491,7 @@ impl BezierPathData {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash, PartialOrd, Ord)]
 pub struct BezierVertexId {
     pub path_id: BezierPathId,
     pub vertex_id: usize,

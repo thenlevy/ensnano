@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::design_operations::ErrOperation;
-use crate::grid::GridAwareTranslation;
+use crate::grid::*;
 use crate::BezierVertexId;
 
 use super::curves::*;
@@ -333,7 +333,7 @@ impl Helix {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
             grid_position: Some(HelixGridPosition {
-                grid: *grid_id,
+                grid: GridId::FreeGrid(*grid_id),
                 x,
                 y,
                 axis_pos: 0,
@@ -401,7 +401,7 @@ impl Helix {
         }
     }
 
-    pub fn new_on_grid(grid: &Grid, x: isize, y: isize, g_id: usize) -> Self {
+    pub fn new_on_grid(grid: &Grid, x: isize, y: isize, g_id: GridId) -> Self {
         let position = grid.position_helix(x, y);
         Self {
             position,
@@ -565,13 +565,10 @@ impl Helix {
                 path_id,
                 vertex_id: i,
             };
-            let g_id = grid_manager
-                .vertex_id_to_grid
-                .get(&vertex_id)
-                .ok_or(ErrOperation::CouldNotGetVertex(vertex_id))?;
+            let g_id = GridId::BezierPathGrid(vertex_id);
             points.push(BezierEnd {
                 position: crate::grid::GridPosition {
-                    grid: *g_id,
+                    grid: g_id,
                     ..grid_pos.light()
                 },
                 inward_coeff: 1.,
