@@ -632,6 +632,7 @@ impl<S: AppState> Scene<S> {
             app_state.get_selection(),
             &reader,
         );
+        log::debug!("grids {:?}", grids);
         let control_points = ensnano_interactor::extract_control_points(app_state.get_selection());
         let at_most_one_grid = grids.as_ref().map(|g| g.len() <= 1).unwrap_or(false);
 

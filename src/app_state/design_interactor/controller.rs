@@ -480,7 +480,7 @@ impl Controller {
                 let interface = GridsSystemThread::start_new(presenter, parameters, reader)?;
                 ret.state = ControllerState::SimulatingGrids {
                     interface,
-                    initial_design: AddressPointer::new(design.clone()),
+                    _initial_design: AddressPointer::new(design.clone()),
                 }
             }
             SimulationOperation::StartRoll {
@@ -493,8 +493,8 @@ impl Controller {
                 }
                 let interface = PhysicalSystem::start_new(presenter, target_helices, reader);
                 ret.state = ControllerState::Rolling {
-                    interface,
-                    initial_design: AddressPointer::new(design.clone()),
+                    _interface: interface,
+                    _initial_design: AddressPointer::new(design.clone()),
                 };
             }
             SimulationOperation::StartTwist {
@@ -508,8 +508,8 @@ impl Controller {
                 let interface = simulations::Twister::start_new(presenter, grid_id, reader)
                     .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
                 ret.state = ControllerState::Twisting {
-                    interface,
-                    initial_design: AddressPointer::new(design.clone()),
+                    _interface: interface,
+                    _initial_design: AddressPointer::new(design.clone()),
                     grid_id,
                 };
             }
@@ -1378,7 +1378,7 @@ impl Controller {
                 Ok(self.translate_helices(design, snap, helices, translation.translation))
             }
             IsometryTarget::Grids(grid_ids) => {
-                Ok(self.translate_grids(design, grid_ids, translation.translation))
+                self.translate_grids(design, grid_ids, translation.translation)
             }
             IsometryTarget::GroupPivot(group_id) => {
                 self.translate_group_pivot(design, translation.translation, group_id)
@@ -1554,20 +1554,31 @@ impl Controller {
         mut design: Design,
         grid_ids: Vec<GridId>,
         translation: Vec3,
-    ) -> Design {
+    ) -> Result<Design, ErrOperation> {
         self.update_state_and_design(&mut design);
+        let mut new_paths = design.bezier_paths.make_mut();
+        for g_id in grid_ids.iter() {
+            if let GridId::BezierPathGrid(vertex_id) = g_id {
+                let path = new_paths
+                    .get_mut(&vertex_id.path_id)
+                    .ok_or(ErrOperation::PathDoesNotExist(vertex_id.path_id))?;
+                let vertex = path.get_vertex_mut(vertex_id.vertex_id).ok_or(
+                    ErrOperation::VertexDoesNotExist(vertex_id.path_id, vertex_id.vertex_id),
+                )?;
+                vertex.grid_translation += translation;
+            }
+        }
+        drop(new_paths);
         let mut new_grids = design.grids.make_mut();
         for g_id in grid_ids.into_iter() {
             if let Some(desc) =
                 FreeGridId::try_from_grid_id(g_id).and_then(|g_id| new_grids.get_mut(&g_id))
             {
                 desc.position += translation;
-            } else if let GridId::BezierPathGrid(_) = g_id {
-                log::error!("Translation of bezier path grids not implemented")
             }
         }
         drop(new_grids);
-        design
+        Ok(design)
     }
 
     fn rotate_grids(
@@ -2377,7 +2388,7 @@ impl Controller {
         mut design: Design,
         object: GridObject,
         point: GridPosition,
-        tengent: Vec3,
+        _tengent: Vec3,
         append: bool,
     ) -> Result<Design, ErrOperation> {
         match object {
@@ -3031,18 +3042,18 @@ enum ControllerState {
     },
     SimulatingGrids {
         interface: Arc<Mutex<GridSystemInterface>>,
-        initial_design: AddressPointer<Design>,
+        _initial_design: AddressPointer<Design>,
     },
     WithPausedSimulation {
         initial_design: AddressPointer<Design>,
     },
     Rolling {
-        interface: Arc<Mutex<RollInterface>>,
-        initial_design: AddressPointer<Design>,
+        _interface: Arc<Mutex<RollInterface>>,
+        _initial_design: AddressPointer<Design>,
     },
     Twisting {
-        interface: Arc<Mutex<TwistInterface>>,
-        initial_design: AddressPointer<Design>,
+        _interface: Arc<Mutex<TwistInterface>>,
+        _initial_design: AddressPointer<Design>,
         grid_id: GridId,
     },
     ChangingStrandName {

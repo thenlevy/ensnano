@@ -899,7 +899,7 @@ pub enum WidgetTarget {
 
 impl<S: AppState> ControllerState<S> for TranslatingWidget {
     fn display(&self) -> Cow<'static, str> {
-        "Translating widget".into()
+        format!("Translating widget, target {:?}", self.translation_target).into()
     }
 
     fn handles_color_system(&self) -> Option<HandleColors> {

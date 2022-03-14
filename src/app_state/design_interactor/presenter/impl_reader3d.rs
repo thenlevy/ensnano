@@ -50,11 +50,18 @@ impl Reader3D for DesignReader {
     }
 
     fn get_grid_basis(&self, g_id: GridId) -> Option<Rotor3> {
-        self.presenter
-            .current_design
-            .grids
-            .get_from_g_id(&g_id)
-            .map(|g| g.orientation)
+        match g_id {
+            GridId::FreeGrid(_) => self
+                .presenter
+                .current_design
+                .grids
+                .get_from_g_id(&g_id)
+                .map(|g| g.orientation),
+            GridId::BezierPathGrid(vertex_id) => {
+                let design_data = self.presenter.current_design.try_get_up_to_date()?;
+                design_data.paths_data.orientation_vertex(vertex_id)
+            }
+        }
     }
 
     fn get_suggestions(&self) -> Vec<(Nucl, Nucl)> {
