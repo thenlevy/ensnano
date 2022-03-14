@@ -494,7 +494,6 @@ pub trait DesignReader: 'static {
     fn get_id_of_strand_containing_elt(&self, e_id: u32) -> Option<usize>;
     fn get_id_of_of_helix_containing_elt(&self, e_id: u32) -> Option<usize>;
     fn get_xover_with_id(&self, xover_id: usize) -> Option<(Nucl, Nucl)>;
-    fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>>;
     fn get_basis_map(&self) -> Arc<HashMap<Nucl, char, RandomState>>;
     fn get_group_map(&self) -> Arc<BTreeMap<usize, bool>>;
     fn get_strand_ends(&self) -> Vec<Nucl>;

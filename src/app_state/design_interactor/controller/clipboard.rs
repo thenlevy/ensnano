@@ -21,7 +21,7 @@ use super::{
     HelixInterval, Nucl, Strand,
 };
 use ensnano_design::{
-    grid::{Edge, GridData, GridPosition},
+    grid::{Edge, FreeGridId, GridData, GridId, GridPosition},
     Helices, HelixCollection, MutStrandAndData, Parameters, Strands, UpToDateDesign,
 };
 use ultraviolet::Vec3;
@@ -30,7 +30,7 @@ pub(super) enum Clipboard {
     Empty,
     Strands(StrandClipboard),
     Xovers(Vec<(Nucl, Nucl)>),
-    Grids(Vec<usize>),
+    Grids(Vec<GridId>),
     Helices(Vec<usize>),
 }
 
@@ -142,10 +142,10 @@ impl Controller {
     pub fn copy_grids(
         &mut self,
         design: &Design,
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
     ) -> Result<(), ErrOperation> {
         for grid_id in grid_ids.iter() {
-            if design.grids.get(*grid_id).is_none() {
+            if design.grids.get_from_g_id(grid_id).is_none() {
                 return Err(ErrOperation::GridDoesNotExist(*grid_id));
             }
         }
@@ -308,8 +308,12 @@ impl Controller {
                 Ok(design)
             }
             Clipboard::Grids(grid_ids) => {
+                let grid_ids: Vec<_> = grid_ids
+                    .iter()
+                    .filter_map(|g_id| FreeGridId::try_from_grid_id(*g_id))
+                    .collect();
                 design
-                    .copy_grids(grid_ids, Vec3::zero(), ultraviolet::Rotor3::identity())
+                    .copy_grids(&grid_ids, Vec3::zero(), ultraviolet::Rotor3::identity())
                     .map_err(|e| ErrOperation::GridCopyError(e))?;
                 Ok(design)
             }
@@ -978,7 +982,7 @@ impl Controller {
 }
 
 pub enum CopyOperation {
-    CopyGrids(Vec<usize>),
+    CopyGrids(Vec<GridId>),
     CopyStrands(Vec<usize>),
     CopyXovers(Vec<(Nucl, Nucl)>),
     CopyHelices(Vec<usize>),

@@ -171,7 +171,7 @@ pub enum DesignOperation {
         elements: Vec<DnaElementKey>,
     },
     SetSmallSpheres {
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         small: bool,
     },
     /// Apply a translation to the 2d representation of helices holding each pivot
@@ -243,15 +243,15 @@ pub enum DesignOperation {
         name: String,
     },
     SetGridPosition {
-        grid_id: usize,
+        grid_id: GridId,
         position: Vec3,
     },
     SetGridOrientation {
-        grid_id: usize,
+        grid_id: GridId,
         orientation: Rotor3,
     },
     SetGridNbTurn {
-        grid_id: usize,
+        grid_id: GridId,
         nb_turn: f32,
     },
     MakeSeveralXovers {
@@ -365,7 +365,7 @@ impl ToString for IsometryTarget {
 /// A stucture that defines an helix on a grid
 #[derive(Clone, Debug)]
 pub struct GridHelixDescriptor {
-    pub grid_id: usize,
+    pub grid_id: GridId,
     pub x: isize,
     pub y: isize,
 }

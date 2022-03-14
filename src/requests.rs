@@ -30,7 +30,7 @@ use ultraviolet::Vec3;
 
 use super::gui::OrganizerTree;
 use super::scene::FogParameters;
-use ensnano_design::grid::{GridPosition, GridTypeDescr};
+use ensnano_design::grid::{GridId, GridPosition, GridTypeDescr};
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     Nucl,
@@ -126,6 +126,6 @@ pub struct Requests {
     pub set_show_h_bonds: Option<bool>,
     pub set_invert_y_scroll: Option<bool>,
     pub set_thick_helices: Option<bool>,
-    pub twist_simulation: Option<usize>,
+    pub twist_simulation: Option<GridId>,
     pub horizon_targeted: Option<()>,
 }

@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use ensnano_design::grid::{GridDescriptor, GridTypeDescr};
-use ensnano_design::{CurveDescriptor, HelixCollection, Parameters, Twist};
+use ensnano_design::{grid::*, Collection, CurveDescriptor, HelixCollection, Parameters, Twist};
 
 use super::roller::{DesignData, RollPresenter, RollSystem};
 use super::{Design, Helix, SimulationReader};
@@ -46,7 +46,7 @@ const NB_STEP_OMEGA: usize = 300;
 
 #[derive(Clone)]
 pub struct TwistState {
-    grid_id: usize,
+    grid_id: GridId,
     helices: HashMap<usize, Helix>,
     grid: GridDescriptor,
 }
@@ -58,11 +58,13 @@ impl super::SimulationUpdate for TwistState {
             new_helices.insert(*i, h.clone())
         }
 
-        let grids_mut = Arc::make_mut(&mut design.grids);
-        if let Some(grid) = grids_mut.get_mut(self.grid_id) {
+        let mut grids_mut = design.grids.make_mut();
+        if let Some(grid) =
+            FreeGridId::try_from_grid_id(self.grid_id).and_then(|g_id| grids_mut.get_mut(&g_id))
+        {
             *grid = self.grid.clone()
         } else {
-            log::error!("COULD NOT UPDATE GRID {}", self.grid_id)
+            log::error!("COULD NOT UPDATE GRID {:?}", self.grid_id)
         }
     }
 }
@@ -76,7 +78,7 @@ pub struct TwistInterface {
 impl Twister {
     pub fn start_new(
         presenter: &dyn TwistPresenter,
-        target_grid: usize,
+        target_grid: GridId,
         reader: &mut dyn SimulationReader,
     ) -> Option<Arc<Mutex<TwistInterface>>> {
         let intervals_map = presenter.get_design().strands.get_intervals();
@@ -121,7 +123,9 @@ impl Twister {
         let interface_dyn: Arc<Mutex<dyn super::SimulationInterface>> = interface.clone();
         reader.attach_state(&interface_dyn);
 
-        let initial_state = if let Some(grid) = presenter.get_design().grids.get(target_grid) {
+        let initial_state = if let Some(grid) = FreeGridId::try_from_grid_id(target_grid)
+            .and_then(|target_grid| presenter.get_design().grids.get(&target_grid))
+        {
             TwistState {
                 grid_id: target_grid,
                 grid: grid.clone(),
@@ -133,7 +137,7 @@ impl Twister {
                     .collect(),
             }
         } else {
-            log::error!("Could not get grid {}", target_grid);
+            log::error!("Could not get grid {:?}", target_grid);
             return None;
         };
 

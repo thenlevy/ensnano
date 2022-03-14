@@ -21,8 +21,8 @@ use crate::app_state::AddressPointer;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{
-        Edge, GridDescriptor, GridObject, GridPosition, GridTypeDescr, HelixGridPosition,
-        Hyperboloid,
+        Edge, FreeGridId, GridDescriptor, GridId, GridObject, GridPosition, GridTypeDescr,
+        HelixGridPosition, Hyperboloid,
     },
     group_attributes::GroupPivot,
     mutate_in_arc, BezierEnd, BezierPathId, BezierPlaneDescriptor, BezierVertex, BezierVertexId,
@@ -580,10 +580,14 @@ impl Controller {
         hyperboloid: &Hyperboloid,
         position: Vec3,
         orientation: Rotor3,
-    ) {
+    ) -> Result<(), ErrOperation> {
         use ensnano_design::grid::GridDivision;
         // the hyperboloid grid is always the last one that was added to the design
-        let grid_id = design.grids.len() - 1;
+        let grid_id = design
+            .grids
+            .keys()
+            .max()
+            .ok_or(ErrOperation::GridDoesNotExist(GridId::FreeGrid(0)))?;
         let parameters = design.parameters.unwrap_or_default();
         let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
         let nb_nucl = nb_nucl.min(5000);
@@ -604,7 +608,7 @@ impl Controller {
                 })
             }
             h.grid_position = Some(HelixGridPosition {
-                grid: grid_id,
+                grid: grid_id.to_grid_id(),
                 x: i as isize,
                 y: 0,
                 axis_pos: 0,
@@ -625,6 +629,7 @@ impl Controller {
                 }
             }
         }
+        Ok(())
     }
 
     fn set_roll_helices(
@@ -739,8 +744,13 @@ impl Controller {
                     .ok_or(ErrOperation::HelixDoesNotExists(*helix))?;
             }
             DnaElementKey::Grid(g_id) => {
-                ensnano_design::mutate_one_grid(design, *g_id, |g| g.invisible = !visible)
-                    .ok_or(ErrOperation::GridDoesNotExist(*g_id))?;
+                let mut grids_mut = design.grids.make_mut();
+                let g_id = ensnano_design::grid::FreeGridId(*g_id);
+                let grid = grids_mut
+                    .get_mut(&g_id)
+                    .ok_or(ErrOperation::GridDoesNotExist(g_id.to_grid_id()))?;
+                grid.invisible = !grid.invisible;
+                drop(grids_mut);
             }
             _ => (),
         }
@@ -803,7 +813,7 @@ impl Controller {
                 let grid_descriptor =
                     GridDescriptor::hyperboloid(position, orientation, hyperboloid.clone());
                 design = self.add_grid(design, grid_descriptor);
-                self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation);
+                self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation)?;
                 Ok(design)
             }
             HyperboloidOperation::Update(request) => {
@@ -820,7 +830,7 @@ impl Controller {
                     let grid_descriptor =
                         GridDescriptor::hyperboloid(position, orientation, hyperboloid.clone());
                     design = self.add_grid(design, grid_descriptor);
-                    self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation);
+                    self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation)?;
                     Ok(design)
                 } else {
                     Err(ErrOperation::IncompatibleState)
@@ -1141,9 +1151,9 @@ impl Controller {
     }
 
     fn add_grid(&mut self, mut design: Design, descriptor: GridDescriptor) -> Design {
-        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let mut new_grids = design.grids.make_mut();
         new_grids.push(descriptor);
-        design.grids = Arc::new(new_grids);
+        drop(new_grids);
         design
     }
 
@@ -1235,6 +1245,7 @@ impl Controller {
         path_id: BezierPathId,
         desc: GridTypeDescr,
     ) -> Result<Design, ErrOperation> {
+        /*
         let path = design
             .bezier_paths
             .get(&path_id)
@@ -1253,7 +1264,9 @@ impl Controller {
             })
         }
         design.grids = Arc::new(new_grids);
-        Ok(design)
+        Ok(design)*/
+        log::error!("Turning beizer path into grids not implemented");
+        Err(ErrOperation::NotImplemented)
     }
 
     fn apply_homothethy_on_bezier_plane(
@@ -1437,7 +1450,7 @@ impl Controller {
         &mut self,
         mut design: Design,
         object: GridObject,
-        grid: usize,
+        grid: GridId,
         x: isize,
         y: isize,
     ) -> Result<Design, ErrOperation> {
@@ -1554,38 +1567,42 @@ impl Controller {
     fn translate_grids(
         &mut self,
         mut design: Design,
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         translation: Vec3,
     ) -> Design {
         self.update_state_and_design(&mut design);
-        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let mut new_grids = design.grids.make_mut();
         for g_id in grid_ids.into_iter() {
-            if let Some(desc) = new_grids.get_mut(g_id) {
+            if let Some(desc) =
+                FreeGridId::try_from_grid_id(g_id).and_then(|g_id| new_grids.get_mut(&g_id))
+            {
                 desc.position += translation;
+            } else if let GridId::BezierPathGrid(_) = g_id {
+                log::error!("Translation of bezier path grids not implemented")
             }
         }
-        design.grids = Arc::new(new_grids);
+        drop(new_grids);
         design
     }
 
     fn rotate_grids(
         &mut self,
         mut design: Design,
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         rotation: Rotor3,
         origin: Vec3,
     ) -> Design {
         self.update_state_and_design(&mut design);
-        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let mut new_grids = design.grids.make_mut();
         for g_id in grid_ids.into_iter() {
-            if let Some(desc) = new_grids.get_mut(g_id) {
+            if let Some(desc) = new_grids.get_mut_g_id(&g_id) {
                 desc.position -= origin;
                 desc.orientation = rotation * desc.orientation;
                 desc.position = rotation * desc.position;
                 desc.position += origin;
             }
         }
-        design.grids = Arc::new(new_grids);
+        drop(new_grids);
         design
     }
 }
@@ -1639,7 +1656,7 @@ pub enum ErrOperation {
     IncompatibleState,
     CannotBuildOn(Nucl),
     CutInexistingStrand,
-    GridDoesNotExist(usize),
+    GridDoesNotExist(GridId),
     GridPositionAlreadyUsed,
     StrandDoesNotExist(usize),
     HelixDoesNotExists(usize),
@@ -1661,7 +1678,7 @@ pub enum ErrOperation {
     NoGrids,
     FinishFirst,
     CameraDoesNotExist(CameraId),
-    GridIsNotHyperboloid(usize),
+    GridIsNotHyperboloid(GridId),
     DesignOperationError(ensnano_design::design_operations::ErrOperation),
     NotPiecewiseBezier(usize),
     GridCopyError(ensnano_design::grid::GridCopyError),
@@ -1724,7 +1741,7 @@ impl Controller {
     fn set_helices_persisance(
         &mut self,
         mut design: Design,
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         persistant: bool,
     ) -> Design {
         for g_id in grid_ids.into_iter() {
@@ -1740,7 +1757,7 @@ impl Controller {
     fn set_small_spheres(
         &mut self,
         mut design: Design,
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         small: bool,
     ) -> Design {
         for g_id in grid_ids.into_iter() {
@@ -2294,22 +2311,16 @@ impl Controller {
         start: isize,
         length: usize,
     ) -> Result<Design, ErrOperation> {
-        let path_id = design
-            .grids
-            .get(position.grid)
-            .and_then(|g| g.bezier_vertex)
-            .map(|v| v.path_id);
-
         let grid_manager = design.get_updated_grid_data();
         if grid_manager.pos_to_object(position.light()).is_some() {
             return Err(ErrOperation::GridPositionAlreadyUsed);
         }
-        let helix = if let Some(path_id) = path_id {
+        let helix = if let GridId::BezierPathGrid(BezierVertexId { path_id, .. }) = position.grid {
             Helix::new_on_bezier_path(grid_manager, position, path_id)
         } else {
             let grid = grid_manager
                 .grids
-                .get(position.grid)
+                .get(&position.grid)
                 .ok_or(ErrOperation::GridDoesNotExist(position.grid))?;
             Ok(Helix::new_on_grid(
                 grid,
@@ -2882,53 +2893,68 @@ impl Controller {
     fn set_grid_position(
         &mut self,
         mut design: Design,
-        grid_id: usize,
+        grid_id: GridId,
         position: Vec3,
     ) -> Result<Design, ErrOperation> {
-        let mut new_grids = Vec::clone(design.grids.as_ref());
-        let grid = new_grids
-            .get_mut(grid_id)
-            .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
-        grid.position = position;
-        design.grids = Arc::new(new_grids);
-        Ok(design)
+        if let GridId::FreeGrid(id) = grid_id {
+            let mut new_grids = design.grids.make_mut();
+            let grid = new_grids
+                .get_mut(&ensnano_design::grid::FreeGridId(id))
+                .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+            grid.position = position;
+            drop(new_grids);
+            Ok(design)
+        } else {
+            log::error!("Setting position of bezier path grids is not yet implemented");
+            Err(ErrOperation::NotImplemented)
+        }
     }
 
     fn set_grid_orientation(
         &mut self,
         mut design: Design,
-        grid_id: usize,
+        grid_id: GridId,
         orientation: Rotor3,
     ) -> Result<Design, ErrOperation> {
-        let mut new_grids = Vec::clone(design.grids.as_ref());
-        let grid = new_grids
-            .get_mut(grid_id)
-            .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
-        grid.orientation = orientation;
-        design.grids = Arc::new(new_grids);
-        Ok(design)
+        if let GridId::FreeGrid(id) = grid_id {
+            let mut new_grids = design.grids.make_mut();
+            let grid = new_grids
+                .get_mut(&ensnano_design::grid::FreeGridId(id))
+                .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+            grid.orientation = orientation;
+            drop(new_grids);
+            Ok(design)
+        } else {
+            log::error!("Setting orientation of bezier path grids is not yet implemented");
+            Err(ErrOperation::NotImplemented)
+        }
     }
 
     fn set_grid_nb_turn(
         &mut self,
         mut design: Design,
-        grid_id: usize,
+        grid_id: GridId,
         x: f64,
     ) -> Result<Design, ErrOperation> {
-        let mut new_grids = Vec::clone(design.grids.as_ref());
-        let grid = new_grids
-            .get_mut(grid_id)
-            .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
-        if let GridTypeDescr::Hyperboloid {
-            nb_turn_per_100_nt, ..
-        } = &mut grid.grid_type
-        {
-            *nb_turn_per_100_nt = x;
+        if let GridId::FreeGrid(id) = grid_id {
+            let mut new_grids = design.grids.make_mut();
+            let grid = new_grids
+                .get_mut(&ensnano_design::grid::FreeGridId(id))
+                .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+            if let GridTypeDescr::Hyperboloid {
+                nb_turn_per_100_nt, ..
+            } = &mut grid.grid_type
+            {
+                *nb_turn_per_100_nt = x;
+            } else {
+                return Err(ErrOperation::GridIsNotHyperboloid(grid_id));
+            }
+            drop(new_grids);
+            Ok(design)
         } else {
-            return Err(ErrOperation::GridIsNotHyperboloid(grid_id));
+            log::error!("Setting nb turn of bezier path grids is not yet implemented");
+            Err(ErrOperation::NotImplemented)
         }
-        design.grids = Arc::new(new_grids);
-        Ok(design)
     }
 }
 
@@ -3032,7 +3058,7 @@ enum ControllerState {
     Twisting {
         interface: Arc<Mutex<TwistInterface>>,
         initial_design: AddressPointer<Design>,
-        grid_id: usize,
+        grid_id: GridId,
     },
     ChangingStrandName {
         strand_id: usize,

@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 use crate::scene::GridInstance;
 use ensnano_design::{
-    grid::{GridObject, GridPosition, HelixGridPosition},
+    grid::{GridId, GridObject, GridPosition, HelixGridPosition},
     BezierPlaneDescriptor, BezierPlaneId, Collection, CurveDescriptor, Nucl,
 };
 use ensnano_interactor::{
@@ -49,11 +49,11 @@ impl Reader3D for DesignReader {
             .cloned()
     }
 
-    fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3> {
+    fn get_grid_basis(&self, g_id: GridId) -> Option<Rotor3> {
         self.presenter
             .current_design
             .grids
-            .get(g_id)
+            .get_from_g_id(&g_id)
             .map(|g| g.orientation)
     }
 
@@ -95,15 +95,15 @@ impl Reader3D for DesignReader {
             .collect()
     }
 
-    fn get_grid_position(&self, g_id: usize) -> Option<Vec3> {
+    fn get_grid_position(&self, g_id: GridId) -> Option<Vec3> {
         self.presenter
             .current_design
             .grids
-            .get(g_id)
+            .get_from_g_id(&g_id)
             .map(|g| g.position)
     }
 
-    fn get_grid_instances(&self) -> Vec<GridInstance> {
+    fn get_grid_instances(&self) -> BTreeMap<GridId, GridInstance> {
         self.presenter.content.get_grid_instances()
     }
 
@@ -140,7 +140,7 @@ impl Reader3D for DesignReader {
         Some(self.presenter.in_referential(position, referential))
     }
 
-    fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
+    fn get_helices_on_grid(&self, g_id: GridId) -> Option<HashSet<usize>> {
         self.presenter.content.get_helices_on_grid(g_id)
     }
 
@@ -237,7 +237,7 @@ impl Reader3D for DesignReader {
         }
     }
 
-    fn get_helices_grid_key_coord(&self, g_id: usize) -> Option<Vec<((isize, isize), usize)>> {
+    fn get_helices_grid_key_coord(&self, g_id: GridId) -> Option<Vec<((isize, isize), usize)>> {
         Some(self.presenter.content.get_helices_grid_key_coord(g_id))
     }
 
@@ -252,7 +252,7 @@ impl Reader3D for DesignReader {
         self.presenter.content.strand_map.get(&e_id).cloned()
     }
 
-    fn get_used_coordinates_on_grid(&self, g_id: usize) -> Option<Vec<(isize, isize)>> {
+    fn get_used_coordinates_on_grid(&self, g_id: GridId) -> Option<Vec<(isize, isize)>> {
         Some(self.presenter.content.get_used_coordinates_on_grid(g_id))
     }
 

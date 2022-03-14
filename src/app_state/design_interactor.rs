@@ -17,7 +17,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::AddressPointer;
-use ensnano_design::{group_attributes::GroupAttribute, Design, HelixCollection, Parameters};
+use ensnano_design::{
+    grid::GridId, group_attributes::GroupAttribute, Design, HelixCollection, Parameters,
+};
 use ensnano_interactor::{
     operation::Operation, ActionMode, DesignOperation, RigidBodyConstants, Selection,
     SimulationState, StrandBuilder, SuggestionParameters,
@@ -423,7 +425,7 @@ mod tests {
     use crate::scene::DesignReader as Reader3d;
     use ensnano_design::grid::HelixGridPosition;
     use ensnano_design::HelixCollection;
-    use ensnano_design::{grid::GridDescriptor, DomainJunction, Nucl, Strand};
+    use ensnano_design::{grid::GridDescriptor, Collection, DomainJunction, Nucl, Strand};
     use ensnano_interactor::operation::GridHelixCreation;
     use ensnano_interactor::DesignReader;
     use std::path::PathBuf;
@@ -990,6 +992,7 @@ mod tests {
                 orientation: Rotor3::identity(),
                 grid_type: ensnano_design::grid::GridTypeDescr::Square { twist: None },
                 invisible: false,
+                bezier_vertex: None,
             }))
             .unwrap();
         app_state.update();
@@ -1005,13 +1008,14 @@ mod tests {
                 orientation: Rotor3::identity(),
                 grid_type: ensnano_design::grid::GridTypeDescr::Square { twist: None },
                 invisible: false,
+                bezier_vertex: None,
             }))
             .unwrap();
         app_state.update();
         app_state
             .update_pending_operation(Arc::new(GridHelixCreation {
                 design_id: 0,
-                grid_id: 0,
+                grid_id: GridId::FreeGrid(0),
                 x: 0,
                 y: 0,
                 position: 0,
@@ -1031,12 +1035,13 @@ mod tests {
                 orientation: Rotor3::identity(),
                 grid_type: ensnano_design::grid::GridTypeDescr::Square { twist: None },
                 invisible: false,
+                bezier_vertex: None,
             }))
             .unwrap();
         app_state.update();
         app_state
             .apply_design_op(DesignOperation::AddGridHelix {
-                position: HelixGridPosition::from_grid_id_x_y(0, 0, 0),
+                position: HelixGridPosition::from_grid_id_x_y(GridId::FreeGrid(0), 0, 0),
                 start: 0,
                 length: 0,
             })
@@ -1469,5 +1474,5 @@ pub enum SimulationTarget {
     Grids,
     Helices,
     Roll { target_helices: Option<Vec<usize>> },
-    Twist { grid_id: usize },
+    Twist { grid_id: GridId },
 }

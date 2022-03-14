@@ -126,10 +126,6 @@ impl Reader2D for DesignReader {
             .cloned()
     }
 
-    fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
-        self.presenter.content.get_helices_on_grid(g_id)
-    }
-
     fn get_visibility_helix(&self, h_id: usize) -> Option<bool> {
         self.presenter
             .current_design

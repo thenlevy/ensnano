@@ -24,19 +24,19 @@ use ensnano_interactor::InsertionPoint;
 use ultraviolet::Rotor3;
 
 impl ReaderGui for DesignReader {
-    fn grid_has_small_spheres(&self, g_id: usize) -> bool {
+    fn grid_has_small_spheres(&self, g_id: GridId) -> bool {
         self.presenter.content.grid_has_small_spheres(g_id)
     }
 
-    fn grid_has_persistent_phantom(&self, g_id: usize) -> bool {
+    fn grid_has_persistent_phantom(&self, g_id: GridId) -> bool {
         self.presenter.content.grid_has_persistent_phantom(g_id)
     }
 
-    fn get_grid_shift(&self, g_id: usize) -> Option<f32> {
+    fn get_grid_shift(&self, g_id: GridId) -> Option<f32> {
         self.presenter.content.get_grid_shift(g_id)
     }
 
-    fn get_grid_nb_turn(&self, g_id: usize) -> Option<f32> {
+    fn get_grid_nb_turn(&self, g_id: GridId) -> Option<f32> {
         self.presenter.content.get_grid_nb_turn(g_id)
     }
 
@@ -93,11 +93,11 @@ impl ReaderGui for DesignReader {
         self.presenter.current_design.get_favourite_camera_id()
     }
 
-    fn get_grid_position_and_orientation(&self, g_id: usize) -> Option<(Vec3, Rotor3)> {
+    fn get_grid_position_and_orientation(&self, g_id: GridId) -> Option<(Vec3, Rotor3)> {
         self.presenter
             .current_design
             .grids
-            .get(g_id)
+            .get_from_g_id(&g_id)
             .map(|g| (g.position, g.orientation))
     }
 

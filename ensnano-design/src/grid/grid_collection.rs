@@ -22,7 +22,21 @@ use crate::HasMap;
     Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Default, Hash,
 )]
 /// Identifier of a free grid
-pub struct FreeGridId(pub(super) usize);
+pub struct FreeGridId(pub usize);
+
+impl FreeGridId {
+    pub fn to_grid_id(self) -> GridId {
+        GridId::FreeGrid(self.0)
+    }
+
+    pub fn try_from_grid_id(grid_id: GridId) -> Option<Self> {
+        if let GridId::FreeGrid(id) = grid_id {
+            Some(Self(id))
+        } else {
+            None
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 /// Collection of free grids descriptor
@@ -56,6 +70,11 @@ impl FreeGrids {
     pub fn ptr_eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
     }
+
+    pub fn get_from_g_id(&self, key: &GridId) -> Option<&GridDescriptor> {
+        let free_id = FreeGridId::try_from_grid_id(*key)?;
+        self.get(&free_id)
+    }
 }
 
 pub struct FreeGridsMut<'a> {
@@ -73,6 +92,15 @@ impl<'a> FreeGridsMut<'a> {
             .unwrap_or_default();
         self.new_map.insert(new_key, Arc::new(desc));
         GridId::FreeGrid(new_key.0)
+    }
+
+    pub fn get_mut(&mut self, g_id: &FreeGridId) -> Option<&mut GridDescriptor> {
+        self.new_map.get_mut(&g_id).map(Arc::make_mut)
+    }
+
+    pub fn get_mut_g_id(&mut self, g_id: &GridId) -> Option<&mut GridDescriptor> {
+        let free_id = FreeGridId::try_from_grid_id(*g_id)?;
+        self.get_mut(&free_id)
     }
 }
 

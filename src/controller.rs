@@ -24,6 +24,7 @@ mod download_staples;
 use download_staples::*;
 pub use download_staples::{DownloadStappleError, DownloadStappleOk, StaplesDownloader};
 mod quit;
+use ensnano_design::grid::GridId;
 use ensnano_design::group_attributes::GroupPivot;
 use ensnano_interactor::{application::Notification, DesignOperation};
 use ensnano_interactor::{DesignReader, RigidBodyConstants, Selection};
@@ -227,7 +228,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn need_backup(&self) -> bool;
     fn check_backup(&mut self);
     fn flip_split_views(&mut self);
-    fn start_twist(&mut self, g_id: usize);
+    fn start_twist(&mut self, g_id: GridId);
     fn set_expand_insertions(&mut self, expand: bool);
 }
 

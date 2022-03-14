@@ -942,7 +942,7 @@ pub struct GridSystemState {
     positions: Vec<Vec3>,
     orientations: Vec<Rotor3>,
     center_of_mass_from_grid: Vec<Vec3>,
-    ids: Vec<usize>,
+    ids: Vec<GridId>,
 }
 
 pub(super) struct GridsSystemThread {
@@ -1338,7 +1338,7 @@ pub enum SimulationOperation<'pres, 'reader> {
         target_helices: Option<Vec<usize>>,
     },
     StartTwist {
-        grid_id: usize,
+        grid_id: GridId,
         presenter: &'pres dyn TwistPresenter,
         reader: &'reader mut dyn SimulationReader,
     },
@@ -1430,13 +1430,13 @@ struct RigidGrid {
     orientation: Rotor3,
     inertia_inverse: Mat3,
     mass: f32,
-    id: usize,
+    id: GridId,
     helices: Vec<RigidHelix>,
 }
 
 impl RigidGrid {
     pub fn from_helices(
-        id: usize,
+        id: GridId,
         helices: Vec<RigidHelix>,
         position_grid: Vec3,
         orientation: Rotor3,
@@ -1694,7 +1694,13 @@ fn make_grid_system(
         .unwrap_or_default();
     let mut selected_grids = HashMap::with_capacity(presenter.get_design().grids.len());
     let mut rigid_grids = Vec::with_capacity(presenter.get_design().grids.len());
-    for g_id in 0..presenter.get_design().grids.len() {
+    for g_id in presenter
+        .get_design()
+        .grids
+        .keys()
+        .cloned()
+        .map(FreeGridId::to_grid_id)
+    {
         if let Some(rigid_grid) = make_rigid_grid(presenter, g_id, &intervals, &parameters) {
             selected_grids.insert(g_id, rigid_grids.len());
             rigid_grids.push(rigid_grid);
@@ -1762,7 +1768,7 @@ fn make_grid_system(
 
 fn make_rigid_grid(
     presenter: &dyn GridPresenter,
-    g_id: usize,
+    g_id: GridId,
     intervals: &BTreeMap<usize, (isize, isize)>,
     parameters: &Parameters,
 ) -> Option<RigidGrid> {
@@ -1810,8 +1816,8 @@ fn make_rigid_helix_grid_pov(
 
 pub trait GridPresenter {
     fn get_design(&self) -> &Design;
-    fn get_grid(&self, g_id: usize) -> Option<&Grid>;
-    fn get_helices_attached_to_grid(&self, g_id: usize) -> Option<Vec<usize>>;
+    fn get_grid(&self, g_id: GridId) -> Option<&Grid>;
+    fn get_helices_attached_to_grid(&self, g_id: GridId) -> Option<Vec<usize>>;
     fn get_xovers_list(&self) -> Vec<(Nucl, Nucl)>;
 }
 
@@ -1824,14 +1830,14 @@ impl SimulationInterface for GridSystemInterface {
 
 impl SimulationUpdate for GridSystemState {
     fn update_design(&self, design: &mut Design) {
-        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let mut new_grids = design.grids.make_mut();
         for i in 0..self.ids.len() {
             let position = self.positions[i];
             let orientation = self.orientations[i].normalized();
-            let grid = &mut new_grids[self.ids[i]];
-            grid.position = position - self.center_of_mass_from_grid[i].rotated_by(orientation);
-            grid.orientation = orientation;
+            if let Some(grid) = new_grids.get_mut_g_id(&self.ids[i]) {
+                grid.position = position - self.center_of_mass_from_grid[i].rotated_by(orientation);
+                grid.orientation = orientation;
+            }
         }
-        design.grids = Arc::new(new_grids);
     }
 }

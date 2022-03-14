@@ -726,14 +726,14 @@ impl GridPresenter for Presenter {
         self.current_design.strands.get_xovers()
     }
 
-    fn get_helices_attached_to_grid(&self, g_id: usize) -> Option<Vec<usize>> {
+    fn get_helices_attached_to_grid(&self, g_id: GridId) -> Option<Vec<usize>> {
         self.content
             .get_helices_on_grid(g_id)
             .map(|set| set.into_iter().collect())
     }
 
-    fn get_grid(&self, g_id: usize) -> Option<&ensnano_design::grid::Grid> {
-        self.content.grid_manager.grids.get(g_id)
+    fn get_grid(&self, g_id: GridId) -> Option<&ensnano_design::grid::Grid> {
+        self.content.grid_manager.grids.get(&g_id)
     }
 }
 

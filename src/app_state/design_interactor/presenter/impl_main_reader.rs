@@ -196,7 +196,7 @@ impl MainReader for DesignReader {
         self.presenter.current_design.strands.get(&id)
     }
 
-    fn get_helix_grid(&self, h_id: usize) -> Option<usize> {
+    fn get_helix_grid(&self, h_id: usize) -> Option<GridId> {
         self.presenter
             .current_design
             .helices
