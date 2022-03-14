@@ -24,6 +24,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::{HashMap, Nucl, Selection};
 use ensnano_interactor::PhantomElement;
+use ensnano_design::grid::GridId;
 
 /// An helix identifier in the flatscene data structures.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -167,7 +168,7 @@ pub enum FlatSelection {
     Design(usize),
     Strand(usize, usize),
     Helix(usize, FlatHelix),
-    Grid(usize, usize),
+    Grid(usize, GridId),
     Phantom(PhantomElement),
     Nothing,
 }

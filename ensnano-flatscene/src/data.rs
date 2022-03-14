@@ -976,7 +976,6 @@ impl<R: DesignReader> Data<R> {
     ) -> Option<Selection> {
         if let Some(n_id) = self.design.get_nucl_id(phantom.to_nucl()) {
             match selection_mode {
-                SelectionMode::Grid => None,
                 SelectionMode::Helix => self
                     .design
                     .get_helix_from_eid(n_id)
