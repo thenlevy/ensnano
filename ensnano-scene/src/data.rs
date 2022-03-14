@@ -26,7 +26,7 @@ use super::{
     RotationWidgetDescriptor, RotationWidgetOrientation, SceneElement, View, ViewUpdate,
 };
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -34,7 +34,10 @@ use ensnano_design::grid::GridObject;
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
-use ensnano_design::{grid::GridPosition, Nucl};
+use ensnano_design::{
+    grid::{GridId, GridPosition},
+    Nucl,
+};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::{
     ActionMode, CenterOfSelection, ObjectType, PhantomElement, Referential, Selection,
@@ -603,7 +606,10 @@ impl<R: DesignReader> Data<R> {
                     .map(|x| x as u32)
             }
             Some(SceneElement::PhantomElement(phantom_element)) => Some(phantom_element.helix_id),
-            Some(SceneElement::Grid(_, g_id)) => Some(g_id as u32),
+            Some(SceneElement::Grid(_, GridId::FreeGrid(g_id))) => Some(g_id as u32),
+            Some(SceneElement::Grid(_, GridId::BezierPathGrid(vertex))) => Some(
+                crate::element_selector::bezier_vertex_id(vertex.path_id, vertex.vertex_id),
+            ),
             _ => None,
         }
     }
@@ -624,7 +630,6 @@ impl<R: DesignReader> Data<R> {
             SelectionMode::Helix => self.designs[design_id as usize]
                 .get_helix(element_id)
                 .map(|x| x as u32),
-            SelectionMode::Grid => Some(element_id),
         }
     }
 
@@ -653,7 +658,6 @@ impl<R: DesignReader> Data<R> {
                     .map(|x| x as u32)
             }),
             SelectionMode::Helix => Some(phantom_element.helix_id),
-            SelectionMode::Grid => None,
         }
     }
 
@@ -715,10 +719,9 @@ impl<R: DesignReader> Data<R> {
                 SelectionMode::Helix => design
                     .get_element_axis_position(element, referential)
                     .or(design.get_element_position(element, referential)),
-                SelectionMode::Nucleotide
-                | SelectionMode::Strand
-                | SelectionMode::Design
-                | SelectionMode::Grid => design.get_element_position(element, referential),
+                SelectionMode::Nucleotide | SelectionMode::Strand | SelectionMode::Design => {
+                    design.get_element_position(element, referential)
+                }
             }
         }
     }
@@ -1066,7 +1069,6 @@ impl<R: DesignReader> Data<R> {
                             }
                         }
                         SelectionMode::Helix => Selection::Helix(*design_id, group_id),
-                        SelectionMode::Grid => Selection::Grid(*design_id, group_id as usize),
                     }
                 } else {
                     Selection::Nothing
@@ -1280,7 +1282,7 @@ impl<R: DesignReader> Data<R> {
         let mut pasted_tubes = Vec::with_capacity(1000);
 
         let mut letters = Vec::new();
-        let mut grids = Vec::new();
+        let mut grids = BTreeMap::new();
         let mut cones = Vec::new();
         for design in self.designs.iter() {
             for sphere in design
@@ -1299,8 +1301,8 @@ impl<R: DesignReader> Data<R> {
             spheres.extend(bezier_spheres);
             tubes.extend(bezier_tubes);
             letters = design.get_letter_instances(app_state.show_insertion_representents());
-            for grid in design.get_grid().iter().filter(|g| g.visible) {
-                grids.push(grid.clone());
+            for (grid_id, grid) in design.get_grid().iter().filter(|g| g.1.visible) {
+                grids.insert(*grid_id, grid.clone());
             }
             for sphere in design.get_suggested_spheres() {
                 suggested_spheres.push(sphere)
@@ -1347,9 +1349,7 @@ impl<R: DesignReader> Data<R> {
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::PastedTube, Rc::new(pasted_tubes)));
         self.view.borrow_mut().update(ViewUpdate::Letter(letters));
-        self.view
-            .borrow_mut()
-            .update(ViewUpdate::Grids(Rc::new(grids)));
+        self.view.borrow_mut().update(ViewUpdate::Grids(grids));
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::Prime3Cone, Rc::new(cones)));
@@ -1405,7 +1405,7 @@ impl<R: DesignReader> Data<R> {
             }
         }
         for design in self.designs.iter() {
-            for grid in design.get_grid().iter().filter(|g| g.visible) {
+            for grid in design.get_grid().values().filter(|g| g.visible) {
                 for (x, y) in design.get_helices_grid_coord(grid.id) {
                     add_discs(
                         GridPosition {
@@ -1481,7 +1481,6 @@ impl<R: DesignReader> Data<R> {
                 .get_sub_selection_mode(app_state)
             {
                 SelectionMode::Nucleotide | SelectionMode::Design | SelectionMode::Strand => None,
-                SelectionMode::Grid => Some(self.designs[d_id as usize].get_basis()),
                 SelectionMode::Helix => {
                     let h_id = self.get_selected_group(app_state)?;
                     if let Some(grid_position) =
@@ -1499,7 +1498,6 @@ impl<R: DesignReader> Data<R> {
                     SelectionMode::Nucleotide | SelectionMode::Design | SelectionMode::Strand => {
                         None
                     }
-                    SelectionMode::Grid => Some(self.designs[d_id as usize].get_basis()),
                     SelectionMode::Helix => {
                         let h_id = phantom_element.helix_id;
                         self.designs[d_id as usize].get_helix_basis(h_id)
@@ -1928,7 +1926,7 @@ struct Discs<'a, R: DesignReader> {
 }
 
 fn add_discs<R: DesignReader>(pos: GridPosition, discs: Discs<R>, level: DiscLevel) {
-    if let Some(grid) = discs.design.get_grid().get(pos.grid) {
+    if let Some(grid) = discs.design.get_grid().get(&pos.grid) {
         let new_disc_instances = match level {
             DiscLevel::Candidate => {
                 discs.candidates.push(pos);

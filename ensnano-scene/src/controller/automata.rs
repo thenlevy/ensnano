@@ -19,7 +19,10 @@ use super::*;
 use crate::element_selector::CornerType;
 use crate::DesignReader;
 use ensnano_design::ultraviolet::Vec2;
-use ensnano_design::{grid::GridObject, BezierPlaneId};
+use ensnano_design::{
+    grid::{GridId, GridObject},
+    BezierPlaneId,
+};
 use ensnano_interactor::{ActionMode, CursorIcon};
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -947,7 +950,7 @@ impl<S: AppState> ControllerState<S> for TranslatingWidget {
 
 struct TranslatingGridObject {
     object: GridObject,
-    grid_id: usize,
+    grid_id: GridId,
     x: isize,
     y: isize,
 }
@@ -955,7 +958,7 @@ struct TranslatingGridObject {
 impl<S: AppState> ControllerState<S> for TranslatingGridObject {
     fn display(&self) -> Cow<'static, str> {
         format!(
-            "Translating object {:?} on grid {}",
+            "Translating object {:?} on grid {:?}",
             self.object, self.grid_id
         )
         .into()
@@ -1232,7 +1235,7 @@ impl<S: AppState> ControllerState<S> for Xovering {
 
 struct BuildingHelix {
     design_id: u32,
-    grid_id: usize,
+    grid_id: GridId,
     x_helix: isize,
     y_helix: isize,
     length_helix: usize,

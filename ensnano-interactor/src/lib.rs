@@ -21,7 +21,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
-    grid::{GridDescriptor, GridObject, GridTypeDescr, HelixGridPosition, Hyperboloid},
+    grid::{GridDescriptor, GridId, GridObject, GridTypeDescr, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
     BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, Nucl, Parameters,
 };
@@ -163,7 +163,7 @@ pub enum DesignOperation {
     CleanDesign,
     HelicesToGrid(Vec<Selection>),
     SetHelicesPersistance {
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         persistant: bool,
     },
     UpdateAttribute {
@@ -213,7 +213,7 @@ pub enum DesignOperation {
     },
     AttachObject {
         object: GridObject,
-        grid: usize,
+        grid: GridId,
         x: isize,
         y: isize,
     },
@@ -343,7 +343,7 @@ pub enum IsometryTarget {
     /// An helix of the design
     Helices(Vec<usize>, bool),
     /// A grid of the desgin
-    Grids(Vec<usize>),
+    Grids(Vec<GridId>),
     /// The pivot of a group
     GroupPivot(GroupId),
     /// The control points of bezier curves

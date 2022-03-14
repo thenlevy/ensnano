@@ -23,11 +23,12 @@ use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
 use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::ultraviolet;
-use ensnano_design::Axis;
+use ensnano_design::{grid::GridId, Axis};
 use ensnano_interactor::consts::*;
 use ensnano_utils::wgpu;
 use ensnano_utils::{bindgroup_manager, text, texture};
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 use texture::Texture;
 use ultraviolet::{Mat4, Rotor3, Vec3};
@@ -913,7 +914,7 @@ impl View {
         &self,
         x_ndc: f32,
         y_ndc: f32,
-        g_id: usize,
+        g_id: GridId,
     ) -> Option<GridIntersection> {
         let ray = maths_3d::cast_ray(
             x_ndc,
@@ -925,11 +926,11 @@ impl View {
         self.grid_manager.specific_intersect(ray.0, ray.1, g_id)
     }
 
-    pub fn set_candidate_grid(&mut self, grids: Vec<(usize, usize)>) {
+    pub fn set_candidate_grid(&mut self, grids: Vec<(usize, GridId)>) {
         self.grid_manager.set_candidate_grid(grids)
     }
 
-    pub fn set_selected_grid(&mut self, grids: Vec<(usize, usize)>) {
+    pub fn set_selected_grid(&mut self, grids: Vec<(usize, GridId)>) {
         self.grid_manager.set_selected_grid(grids)
     }
 
@@ -954,7 +955,7 @@ pub enum ViewUpdate {
     RotationWidget(Option<RotationWidgetDescriptor>),
     Letter(Vec<Vec<LetterInstance>>),
     GridLetter(Vec<Vec<LetterInstance>>),
-    Grids(Rc<Vec<GridInstance>>),
+    Grids(BTreeMap<GridId, GridInstance>),
     GridDiscs(Vec<GridDisc>),
     RawDna(Mesh, Rc<Vec<RawDnaInstance>>),
     Fog(FogParameters),

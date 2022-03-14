@@ -21,7 +21,7 @@ use super::super::view::{
 };
 use super::super::GridInstance;
 use super::{ultraviolet, LetterInstance, SceneElement};
-use ensnano_design::grid::{GridObject, GridPosition};
+use ensnano_design::grid::{GridId, GridObject, GridPosition};
 use ensnano_design::{grid::HelixGridPosition, Nucl};
 use ensnano_design::{
     BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, Collection,
@@ -746,7 +746,7 @@ impl<R: DesignReader> Design3D<R> {
                 max_z = coord[2];
             }
         }
-        for grid in self.get_grid().iter() {
+        for grid in self.get_grid().values() {
             let coords: [[f32; 3]; 2] = [
                 grid.grid
                     .position_helix(grid.min_x as isize, grid.min_y as isize)
@@ -782,10 +782,10 @@ impl<R: DesignReader> Design3D<R> {
     /// Return the list of corners of grid with no helices on them
     fn get_all_naked_grids_corners(&self) -> Vec<Vec3> {
         let mut ret = Vec::new();
-        for grid in self.get_grid().iter() {
+        for (grid_id, grid) in self.get_grid().iter() {
             if self
                 .design
-                .get_helices_on_grid(grid.id)
+                .get_helices_on_grid(*grid_id)
                 .map(|s| s.is_empty())
                 .unwrap_or(false)
             {
@@ -933,21 +933,21 @@ impl<R: DesignReader> Design3D<R> {
         }
     }
 
-    pub fn get_grid(&self) -> Vec<GridInstance> {
+    pub fn get_grid(&self) -> BTreeMap<GridId, GridInstance> {
         self.design.get_grid_instances()
     }
 
-    pub fn get_helices_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
+    pub fn get_helices_grid(&self, g_id: GridId) -> Option<HashSet<usize>> {
         self.design.get_helices_on_grid(g_id)
     }
 
-    pub fn get_helices_grid_coord(&self, g_id: usize) -> Vec<(isize, isize)> {
+    pub fn get_helices_grid_coord(&self, g_id: GridId) -> Vec<(isize, isize)> {
         self.design
             .get_used_coordinates_on_grid(g_id)
             .unwrap_or(Vec::new())
     }
 
-    pub fn get_helices_grid_key_coord(&self, g_id: usize) -> Vec<((isize, isize), usize)> {
+    pub fn get_helices_grid_key_coord(&self, g_id: GridId) -> Vec<((isize, isize), usize)> {
         self.design
             .get_helices_grid_key_coord(g_id)
             .unwrap_or(Vec::new())
@@ -965,7 +965,7 @@ impl<R: DesignReader> Design3D<R> {
         self.design.get_persistent_phantom_helices_id()
     }
 
-    pub fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3> {
+    pub fn get_grid_basis(&self, g_id: GridId) -> Option<Rotor3> {
         self.design.get_grid_basis(g_id)
     }
 
@@ -1376,7 +1376,7 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
         on_axis: bool,
     ) -> Option<Vec3>;
     fn get_object_type(&self, id: u32) -> Option<ObjectType>;
-    fn get_grid_position(&self, g_id: usize) -> Option<Vec3>;
+    fn get_grid_position(&self, g_id: GridId) -> Option<Vec3>;
     fn get_grid_latice_position(&self, position: GridPosition) -> Option<Vec3>;
     fn get_element_position(&self, e_id: u32, referential: Referential) -> Option<Vec3>;
     fn get_element_axis_position(&self, id: u32, referential: Referential) -> Option<Vec3>;
@@ -1393,13 +1393,13 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     /// Return the nucleotide with id e_id or the 5' end of the bound with id e_id
     fn get_nucl_with_id_relaxed(&self, e_id: u32) -> Option<Nucl>;
     fn can_start_builder_at(&self, nucl: &Nucl) -> bool;
-    fn get_grid_instances(&self) -> Vec<GridInstance>;
-    fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>>;
-    fn get_used_coordinates_on_grid(&self, g_id: usize) -> Option<Vec<(isize, isize)>>;
-    fn get_helices_grid_key_coord(&self, g_id: usize) -> Option<Vec<((isize, isize), usize)>>;
+    fn get_grid_instances(&self) -> BTreeMap<GridId, GridInstance>;
+    fn get_helices_on_grid(&self, g_id: GridId) -> Option<HashSet<usize>>;
+    fn get_used_coordinates_on_grid(&self, g_id: GridId) -> Option<Vec<(isize, isize)>>;
+    fn get_helices_grid_key_coord(&self, g_id: GridId) -> Option<Vec<((isize, isize), usize)>>;
     fn get_helix_id_at_grid_coord(&self, position: GridPosition) -> Option<u32>;
     fn get_persistent_phantom_helices_id(&self) -> HashSet<u32>;
-    fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3>;
+    fn get_grid_basis(&self, g_id: GridId) -> Option<Rotor3>;
     fn get_helix_grid_position(&self, h_id: u32) -> Option<HelixGridPosition>;
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;

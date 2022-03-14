@@ -256,7 +256,7 @@ impl<S: AppState> Scene<S> {
                 }
             }
             Consequence::ObjectTranslated { object, grid, x, y } => {
-                log::info!("Moving helix {:?} to grid {} ({} {})", object, grid, x, y);
+                log::info!("Moving helix {:?} to grid {:?} ({} {})", object, grid, x, y);
                 self.requests
                     .lock()
                     .unwrap()
@@ -743,18 +743,15 @@ impl<S: AppState> Scene<S> {
                     group_id,
                     replace: false,
                 }),
-                Selection::Grid(d_id, g_id) => {
-                    let grid_id = g_id as usize;
-                    Arc::new(GridRotation {
-                        grid_ids: vec![grid_id],
-                        angle,
-                        plane,
-                        origin,
-                        design_id: d_id as usize,
-                        group_id,
-                        replace: false,
-                    })
-                }
+                Selection::Grid(d_id, g_id) => Arc::new(GridRotation {
+                    grid_ids: vec![g_id],
+                    angle,
+                    plane,
+                    origin,
+                    design_id: d_id as usize,
+                    group_id,
+                    replace: false,
+                }),
                 _ => return,
             }
         };

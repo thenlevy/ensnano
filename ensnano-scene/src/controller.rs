@@ -21,7 +21,7 @@ use super::{
     WidgetRotationMode as RotationMode,
 };
 use crate::{PhySize, PhysicalPosition, WindowEvent};
-use ensnano_design::grid::{GridObject, GridPosition, HelixGridPosition};
+use ensnano_design::grid::{GridId, GridObject, GridPosition, HelixGridPosition};
 use ensnano_design::{BezierPathId, BezierPlaneId, BezierVertex, Nucl};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::DesignReader;
@@ -100,7 +100,7 @@ pub enum Consequence {
     EndFreeXover,
     BuildHelix {
         design_id: u32,
-        grid_id: usize,
+        grid_id: GridId,
         position: isize,
         length: usize,
         x: isize,
@@ -112,7 +112,7 @@ pub enum Consequence {
     InitBuild(Vec<Nucl>),
     ObjectTranslated {
         object: GridObject,
-        grid: usize,
+        grid: GridId,
         x: isize,
         y: isize,
     },

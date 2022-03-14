@@ -19,10 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use crate::BezierControlPoint;
 
 use super::{DesignOperation, DesignRotation, DesignTranslation, GroupId, IsometryTarget};
-use ensnano_design::{
-    grid::{GridDescriptor, GridTypeDescr},
-    BezierPathId, BezierPlaneId, Nucl,
-};
+use ensnano_design::{grid::*, BezierPathId, BezierPlaneId, Nucl};
 use ultraviolet::{Bivec3, Rotor3, Vec2, Vec3};
 
 pub enum ParameterField {
@@ -67,7 +64,7 @@ pub trait Operation: std::fmt::Debug + Sync + Send {
 pub struct GridRotation {
     pub origin: Vec3,
     pub design_id: usize,
-    pub grid_ids: Vec<usize>,
+    pub grid_ids: Vec<GridId>,
     pub angle: f32,
     pub plane: Bivec3,
     pub group_id: Option<GroupId>,
@@ -507,7 +504,7 @@ impl Operation for HelixTranslation {
 #[derive(Debug, Clone)]
 pub struct GridTranslation {
     pub design_id: usize,
-    pub grid_ids: Vec<usize>,
+    pub grid_ids: Vec<GridId>,
     pub right: Vec3,
     pub top: Vec3,
     pub dir: Vec3,
@@ -594,7 +591,7 @@ impl Operation for GridTranslation {
 #[derive(Debug, Clone)]
 pub struct GridHelixCreation {
     pub design_id: usize,
-    pub grid_id: usize,
+    pub grid_id: GridId,
     pub x: isize,
     pub y: isize,
     pub position: isize,
@@ -622,7 +619,7 @@ impl Operation for GridHelixCreation {
 
     fn description(&self) -> String {
         format!(
-            "Create helix on grid {} of design {}",
+            "Create helix on grid {:?} of design {}",
             self.grid_id, self.design_id
         )
     }

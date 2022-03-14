@@ -19,8 +19,8 @@ use std::rc::Rc;
 
 use super::ultraviolet::Vec2;
 use super::{Device, DrawArea, DrawType, Queue, ViewPtr};
-use ensnano_design::grid::GridPosition;
-use ensnano_design::{BezierPathId, BezierPlaneId};
+use ensnano_design::grid::{GridId, GridPosition};
+use ensnano_design::{BezierPathId, BezierPlaneId, BezierVertexId};
 use ensnano_interactor::{phantom_helix_decoder, BezierControlPoint, PhantomElement};
 use ensnano_utils as utils;
 use futures::executor;
@@ -239,7 +239,7 @@ pub enum SceneElement {
     DesignElement(u32, u32),
     WidgetElement(u32),
     PhantomElement(PhantomElement),
-    Grid(u32, usize),
+    Grid(u32, GridId),
     GridCircle(u32, GridPosition),
     BezierControl {
         helix_id: usize,
@@ -363,7 +363,17 @@ impl SceneReader {
             None
         } else {
             match self.draw_type {
-                DrawType::Grid => Some(SceneElement::Grid(a, color as usize)),
+                DrawType::Grid => {
+                    if a == 0xFE {
+                        let vertex = BezierVertexId {
+                            path_id: BezierPathId(r >> 16),
+                            vertex_id: (g + b) as usize,
+                        };
+                        Some(SceneElement::Grid(a, GridId::BezierPathGrid(vertex)))
+                    } else {
+                        Some(SceneElement::Grid(a, GridId::FreeGrid(color as usize)))
+                    }
+                }
                 DrawType::Design => {
                     if a == 0xFE {
                         Some(SceneElement::BezierVertex {

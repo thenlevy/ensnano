@@ -16,7 +16,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 pub use ensnano_design::BezierControlPoint;
-use ensnano_design::{grid::HelixGridPosition, BezierPathId};
+use ensnano_design::{
+    grid::{GridId, HelixGridPosition},
+    BezierPathId,
+};
 use ensnano_design::{Nucl, Strand};
 use std::collections::BTreeSet;
 
@@ -30,7 +33,7 @@ pub enum Selection {
     Design(u32),
     Strand(u32, u32),
     Helix(u32, u32),
-    Grid(u32, usize),
+    Grid(u32, GridId),
     Phantom(PhantomElement),
     BezierControlPoint {
         helix_id: usize,
@@ -46,7 +49,7 @@ pub enum CenterOfSelection {
     Bound(u32, Nucl, Nucl),
     HelixGridPosition {
         design: u32,
-        grid_id: usize,
+        grid_id: GridId,
         x: isize,
         y: isize,
     },
@@ -145,7 +148,7 @@ impl Selection {
         }
     }
 
-    fn get_grids_containing_self(&self, reader: &dyn DesignReader) -> Option<Vec<usize>> {
+    fn get_grids_containing_self(&self, reader: &dyn DesignReader) -> Option<Vec<GridId>> {
         if let Self::Grid(_, g_id) = self {
             Some(vec![*g_id])
         } else {
@@ -206,15 +209,15 @@ fn extract_one_strand(selection: &Selection) -> Option<usize> {
     }
 }
 
-pub fn extract_grids(selection: &[Selection]) -> Vec<usize> {
+pub fn extract_grids(selection: &[Selection]) -> Vec<GridId> {
     selection.iter().filter_map(extract_one_grid).collect()
 }
 
-pub fn extract_only_grids(selection: &[Selection]) -> Option<Vec<usize>> {
+pub fn extract_only_grids(selection: &[Selection]) -> Option<Vec<GridId>> {
     selection.iter().map(extract_one_grid).collect()
 }
 
-fn extract_one_grid(selection: &Selection) -> Option<usize> {
+fn extract_one_grid(selection: &Selection) -> Option<GridId> {
     if let Selection::Grid(_, g_id) = selection {
         Some(*g_id)
     } else {
@@ -240,7 +243,7 @@ pub fn list_of_strands(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
     Some((design_id as usize, strands))
 }
 
-pub fn list_of_grids(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
+pub fn list_of_grids(selection: &[Selection]) -> Option<(usize, Vec<GridId>)> {
     let design_id = selection.get(0).and_then(Selection::get_design)?;
     let mut grids = BTreeSet::new();
     for s in selection.iter() {
@@ -251,7 +254,7 @@ pub fn list_of_grids(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
             _ => return None,
         }
     }
-    let grids: Vec<usize> = grids.into_iter().collect();
+    let grids: Vec<_> = grids.into_iter().collect();
     Some((design_id as usize, grids))
 }
 
@@ -390,7 +393,7 @@ pub fn set_of_helices_containing_selection(
 pub fn set_of_grids_containing_selection(
     selection: &[Selection],
     reader: &dyn DesignReader,
-) -> Option<Vec<usize>> {
+) -> Option<Vec<GridId>> {
     let mut ret = Vec::new();
     for s in selection {
         let grids = s.get_grids_containing_self(reader)?;
@@ -441,7 +444,6 @@ pub fn extract_nucls_from_selection(selection: &[Selection]) -> Vec<Nucl> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SelectionMode {
-    Grid,
     Nucleotide,
     Strand,
     Helix,
@@ -460,7 +462,6 @@ impl std::fmt::Display for SelectionMode {
             f,
             "{}",
             match self {
-                SelectionMode::Grid => "Grid",
                 SelectionMode::Design => "Design",
                 SelectionMode::Nucleotide => "Nucleotide",
                 SelectionMode::Strand => "Strand",
@@ -471,12 +472,11 @@ impl std::fmt::Display for SelectionMode {
 }
 
 impl SelectionMode {
-    pub const ALL: [SelectionMode; 5] = [
+    pub const ALL: [SelectionMode; 4] = [
         SelectionMode::Nucleotide,
         SelectionMode::Design,
         SelectionMode::Strand,
         SelectionMode::Helix,
-        SelectionMode::Grid,
     ];
 }
 
@@ -607,7 +607,7 @@ pub trait DesignReader {
     fn get_xover_id(&self, pair: &(Nucl, Nucl)) -> Option<usize>;
     fn get_xover_with_id(&self, id: usize) -> Option<(Nucl, Nucl)>;
     fn get_strand_with_id(&self, id: usize) -> Option<&Strand>;
-    fn get_helix_grid(&self, h_id: usize) -> Option<usize>;
+    fn get_helix_grid(&self, h_id: usize) -> Option<GridId>;
     fn get_domain_ends(&self, s_id: usize) -> Option<Vec<Nucl>>;
 }
 
@@ -621,7 +621,8 @@ impl SelectionConversion for DnaElementKey {
     fn from_selection(selection: &Selection, d_id: u32) -> Option<Self> {
         if selection.get_design() == Some(d_id) {
             match selection {
-                Selection::Grid(_, g_id) => Some(Self::Grid(*g_id)),
+                Selection::Grid(_, GridId::FreeGrid(g_id)) => Some(Self::Grid(*g_id)),
+                Selection::Grid(_, _) => None,
                 Selection::Design(_) => None,
                 Selection::Helix(_, h_id) => Some(Self::Helix(*h_id as usize)),
                 Selection::Strand(_, s_id) => Some(Self::Strand(*s_id as usize)),
@@ -671,7 +672,7 @@ impl SelectionConversion for DnaElementKey {
             Self::CrossOver { xover_id } => Selection::Xover(d_id, *xover_id),
             Self::Helix(h_id) => Selection::Helix(d_id, *h_id as u32),
             Self::Strand(s_id) => Selection::Strand(d_id, *s_id as u32),
-            Self::Grid(g_id) => Selection::Grid(d_id, *g_id),
+            Self::Grid(g_id) => Selection::Grid(d_id, GridId::FreeGrid(*g_id)),
         }
     }
 }
