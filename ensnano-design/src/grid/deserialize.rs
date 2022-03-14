@@ -1,7 +1,3 @@
-use crate::BezierVertexId;
-
-use super::{GridId, GridTypeDescr};
-
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -19,6 +15,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+use crate::BezierVertexId;
+
+use super::*;
 
 #[derive(Deserialize)]
 enum NewGridTypeDescr {
@@ -159,5 +158,40 @@ impl<'de> Deserialize<'de> for GridId {
             Ok(NewOrOldGridId::Old(id)) => Ok(GridId::FreeGrid(id)),
             Err(e) => Err(e),
         }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum NewOrOldGridCollection {
+    New(BTreeMap<FreeGridId, GridDescriptor>),
+    Old(Vec<GridDescriptor>),
+}
+
+impl NewOrOldGridCollection {
+    fn to_real(self) -> FreeGrids {
+        match self {
+            Self::New(map) => FreeGrids(Arc::new(
+                map.into_iter()
+                    .map(|(id, desc)| (id, Arc::new(desc)))
+                    .collect(),
+            )),
+            Self::Old(vec) => FreeGrids(Arc::new(
+                vec.into_iter()
+                    .enumerate()
+                    .map(|(id, desc)| (FreeGridId(id), Arc::new(desc)))
+                    .collect(),
+            )),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for FreeGrids {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let ret = NewOrOldGridCollection::deserialize(deserializer)?;
+        Ok(ret.to_real())
     }
 }
