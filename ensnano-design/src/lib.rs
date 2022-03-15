@@ -30,7 +30,7 @@ use ultraviolet::{Rotor3, Vec3};
 
 pub mod codenano;
 pub mod grid;
-use grid::{FreeGrids, GridData, GridDescriptor, GridId};
+use grid::{FreeGrids, GridData, GridDescriptor, GridId, FreeGridId};
 pub mod scadnano;
 pub use ensnano_organizer::{GroupId, OrganizerTree};
 use scadnano::*;
@@ -99,7 +99,10 @@ pub struct Design {
     pub scaffold_shift: Option<usize>,
 
     #[serde(default)]
-    pub grids: FreeGrids,
+    pub free_grids: FreeGrids,
+
+    #[serde(default, skip_serializing, alias = "grids")]
+    old_grids: Vec<GridDescriptor>,
 
     /// The cross-over suggestion groups
     #[serde(skip_serializing_if = "groups_is_empty", default)]
@@ -320,7 +323,7 @@ impl Design {
             helices: Default::default(),
             strands: Default::default(),
             parameters: Some(Parameters::DEFAULT),
-            grids: Default::default(),
+            free_grids: Default::default(),
             scaffold_id: None,
             scaffold_sequence: None,
             scaffold_shift: None,
@@ -340,6 +343,7 @@ impl Design {
             cached_curve: Default::default(),
             bezier_planes: Default::default(),
             bezier_paths: Default::default(),
+            old_grids: Vec::new(),
             instanciated_paths: None,
         }
     }
@@ -357,6 +361,12 @@ impl Design {
             }
             mutate_all_helices(self, |h| h.roll *= -1.);
             self.ensnano_version = ensnano_version();
+        }
+
+        let grids = std::mem::take(&mut self.old_grids);
+        let mut grids_mut = self.free_grids.make_mut();
+        for g in grids.into_iter() {
+            grids_mut.push(g);
         }
     }
 
@@ -608,7 +618,7 @@ impl Design {
         println!("grids {:?}", grids);
         println!("helices {:?}", helices);
         Ok(Self {
-            grids: FreeGrids::from_vec(grids),
+            free_grids: FreeGrids::from_vec(grids),
             helices: Helices(Arc::new(helices)),
             strands: Strands(strands),
             small_spheres: Default::default(),

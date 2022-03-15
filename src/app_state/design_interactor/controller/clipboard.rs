@@ -145,7 +145,7 @@ impl Controller {
         grid_ids: Vec<GridId>,
     ) -> Result<(), ErrOperation> {
         for grid_id in grid_ids.iter() {
-            if design.grids.get_from_g_id(grid_id).is_none() {
+            if design.free_grids.get_from_g_id(grid_id).is_none() {
                 return Err(ErrOperation::GridDoesNotExist(*grid_id));
             }
         }

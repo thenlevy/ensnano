@@ -161,37 +161,3 @@ impl<'de> Deserialize<'de> for GridId {
     }
 }
 
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum NewOrOldGridCollection {
-    New(BTreeMap<FreeGridId, GridDescriptor>),
-    Old(Vec<GridDescriptor>),
-}
-
-impl NewOrOldGridCollection {
-    fn to_real(self) -> FreeGrids {
-        match self {
-            Self::New(map) => FreeGrids(Arc::new(
-                map.into_iter()
-                    .map(|(id, desc)| (id, Arc::new(desc)))
-                    .collect(),
-            )),
-            Self::Old(vec) => FreeGrids(Arc::new(
-                vec.into_iter()
-                    .enumerate()
-                    .map(|(id, desc)| (FreeGridId(id), Arc::new(desc)))
-                    .collect(),
-            )),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for FreeGrids {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let ret = NewOrOldGridCollection::deserialize(deserializer)?;
-        Ok(ret.to_real())
-    }
-}

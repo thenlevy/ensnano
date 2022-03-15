@@ -30,7 +30,7 @@ impl Design {
         let (base_position, base_orientation) = {
             let grid_id_0 = grid_ids.get(0).ok_or(GridCopyError::NoGridToCopy)?;
             let source_grid = self
-                .grids
+                .free_grids
                 .get(grid_id_0)
                 .ok_or(GridCopyError::GridDoesNotExist(*grid_id_0))?;
             (
@@ -39,7 +39,7 @@ impl Design {
             )
         };
 
-        let mut grids_clone = FreeGrids::clone(&self.grids);
+        let mut grids_clone = FreeGrids::clone(&self.free_grids);
         let mut new_grids = grids_clone.make_mut();
 
         let new_grid_ids = self.make_grid_copy_grid_map(
@@ -84,7 +84,7 @@ impl Design {
         }
 
         drop(new_grids);
-        self.grids = grids_clone;
+        self.free_grids = grids_clone;
         Ok(())
     }
 
@@ -98,7 +98,7 @@ impl Design {
         let mut ret = HashMap::new();
         for grid_id in grid_ids.iter() {
             let source_grid = self
-                .grids
+                .free_grids
                 .get(grid_id)
                 .ok_or(GridCopyError::GridDoesNotExist(*grid_id))?;
 

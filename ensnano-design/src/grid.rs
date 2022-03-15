@@ -742,7 +742,7 @@ impl CenterOfGravity {
 
 impl GridData {
     pub(super) fn is_up_to_date(&self, design: &Design) -> bool {
-        Arc::ptr_eq(&self.source_free_grids.0, &design.grids.0)
+        Arc::ptr_eq(&self.source_free_grids.0, &design.free_grids.0)
             && Arc::ptr_eq(&self.source_helices.0, &design.helices.0)
             && Arc::ptr_eq(&self.no_phantoms, &design.no_phantoms)
             && Arc::ptr_eq(&self.small_spheres, &design.small_spheres)
@@ -763,7 +763,7 @@ impl GridData {
         let mut object_to_pos = HashMap::new();
         let mut pos_to_object = HashMap::new();
         let parameters = design.parameters.unwrap_or_default();
-        let source_grids = design.grids.clone();
+        let source_grids = design.free_grids.clone();
         let paths_data = design.get_up_to_date_paths().clone();
         for (g_id, desc) in paths_data.grids().into_iter() {
             grids.insert(g_id, desc.to_grid(parameters));
@@ -1239,7 +1239,7 @@ pub(super) fn make_grid_from_helices(
     let grid_data = design.get_updated_grid_data();
     let desc = grid_data.find_grid_for_group(helices);
     drop(grid_data);
-    let mut new_grids = design.grids.make_mut();
+    let mut new_grids = design.free_grids.make_mut();
     let new_id = new_grids.push(desc);
     drop(new_grids);
     let grid_data = design.get_updated_grid_data();

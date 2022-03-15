@@ -1692,11 +1692,11 @@ fn make_grid_system(
         .parameters
         .clone()
         .unwrap_or_default();
-    let mut selected_grids = HashMap::with_capacity(presenter.get_design().grids.len());
-    let mut rigid_grids = Vec::with_capacity(presenter.get_design().grids.len());
+    let mut selected_grids = HashMap::with_capacity(presenter.get_design().free_grids.len());
+    let mut rigid_grids = Vec::with_capacity(presenter.get_design().free_grids.len());
     for g_id in presenter
         .get_design()
-        .grids
+        .free_grids
         .keys()
         .cloned()
         .map(FreeGridId::to_grid_id)
@@ -1830,7 +1830,7 @@ impl SimulationInterface for GridSystemInterface {
 
 impl SimulationUpdate for GridSystemState {
     fn update_design(&self, design: &mut Design) {
-        let mut new_grids = design.grids.make_mut();
+        let mut new_grids = design.free_grids.make_mut();
         for i in 0..self.ids.len() {
             let position = self.positions[i];
             let orientation = self.orientations[i].normalized();

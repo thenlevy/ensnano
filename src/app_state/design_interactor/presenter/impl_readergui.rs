@@ -96,7 +96,7 @@ impl ReaderGui for DesignReader {
     fn get_grid_position_and_orientation(&self, g_id: GridId) -> Option<(Vec3, Rotor3)> {
         self.presenter
             .current_design
-            .grids
+            .free_grids
             .get_from_g_id(&g_id)
             .map(|g| (g.position, g.orientation))
     }

@@ -54,7 +54,7 @@ impl Reader3D for DesignReader {
             GridId::FreeGrid(_) => self
                 .presenter
                 .current_design
-                .grids
+                .free_grids
                 .get_from_g_id(&g_id)
                 .map(|g| g.orientation),
             GridId::BezierPathGrid(vertex_id) => {
@@ -105,7 +105,7 @@ impl Reader3D for DesignReader {
     fn get_grid_position(&self, g_id: GridId) -> Option<Vec3> {
         self.presenter
             .current_design
-            .grids
+            .free_grids
             .get_from_g_id(&g_id)
             .map(|g| g.position)
     }

@@ -584,7 +584,7 @@ impl Controller {
         use ensnano_design::grid::GridDivision;
         // the hyperboloid grid is always the last one that was added to the design
         let grid_id = design
-            .grids
+            .free_grids
             .keys()
             .max()
             .ok_or(ErrOperation::GridDoesNotExist(GridId::FreeGrid(0)))?;
@@ -744,7 +744,7 @@ impl Controller {
                     .ok_or(ErrOperation::HelixDoesNotExists(*helix))?;
             }
             DnaElementKey::Grid(g_id) => {
-                let mut grids_mut = design.grids.make_mut();
+                let mut grids_mut = design.free_grids.make_mut();
                 let g_id = ensnano_design::grid::FreeGridId(*g_id);
                 let grid = grids_mut
                     .get_mut(&g_id)
@@ -1151,7 +1151,7 @@ impl Controller {
     }
 
     fn add_grid(&mut self, mut design: Design, descriptor: GridDescriptor) -> Design {
-        let mut new_grids = design.grids.make_mut();
+        let mut new_grids = design.free_grids.make_mut();
         new_grids.push(descriptor);
         drop(new_grids);
         design
@@ -1569,7 +1569,7 @@ impl Controller {
             }
         }
         drop(new_paths);
-        let mut new_grids = design.grids.make_mut();
+        let mut new_grids = design.free_grids.make_mut();
         for g_id in grid_ids.into_iter() {
             if let Some(desc) =
                 FreeGridId::try_from_grid_id(g_id).and_then(|g_id| new_grids.get_mut(&g_id))
@@ -1589,7 +1589,7 @@ impl Controller {
         origin: Vec3,
     ) -> Design {
         self.update_state_and_design(&mut design);
-        let mut new_grids = design.grids.make_mut();
+        let mut new_grids = design.free_grids.make_mut();
         for g_id in grid_ids.into_iter() {
             if let Some(desc) = new_grids.get_mut_g_id(&g_id) {
                 desc.position -= origin;
@@ -2893,7 +2893,7 @@ impl Controller {
         position: Vec3,
     ) -> Result<Design, ErrOperation> {
         if let GridId::FreeGrid(id) = grid_id {
-            let mut new_grids = design.grids.make_mut();
+            let mut new_grids = design.free_grids.make_mut();
             let grid = new_grids
                 .get_mut(&ensnano_design::grid::FreeGridId(id))
                 .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
@@ -2913,7 +2913,7 @@ impl Controller {
         orientation: Rotor3,
     ) -> Result<Design, ErrOperation> {
         if let GridId::FreeGrid(id) = grid_id {
-            let mut new_grids = design.grids.make_mut();
+            let mut new_grids = design.free_grids.make_mut();
             let grid = new_grids
                 .get_mut(&ensnano_design::grid::FreeGridId(id))
                 .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
@@ -2933,7 +2933,7 @@ impl Controller {
         x: f64,
     ) -> Result<Design, ErrOperation> {
         if let GridId::FreeGrid(id) = grid_id {
-            let mut new_grids = design.grids.make_mut();
+            let mut new_grids = design.free_grids.make_mut();
             let grid = new_grids
                 .get_mut(&ensnano_design::grid::FreeGridId(id))
                 .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;

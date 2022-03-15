@@ -58,7 +58,7 @@ impl super::SimulationUpdate for TwistState {
             new_helices.insert(*i, h.clone())
         }
 
-        let mut grids_mut = design.grids.make_mut();
+        let mut grids_mut = design.free_grids.make_mut();
         if let Some(grid) =
             FreeGridId::try_from_grid_id(self.grid_id).and_then(|g_id| grids_mut.get_mut(&g_id))
         {
@@ -124,7 +124,7 @@ impl Twister {
         reader.attach_state(&interface_dyn);
 
         let initial_state = if let Some(grid) = FreeGridId::try_from_grid_id(target_grid)
-            .and_then(|target_grid| presenter.get_design().grids.get(&target_grid))
+            .and_then(|target_grid| presenter.get_design().free_grids.get(&target_grid))
         {
             TwistState {
                 grid_id: target_grid,
