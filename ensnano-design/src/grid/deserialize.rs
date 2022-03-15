@@ -128,15 +128,15 @@ impl<'de> Deserialize<'de> for GridTypeDescr {
 
 #[derive(Deserialize)]
 enum NewGridId {
-    Free(usize),
-    BezierPath(BezierVertexId),
+    FreeGrid(usize),
+    BezierPathGrid(BezierVertexId),
 }
 
 impl NewGridId {
     fn to_real(self) -> GridId {
         match self {
-            Self::Free(id) => GridId::FreeGrid(id),
-            Self::BezierPath(vertex) => GridId::BezierPathGrid(vertex),
+            Self::FreeGrid(id) => GridId::FreeGrid(id),
+            Self::BezierPathGrid(vertex) => GridId::BezierPathGrid(vertex),
         }
     }
 }
