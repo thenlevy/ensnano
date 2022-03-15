@@ -996,7 +996,10 @@ mod tests {
             }))
             .unwrap();
         app_state.update();
-        assert_eq!(app_state.0.design.presenter.current_design.free_grids.len(), 1)
+        assert_eq!(
+            app_state.0.design.presenter.current_design.free_grids.len(),
+            1
+        )
     }
 
     #[test]

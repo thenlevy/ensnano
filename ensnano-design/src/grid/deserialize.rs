@@ -160,4 +160,3 @@ impl<'de> Deserialize<'de> for GridId {
         }
     }
 }
-

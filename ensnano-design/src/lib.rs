@@ -30,7 +30,7 @@ use ultraviolet::{Rotor3, Vec3};
 
 pub mod codenano;
 pub mod grid;
-use grid::{FreeGrids, GridData, GridDescriptor, GridId, FreeGridId};
+use grid::{FreeGridId, FreeGrids, GridData, GridDescriptor, GridId};
 pub mod scadnano;
 pub use ensnano_organizer::{GroupId, OrganizerTree};
 use scadnano::*;

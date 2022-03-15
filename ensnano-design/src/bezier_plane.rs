@@ -301,8 +301,8 @@ fn path_to_curve_descriptor(
                 let pos_to = position(v_to)?;
                 Some(InstanciatedBeizerEnd {
                     position: pos,
-                    vector_in: (pos_to - pos_from) / 6.,
-                    vector_out: (pos_to - pos_from) / 6.,
+                    vector_in: (pos_to - pos_from) / 3.,
+                    vector_out: (pos_to - pos_from) / 3.,
                 })
             })
             .collect();

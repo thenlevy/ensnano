@@ -350,9 +350,9 @@ impl Grid {
     pub fn position_helix_in_grid_coordinates(&self, x: isize, y: isize) -> Vec3 {
         let origin = self.grid_type.origin_helix(&self.parameters, x, y);
         Vec3 {
-            x: 0.0,
+            x: origin.x,
             y: origin.y,
-            z: origin.x,
+            z: 0.0,
         }
     }
 
@@ -882,29 +882,20 @@ impl GridData {
     }
 
     fn update_all_curves(&mut self, cached_curve: &mut CurveCache) {
-        let need_update = self.source_helices.values().any(|h| {
-            self.paths_data
-                .as_ref()
-                .map(|p| h.need_curve_update(&self.source_free_grids, p))
-                .unwrap_or(true)
-        });
-
-        if need_update {
-            let mut new_helices = self.source_helices.clone();
-            for h in new_helices.make_mut().values_mut() {
-                self.update_curve(h, cached_curve);
-            }
-            let helices: Vec<(usize, &Helix)> =
-                new_helices.iter().map(|(h_id, h)| (*h_id, h)).collect();
-            if let Some(paths_data) = self.paths_data.as_ref() {
-                let maps_mut = Arc::make_mut(&mut self.path_time_maps);
-                for path_id in paths_data.source_paths.keys() {
-                    let path_time_map = PathTimeMaps::new(*path_id, &helices);
-                    maps_mut.insert(*path_id, Arc::new(path_time_map));
-                }
-            }
-            self.source_helices = new_helices;
+        let mut new_helices = self.source_helices.clone();
+        for h in new_helices.make_mut().values_mut() {
+            self.update_curve(h, cached_curve);
         }
+        let helices: Vec<(usize, &Helix)> =
+            new_helices.iter().map(|(h_id, h)| (*h_id, h)).collect();
+        if let Some(paths_data) = self.paths_data.as_ref() {
+            let maps_mut = Arc::make_mut(&mut self.path_time_maps);
+            for path_id in paths_data.source_paths.keys() {
+                let path_time_map = PathTimeMaps::new(*path_id, &helices);
+                maps_mut.insert(*path_id, Arc::new(path_time_map));
+            }
+        }
+        self.source_helices = new_helices;
     }
 
     /// Recompute the position of helix `h_id` on its grid. Return false if there is already an
