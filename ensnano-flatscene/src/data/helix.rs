@@ -506,7 +506,7 @@ impl Helix {
         groups: &BTreeMap<usize, bool>,
     ) -> Option<CircleInstance> {
         let (left, right) = self.screen_intersection(camera)?;
-        let center = if self.leftmost_x() as f32 > right || (self.right as f32) < left {
+        let center = if self.leftmost_x() as f32 > right || (self.rightmost_x() as f32) < left {
             // the helix is invisible
             None
         } else if self.leftmost_x() as f32 - 1. - 2. * CIRCLE_WIDGET_RADIUS > left {
@@ -557,17 +557,17 @@ impl Helix {
     /// See [get_circle](get_circle).
     pub fn get_circle_pivot(&self, camera: &CameraPtr) -> Option<FlatNucl> {
         let (left, right) = self.screen_intersection(camera)?;
-        if self.left as f32 > right || (self.right as f32) < left {
+        if self.leftmost_x() > right || (self.rightmost_x() as f32) < left {
             // the helix is invisible
             None
-        } else if self.left as f32 - 1. - 2. * CIRCLE_WIDGET_RADIUS > left {
+        } else if self.leftmost_x() - 1. - 2. * CIRCLE_WIDGET_RADIUS > left {
             // There is room on the left of the helix
             Some(FlatNucl {
                 position: self.left - 3,
                 helix: self.flat_id,
                 forward: true,
             })
-        } else if self.right as f32 + 2. + 2. * CIRCLE_WIDGET_RADIUS < right {
+        } else if self.rightmost_x() + 2. + 2. * CIRCLE_WIDGET_RADIUS < right {
             Some(FlatNucl {
                 position: self.left - 3,
                 helix: self.flat_id,
@@ -835,7 +835,9 @@ impl Helix {
         if let Some((x0, x1)) =
             self.screen_rectangle_intersection(camera, left, top, right, bottom, HelixLine::Middle)
         {
-            if nucl.position >= x0.floor() as isize && nucl.position < x1.ceil() as isize {
+            if self.x_conversion(nucl.position as f32) >= x0.floor()
+                && self.x_conversion(nucl.position as f32) < x1.ceil()
+            {
                 return true;
             }
         }
@@ -843,7 +845,9 @@ impl Helix {
             if let Some((x0, x1)) =
                 self.screen_rectangle_intersection(camera, left, top, right, bottom, HelixLine::Top)
             {
-                if nucl.position >= x0.floor() as isize && nucl.position < x1.ceil() as isize {
+                if self.x_conversion(nucl.position as f32) >= x0.floor()
+                    && self.x_conversion(nucl.position as f32) < x1.ceil()
+                {
                     return true;
                 }
             }
@@ -856,7 +860,9 @@ impl Helix {
                 bottom,
                 HelixLine::Bottom,
             ) {
-                if nucl.position >= x0.floor() as isize && nucl.position < x1.ceil() as isize {
+                if self.x_conversion(nucl.position as f32) >= x0.floor()
+                    && self.x_conversion(nucl.position as f32) < x1.ceil()
+                {
                     return true;
                 }
             }
