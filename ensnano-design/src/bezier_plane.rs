@@ -230,7 +230,7 @@ pub struct BezierVertex {
     pub vector_in: Option<Vec2>,
     pub vector_out: Option<Vec2>,
     #[serde(default)]
-    pub grid_translation: Vec3,
+    grid_translation: Vec3,
 }
 
 impl BezierVertex {
@@ -244,6 +244,25 @@ impl BezierVertex {
         } else {
             log::error!("Could not get plane");
             None
+        }
+    }
+
+    pub fn grid_position(&self, planes: &BezierPlanes) -> Option<Vec3> {
+        self.space_position(planes)
+            .map(|p| p + self.grid_translation)
+    }
+
+    pub fn add_translation(&mut self, translation: Vec3) {
+        self.grid_translation += translation
+    }
+
+    pub fn new(plane_id: BezierPlaneId, position: Vec2) -> Self {
+        Self {
+            plane_id,
+            position,
+            vector_in: None,
+            vector_out: None,
+            grid_translation: Vec3::zero(),
         }
     }
 }
@@ -267,9 +286,9 @@ fn path_to_curve_descriptor(
             .zip(source_path.vertices.iter().skip(1))
             .zip(source_path.vertices.iter().skip(2))
             .filter_map(|((v_from, v), v_to)| {
-                let pos_from = v_from.space_position(&source_planes)?;
-                let pos = v.space_position(&source_planes)?;
-                let pos_to = v_to.space_position(&source_planes)?;
+                let pos_from = v_from.grid_position(&source_planes)?;
+                let pos = v.grid_position(&source_planes)?;
+                let pos_to = v_to.grid_position(&source_planes)?;
                 Some(InstanciatedBeizerEnd {
                     position: pos,
                     vector_in: (pos_to - pos_from) / 6.,
@@ -279,7 +298,7 @@ fn path_to_curve_descriptor(
             .collect();
         let first_point = {
             let second_point = bezier_points.get(0)?;
-            let pos = source_path.vertices[0].space_position(&source_planes)?;
+            let pos = source_path.vertices[0].grid_position(&source_planes)?;
             let control = second_point.position - second_point.vector_in;
             InstanciatedBeizerEnd {
                 position: pos,
@@ -306,8 +325,8 @@ fn path_to_curve_descriptor(
         bezier_points.push(last_point);
         Some(bezier_points)
     } else if source_path.vertices.len() == 2 {
-        let pos_first = source_path.vertices[0].space_position(&source_planes)?;
-        let pos_last = source_path.vertices[1].space_position(&source_planes)?;
+        let pos_first = source_path.vertices[0].grid_position(&source_planes)?;
+        let pos_last = source_path.vertices[1].grid_position(&source_planes)?;
         let vec = (pos_last - pos_first) / 3.;
         Some(vec![
             InstanciatedBeizerEnd {
@@ -347,6 +366,7 @@ fn curve_descriptor_to_frame(
                 .map(|p| Vec3::unit_x().rotated_by(p.orientation).normalized())?;
             let right = -v_instance.vector_out.normalized();
             let front = right.cross(up).normalized();
+            let up = front.cross(right).normalized();
             let orientation = Mat3::new(right, up, front).into_rotor3();
 
             Some((v_instance.position, orientation))
@@ -521,7 +541,7 @@ impl BezierPathData {
                         .vertices
                         .iter()
                         .enumerate()
-                        .filter_map(|(vertex_id, v)| {
+                        .filter_map(|(vertex_id, _)| {
                             let vertex_id = BezierVertexId {
                                 path_id: *path_id,
                                 vertex_id,
@@ -530,7 +550,7 @@ impl BezierPathData {
                                 invisible: false,
                                 grid_type,
                                 orientation: self.orientation_vertex(vertex_id)?,
-                                position: self.position_vertex(vertex_id)? + v.grid_translation,
+                                position: self.position_vertex(vertex_id)?,
                                 bezier_vertex: Some(vertex_id),
                             };
                             Some((GridId::BezierPathGrid(vertex_id), desc))

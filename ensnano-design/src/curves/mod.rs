@@ -223,8 +223,11 @@ impl Curve {
         let mut axis = Vec::with_capacity(nb_points + 1);
         let mut curvature = Vec::with_capacity(nb_points + 1);
         let mut t = self.geometry.t_min();
-        points.push(self.geometry.position(t));
         let mut current_axis = self.itterative_axis(t, None);
+        points.push(
+            self.geometry.position(t)
+                + current_axis * self.geometry.translation().unwrap_or_else(DVec3::zero),
+        );
         let mut t_nucl = Vec::new();
         axis.push(current_axis);
         curvature.push(self.geometry.curvature(t));
@@ -237,7 +240,8 @@ impl Curve {
                 self.nucl_t0 = points.len();
             }
             let mut s = 0f64;
-            let mut p = self.geometry.position(t);
+            let mut p = self.geometry.position(t)
+                + current_axis * self.geometry.translation().unwrap_or_else(DVec3::zero);
 
             if let Some(t_x) = self
                 .geometry
@@ -656,6 +660,7 @@ impl InstanciatedCurveDescriptor {
             .map(|desc| InstanciatedCurveDescriptor_::TranslatedBezierPath {
                 path_curve: desc.clone(),
                 translation: vec_to_dvec(translation),
+                paths_data: source_path.clone(),
             })
     }
 
@@ -688,17 +693,20 @@ impl InstanciatedCurveDescriptor {
         paths_data: &BezierPathData,
     ) -> bool {
         if Arc::ptr_eq(&self.source, desc) {
-            if let InstanciatedCurveDescriptor_::PiecewiseBezier(instanciated_descriptor) =
-                &self.instance
-            {
-                FreeGrids::ptr_eq(&instanciated_descriptor.grids, grids)
-                    && instanciated_descriptor
-                        .paths_data
-                        .as_ref()
-                        .map(|data| BezierPathData::ptr_eq(paths_data, data))
-                        .unwrap_or(false)
-            } else {
-                true
+            match &self.instance {
+                InstanciatedCurveDescriptor_::PiecewiseBezier(instanciated_descriptor) => {
+                    FreeGrids::ptr_eq(&instanciated_descriptor.grids, grids)
+                        && instanciated_descriptor
+                            .paths_data
+                            .as_ref()
+                            .map(|data| BezierPathData::ptr_eq(paths_data, data))
+                            .unwrap_or(false)
+                }
+                InstanciatedCurveDescriptor_::TranslatedBezierPath {
+                    paths_data: source_paths,
+                    ..
+                } => BezierPathData::ptr_eq(paths_data, source_paths),
+                _ => true,
             }
         } else {
             false
@@ -759,6 +767,7 @@ enum InstanciatedCurveDescriptor_ {
     TranslatedBezierPath {
         path_curve: Arc<InstanciatedPiecewiseBeizer>,
         translation: DVec3,
+        paths_data: BezierPathData,
     },
 }
 
@@ -878,6 +887,7 @@ impl InstanciatedCurveDescriptor_ {
             Self::TranslatedBezierPath {
                 path_curve,
                 translation,
+                ..
             } => Arc::new(Curve::new(
                 TranslatedPiecewiseBezier {
                     original_curve: path_curve.clone(),
@@ -904,6 +914,7 @@ impl InstanciatedCurveDescriptor_ {
             Self::TranslatedBezierPath {
                 path_curve,
                 translation,
+                ..
             } => Some(Arc::new(Curve::new(
                 TranslatedPiecewiseBezier {
                     original_curve: path_curve.clone(),

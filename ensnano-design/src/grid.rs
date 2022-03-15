@@ -347,6 +347,15 @@ impl Grid {
         self.position + origin.x * z_vec + origin.y * y_vec
     }
 
+    pub fn position_helix_in_grid_coordinates(&self, x: isize, y: isize) -> Vec3 {
+        let origin = self.grid_type.origin_helix(&self.parameters, x, y);
+        Vec3 {
+            x: origin.x,
+            y: origin.y,
+            z: 0.0,
+        }
+    }
+
     pub fn orientation_helix(&self, x: isize, y: isize) -> Rotor3 {
         self.orientation * self.grid_type.orientation_helix(&self.parameters, x, y)
     }
@@ -753,7 +762,6 @@ impl GridData {
         let mut grids = BTreeMap::new();
         let mut object_to_pos = HashMap::new();
         let mut pos_to_object = HashMap::new();
-        let mut vertex_id_to_grid = HashMap::new();
         let parameters = design.parameters.unwrap_or_default();
         let source_grids = design.grids.clone();
         let paths_data = design.get_up_to_date_paths().clone();
@@ -762,9 +770,6 @@ impl GridData {
         }
         for (g_id, desc) in source_grids.iter() {
             let grid = desc.to_grid(parameters);
-            if let Some(vertex_id) = desc.bezier_vertex {
-                vertex_id_to_grid.insert(vertex_id, g_id);
-            }
             grids.insert(GridId::FreeGrid(g_id.0), grid);
         }
         let source_helices = design.helices.clone();

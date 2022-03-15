@@ -264,13 +264,10 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                 path_id: None,
                             })),
                             consequences: Consequence::CreateBezierVertex {
-                                vertex: BezierVertex {
+                                vertex: BezierVertex::new(
                                     plane_id,
-                                    position: Vec2::new(intersection.x, intersection.y),
-                                    vector_in: None,
-                                    vector_out: None,
-                                    grid_translation: Vec3::zero(),
-                                },
+                                    Vec2::new(intersection.x, intersection.y),
+                                ),
                                 path: path_id.unwrap(),
                             },
                         };

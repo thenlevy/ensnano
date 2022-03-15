@@ -1565,7 +1565,7 @@ impl Controller {
                 let vertex = path.get_vertex_mut(vertex_id.vertex_id).ok_or(
                     ErrOperation::VertexDoesNotExist(vertex_id.path_id, vertex_id.vertex_id),
                 )?;
-                vertex.grid_translation += translation;
+                vertex.add_translation(translation);
             }
         }
         drop(new_paths);

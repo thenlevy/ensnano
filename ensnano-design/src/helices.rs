@@ -553,34 +553,18 @@ impl Helix {
         grid_pos: HelixGridPosition,
         path_id: BezierPathId,
     ) -> Result<Self, ErrOperation> {
-        let paths = grid_manager.source_paths();
-        let path = paths
-            .as_ref()
-            .and_then(|path_data| path_data.source_paths.get(&path_id))
-            .ok_or(ErrOperation::CouldNotGetPath(path_id))?;
+        let translation = (|| {
+            let grid = grid_manager.grids.get(&grid_pos.grid)?;
+            let position = grid.position_helix_in_grid_coordinates(grid_pos.x, grid_pos.y);
+            Some(position)
+        })();
 
-        let mut points = Vec::with_capacity(path.vertices().len());
-        for i in 0..(path.vertices().len()) {
-            let vertex_id = BezierVertexId {
+        let curve = translation
+            .map(|translation| CurveDescriptor::TranslatedPath {
                 path_id,
-                vertex_id: i,
-            };
-            let g_id = GridId::BezierPathGrid(vertex_id);
-            points.push(BezierEnd {
-                position: crate::grid::GridPosition {
-                    grid: g_id,
-                    ..grid_pos.light()
-                },
-                inward_coeff: 1.,
-                outward_coeff: 1.,
-            });
-        }
-
-        let constructor = CurveDescriptor::PiecewiseBezier {
-            points,
-            t_max: None,
-            t_min: None,
-        };
+                translation,
+            })
+            .map(Arc::new);
 
         let mut ret = Self {
             position: Vec3::zero(),
@@ -591,13 +575,13 @@ impl Helix {
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
-            curve: Some(Arc::new(constructor)),
+            curve,
             instanciated_curve: None,
             instanciated_descriptor: None,
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
-            path_id: None,
+            path_id: Some(path_id),
         };
         let mut fake_cache = Default::default();
         grid_manager.update_curve(&mut ret, &mut fake_cache);
