@@ -251,7 +251,7 @@ impl BezierVertex {
 pub struct InstanciatedPath {
     source_planes: BezierPlanes,
     source_path: Arc<BezierPath>,
-    curve_descriptor: Option<InstanciatedPiecewiseBeizer>,
+    pub(crate) curve_descriptor: Option<Arc<InstanciatedPiecewiseBeizer>>,
     curve: Option<Curve>,
     pub(crate) frames: Option<Vec<(Vec3, Rotor3)>>,
 }
@@ -369,7 +369,7 @@ impl InstanciatedPath {
             source_planes,
             source_path,
             curve,
-            curve_descriptor: descriptor,
+            curve_descriptor: descriptor.map(|d| Arc::new(d)),
             frames,
         }
     }

@@ -16,6 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use std::sync::Arc;
+
 use super::{Edge, GridPositionProvider};
 use crate::grid::GridPosition;
 use crate::utils::vec_to_dvec;
@@ -317,5 +319,40 @@ impl super::Curved for InstanciatedPiecewiseBeizer {
 
     fn bounds(&self) -> super::CurveBounds {
         super::CurveBounds::BiInfinite
+    }
+}
+
+pub(super) struct TranslatedPiecewiseBezier {
+    pub original_curve: Arc<InstanciatedPiecewiseBeizer>,
+    pub translation: DVec3,
+}
+
+impl super::Curved for TranslatedPiecewiseBezier {
+    fn position(&self, t: f64) -> DVec3 {
+        self.original_curve.position(t)
+    }
+
+    fn speed(&self, t: f64) -> DVec3 {
+        self.original_curve.speed(t)
+    }
+
+    fn acceleration(&self, t: f64) -> DVec3 {
+        self.original_curve.acceleration(t)
+    }
+
+    fn bounds(&self) -> super::CurveBounds {
+        self.original_curve.bounds()
+    }
+
+    fn t_max(&self) -> f64 {
+        self.original_curve.t_max()
+    }
+
+    fn t_min(&self) -> f64 {
+        self.original_curve.t_min()
+    }
+
+    fn translation(&self) -> Option<DVec3> {
+        Some(self.translation)
     }
 }

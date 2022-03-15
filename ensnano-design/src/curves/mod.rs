@@ -22,7 +22,8 @@ const DISCRETISATION_STEP: usize = 100;
 const DELTA_MAX: f64 = 256.0;
 use crate::{
     grid::{Edge, GridPosition},
-    BezierPathData,
+    utils::vec_to_dvec,
+    BezierPathData, BezierPathId,
 };
 
 use super::{Helix, Parameters};
@@ -34,6 +35,7 @@ mod torus;
 mod twist;
 use super::{GridDescriptor, GridId};
 use crate::grid::*;
+use bezier::TranslatedPiecewiseBezier;
 pub use bezier::{BezierControlPoint, BezierEnd, CubicBezierConstructor, CubicBezierControlPoint};
 pub(crate) use bezier::{InstanciatedBeizerEnd, InstanciatedPiecewiseBeizer};
 pub use sphere_like_spiral::SphereLikeSpiral;
@@ -131,6 +133,13 @@ pub(super) trait Curved {
         } else {
             None
         }
+    }
+
+    /// This method can be overriden to express the fact that a translation should be applied to
+    /// every point of the curve. For each point of the curve, the translation is expressed in the
+    /// coordinate of the frame associated to the point.
+    fn translation(&self) -> Option<DVec3> {
+        None
     }
 }
 
@@ -238,11 +247,17 @@ impl Curve {
                 t = t_x;
                 p = self.geometry.position(t);
                 current_axis = self.itterative_axis(t, Some(&current_axis));
+                if let Some(t) = self.geometry.translation() {
+                    p += current_axis * t;
+                }
             } else {
                 while s < len_segment {
                     t += small_step;
-                    let q = self.geometry.position(t);
+                    let mut q = self.geometry.position(t);
                     current_axis = self.itterative_axis(t, Some(&current_axis));
+                    if let Some(t) = self.geometry.translation() {
+                        q += current_axis * t;
+                    }
                     s += (q - p).mag();
                     p = q;
                 }
@@ -451,6 +466,10 @@ pub enum CurveDescriptor {
         t_max: Option<f64>,
         points: Vec<BezierEnd>,
     },
+    TranslatedPath {
+        path_id: BezierPathId,
+        translation: Vec3,
+    },
 }
 
 const NO_BEZIER: &[BezierEnd] = &[];
@@ -561,7 +580,7 @@ impl CurveDescriptor {
 /// For example, GridPosition are replaced by their actual position in space.
 pub(super) struct InstanciatedCurveDescriptor {
     pub source: Arc<CurveDescriptor>,
-    instance: InsanciatedCurveDescriptor_,
+    instance: InstanciatedCurveDescriptor_,
 }
 
 pub(super) trait GridPositionProvider {
@@ -581,14 +600,14 @@ impl InstanciatedCurveDescriptor {
     /// Reads the design data to resolve the reference to elements of the design
     pub fn instanciate(desc: Arc<CurveDescriptor>, grid_reader: &dyn GridPositionProvider) -> Self {
         let instance = match desc.as_ref() {
-            CurveDescriptor::Bezier(b) => InsanciatedCurveDescriptor_::Bezier(b.clone()),
+            CurveDescriptor::Bezier(b) => InstanciatedCurveDescriptor_::Bezier(b.clone()),
             CurveDescriptor::SphereLikeSpiral(s) => {
-                InsanciatedCurveDescriptor_::SphereLikeSpiral(s.clone())
+                InstanciatedCurveDescriptor_::SphereLikeSpiral(s.clone())
             }
-            CurveDescriptor::Twist(t) => InsanciatedCurveDescriptor_::Twist(t.clone()),
-            CurveDescriptor::Torus(t) => InsanciatedCurveDescriptor_::Torus(t.clone()),
+            CurveDescriptor::Twist(t) => InstanciatedCurveDescriptor_::Twist(t.clone()),
+            CurveDescriptor::Torus(t) => InstanciatedCurveDescriptor_::Torus(t.clone()),
             CurveDescriptor::TwistedTorus(t) => {
-                InsanciatedCurveDescriptor_::TwistedTorus(t.clone())
+                InstanciatedCurveDescriptor_::TwistedTorus(t.clone())
             }
             CurveDescriptor::PiecewiseBezier {
                 points,
@@ -601,8 +620,23 @@ impl InstanciatedCurveDescriptor {
                     *t_min,
                     *t_max,
                 );
-                InsanciatedCurveDescriptor_::PiecewiseBezier(instanciated)
+                InstanciatedCurveDescriptor_::PiecewiseBezier(instanciated)
             }
+            CurveDescriptor::TranslatedPath {
+                path_id,
+                translation,
+            } => grid_reader
+                .source_paths()
+                .and_then(|paths| Self::instanciate_translated_path(*path_id, *translation, paths))
+                .unwrap_or_else(|| {
+                    let instanciated = InstanciatedPiecewiseBezierDescriptor::instanciate(
+                        &[],
+                        grid_reader,
+                        None,
+                        None,
+                    );
+                    InstanciatedCurveDescriptor_::PiecewiseBezier(instanciated)
+                }),
         };
         Self {
             source: desc,
@@ -610,18 +644,34 @@ impl InstanciatedCurveDescriptor {
         }
     }
 
+    fn instanciate_translated_path(
+        path_id: BezierPathId,
+        translation: Vec3,
+        source_path: BezierPathData,
+    ) -> Option<InstanciatedCurveDescriptor_> {
+        source_path
+            .instanciated_paths
+            .get(&path_id)
+            .and_then(|path| path.curve_descriptor.as_ref())
+            .map(|desc| InstanciatedCurveDescriptor_::TranslatedBezierPath {
+                path_curve: desc.clone(),
+                translation: vec_to_dvec(translation),
+            })
+    }
+
     fn try_instanciate(desc: Arc<CurveDescriptor>) -> Option<Self> {
         let instance = match desc.as_ref() {
-            CurveDescriptor::Bezier(b) => Some(InsanciatedCurveDescriptor_::Bezier(b.clone())),
+            CurveDescriptor::Bezier(b) => Some(InstanciatedCurveDescriptor_::Bezier(b.clone())),
             CurveDescriptor::SphereLikeSpiral(s) => {
-                Some(InsanciatedCurveDescriptor_::SphereLikeSpiral(s.clone()))
+                Some(InstanciatedCurveDescriptor_::SphereLikeSpiral(s.clone()))
             }
-            CurveDescriptor::Twist(t) => Some(InsanciatedCurveDescriptor_::Twist(t.clone())),
-            CurveDescriptor::Torus(t) => Some(InsanciatedCurveDescriptor_::Torus(t.clone())),
+            CurveDescriptor::Twist(t) => Some(InstanciatedCurveDescriptor_::Twist(t.clone())),
+            CurveDescriptor::Torus(t) => Some(InstanciatedCurveDescriptor_::Torus(t.clone())),
             CurveDescriptor::TwistedTorus(t) => {
-                Some(InsanciatedCurveDescriptor_::TwistedTorus(t.clone()))
+                Some(InstanciatedCurveDescriptor_::TwistedTorus(t.clone()))
             }
             CurveDescriptor::PiecewiseBezier { .. } => None,
+            CurveDescriptor::TranslatedPath { .. } => None,
         };
         instance.map(|instance| Self {
             source: desc.clone(),
@@ -638,7 +688,7 @@ impl InstanciatedCurveDescriptor {
         paths_data: &BezierPathData,
     ) -> bool {
         if Arc::ptr_eq(&self.source, desc) {
-            if let InsanciatedCurveDescriptor_::PiecewiseBezier(instanciated_descriptor) =
+            if let InstanciatedCurveDescriptor_::PiecewiseBezier(instanciated_descriptor) =
                 &self.instance
             {
                 FreeGrids::ptr_eq(&instanciated_descriptor.grids, grids)
@@ -656,7 +706,7 @@ impl InstanciatedCurveDescriptor {
     }
 
     pub fn make_curve(&self, parameters: &Parameters, cached_curve: &mut CurveCache) -> Arc<Curve> {
-        InsanciatedCurveDescriptor_::clone(&self.instance).into_curve(parameters, cached_curve)
+        InstanciatedCurveDescriptor_::clone(&self.instance).into_curve(parameters, cached_curve)
     }
 
     pub fn get_bezier_controls(&self) -> Option<CubicBezierConstructor> {
@@ -665,7 +715,7 @@ impl InstanciatedCurveDescriptor {
 
     pub fn bezier_points(&self) -> Vec<Vec3> {
         match &self.instance {
-            InsanciatedCurveDescriptor_::Bezier(constructor) => {
+            InstanciatedCurveDescriptor_::Bezier(constructor) => {
                 vec![
                     constructor.start,
                     constructor.control1,
@@ -673,7 +723,7 @@ impl InstanciatedCurveDescriptor {
                     constructor.end,
                 ]
             }
-            InsanciatedCurveDescriptor_::PiecewiseBezier(desc) => {
+            InstanciatedCurveDescriptor_::PiecewiseBezier(desc) => {
                 let desc = &desc.desc;
                 let mut ret: Vec<_> = desc
                     .ends
@@ -699,13 +749,17 @@ impl InstanciatedCurveDescriptor {
 }
 
 #[derive(Clone, Debug)]
-enum InsanciatedCurveDescriptor_ {
+enum InstanciatedCurveDescriptor_ {
     Bezier(CubicBezierConstructor),
     SphereLikeSpiral(SphereLikeSpiral),
     Twist(Twist),
     Torus(Torus),
     TwistedTorus(TwistedTorusDescriptor),
     PiecewiseBezier(InstanciatedPiecewiseBezierDescriptor),
+    TranslatedBezierPath {
+        path_curve: Arc<InstanciatedPiecewiseBeizer>,
+        translation: DVec3,
+    },
 }
 
 /// An instanciation of a PiecewiseBezier descriptor where reference to grid positions in the
@@ -799,7 +853,7 @@ impl InstanciatedPiecewiseBezierDescriptor {
     }
 }
 
-impl InsanciatedCurveDescriptor_ {
+impl InstanciatedCurveDescriptor_ {
     pub fn into_curve(self, parameters: &Parameters, cache: &mut CurveCache) -> Arc<Curve> {
         match self {
             Self::Bezier(constructor) => {
@@ -821,6 +875,16 @@ impl InsanciatedCurveDescriptor_ {
             Self::PiecewiseBezier(instanciated_descriptor) => {
                 Arc::new(Curve::new(instanciated_descriptor.desc, parameters))
             }
+            Self::TranslatedBezierPath {
+                path_curve,
+                translation,
+            } => Arc::new(Curve::new(
+                TranslatedPiecewiseBezier {
+                    original_curve: path_curve.clone(),
+                    translation,
+                },
+                parameters,
+            )),
         }
     }
 
@@ -837,6 +901,16 @@ impl InsanciatedCurveDescriptor_ {
             Self::Torus(torus) => Some(Arc::new(Curve::new(torus.clone(), parameters))),
             Self::TwistedTorus(_) => None,
             Self::PiecewiseBezier(_) => None,
+            Self::TranslatedBezierPath {
+                path_curve,
+                translation,
+            } => Some(Arc::new(Curve::new(
+                TranslatedPiecewiseBezier {
+                    original_curve: path_curve.clone(),
+                    translation: *translation,
+                },
+                parameters,
+            ))),
         }
     }
 
