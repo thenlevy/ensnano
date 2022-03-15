@@ -21,7 +21,7 @@ use std::sync::Arc;
 use super::{Edge, GridPositionProvider};
 use crate::grid::GridPosition;
 use crate::utils::vec_to_dvec;
-use ultraviolet::{DVec3, Vec3};
+use ultraviolet::{DMat3, DVec3, Vec3};
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
@@ -325,6 +325,7 @@ impl super::Curved for InstanciatedPiecewiseBeizer {
 pub(super) struct TranslatedPiecewiseBezier {
     pub original_curve: Arc<InstanciatedPiecewiseBeizer>,
     pub translation: DVec3,
+    pub initial_frame: DMat3,
 }
 
 impl super::Curved for TranslatedPiecewiseBezier {
@@ -354,5 +355,9 @@ impl super::Curved for TranslatedPiecewiseBezier {
 
     fn translation(&self) -> Option<DVec3> {
         Some(self.translation)
+    }
+
+    fn initial_frame(&self) -> Option<ultraviolet::DMat3> {
+        Some(self.initial_frame)
     }
 }

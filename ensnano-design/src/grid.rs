@@ -350,9 +350,9 @@ impl Grid {
     pub fn position_helix_in_grid_coordinates(&self, x: isize, y: isize) -> Vec3 {
         let origin = self.grid_type.origin_helix(&self.parameters, x, y);
         Vec3 {
-            x: origin.x,
+            x: 0.0,
             y: origin.y,
-            z: 0.0,
+            z: origin.x,
         }
     }
 

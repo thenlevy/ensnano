@@ -19,9 +19,10 @@ use super::collection::HasMap;
 use super::curves::{Curve, InstanciatedBeizerEnd, InstanciatedPiecewiseBeizer};
 use super::Parameters;
 use crate::grid::*;
+use crate::utils::rotor_to_drotor;
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use ultraviolet::{DVec3, Mat3, Rotor3, Vec2, Vec3};
+use ultraviolet::{DMat3, DVec3, Mat3, Rotor3, Vec2, Vec3};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BezierPlaneDescriptor {
@@ -435,6 +436,15 @@ impl InstanciatedPath {
             .as_ref()
             .map(|c| c.positions.as_slice())
             .unwrap_or(&[])
+    }
+
+    pub fn initial_frame(&self) -> Option<DMat3> {
+        self.frames
+            .as_ref()
+            .and_then(|fs| fs.get(0))
+            .as_ref()
+            .map(|f| rotor_to_drotor(f.1).into_matrix())
+            .map(|m| DMat3::new(m.cols[2], m.cols[1], m.cols[0]))
     }
 }
 

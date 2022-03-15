@@ -141,6 +141,10 @@ pub(super) trait Curved {
     fn translation(&self) -> Option<DVec3> {
         None
     }
+
+    fn initial_frame(&self) -> Option<DMat3> {
+        None
+    }
 }
 
 /// The bounds of the curve. This describe the interval in which t can be taken
@@ -223,7 +227,10 @@ impl Curve {
         let mut axis = Vec::with_capacity(nb_points + 1);
         let mut curvature = Vec::with_capacity(nb_points + 1);
         let mut t = self.geometry.t_min();
-        let mut current_axis = self.itterative_axis(t, None);
+        let mut current_axis = self
+            .geometry
+            .initial_frame()
+            .unwrap_or_else(|| self.itterative_axis(t, None));
         points.push(
             self.geometry.position(t)
                 + current_axis * self.geometry.translation().unwrap_or_else(DVec3::zero),
@@ -656,12 +663,15 @@ impl InstanciatedCurveDescriptor {
         source_path
             .instanciated_paths
             .get(&path_id)
-            .and_then(|path| path.curve_descriptor.as_ref())
-            .map(|desc| InstanciatedCurveDescriptor_::TranslatedBezierPath {
-                path_curve: desc.clone(),
-                translation: vec_to_dvec(translation),
-                paths_data: source_path.clone(),
-            })
+            .and_then(|path| path.curve_descriptor.as_ref().zip(path.initial_frame()))
+            .map(
+                |(desc, frame)| InstanciatedCurveDescriptor_::TranslatedBezierPath {
+                    path_curve: desc.clone(),
+                    initial_frame: frame,
+                    translation: vec_to_dvec(translation),
+                    paths_data: source_path.clone(),
+                },
+            )
     }
 
     fn try_instanciate(desc: Arc<CurveDescriptor>) -> Option<Self> {
@@ -767,6 +777,7 @@ enum InstanciatedCurveDescriptor_ {
     TranslatedBezierPath {
         path_curve: Arc<InstanciatedPiecewiseBeizer>,
         translation: DVec3,
+        initial_frame: DMat3,
         paths_data: BezierPathData,
     },
 }
@@ -887,11 +898,13 @@ impl InstanciatedCurveDescriptor_ {
             Self::TranslatedBezierPath {
                 path_curve,
                 translation,
+                initial_frame,
                 ..
             } => Arc::new(Curve::new(
                 TranslatedPiecewiseBezier {
                     original_curve: path_curve.clone(),
                     translation,
+                    initial_frame,
                 },
                 parameters,
             )),
@@ -914,11 +927,13 @@ impl InstanciatedCurveDescriptor_ {
             Self::TranslatedBezierPath {
                 path_curve,
                 translation,
+                initial_frame,
                 ..
             } => Some(Arc::new(Curve::new(
                 TranslatedPiecewiseBezier {
                     original_curve: path_curve.clone(),
                     translation: *translation,
+                    initial_frame: *initial_frame,
                 },
                 parameters,
             ))),
