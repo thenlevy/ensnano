@@ -400,6 +400,10 @@ impl GuiRequests for Requests {
         self.set_show_h_bonds = Some(show);
     }
 
+    fn set_show_bezier_paths(&mut self, show: bool) {
+        self.set_show_bezier_paths = Some(show);
+    }
+
     fn set_thick_helices(&mut self, thick: bool) {
         self.set_thick_helices = Some(thick)
     }

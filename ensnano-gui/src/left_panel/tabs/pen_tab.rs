@@ -87,6 +87,11 @@ impl PenTab {
         section!(ret, ui_size, "Bezier Planes");
         add_buttons!(ret, self, ui_size);
         add_grid_buttons!(ret, self, ui_size, app_state);
+        ret = ret.push(Checkbox::new(
+            app_state.get_show_bezier_paths(),
+            "Show bezier paths",
+            Message::SetShowBezierPaths,
+        ));
         ret.into()
     }
 }

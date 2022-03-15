@@ -135,6 +135,10 @@ impl App3D for AppState {
     fn show_insertion_representents(&self) -> bool {
         self.0.show_insertion_representents
     }
+
+    fn show_bezier_paths(&self) -> bool {
+        self.0.parameters.show_bezier_paths
+    }
 }
 
 #[cfg(test)]

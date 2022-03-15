@@ -1437,6 +1437,10 @@ impl MainState {
         self.modify_state(|s| s.with_show_h_bonds(show), None)
     }
 
+    fn set_show_bezier_paths(&mut self, show: bool) {
+        self.modify_state(|s| s.with_show_bezier_paths(show), None)
+    }
+
     fn set_thick_helices(&mut self, thick: bool) {
         self.modify_state(|s| s.with_thick_helices(thick), None)
     }

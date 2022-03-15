@@ -205,6 +205,7 @@ pub trait Requests: 'static + Send {
     fn set_insertion_length(&mut self, insertion_point: InsertionPoint, length: usize);
     fn create_bezier_plane(&mut self);
     fn turn_path_into_grid(&mut self, path_id: BezierPathId, grid_type: GridTypeDescr);
+    fn set_show_bezier_paths(&mut self, show: bool);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -997,6 +998,7 @@ pub trait AppState:
     fn get_invert_y_scroll(&self) -> bool;
     fn want_thick_helices(&self) -> bool;
     fn expand_insertions(&self) -> bool;
+    fn get_show_bezier_paths(&self) -> bool;
 }
 
 pub trait DesignReader: 'static {

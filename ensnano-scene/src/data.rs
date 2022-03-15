@@ -1297,9 +1297,11 @@ impl<R: DesignReader> Data<R> {
             {
                 tubes.push(*tube);
             }
-            let (bezier_spheres, bezier_tubes) = design.get_bezier_paths_elements();
-            spheres.extend(bezier_spheres);
-            tubes.extend(bezier_tubes);
+            if app_state.show_bezier_paths() {
+                let (bezier_spheres, bezier_tubes) = design.get_bezier_paths_elements();
+                spheres.extend(bezier_spheres);
+                tubes.extend(bezier_tubes);
+            }
             letters = design.get_letter_instances(app_state.show_insertion_representents());
             for (grid_id, grid) in design.get_grid().iter().filter(|g| g.1.visible) {
                 grids.insert(*grid_id, grid.clone());
@@ -1322,7 +1324,11 @@ impl<R: DesignReader> Data<R> {
             }
         }
         self.update_free_xover(app_state.get_candidates());
-        let (sheet_instances, corner_spheres) = self.designs[0].get_bezier_sheets();
+        let (sheet_instances, corner_spheres) = if app_state.show_bezier_paths() {
+            self.designs[0].get_bezier_sheets()
+        } else {
+            (Default::default(), Default::default())
+        };
         spheres.extend(corner_spheres);
         self.view
             .borrow_mut()

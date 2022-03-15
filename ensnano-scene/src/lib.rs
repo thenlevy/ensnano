@@ -1116,6 +1116,8 @@ pub trait AppState: Clone {
     fn insertion_bond_display_was_modified(&self, other: &Self) -> bool {
         self.show_insertion_representents() != other.show_insertion_representents()
     }
+
+    fn show_bezier_paths(&self) -> bool;
 }
 
 pub trait Requests {

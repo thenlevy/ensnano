@@ -124,6 +124,7 @@ pub struct Requests {
     pub follow_stereographic_camera: Option<bool>,
     pub set_show_stereographic_camera: Option<bool>,
     pub set_show_h_bonds: Option<bool>,
+    pub set_show_bezier_paths: Option<bool>,
     pub set_invert_y_scroll: Option<bool>,
     pub set_thick_helices: Option<bool>,
     pub twist_simulation: Option<GridId>,

@@ -195,6 +195,7 @@ pub enum Message<S> {
         path_id: BezierPathId,
         grid_type: GridTypeDescr,
     },
+    SetShowBezierPaths(bool),
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -822,6 +823,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .lock()
                     .unwrap()
                     .turn_path_into_grid(path_id, grid_type);
+            }
+            Message::SetShowBezierPaths(b) => {
+                self.requests.lock().unwrap().set_show_bezier_paths(b)
             }
         };
         Command::none()

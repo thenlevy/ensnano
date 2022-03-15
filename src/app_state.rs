@@ -399,6 +399,10 @@ impl AppState {
         self.with_updated_parameters(|p| p.show_h_bonds = show)
     }
 
+    pub fn with_show_bezier_paths(&self, show: bool) -> Self {
+        self.with_updated_parameters(|p| p.show_bezier_paths = show)
+    }
+
     pub fn with_thick_helices(&self, thick: bool) -> Self {
         self.with_updated_parameters(|p| p.thick_helices = thick)
     }
@@ -579,6 +583,7 @@ struct AppStateParameters {
     scroll_sensitivity: f32,
     inverted_y_scroll: bool,
     show_h_bonds: bool,
+    show_bezier_paths: bool,
 }
 
 #[derive(Clone, Default)]
