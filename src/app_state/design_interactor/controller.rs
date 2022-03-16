@@ -1276,13 +1276,22 @@ impl Controller {
         for path in paths_mut.values_mut() {
             for v in path.vertices_mut() {
                 if v.plane_id == homothethy.plane_id {
-                    let vec = v.position - homothethy.fixed_corner;
-                    let new_norm = vec.mag() * scale;
-                    v.position = vec
-                        .normalized()
-                        .rotated_by(ensnano_design::Rotor2::from_angle(angle))
-                        * new_norm
-                        + homothethy.fixed_corner;
+                    let transform = |v: &mut Vec2| {
+                        let vec = *v - homothethy.fixed_corner;
+                        let new_norm = vec.mag() * scale;
+                        *v = vec
+                            .normalized()
+                            .rotated_by(ensnano_design::Rotor2::from_angle(angle))
+                            * new_norm
+                            + homothethy.fixed_corner;
+                    };
+                    transform(&mut v.position);
+                    if let Some(vec) = v.position_out.as_mut() {
+                        transform(vec);
+                    }
+                    if let Some(vec) = v.position_in.as_mut() {
+                        transform(vec);
+                    }
                 }
             }
         }

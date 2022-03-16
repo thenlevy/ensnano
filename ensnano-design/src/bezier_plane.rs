@@ -23,6 +23,7 @@ use crate::utils::rotor_to_drotor;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use ultraviolet::{DMat3, DVec3, Mat3, Rotor3, Vec2, Vec3};
+use super::Collection;
 
 const TENGENT: f32 = 1. / 3.;
 
@@ -78,6 +79,10 @@ impl BezierPlaneDescriptor {
             (vec.dot(x_dir), vec.dot(y_dir))
         };
         Some(BezierPlaneIntersection { x, y, depth })
+    }
+    
+    fn position(&self, vec: Vec2) -> Vec3 {
+        self.position + Vec3::unit_z() * vec.x + Vec3::unit_y() * vec.y
     }
 }
 
@@ -230,8 +235,8 @@ impl BezierPath {
 pub struct BezierVertex {
     pub plane_id: BezierPlaneId,
     pub position: Vec2,
-    pub vector_in: Option<Vec2>,
-    pub vector_out: Option<Vec2>,
+    pub position_in: Option<Vec2>,
+    pub position_out: Option<Vec2>,
     #[serde(default)]
     grid_translation: Vec3,
 }
@@ -263,8 +268,8 @@ impl BezierVertex {
         Self {
             plane_id,
             position,
-            vector_in: None,
-            vector_out: None,
+            position_out: None,
+            position_in: None,
             grid_translation: Vec3::zero(),
         }
     }
@@ -318,10 +323,23 @@ fn path_to_curve_descriptor(
                 let pos_from = position(v_from)?;
                 let pos = position(v)?;
                 let pos_to = position(v_to)?;
+                let vector_in = if let Some(position_in) = v.position_in {
+                    let plane = source_planes.get(&v.plane_id)?;
+                    pos - plane.position(position_in)
+                } else {
+                    (pos_to - pos_from) * TENGENT
+                };
+                let vector_out = if let Some(position_out) = v.position_out {
+                    let plane = source_planes.get(&v.plane_id)?;
+                    plane.position(position_out) - pos
+                } else {
+                    (pos_to - pos_from) * TENGENT
+                };
+
                 Some(InstanciatedBeizerEnd {
                     position: pos,
-                    vector_in: (pos_to - pos_from) * TENGENT,
-                    vector_out: (pos_to - pos_from) * TENGENT,
+                    vector_in,
+                    vector_out,
                 })
             })
             .collect();
