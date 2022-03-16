@@ -279,19 +279,21 @@ impl Curve {
                     p = q;
                 }
             }
-            t_nucl.push(t);
-            points.push(p);
-            if self.nucl_pos_full_turn.is_none()
-                && self
-                    .geometry
-                    .full_turn_at_t()
-                    .map(|t_obj| t > t_obj)
-                    .unwrap_or(false)
-            {
-                self.nucl_pos_full_turn = Some(points.len() as isize - self.nucl_t0 as isize);
+            if t < self.geometry.t_max() {
+                t_nucl.push(t);
+                points.push(p);
+                if self.nucl_pos_full_turn.is_none()
+                    && self
+                        .geometry
+                        .full_turn_at_t()
+                        .map(|t_obj| t > t_obj)
+                        .unwrap_or(false)
+                {
+                    self.nucl_pos_full_turn = Some(points.len() as isize - self.nucl_t0 as isize);
+                }
+                axis.push(current_axis);
+                curvature.push(self.geometry.curvature(t));
             }
-            axis.push(current_axis);
-            curvature.push(self.geometry.curvature(t));
         }
         if self.nucl_pos_full_turn.is_none() && self.geometry.full_turn_at_t().is_some() {
             // We want to make a full turn just after the last nucl
@@ -356,7 +358,7 @@ impl Curve {
     }
 
     pub fn nucl_pos(&self, n: isize, theta: f64, parameters: &Parameters) -> Option<DVec3> {
-        use std::f64::consts::{PI, TAU};
+        use std::f64::consts::{FRAC_PI_2, PI, TAU};
         let idx = self.idx_convertsion(n)?;
         let theta = if let Some(real_theta) = self.geometry.theta_shift(parameters) {
             let base_theta = TAU / parameters.bases_per_turn as f64;
@@ -364,8 +366,18 @@ impl Curve {
         } else if let Some(pos_full_turn) = self.nucl_pos_full_turn {
             let final_angle = -pos_full_turn as f64 * TAU / parameters.bases_per_turn as f64;
             let rem = final_angle.rem_euclid(TAU);
-            let full_delta = if rem > PI { TAU - rem } else { -rem };
-            theta - full_delta / pos_full_turn as f64 * n as f64
+            /*
+            let mut full_delta = if rem > PI { TAU - rem } else { -rem } + FRAC_PI_2;
+            if full_delta > PI {
+                full_delta -= TAU;
+            }*/
+            let mut full_delta = -rem - FRAC_PI_2;
+            full_delta = full_delta.rem_euclid(TAU);
+            if full_delta > PI {
+                full_delta -= TAU;
+            }
+
+            theta + full_delta / pos_full_turn as f64 * n as f64
         } else {
             theta
         };

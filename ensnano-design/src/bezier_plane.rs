@@ -24,6 +24,8 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use ultraviolet::{DMat3, DVec3, Mat3, Rotor3, Vec2, Vec3};
 
+const TENGENT: f32 = 1. / 3.;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BezierPlaneDescriptor {
     pub position: Vec3,
@@ -290,45 +292,64 @@ fn path_to_curve_descriptor(
         }
     };
     let descriptor = if source_path.vertices.len() > 2 {
-        let mut bezier_points: Vec<_> = source_path
-            .vertices
-            .iter()
-            .zip(source_path.vertices.iter().skip(1))
-            .zip(source_path.vertices.iter().skip(2))
+        let iterator: Box<dyn Iterator<Item = ((&BezierVertex, &BezierVertex), &BezierVertex)>> =
+            if source_path.cyclic {
+                let n = source_path.vertices().len();
+                Box::new(
+                    source_path
+                        .vertices()
+                        .iter()
+                        .cycle()
+                        .skip(n - 1)
+                        .zip(source_path.vertices.iter().cycle().take(n + 1))
+                        .zip(source_path.vertices().iter().cycle().skip(1)),
+                )
+            } else {
+                Box::new(
+                    source_path
+                        .vertices()
+                        .iter()
+                        .zip(source_path.vertices.iter().skip(1))
+                        .zip(source_path.vertices().iter().skip(2)),
+                )
+            };
+        let mut bezier_points: Vec<_> = iterator
             .filter_map(|((v_from, v), v_to)| {
                 let pos_from = position(v_from)?;
                 let pos = position(v)?;
                 let pos_to = position(v_to)?;
                 Some(InstanciatedBeizerEnd {
                     position: pos,
-                    vector_in: (pos_to - pos_from) / 3.,
-                    vector_out: (pos_to - pos_from) / 3.,
+                    vector_in: (pos_to - pos_from) * TENGENT,
+                    vector_out: (pos_to - pos_from) * TENGENT,
                 })
             })
             .collect();
-        let first_point = {
-            let second_point = bezier_points.get(0)?;
-            let pos = position(&source_path.vertices[0])?;
-            let control = second_point.position - second_point.vector_in;
-            InstanciatedBeizerEnd {
-                position: pos,
-                vector_out: (control - pos) / 2.,
-                vector_in: (control - pos) / 2.,
-            }
-        };
-        bezier_points.insert(0, first_point);
-        let last_point = {
-            let second_to_last_point = bezier_points.last()?;
-            // Ok to unwrap because vertices has length > 2
-            let pos = position(source_path.vertices.last().unwrap())?;
-            let control = second_to_last_point.position + second_to_last_point.vector_out;
-            InstanciatedBeizerEnd {
-                position: pos,
-                vector_out: (pos - control) / 2.,
-                vector_in: (pos - control) / 2.,
-            }
-        };
-        bezier_points.push(last_point);
+        if !source_path.cyclic {
+            let first_point = {
+                let second_point = bezier_points.get(0)?;
+                let pos = position(&source_path.vertices[0])?;
+                let control = second_point.position - second_point.vector_in;
+                InstanciatedBeizerEnd {
+                    position: pos,
+                    vector_out: (control - pos) / 2.,
+                    vector_in: (control - pos) / 2.,
+                }
+            };
+            bezier_points.insert(0, first_point);
+            let last_point = {
+                let second_to_last_point = bezier_points.last()?;
+                // Ok to unwrap because vertices has length > 2
+                let pos = position(source_path.vertices.last().unwrap())?;
+                let control = second_to_last_point.position + second_to_last_point.vector_out;
+                InstanciatedBeizerEnd {
+                    position: pos,
+                    vector_out: (pos - control) / 2.,
+                    vector_in: (pos - control) / 2.,
+                }
+            };
+            bezier_points.push(last_point);
+        }
         Some(bezier_points)
     } else if source_path.vertices.len() == 2 {
         let pos_first = position(&source_path.vertices[0])?;
