@@ -145,6 +145,10 @@ pub(super) trait Curved {
     fn initial_frame(&self) -> Option<DMat3> {
         None
     }
+
+    fn full_turn_at_t(&self) -> Option<f64> {
+        None
+    }
 }
 
 /// The bounds of the curve. This describe the interval in which t can be taken
@@ -174,6 +178,7 @@ pub(super) struct Curve {
     nucl_t0: usize,
     /// The time point at which nucleotides where positioned
     t_nucl: Arc<Vec<f64>>,
+    nucl_pos_full_turn: Option<isize>,
 }
 
 impl Curve {
@@ -185,6 +190,7 @@ impl Curve {
             curvature: Vec::new(),
             nucl_t0: 0,
             t_nucl: Arc::new(Vec::new()),
+            nucl_pos_full_turn: None,
         };
         let len_segment = ret.geometry.z_step_ratio().unwrap_or(1.0) * parameters.z_step as f64;
         ret.discretize(len_segment, DISCRETISATION_STEP);
@@ -275,8 +281,21 @@ impl Curve {
             }
             t_nucl.push(t);
             points.push(p);
+            if self.nucl_pos_full_turn.is_none()
+                && self
+                    .geometry
+                    .full_turn_at_t()
+                    .map(|t_obj| t > t_obj)
+                    .unwrap_or(false)
+            {
+                self.nucl_pos_full_turn = Some(points.len() as isize - self.nucl_t0 as isize);
+            }
             axis.push(current_axis);
             curvature.push(self.geometry.curvature(t));
+        }
+        if self.nucl_pos_full_turn.is_none() && self.geometry.full_turn_at_t().is_some() {
+            // We want to make a full turn just after the last nucl
+            self.nucl_pos_full_turn = Some(points.len() as isize - self.nucl_t0 as isize + 1);
         }
 
         self.axis = axis;
@@ -337,10 +356,16 @@ impl Curve {
     }
 
     pub fn nucl_pos(&self, n: isize, theta: f64, parameters: &Parameters) -> Option<DVec3> {
+        use std::f64::consts::{PI, TAU};
         let idx = self.idx_convertsion(n)?;
         let theta = if let Some(real_theta) = self.geometry.theta_shift(parameters) {
-            let base_theta = std::f64::consts::TAU / parameters.bases_per_turn as f64;
+            let base_theta = TAU / parameters.bases_per_turn as f64;
             (base_theta - real_theta) * n as f64 + theta
+        } else if let Some(pos_full_turn) = self.nucl_pos_full_turn {
+            let final_angle = -pos_full_turn as f64 * TAU / parameters.bases_per_turn as f64;
+            let rem = final_angle.rem_euclid(TAU);
+            let full_delta = if rem > PI { TAU - rem } else { -rem };
+            theta - full_delta / pos_full_turn as f64 * n as f64
         } else {
             theta
         };

@@ -360,4 +360,8 @@ impl super::Curved for TranslatedPiecewiseBezier {
     fn initial_frame(&self) -> Option<ultraviolet::DMat3> {
         Some(self.initial_frame)
     }
+
+    fn full_turn_at_t(&self) -> Option<f64> {
+        Some(self.original_curve.ends.len() as f64 - 1.)
+    }
 }
