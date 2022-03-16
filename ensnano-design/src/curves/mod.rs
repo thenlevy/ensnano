@@ -233,13 +233,16 @@ impl Curve {
         let mut axis = Vec::with_capacity(nb_points + 1);
         let mut curvature = Vec::with_capacity(nb_points + 1);
         let mut t = self.geometry.t_min();
-        let mut current_axis = self
-            .geometry
-            .initial_frame()
-            .unwrap_or_else(|| self.itterative_axis(t, None));
+        let mut current_axis = self.itterative_axis(t, None);
+        let mut translation_axis = current_axis;
+        if let Some(frame) = self.geometry.initial_frame() {
+            let up = frame[1];
+            translation_axis[0] = up.cross(translation_axis[2]).normalized();
+            translation_axis[1] = translation_axis[2].cross(translation_axis[0]).normalized();
+        }
         points.push(
             self.geometry.position(t)
-                + current_axis * self.geometry.translation().unwrap_or_else(DVec3::zero),
+                + translation_axis * self.geometry.translation().unwrap_or_else(DVec3::zero),
         );
         let mut t_nucl = Vec::new();
         axis.push(current_axis);

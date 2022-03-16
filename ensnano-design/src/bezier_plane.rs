@@ -17,13 +17,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::collection::HasMap;
 use super::curves::{Curve, InstanciatedBeizerEnd, InstanciatedPiecewiseBeizer};
+use super::Collection;
 use super::Parameters;
 use crate::grid::*;
 use crate::utils::rotor_to_drotor;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use ultraviolet::{DMat3, DVec3, Mat3, Rotor3, Vec2, Vec3};
-use super::Collection;
 
 const TENGENT: f32 = 1. / 3.;
 
@@ -80,7 +80,7 @@ impl BezierPlaneDescriptor {
         };
         Some(BezierPlaneIntersection { x, y, depth })
     }
-    
+
     fn position(&self, vec: Vec2) -> Vec3 {
         self.position + Vec3::unit_z() * vec.x + Vec3::unit_y() * vec.y
     }
