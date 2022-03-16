@@ -253,8 +253,14 @@ impl Curve {
                 self.nucl_t0 = points.len();
             }
             let mut s = 0f64;
+            let mut translation_axis = current_axis;
+            if let Some(frame) = self.geometry.initial_frame() {
+                let up = frame[1];
+                translation_axis[0] = up.cross(translation_axis[2]).normalized();
+                translation_axis[1] = translation_axis[2].cross(translation_axis[0]).normalized();
+            }
             let mut p = self.geometry.position(t)
-                + current_axis * self.geometry.translation().unwrap_or_else(DVec3::zero);
+                + translation_axis * self.geometry.translation().unwrap_or_else(DVec3::zero);
 
             if let Some(t_x) = self
                 .geometry
@@ -272,8 +278,16 @@ impl Curve {
                     t += small_step;
                     let mut q = self.geometry.position(t);
                     current_axis = self.itterative_axis(t, Some(&current_axis));
+                    let mut translation_axis = current_axis;
+                    if let Some(frame) = self.geometry.initial_frame() {
+                        let up = frame[1];
+                        translation_axis[0] = up.cross(translation_axis[2]).normalized();
+                        translation_axis[1] =
+                            translation_axis[2].cross(translation_axis[0]).normalized();
+                    }
+
                     if let Some(t) = self.geometry.translation() {
-                        q += current_axis * t;
+                        q += translation_axis * t;
                     }
                     s += (q - p).mag();
                     p = q;
