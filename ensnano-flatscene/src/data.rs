@@ -469,11 +469,6 @@ impl<R: DesignReader> Data<R> {
     }
 
     pub fn can_cross_to(&self, from: FlatNucl, to: FlatNucl) -> bool {
-        if from.helix == to.helix && from.forward == to.forward {
-            if from.prime5() != to && from.prime3() != to {
-                return false;
-            }
-        }
         let from = from.to_real();
         let to = to.to_real();
         let prim5 = self.design.prime5_of(from).or(self.design.prime5_of(to));
@@ -483,14 +478,7 @@ impl<R: DesignReader> Data<R> {
         } else {
             let from_end = self.design.prime5_of(from).or(self.design.prime3_of(from));
             let to_end = self.design.prime3_of(to).or(self.design.prime5_of(to));
-            let correct_order = if from.helix != to.helix && from.forward != to.forward {
-                true
-            } else if self.design.prime3_of(from).is_some() {
-                from.prime3() == to
-            } else {
-                from.prime5() == to
-            };
-            correct_order && from_end.is_some() && to_end.is_some()
+            from_end.is_some() && to_end.is_some()
         }
     }
 

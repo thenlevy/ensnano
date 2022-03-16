@@ -2453,7 +2453,13 @@ impl Controller {
                 .iter()
                 .next()
                 .and_then(|d| d.half_helix());
-            if last_helix == next_helix && last_helix.is_some() {
+            if last_helix == next_helix
+                && last_helix.is_some()
+                && domains
+                    .last()
+                    .unwrap()
+                    .can_merge(strand3prime.domains.first().unwrap())
+            {
                 skip = 1;
                 domains
                     .last_mut()
@@ -2760,9 +2766,6 @@ impl Controller {
         source_nucl: Nucl,
         target_nucl: Nucl,
     ) -> Result<(), ErrOperation> {
-        if source_nucl.helix == target_nucl.helix && source_nucl.forward == target_nucl.forward {
-            return Err(ErrOperation::XoverOnSameHelix);
-        }
         log::info!("cross over between {:?} and {:?}", source_nucl, target_nucl);
         let source_id = strands
             .get_strand_nucl(&source_nucl)
