@@ -1197,7 +1197,12 @@ impl<S: AppState> ControllerState<S> for Xovering {
                         new_state: Some(Box::new(NormalState {
                             mouse_position: position,
                         })),
-                        consequences: Consequence::XoverAtempt(source, target, design_id),
+                        consequences: Consequence::XoverAtempt(
+                            source,
+                            target,
+                            design_id,
+                            controller.current_modifiers.shift(),
+                        ),
                     }
                 } else {
                     Transition {

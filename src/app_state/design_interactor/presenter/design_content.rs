@@ -745,6 +745,29 @@ impl DesignContent {
 
         drop(groups);
 
+        if log::log_enabled!(log::Level::Warn) {
+            if let Some(s) = design
+                .scaffold_id
+                .as_ref()
+                .and_then(|s_id| design.strands.get(s_id))
+            {
+                for d in s.domains.iter() {
+                    if let Domain::HelixDomain(interval) = d {
+                        for n in interval.iter() {
+                            let nucl = Nucl {
+                                helix: interval.helix,
+                                position: n,
+                                forward: !interval.forward,
+                            };
+                            if !ret.nucl_collection.contains_nucl(&nucl) {
+                                log::warn!("Missing {nucl}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         #[cfg(test)]
         {
             ret.test_named_junction(&design, &mut new_junctions, "TEST AFTER MAKE HASH MAP");

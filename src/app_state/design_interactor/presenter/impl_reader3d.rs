@@ -478,6 +478,48 @@ impl Reader3D for DesignReader {
             Vec2::new(right, bottom),
         ]
     }
+
+    fn get_optimal_xover_arround(&self, source: Nucl, target: Nucl) -> Option<(Nucl, Nucl)> {
+        let source_id = self.get_id_of_strand_containing_nucl(&source)?;
+        let target_id = self.get_id_of_strand_containing_nucl(&target)?;
+        let mut opt_pair = (source, target);
+        let helix_source = self.presenter.current_design.helices.get(&source.helix)?;
+        let helix_target = self.presenter.current_design.helices.get(&target.helix)?;
+        let parameters = self.presenter.current_design.parameters.unwrap_or_default();
+        let mut opt_dist = std::f32::INFINITY;
+        for i in -2..2 {
+            let source_candidate = Nucl {
+                position: source.position + i,
+                ..source
+            };
+            if self.get_id_of_strand_containing_nucl(&source_candidate) == Some(source_id) {
+                for j in -2..2 {
+                    let target_candidate = Nucl {
+                        position: target.position + j,
+                        ..target
+                    };
+                    if self.get_id_of_strand_containing_nucl(&target_candidate) == Some(target_id) {
+                        let source_pos = helix_source.space_pos(
+                            &parameters,
+                            source_candidate.position,
+                            source_candidate.forward,
+                        );
+                        let target_pos = helix_target.space_pos(
+                            &parameters,
+                            target_candidate.position,
+                            target_candidate.forward,
+                        );
+                        let dist = (source_pos - target_pos).mag();
+                        if dist < opt_dist {
+                            opt_dist = dist;
+                            opt_pair = (source_candidate, target_candidate);
+                        }
+                    }
+                }
+            }
+        }
+        Some(opt_pair)
+    }
 }
 
 #[cfg(test)]

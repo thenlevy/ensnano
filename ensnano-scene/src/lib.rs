@@ -210,8 +210,8 @@ impl<S: AppState> Scene<S> {
                 self.controller.translate_camera(dx, dy);
                 self.notify(SceneNotification::CameraMoved);
             }
-            Consequence::XoverAtempt(source, target, d_id) => {
-                self.attempt_xover(source, target, d_id);
+            Consequence::XoverAtempt(source, target, d_id, magic) => {
+                self.attempt_xover(source, target, d_id, magic);
                 self.data.borrow_mut().end_free_xover();
             }
             Consequence::QuickXoverAttempt { nucl, doubled } => {
@@ -520,7 +520,16 @@ impl<S: AppState> Scene<S> {
     }
 
     /// Request a cross-over between two nucleotides.
-    fn attempt_xover(&mut self, source: Nucl, target: Nucl, design_id: usize) {
+    fn attempt_xover(&mut self, mut source: Nucl, mut target: Nucl, design_id: usize, magic: bool) {
+        if magic {
+            if let Some(opt) = self
+                .older_state
+                .get_design_reader()
+                .get_optimal_xover_arround(source, target)
+            {
+                (source, target) = opt;
+            }
+        }
         self.requests
             .lock()
             .unwrap()

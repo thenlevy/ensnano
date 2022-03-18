@@ -1428,4 +1428,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_bezier_paths(&self) -> Option<&BTreeMap<BezierPathId, Arc<InstanciatedPath>>>;
     fn get_bezier_vertex(&self, path_id: BezierPathId, vertex_id: usize) -> Option<BezierVertex>;
     fn get_corners_of_plane(&self, plane_id: BezierPlaneId) -> [Vec2; 4];
+    fn get_optimal_xover_arround(&self, source: Nucl, target: Nucl) -> Option<(Nucl, Nucl)>;
 }

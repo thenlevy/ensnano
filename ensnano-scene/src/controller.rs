@@ -74,7 +74,7 @@ pub struct Controller<S: AppState> {
 pub enum Consequence {
     CameraMoved,
     CameraTranslated(f64, f64),
-    XoverAtempt(Nucl, Nucl, usize),
+    XoverAtempt(Nucl, Nucl, usize, bool),
     QuickXoverAttempt {
         nucl: Nucl,
         doubled: bool,
