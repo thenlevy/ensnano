@@ -631,7 +631,7 @@ impl Strand {
             if let Some(n) = d.has_virtual_nucl(nucl, helices) {
                 if self.cyclic
                     && d_id == self.domains.len() - 1
-                    && d.half_helix() == self.domains[0].half_helix()
+                    && d.prime3_end().map(|n| n.prime3()) == self.domains[0].prime5_end()
                 {
                     d_id = 0;
                 }
