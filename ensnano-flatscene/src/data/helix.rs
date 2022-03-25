@@ -379,7 +379,7 @@ impl Helix {
     pub fn get_pivot(&self, position: isize) -> Vec2 {
         self.isometry
             .into_homogeneous_matrix()
-            .transform_point2(self.scale * Vec2::new(position as f32, 1.))
+            .transform_point2(self.scale * Vec2::new(self.x_conversion(position as f32), 1.))
     }
 
     pub fn set_color(&mut self, color: u32) {
