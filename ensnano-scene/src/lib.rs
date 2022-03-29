@@ -1096,7 +1096,7 @@ impl<S: AppState> Application for Scene<S> {
     }
 }
 
-pub trait AppState: Clone {
+pub trait AppState: Clone + 'static {
     type DesignReader: DesignReader;
     fn get_selection(&self) -> &[Selection];
     fn get_candidates(&self) -> &[Selection];

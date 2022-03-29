@@ -29,6 +29,9 @@ use std::time::Instant;
 
 use super::AppState;
 
+mod dragging_state;
+mod point_and_click_state;
+
 pub(super) type State<S> = RefCell<Box<dyn ControllerState<S>>>;
 
 pub(super) fn initial_state<S: AppState>() -> State<S> {
