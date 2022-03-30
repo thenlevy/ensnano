@@ -19,13 +19,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! Defines states in which the user is "dragging" something.
 //!
 //! In this context dragging means that the user is holding one of the mouse button while moving
-//! the cursor. 
+//! the cursor.
 //! In such a state, cursor movement all cursor movement have similar consequences shuch has moving
 //! the camera or moving an object.
 
 use super::*;
 
-struct DraggedCursor {
+pub(super) struct DraggedCursor {
     /// The current cursor position
     position: PhysicalPosition<f64>,
     /// The *normalized* difference between the current cursor position and the position of the
@@ -39,8 +39,18 @@ pub(super) struct ClickInfo {
     pub current_position: PhysicalPosition<f64>,
 }
 
+impl ClickInfo {
+    pub fn new(button: MouseButton, clicked_position: PhysicalPosition<f64>) -> Self {
+        Self {
+            button,
+            clicked_position,
+            current_position: clicked_position,
+        }
+    }
+}
+
 /// A object maping cursor movement to their consequences
-trait DraggingTransitionTable {
+pub(super) trait DraggingTransitionTable {
     /// The consequences of moving the cursor
     fn on_cursor_moved(&mut self, cursor: DraggedCursor) -> Option<Consequence>;
     fn on_button_released(&self) -> Option<Consequence>;
@@ -48,13 +58,15 @@ trait DraggingTransitionTable {
     fn description() -> &'static str;
     /// If not None, the cursor icon that should be used when the controller's automata is in this
     /// state
-    fn cursor() -> Option<ensnano_interactor::CursorIcon> { None }
+    fn cursor() -> Option<ensnano_interactor::CursorIcon> {
+        None
+    }
     /// `true` iff being in this state means that the controller's camera is in transitory state
     fn continuously_moving_camera() -> bool;
 }
 
 /// A state in which the user is holding a mouse button while moving the cursor.
-pub (super) struct DraggingState<Table: DraggingTransitionTable> {
+pub(super) struct DraggingState<Table: DraggingTransitionTable> {
     current_cursor_position: PhysicalPosition<f64>,
     /// The position of the cursor when the mouse button was pressed
     clicked_position: PhysicalPosition<f64>,
@@ -66,17 +78,35 @@ pub (super) struct DraggingState<Table: DraggingTransitionTable> {
 
 impl<Table: DraggingTransitionTable> DraggingState<Table> {
     /// Register the cursor movement and return an up-to-date DraggedCursor.
-    fn move_cursor<S: AppState>(&mut self, position: PhysicalPosition<f64>, controller: &Controller<S>) -> DraggedCursor {
+    fn move_cursor<S: AppState>(
+        &mut self,
+        position: PhysicalPosition<f64>,
+        controller: &Controller<S>,
+    ) -> DraggedCursor {
         self.current_cursor_position = position;
-        let mouse_dx =
-            (position.x - self.clicked_position.x) / controller.area_size.width as f64;
-        let mouse_dy =
-            (position.y - self.clicked_position.y) / controller.area_size.height as f64;
+        let mouse_dx = (position.x - self.clicked_position.x) / controller.area_size.width as f64;
+        let mouse_dy = (position.y - self.clicked_position.y) / controller.area_size.height as f64;
         DraggedCursor {
             position: self.current_cursor_position,
-            delta_position: PhysicalPosition { x: mouse_dx, y: mouse_dy },
+            delta_position: PhysicalPosition {
+                x: mouse_dx,
+                y: mouse_dy,
+            },
         }
     }
+}
+
+macro_rules! dragging_state_constructor {
+    ($contructor_name: ident, $type: tt) => {
+        pub(super) fn $contructor_name(click: ClickInfo) -> DraggingState<$type> {
+            DraggingState {
+                current_cursor_position: click.current_position,
+                clicked_button: click.button,
+                clicked_position: click.clicked_position,
+                transition_table: $type,
+            }
+        }
+    };
 }
 
 impl<S: AppState, Table: DraggingTransitionTable> ControllerState<S> for DraggingState<Table> {
@@ -84,40 +114,69 @@ impl<S: AppState, Table: DraggingTransitionTable> ControllerState<S> for Draggin
         Table::description().into()
     }
 
-    fn input(&mut self, event: &WindowEvent, position: PhysicalPosition<f64>, controller: &Controller<S>, _pixel_reader: &mut ElementSelector, _app_state: &S) -> Transition<S> {
+    fn input(
+        &mut self,
+        event: &WindowEvent,
+        position: PhysicalPosition<f64>,
+        controller: &Controller<S>,
+        _pixel_reader: &mut ElementSelector,
+        _app_state: &S,
+    ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
                 button,
                 state: ElementState::Released,
                 ..
             } if *button == self.clicked_button => {
-                let consequences = self.transition_table.on_button_released().unwrap_or(Consequence::Nothing);
+                let consequences = self
+                    .transition_table
+                    .on_button_released()
+                    .unwrap_or(Consequence::Nothing);
                 Transition {
                     new_state: Some(Box::new(NormalState {
-                        mouse_position: self.current_cursor_position
+                        mouse_position: self.current_cursor_position,
                     })),
-                    consequences
+                    consequences,
                 }
             }
 
             WindowEvent::CursorMoved { .. } => {
                 let cursor = self.move_cursor(position, controller);
-                let consequences = self.transition_table.on_cursor_moved(cursor).unwrap_or(Consequence::Nothing);
+                let consequences = self
+                    .transition_table
+                    .on_cursor_moved(cursor)
+                    .unwrap_or(Consequence::Nothing);
                 Transition::consequence(consequences)
             }
-            _ => Transition::nothing()
+            _ => Transition::nothing(),
         }
     }
 
     fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
         Table::cursor()
     }
+
+    fn transition_to(&self, _controller: &Controller<S>) -> TransistionConsequence {
+        if Table::continuously_moving_camera() {
+            TransistionConsequence::InitMovement
+        } else {
+            TransistionConsequence::Nothing
+        }
+    }
+
+    fn transition_from(&self, _controller: &Controller<S>) -> TransistionConsequence {
+        if Table::continuously_moving_camera() {
+            TransistionConsequence::EndMovement
+        } else {
+            TransistionConsequence::Nothing
+        }
+    }
 }
 
-/// The user is moving the camera. 
+/// The user is moving the camera.
 ///
 /// Cursor movements translate the camera
-struct TranslatingCamera;
+pub(super) struct TranslatingCamera;
 
 impl DraggingTransitionTable for TranslatingCamera {
     fn description() -> &'static str {
@@ -125,7 +184,10 @@ impl DraggingTransitionTable for TranslatingCamera {
     }
 
     fn on_cursor_moved(&mut self, cursor: DraggedCursor) -> Option<Consequence> {
-        Some(Consequence::CameraTranslated(cursor.delta_position.x, cursor.delta_position.y))
+        Some(Consequence::CameraTranslated(
+            cursor.delta_position.x,
+            cursor.delta_position.y,
+        ))
     }
 
     fn on_button_released(&self) -> Option<Consequence> {
@@ -141,10 +203,12 @@ impl DraggingTransitionTable for TranslatingCamera {
     }
 }
 
+dragging_state_constructor!(translating_camera, TranslatingCamera);
+
 /// The user is rotating the camera
 ///
 /// Cursor movements rotate the camera
-pub (super) struct RotatingCamera;
+pub(super) struct RotatingCamera;
 
 impl DraggingTransitionTable for RotatingCamera {
     fn description() -> &'static str {
@@ -152,7 +216,10 @@ impl DraggingTransitionTable for RotatingCamera {
     }
 
     fn on_cursor_moved(&mut self, cursor: DraggedCursor) -> Option<Consequence> {
-        Some(Consequence::Swing(cursor.delta_position.x, cursor.delta_position.y))
+        Some(Consequence::Swing(
+            cursor.delta_position.x,
+            cursor.delta_position.y,
+        ))
     }
 
     fn on_button_released(&self) -> Option<Consequence> {
@@ -168,19 +235,12 @@ impl DraggingTransitionTable for RotatingCamera {
     }
 }
 
-pub (super) fn rotating_camera(click: ClickInfo) -> DraggingState<RotatingCamera> {
-    DraggingState {
-        current_cursor_position: click.current_position,
-        clicked_button: click.button,
-        clicked_position: click.clicked_position,
-        transition_table: RotatingCamera,
-    }
-}
+dragging_state_constructor! {rotating_camera, RotatingCamera}
 
 /// The user is tilting the camera
 ///
 /// Cursor movements tilt the camera
-struct TiltingCamera;
+pub(super) struct TiltingCamera;
 
 impl DraggingTransitionTable for TiltingCamera {
     fn description() -> &'static str {
@@ -188,7 +248,10 @@ impl DraggingTransitionTable for TiltingCamera {
     }
 
     fn on_cursor_moved(&mut self, cursor: DraggedCursor) -> Option<Consequence> {
-        Some(Consequence::Tilt(cursor.delta_position.x, cursor.delta_position.y))
+        Some(Consequence::Tilt(
+            cursor.delta_position.x,
+            cursor.delta_position.y,
+        ))
     }
 
     fn on_button_released(&self) -> Option<Consequence> {
@@ -202,5 +265,6 @@ impl DraggingTransitionTable for TiltingCamera {
     fn cursor() -> Option<ensnano_interactor::CursorIcon> {
         Some(CursorIcon::ColResize)
     }
-
 }
+
+dragging_state_constructor! {tilting_camera, TiltingCamera}

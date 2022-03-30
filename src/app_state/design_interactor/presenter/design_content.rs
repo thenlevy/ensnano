@@ -218,7 +218,8 @@ impl DesignContent {
 
     pub(super) fn get_staples(&self, design: &Design, presenter: &Presenter) -> Vec<Staple> {
         let mut ret = Vec::new();
-        let mut sequences: BTreeMap<(Vec<String>, usize, isize, usize, isize), StapleInfo> = Default::default();
+        let mut sequences: BTreeMap<(Vec<String>, usize, isize, usize, isize), StapleInfo> =
+            Default::default();
         let basis_map = self.basis_map.as_ref();
         for (s_id, strand) in design.strands.iter() {
             if strand.length() == 0 || design.scaffold_id == Some(*s_id) {
@@ -292,7 +293,6 @@ impl DesignContent {
                     }
                 } else if let Domain::Insertion { .. } = domain {
                     sequence.push_str(" **INSERTION**")
-
                 }
                 if let Some(d) = staple_domain {
                     intervals.intervals.push(d.finish())
@@ -300,7 +300,13 @@ impl DesignContent {
             }
             let group_names = presenter.get_name_of_group_having_strand(*s_id);
             let key = if let Some((prim5, prim3)) = strand.get_5prime().zip(strand.get_3prime()) {
-                (group_names, prim5.helix, prim5.position, prim3.helix, prim3.position)
+                (
+                    group_names,
+                    prim5.helix,
+                    prim5.position,
+                    prim3.helix,
+                    prim3.position,
+                )
             } else {
                 log::warn!("WARNING, STAPPLE WITH NO KEY !!!");
                 (vec![], 0, 0, 0, 0)

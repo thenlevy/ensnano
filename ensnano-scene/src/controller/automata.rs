@@ -30,7 +30,11 @@ use std::time::Instant;
 use super::AppState;
 
 mod dragging_state;
+use dragging_state::ClickInfo;
 mod point_and_click_state;
+use point_and_click_state::PointAndClicking;
+mod click_reader;
+use click_reader::ClickReader;
 
 pub(super) type State<S> = RefCell<Box<dyn ControllerState<S>>>;
 
@@ -177,14 +181,13 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 ..
-            } if controller.current_modifiers.alt() => Transition {
-                new_state: Some(Box::new(TranslatingCamera {
-                    mouse_position: self.mouse_position,
-                    clicked_position: self.mouse_position,
-                    button_pressed: MouseButton::Left,
-                })),
-                consequences: Consequence::Nothing,
-            },
+            } if controller.current_modifiers.alt() => {
+                let click_info = ClickInfo::new(MouseButton::Left, position);
+                Transition {
+                    new_state: Some(Box::new(dragging_state::translating_camera(click_info))),
+                    consequences: Consequence::Nothing,
+                }
+            }
             WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
@@ -486,225 +489,48 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 state: ElementState::Pressed,
                 button: MouseButton::Middle,
                 ..
-            } if ctrl(&controller.current_modifiers) => Transition {
-                new_state: Some(Box::new(RotatingCamera {
-                    clicked_position: position,
-                    button_pressed: MouseButton::Middle,
-                    tilting: false,
-                })),
-                consequences: Consequence::Nothing,
-            },
+            } if ctrl(&controller.current_modifiers) => {
+                let click_info = ClickInfo::new(MouseButton::Middle, position);
+                Transition {
+                    new_state: Some(Box::new(dragging_state::rotating_camera(click_info))),
+                    consequences: Consequence::Nothing,
+                }
+            }
             WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Middle,
                 ..
-            } => Transition {
-                new_state: Some(Box::new(TranslatingCamera {
-                    mouse_position: self.mouse_position,
-                    clicked_position: self.mouse_position,
-                    button_pressed: MouseButton::Middle,
-                })),
-                consequences: Consequence::Nothing,
-            },
+            } => {
+                let click_info = ClickInfo::new(MouseButton::Middle, position);
+                Transition {
+                    new_state: Some(Box::new(dragging_state::translating_camera(click_info))),
+                    consequences: Consequence::Nothing,
+                }
+            }
             WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Right,
                 ..
-            } => Transition {
-                new_state: Some(Box::new(SettingPivot {
-                    mouse_position: position,
-                    clicked_position: position,
-                })),
-                consequences: Consequence::Nothing,
-            },
+            } => {
+                let mut click_reader = ClickReader {
+                    controller,
+                    pixel_reader,
+                    app_state,
+                    cursor_position: position,
+                };
+                let element = click_reader.get_pivot_element();
+
+                Transition {
+                    new_state: Some(Box::new(PointAndClicking::setting_pivot(position, element))),
+                    consequences: Consequence::Nothing,
+                }
+            }
             _ => Transition::nothing(),
         }
     }
 
     fn display(&self) -> Cow<'static, str> {
         "Normal".into()
-    }
-}
-
-struct TranslatingCamera {
-    mouse_position: PhysicalPosition<f64>,
-    clicked_position: PhysicalPosition<f64>,
-    button_pressed: MouseButton,
-}
-
-impl<S: AppState> ControllerState<S> for TranslatingCamera {
-    fn display(&self) -> Cow<'static, str> {
-        "Translating Camera".into()
-    }
-
-    fn transition_to(&self, _controller: &Controller<S>) -> TransistionConsequence {
-        TransistionConsequence::InitMovement
-    }
-
-    fn transition_from(&self, _controller: &Controller<S>) -> TransistionConsequence {
-        TransistionConsequence::EndMovement
-    }
-
-    fn input(
-        &mut self,
-        event: &WindowEvent,
-        position: PhysicalPosition<f64>,
-        controller: &Controller<S>,
-        _pixel_reader: &mut ElementSelector,
-        _app_state: &S,
-    ) -> Transition<S> {
-        match event {
-            WindowEvent::MouseInput {
-                button,
-                state: ElementState::Released,
-                ..
-            } if *button == self.button_pressed => Transition {
-                new_state: Some(Box::new(NormalState {
-                    mouse_position: self.mouse_position,
-                })),
-                consequences: Consequence::MovementEnded,
-            },
-            WindowEvent::CursorMoved { .. } => {
-                let mouse_dx =
-                    (position.x - self.clicked_position.x) / controller.area_size.width as f64;
-                let mouse_dy =
-                    (position.y - self.clicked_position.y) / controller.area_size.height as f64;
-                self.mouse_position = position;
-                Transition::consequence(Consequence::CameraTranslated(mouse_dx, mouse_dy))
-            }
-            _ => Transition::nothing(),
-        }
-    }
-
-    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
-        Some(CursorIcon::Crosshair)
-    }
-}
-
-struct SettingPivot {
-    mouse_position: PhysicalPosition<f64>,
-    clicked_position: PhysicalPosition<f64>,
-}
-
-impl<S: AppState> ControllerState<S> for SettingPivot {
-    fn display(&self) -> Cow<'static, str> {
-        "Setting Pivot".into()
-    }
-
-    fn input(
-        &mut self,
-        event: &WindowEvent,
-        position: PhysicalPosition<f64>,
-        controller: &Controller<S>,
-        pixel_reader: &mut ElementSelector,
-        _app_state: &S,
-    ) -> Transition<S> {
-        match event {
-            WindowEvent::CursorMoved { .. } => {
-                if position_difference(position, self.clicked_position) > 5. {
-                    Transition {
-                        new_state: Some(Box::new(RotatingCamera {
-                            clicked_position: self.clicked_position,
-                            button_pressed: MouseButton::Right,
-                            tilting: controller.current_modifiers.shift(),
-                        })),
-                        consequences: Consequence::Nothing,
-                    }
-                } else {
-                    self.mouse_position = position;
-                    Transition::nothing()
-                }
-            }
-            WindowEvent::MouseInput {
-                state: ElementState::Released,
-                button: MouseButton::Right,
-                ..
-            } => {
-                let element = match pixel_reader.set_selected_id(self.mouse_position) {
-                    Some(SceneElement::Grid(d_id, g_id)) => {
-                        // for grids we take the precise grid position on which the user clicked.
-                        let mouse_x = self.mouse_position.x / controller.area_size.width as f64;
-                        let mouse_y = self.mouse_position.y / controller.area_size.height as f64;
-                        if let Some(intersection) = controller
-                            .view
-                            .borrow()
-                            .specific_grid_intersection(mouse_x as f32, mouse_y as f32, g_id)
-                        {
-                            Some(SceneElement::GridCircle(d_id, intersection.grid_position()))
-                        } else {
-                            Some(SceneElement::Grid(d_id, g_id))
-                        }
-                    }
-                    element => element,
-                };
-                log::debug!("Pivot element {:?}", element);
-                Transition {
-                    new_state: Some(Box::new(NormalState {
-                        mouse_position: position,
-                    })),
-                    consequences: Consequence::PivotElement(element),
-                }
-            }
-            _ => Transition::nothing(),
-        }
-    }
-}
-
-struct RotatingCamera {
-    clicked_position: PhysicalPosition<f64>,
-    button_pressed: MouseButton,
-    tilting: bool,
-}
-
-impl<S: AppState> ControllerState<S> for RotatingCamera {
-    fn display(&self) -> Cow<'static, str> {
-        "Rotating Camera".into()
-    }
-
-    fn transition_to(&self, _controller: &Controller<S>) -> TransistionConsequence {
-        TransistionConsequence::InitMovement
-    }
-
-    fn transition_from(&self, _controller: &Controller<S>) -> TransistionConsequence {
-        TransistionConsequence::EndMovement
-    }
-
-    fn input(
-        &mut self,
-        event: &WindowEvent,
-        position: PhysicalPosition<f64>,
-        controller: &Controller<S>,
-        _pixel_reader: &mut ElementSelector,
-        _app_state: &S,
-    ) -> Transition<S> {
-        match event {
-            WindowEvent::CursorMoved { .. } => {
-                let mouse_dx =
-                    (position.x - self.clicked_position.x) / controller.area_size.width as f64;
-                let mouse_dy =
-                    (position.y - self.clicked_position.y) / controller.area_size.height as f64;
-                if self.tilting {
-                    Transition::consequence(Consequence::Tilt(mouse_dx, mouse_dy))
-                } else {
-                    Transition::consequence(Consequence::Swing(mouse_dx, mouse_dy))
-                }
-            }
-            WindowEvent::MouseInput {
-                state: ElementState::Released,
-                button,
-                ..
-            } if *button == self.button_pressed => Transition {
-                new_state: Some(Box::new(NormalState {
-                    mouse_position: position,
-                })),
-                consequences: Consequence::Nothing,
-            },
-            _ => Transition::nothing(),
-        }
-    }
-
-    fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
-        Some(CursorIcon::AllScroll)
     }
 }
 
