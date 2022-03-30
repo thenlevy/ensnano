@@ -577,8 +577,8 @@ impl CameraController {
     /// Swing the camera arrond `self.pivot_point`. Assumes that the pivot_point is where the
     /// camera points at.
     pub fn swing(&mut self, x: f64, y: f64) {
-        let angle_yz = -(y.min(1.).max(-1.)) as f32 * PI;
-        let angle_xz = x.min(1.).max(-1.) as f32 * PI;
+        let angle_yz = -((y + 1.).rem_euclid(2.) - 1.) as f32 * PI;
+        let angle_xz = ((x + 1.).rem_euclid(2.) - 1.) as f32 * PI;
         if let Some(pivot) = self.pivot_point {
             self.rotate_camera_around(angle_xz, angle_yz, pivot);
         } else {
