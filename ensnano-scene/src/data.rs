@@ -1904,6 +1904,10 @@ impl<R: DesignReader> ControllerData for Data<R> {
             .map(|elt| self.element_to_selection(&elt, SelectionMode::Nucleotide))
             .unwrap_or(Selection::Nothing)
     }
+
+    fn init_free_xover(&mut self, nucl: Nucl, position: Vec3, design_id: usize) {
+        self.init_free_xover(nucl, position, design_id)
+    }
 }
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]

@@ -578,7 +578,8 @@ impl<S: AppState> ControllerState<S> for Selecting {
                         source_element: self.element,
                         source_position: position_nucl,
                     })),
-                    consequences: Consequence::InitFreeXover(nucl, d_id, projected_pos),
+                    //consequences: Consequence::InitFreeXover(nucl, d_id, projected_pos),
+                    consequences: Consequence::Nothing,
                 }
             } else {
                 Transition {

@@ -32,19 +32,21 @@ use super::*;
 /// The limit between "near" and "far" distances.
 const FAR_AWAY: f64 = 5.0;
 
-/// A state to which the controller automata should transition when the cursor is moved far
-/// away from `self.clicked_position`.
+/// Holding the mouse button for this duration will trigger OptionalTransition in some states.
+const LONG_HOLDING_TIME: std::time::Duration = std::time::Duration::from_millis(350);
+
+/// A possible transition that will be triggered by a certain event in any PointAndClicking state.
 ///
-/// If `None`, the controller's automata will transition to `NormalState` when the cursor moves
-/// far away from `self.clicked_position`.
+///
+/// If `None`, the controller's automata will transition to `NormalState` when the event occur.
 ///
 /// The state is produced in a function and not stored by the object because Box<dyn> cannot be
 /// cloned.
-trait AwayTransition<S: AppState>:
+trait OptionalTransition<S: AppState>:
     Fn(ClickInfo) -> Option<Box<dyn ControllerState<S>>> + 'static
 {
 }
-impl<S: AppState, F: 'static> AwayTransition<S> for F where
+impl<S: AppState, F: 'static> OptionalTransition<S> for F where
     F: Fn(ClickInfo) -> Option<Box<dyn ControllerState<S>>>
 {
 }
@@ -60,14 +62,18 @@ pub(super) struct PointAndClicking<S: AppState> {
     pressed_button: MouseButton,
     /// The consequences of releasing of clicking of the object initially pointed by the cursor
     release_consequences: Consequence,
-    /// A state to which the controller automata should transition when the cursor is moved far
-    /// away from `self.clicked_position`.
+    /// An `OptionalTransition` triggered by moving the cursor far away from
+    /// `self.clicked_position`.
     ///
     /// If `None`, the controller's automata will transition to `NormalState` when the cursor moves
     /// far away from `self.clicked_position`.
-    away_state: &'static dyn AwayTransition<S>,
+    away_state: &'static dyn OptionalTransition<S>,
+    /// If Some(_), an `OptionalTransition` triggered when the cursor has been held for a long
+    /// time.
+    long_hold_state: Option<&'static dyn OptionalTransition<S>>,
     /// A description of the current state of the controller's automata
     description: &'static str,
+    clicked_date: std::time::Instant,
 }
 
 impl<S: AppState> PointAndClicking<S> {
@@ -123,6 +129,21 @@ impl<S: AppState> ControllerState<S> for PointAndClicking<S> {
     fn display(&self) -> Cow<'static, str> {
         self.description.into()
     }
+
+    fn check_timers(&mut self, _controller: &Controller<S>) -> Transition<S> {
+        if let Some(transition) = self.long_hold_state.as_ref() {
+            let now = Instant::now();
+            if (now - self.clicked_date) > LONG_HOLDING_TIME {
+                if let Some(new_state) = transition(self.get_click_info(self.clicked_position)) {
+                    return Transition {
+                        new_state: Some(new_state),
+                        consequences: Consequence::Nothing,
+                    };
+                }
+            }
+        }
+        Transition::nothing()
+    }
 }
 
 impl<S: AppState> PointAndClicking<S> {
@@ -140,6 +161,8 @@ impl<S: AppState> PointAndClicking<S> {
             description: "Setting Pivot",
             pressed_button: MouseButton::Right,
             release_consequences: Consequence::PivotElement(pivot_elment),
+            long_hold_state: None,
+            clicked_date: std::time::Instant::now(),
         }
     }
 }

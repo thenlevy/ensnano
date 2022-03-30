@@ -96,7 +96,6 @@ pub enum Consequence {
     Candidate(Option<super::SceneElement>),
     PivotElement(Option<super::SceneElement>),
     ElementSelected(Option<super::SceneElement>, bool),
-    InitFreeXover(Nucl, usize, Vec3),
     MoveFreeXover(Option<super::SceneElement>, Vec3),
     EndFreeXover,
     BuildHelix {
@@ -143,8 +142,9 @@ pub enum Consequence {
 
 enum TransistionConsequence {
     Nothing,
-    InitMovement,
-    EndMovement,
+    InitCameraMovement,
+    EndCameraMovement,
+    InitFreeXover(Nucl, usize, Vec3),
 }
 
 impl<S: AppState> Controller<S> {
@@ -352,8 +352,11 @@ impl<S: AppState> Controller<S> {
     fn transition_consequence(&mut self, csq: TransistionConsequence) {
         match csq {
             TransistionConsequence::Nothing => (),
-            TransistionConsequence::InitMovement => self.init_movement(),
-            TransistionConsequence::EndMovement => self.end_movement(),
+            TransistionConsequence::InitCameraMovement => self.init_movement(),
+            TransistionConsequence::EndCameraMovement => self.end_movement(),
+            TransistionConsequence::InitFreeXover(nucl, d_id, position) => {
+                self.data.borrow_mut().init_free_xover(nucl, position, d_id)
+            }
         }
     }
 
@@ -495,4 +498,5 @@ pub(super) trait Data {
     fn stop_rotating_pivot(&mut self);
     fn update_handle_colors(&mut self, colors: HandleColors);
     fn element_to_selection(&self, element: &Option<SceneElement>) -> Selection;
+    fn init_free_xover(&mut self, nucl: Nucl, position: Vec3, design_id: usize);
 }

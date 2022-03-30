@@ -372,9 +372,6 @@ impl<S: AppState> Scene<S> {
                     self.select(element, app_state)
                 }
             }
-            Consequence::InitFreeXover(nucl, d_id, position) => {
-                self.data.borrow_mut().init_free_xover(nucl, position, d_id)
-            }
             Consequence::MoveFreeXover(element, position) => self
                 .data
                 .borrow_mut()
