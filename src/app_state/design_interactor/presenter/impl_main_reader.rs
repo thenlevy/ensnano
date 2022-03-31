@@ -75,13 +75,16 @@ impl StaplesDownloader for DesignReader {
         let mut wb = Workbook::create(xlsx_path.to_str().unwrap());
         let mut sheets = BTreeMap::new();
 
-        let interval_strs: Vec<_> = stapples.iter().map(|stapple| {
-            if let Ok(s) = serde_json::to_string(&stapple.intervals.intervals) {
-                s
-            } else {
-                String::from("error getting domains")
-            }
-        }).collect();
+        let interval_strs: Vec<_> = stapples
+            .iter()
+            .map(|stapple| {
+                if let Ok(s) = serde_json::to_string(&stapple.intervals.intervals) {
+                    s
+                } else {
+                    String::from("error getting domains")
+                }
+            })
+            .collect();
         for (i, stapple) in stapples.iter().enumerate() {
             let sheet = sheets.entry(stapple.plate).or_insert_with(|| {
                 vec![vec![

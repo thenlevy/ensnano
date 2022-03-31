@@ -171,7 +171,7 @@ pub(super) struct Curve {
     /// The precomputed points along the curve for the forward strand
     pub(crate) positions_forward: Vec<DVec3>,
     /// The procomputed points along the curve for the backward strand
-    pub (crate) positions_backward: Vec<DVec3>,
+    pub(crate) positions_backward: Vec<DVec3>,
     /// The precomputed orthgonal frames moving along the curve for the forward strand
     axis_forward: Vec<DMat3>,
     /// The precomputed orthgonal frames moving along the curve for the backward strand
@@ -199,8 +199,11 @@ impl Curve {
             nucl_pos_full_turn: None,
         };
         let len_segment = ret.geometry.z_step_ratio().unwrap_or(1.0) * parameters.z_step as f64;
-        ret.discretize(len_segment, DISCRETISATION_STEP, None);
-        ret.discretize(len_segment, DISCRETISATION_STEP, Some(parameters.inclination as f64));
+        ret.discretize(
+            len_segment,
+            DISCRETISATION_STEP,
+            parameters.inclination as f64,
+        );
         ret
     }
 
@@ -231,60 +234,47 @@ impl Curve {
         len
     }
 
-    fn discretize(&mut self, len_segment: f64, nb_step: usize, inclination: Option<f64>) {
+    fn discretize(&mut self, len_segment: f64, nb_step: usize, inclination: f64) {
         let len = self.length_by_descretisation(0., 1., nb_step);
         let nb_points = (len / len_segment) as usize;
         let small_step = 1. / (nb_step as f64 * nb_points as f64);
 
-        let mut points = Vec::with_capacity(nb_points + 1);
-        let mut axis = Vec::with_capacity(nb_points + 1);
+        let mut points_forward = Vec::with_capacity(nb_points + 1);
+        let mut points_backward = Vec::with_capacity(nb_points + 1);
+        let mut axis_forward = Vec::with_capacity(nb_points + 1);
+        let mut axis_backward = Vec::with_capacity(nb_points + 1);
         let mut curvature = Vec::with_capacity(nb_points + 1);
         let mut t = self.geometry.t_min();
         let mut current_axis = self.itterative_axis(t, None);
         let mut translation_axis = current_axis;
+
         if let Some(frame) = self.geometry.initial_frame() {
             let up = frame[1];
             translation_axis[0] = up.cross(translation_axis[2]).normalized();
             translation_axis[1] = translation_axis[2].cross(translation_axis[0]).normalized();
         }
         let mut point = self.geometry.position(t)
-                + translation_axis * self.geometry.translation().unwrap_or_else(DVec3::zero);
-        if let Some(inclination) = inclination {
-            let mut s = 0f64;
-            while s < inclination {
-                t += small_step;
-                let mut q = self.geometry.position(t);
-                current_axis = self.itterative_axis(t, Some(&current_axis));
-                let mut translation_axis = current_axis;
-                if let Some(frame) = self.geometry.initial_frame() {
-                    let up = frame[1];
-                    translation_axis[0] = up.cross(translation_axis[2]).normalized();
-                    translation_axis[1] =
-                        translation_axis[2].cross(translation_axis[0]).normalized();
-                }
+            + translation_axis * self.geometry.translation().unwrap_or_else(DVec3::zero);
 
-                if let Some(t) = self.geometry.translation() {
-                    q += translation_axis * t;
-                }
-                s += (q - point).mag();
-                point = q;
-            }
-        }
         let mut t_nucl = Vec::new();
-        points.push(
-            point
-        );
-        axis.push(current_axis);
+        points_forward.push(point);
+        axis_forward.push(current_axis);
         curvature.push(self.geometry.curvature(t));
         t_nucl.push(t);
+        let mut abscissa_forward = len_segment;
+        let mut abscissa_backward = inclination;
+        let mut current_abcissa = 0.0;
         let mut first_non_negative = t < 0.0;
 
         while t < self.geometry.t_max() {
             if first_non_negative && t >= 0.0 {
                 first_non_negative = false;
-                self.nucl_t0 = points.len();
+                self.nucl_t0 = points_forward.len();
             }
-            let mut s = 0f64;
+            let (objective, forward) = (
+                abscissa_forward.min(abscissa_backward),
+                abscissa_forward <= abscissa_backward,
+            );
             let mut translation_axis = current_axis;
             if let Some(frame) = self.geometry.initial_frame() {
                 let up = frame[1];
@@ -294,11 +284,7 @@ impl Curve {
             let mut p = self.geometry.position(t)
                 + translation_axis * self.geometry.translation().unwrap_or_else(DVec3::zero);
 
-            if let Some(t_x) = self
-                .geometry
-                .curvilinear_abscissa(t)
-                .and_then(|s| self.geometry.inverse_curvilinear_abscissa(s + len_segment))
-            {
+            if let Some(t_x) = self.geometry.inverse_curvilinear_abscissa(objective) {
                 t = t_x;
                 p = self.geometry.position(t);
                 current_axis = self.itterative_axis(t, Some(&current_axis));
@@ -306,7 +292,7 @@ impl Curve {
                     p += current_axis * t;
                 }
             } else {
-                while s < len_segment {
+                while current_abcissa < objective {
                     t += small_step;
                     let mut q = self.geometry.position(t);
                     current_axis = self.itterative_axis(t, Some(&current_axis));
@@ -321,40 +307,46 @@ impl Curve {
                     if let Some(t) = self.geometry.translation() {
                         q += translation_axis * t;
                     }
-                    s += (q - p).mag();
+                    current_abcissa += (q - p).mag();
                     p = q;
                 }
             }
             if t < self.geometry.t_max() {
-                t_nucl.push(t);
-                points.push(p);
-                if self.nucl_pos_full_turn.is_none()
-                    && self
-                        .geometry
-                        .full_turn_at_t()
-                        .map(|t_obj| t > t_obj)
-                        .unwrap_or(false)
-                {
-                    self.nucl_pos_full_turn = Some(points.len() as isize - self.nucl_t0 as isize);
+                if forward {
+                    t_nucl.push(t);
+                    points_forward.push(p);
+                    if self.nucl_pos_full_turn.is_none()
+                        && self
+                            .geometry
+                            .full_turn_at_t()
+                            .map(|t_obj| t > t_obj)
+                            .unwrap_or(false)
+                    {
+                        self.nucl_pos_full_turn =
+                            Some(points_forward.len() as isize - self.nucl_t0 as isize);
+                    }
+                    axis_forward.push(current_axis);
+                    curvature.push(self.geometry.curvature(t));
+                    abscissa_forward = current_abcissa + len_segment;
+                } else {
+                    points_backward.push(p);
+                    axis_backward.push(current_axis);
+                    abscissa_backward = current_abcissa + len_segment;
                 }
-                axis.push(current_axis);
-                curvature.push(self.geometry.curvature(t));
             }
         }
         if self.nucl_pos_full_turn.is_none() && self.geometry.full_turn_at_t().is_some() {
             // We want to make a full turn just after the last nucl
-            self.nucl_pos_full_turn = Some(points.len() as isize - self.nucl_t0 as isize + 1);
+            self.nucl_pos_full_turn =
+                Some(points_forward.len() as isize - self.nucl_t0 as isize + 1);
         }
 
-        if inclination.is_some() {
-            self.axis_backward = axis;
-            self.positions_backward = points;
-        } else {
-            self.axis_forward = axis;
-            self.positions_forward = points;
-            self.curvature = curvature;
-            self.t_nucl = Arc::new(t_nucl);
-        }
+        self.axis_backward = axis_backward;
+        self.positions_backward = points_backward;
+        self.axis_forward = axis_forward;
+        self.positions_forward = points_forward;
+        self.curvature = curvature;
+        self.t_nucl = Arc::new(t_nucl);
     }
 
     fn itterative_axis(&self, t: f64, previous: Option<&DMat3>) -> DMat3 {
@@ -377,7 +369,9 @@ impl Curve {
     }
 
     pub fn nb_points(&self) -> usize {
-        self.positions_forward.len().min(self.positions_backward.len())
+        self.positions_forward
+            .len()
+            .min(self.positions_backward.len())
     }
 
     pub fn axis_pos(&self, n: isize) -> Option<DVec3> {
@@ -408,7 +402,13 @@ impl Curve {
         }
     }
 
-    pub fn nucl_pos(&self, n: isize, forward: bool, theta: f64, parameters: &Parameters) -> Option<DVec3> {
+    pub fn nucl_pos(
+        &self,
+        n: isize,
+        forward: bool,
+        theta: f64,
+        parameters: &Parameters,
+    ) -> Option<DVec3> {
         use std::f64::consts::{FRAC_PI_2, PI, TAU};
         let idx = self.idx_convertsion(n)?;
         let theta = if let Some(real_theta) = self.geometry.theta_shift(parameters) {

@@ -627,11 +627,7 @@ impl Helix {
                 return dvec_to_vec(point);
             }
         }
-        let delta_inclination = if forward {
-            0.0
-        } else {
-            -p.inclination
-        };
+        let delta_inclination = if forward { 0.0 } else { -p.inclination };
         let mut ret = Vec3::new(
             n as f32 * p.z_step - delta_inclination,
             theta.sin() * p.helix_radius,
