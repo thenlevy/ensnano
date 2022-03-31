@@ -253,16 +253,26 @@ impl Curve {
             translation_axis[0] = up.cross(translation_axis[2]).normalized();
             translation_axis[1] = translation_axis[2].cross(translation_axis[0]).normalized();
         }
-        let mut point = self.geometry.position(t)
+        let point = self.geometry.position(t)
             + translation_axis * self.geometry.translation().unwrap_or_else(DVec3::zero);
 
         let mut t_nucl = Vec::new();
-        points_forward.push(point);
-        axis_forward.push(current_axis);
-        curvature.push(self.geometry.curvature(t));
-        t_nucl.push(t);
-        let mut abscissa_forward = len_segment;
-        let mut abscissa_backward = inclination;
+        let mut abscissa_forward;
+        let mut abscissa_backward;
+        if inclination >= 0. {
+            points_forward.push(point);
+            axis_forward.push(current_axis);
+            curvature.push(self.geometry.curvature(t));
+            t_nucl.push(t);
+            abscissa_forward = len_segment;
+            abscissa_backward = inclination;
+        } else {
+            points_backward.push(point);
+            axis_backward.push(current_axis);
+            abscissa_backward = len_segment;
+            abscissa_forward = -inclination;
+        }
+
         let mut current_abcissa = 0.0;
         let mut first_non_negative = t < 0.0;
 
