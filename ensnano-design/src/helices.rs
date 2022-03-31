@@ -623,14 +623,14 @@ impl Helix {
 
     fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32, forward: bool) -> Vec3 {
         if let Some(curve) = self.instanciated_curve.as_ref() {
-            if let Some(point) = curve.as_ref().nucl_pos(n, theta as f64, p) {
+            if let Some(point) = curve.as_ref().nucl_pos(n, forward, theta as f64, p) {
                 return dvec_to_vec(point);
             }
         }
         let delta_inclination = if forward {
-            p.inclination / 2.
+            0.0
         } else {
-            -p.inclination / 2.
+            -p.inclination
         };
         let mut ret = Vec3::new(
             n as f32 * p.z_step - delta_inclination,

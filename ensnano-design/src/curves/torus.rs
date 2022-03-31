@@ -128,6 +128,10 @@ impl Curved for Torus {
     fn bounds(&self) -> super::CurveBounds {
         super::CurveBounds::Finite
     }
+
+    fn t_max(&self) -> f64 {
+        1.1
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]

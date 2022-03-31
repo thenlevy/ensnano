@@ -346,11 +346,11 @@ impl super::Curved for TranslatedPiecewiseBezier {
     }
 
     fn t_max(&self) -> f64 {
-        self.original_curve.t_max()
+        self.original_curve.t_max() + 0.1
     }
 
     fn t_min(&self) -> f64 {
-        self.original_curve.t_min()
+        self.original_curve.t_min() 
     }
 
     fn translation(&self) -> Option<DVec3> {
