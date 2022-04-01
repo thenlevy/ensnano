@@ -49,11 +49,11 @@ impl<'a, S: AppState> DraggedCursor<'a, S> {
         )
     }
 
-    fn get_element_under_cursor(&mut self) -> Option<SceneElement> {
+    pub fn get_element_under_cursor(&mut self) -> Option<SceneElement> {
         self.pixel_reader.set_selected_id(self.position)
     }
 
-    fn from_click_cursor(
+    pub (super) fn from_click_cursor(
         clicked_position: PhysicalPosition<f64>,
         current_position: PhysicalPosition<f64>,
         controller: &'a Controller<S>,
@@ -88,8 +88,27 @@ impl<'a, S: AppState> DraggedCursor<'a, S> {
             y: self.position.y - self.delta_position.y * self.controller.area_size.height as f64,
         }
     }
+
+    /// If self is over a possible cross-over origin, return it.
+    pub fn get_xover_origin(&mut self) -> Option<XoverOrigin> {
+        let element = self.get_element_under_cursor();
+        let (nucl, d_id) = self.controller
+            .data
+            .borrow()
+            .element_to_nucl(&element, true)?;
+        let position = self.controller
+            .data
+            .borrow()
+            .get_nucl_position(nucl, d_id)?;
+        Some(XoverOrigin {
+            scene_element: element,
+            nucl,
+            position,
+        })
+    }
 }
 
+#[derive(Clone, Copy)]
 pub(super) struct ClickInfo {
     pub button: MouseButton,
     pub clicked_position: PhysicalPosition<f64>,
@@ -350,13 +369,8 @@ dragging_state_constructor! {tilting_camera, TiltingCamera}
 ///
 /// Cursor movement set the xover target
 pub(super) struct MakingXover {
-    /// The element that was clicked on to enter this state
-    ///
-    /// This is a `SceneElement` and not a `Nucl` because it can also be a Phantom Element
-    source_element: Option<SceneElement>,
-    source_nucl: Nucl,
-    /// The space position of `self.source_element`
-    source_position: Vec3,
+    /// The origin of the cross-over beeing made
+    origin: XoverOrigin,
     /// The element that is currently under the cursor
     target_element: Option<SceneElement>,
     /// The xover that will be attempted when releasing the button
@@ -376,12 +390,12 @@ impl DraggingTransitionTable for MakingXover {
     ) -> Option<Consequence> {
         let element = cursor.get_element_under_cursor();
         self.target_element = element.clone();
-        let projected_position = cursor.get_projection_on_plane(self.source_position);
+        let projected_position = cursor.get_projection_on_plane(self.origin.position);
         self.current_xover = cursor
             .controller
             .data
             .borrow()
-            .attempt_xover(&self.source_element, &self.target_element);
+            .attempt_xover(&self.origin.scene_element, &self.target_element);
         self.magic_xover = cursor.controller.current_modifiers.shift();
         Some(Consequence::MoveFreeXover(element, projected_position))
     }
@@ -400,7 +414,7 @@ impl DraggingTransitionTable for MakingXover {
     }
 
     fn on_enterring(&self) -> TransistionConsequence {
-        TransistionConsequence::InitFreeXover(self.source_nucl, 0, self.source_position)
+        TransistionConsequence::InitFreeXover(self.origin.nucl, 0, self.origin.position)
     }
 
     fn on_leaving(&self) -> TransistionConsequence {
@@ -412,34 +426,31 @@ impl DraggingTransitionTable for MakingXover {
     }
 }
 
-pub(super) fn making_xover<S: AppState>(
-    mut cursor: DraggedCursor<'_, S>,
-) -> Option<DraggingState<MakingXover>> {
-    let source_element = cursor.get_element_under_cursor();
-    let (nucl, d_id) = cursor
-        .controller
-        .data
-        .borrow()
-        .element_to_nucl(&source_element, true)?;
-    let source_position = cursor
-        .controller
-        .data
-        .borrow()
-        .get_nucl_position(nucl, d_id)?;
+/// The element that was clicked on to enter the MakingXover state
+#[derive(Clone)]
+pub (super) struct XoverOrigin {
+    scene_element: Option<SceneElement>,
+    position: Vec3,
+    nucl: Nucl,
+}
+
+
+pub(super) fn making_xover(
+    click_info: ClickInfo,
+    origin: XoverOrigin,
+) -> DraggingState<MakingXover> {
 
     let transition_table = MakingXover {
         magic_xover: false,
-        source_element,
-        source_nucl: nucl,
         target_element: None,
         current_xover: None,
-        source_position,
+        origin,
     };
 
-    Some(DraggingState {
-        current_cursor_position: cursor.position,
-        clicked_button: MouseButton::Left,
-        clicked_position: cursor.get_clicked_position(),
+    DraggingState {
+        current_cursor_position: click_info.current_position,
+        clicked_button: click_info.button,
+        clicked_position: click_info.clicked_position,
         transition_table,
-    })
+    }
 }

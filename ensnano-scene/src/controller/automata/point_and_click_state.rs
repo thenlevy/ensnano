@@ -26,7 +26,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! If the cursor moves away form this position this causes a transition to either the normal
 //! state, or a specific DraggingState.
 
-use super::dragging_state::{ClickInfo, DraggedCursor};
+use super::dragging_state::{ClickInfo, DraggedCursor, XoverOrigin};
 use super::*;
 
 /// The limit between "near" and "far" distances.
@@ -51,6 +51,17 @@ impl<S: AppState, F: 'static> OptionalTransition<S> for F where
 {
 }
 
+/// A function that maps a context (i.e. a pair &Controller, &mut ElementSelector) to an
+/// OptionalTransition.
+///
+/// This is usefull when the context has an influence on weither a certain event should trigger an
+/// OptionalTransition.
+trait ContextDependentTransition<S: AppState>: for<'a> Fn(&'a Controller<S>, &'a mut ElementSelector, ClickInfo) -> Box<dyn OptionalTransition<S>> { }
+
+impl<S: AppState, F: 'static> ContextDependentTransition<S> for F where
+    F: for<'a> Fn(&'a Controller<S>, &'a mut ElementSelector, ClickInfo) -> Box<dyn OptionalTransition<S>> { }
+
+
 /// A state in which the user is clicking on an object.
 ///
 /// The controller's automata between the moment the button is pressed and the moment it is
@@ -70,7 +81,8 @@ pub(super) struct PointAndClicking<S: AppState> {
     away_state: &'static dyn OptionalTransition<S>,
     /// If Some(_), an `OptionalTransition` triggered when the cursor has been held for a long
     /// time.
-    long_hold_state: Option<&'static dyn OptionalTransition<S>>,
+    long_hold_state: Option<Box<dyn OptionalTransition<S> + 'static>>,
+    long_hold_state_maker: Option<&'static dyn ContextDependentTransition<S>>,
     /// A description of the current state of the controller's automata
     description: &'static str,
     clicked_date: std::time::Instant,
@@ -109,6 +121,10 @@ impl<S: AppState> ControllerState<S> for PointAndClicking<S> {
                         consequences: Consequence::Nothing,
                     }
                 } else {
+                    if let Some(transition_maker) = self.long_hold_state_maker.as_ref() {
+                        self.long_hold_state = Some(transition_maker(_controller, _pixel_reader, self.get_click_info(position)))
+
+                    }
                     Transition::nothing()
                 }
             }
@@ -162,6 +178,7 @@ impl<S: AppState> PointAndClicking<S> {
             pressed_button: MouseButton::Right,
             release_consequences: Consequence::PivotElement(pivot_elment),
             long_hold_state: None,
+            long_hold_state_maker: None,
             clicked_date: std::time::Instant::now(),
         }
     }
@@ -171,8 +188,29 @@ fn rotating_camera<S: AppState>(click: ClickInfo) -> Option<Box<dyn ControllerSt
     Some(Box::new(dragging_state::rotating_camera(click)))
 }
 
-fn making_xover<S: AppState>(cursor: DraggedCursor<'_, S>) -> Option<Box<dyn ControllerState<S>>> {
-    Some(Box::new(dragging_state::making_xover(cursor)?))
+impl<S: AppState> PointAndClicking<S> {
+    /// A state in which the user is selecting an element. 
+    ///
+    /// If the user is clicking on a nucleotide and hold the mouse button for a long time, the
+    /// controller's automata transitions to the `MakingXover` state.
+    pub (super) fn selecting(clicked_position: PhysicalPosition<f64>, element: Option<SceneElement>, adding: bool) -> Self {
+        todo!()
+    }
+
+}
+
+fn making_xover_maker<'a, S: AppState>(controller: &'a Controller<S>, pixel_reader: &'a mut ElementSelector, click: ClickInfo) -> Box<dyn OptionalTransition<S>> {
+    let mut cursor = click.to_dragging_cursor(controller, pixel_reader);
+    let origin = cursor.get_xover_origin();
+    Box::new(move |click: ClickInfo| making_xover(click, &origin))
+}
+
+fn making_xover<S: AppState>(click: ClickInfo, origin: &Option<XoverOrigin>) -> Option<Box<dyn ControllerState<S>>> {
+    if let Some(source) = origin {
+        Some(Box::new(dragging_state::making_xover(click, source.clone())))
+    } else {
+        None
+    }
 }
 
 fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {
