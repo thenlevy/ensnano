@@ -26,7 +26,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! If the cursor moves away form this position this causes a transition to either the normal
 //! state, or a specific DraggingState.
 
-use super::dragging_state::{ClickInfo, DraggingState};
+use super::dragging_state::{ClickInfo, DraggedCursor};
 use super::*;
 
 /// The limit between "near" and "far" distances.
@@ -169,6 +169,10 @@ impl<S: AppState> PointAndClicking<S> {
 
 fn rotating_camera<S: AppState>(click: ClickInfo) -> Option<Box<dyn ControllerState<S>>> {
     Some(Box::new(dragging_state::rotating_camera(click)))
+}
+
+fn making_xover<S: AppState>(cursor: DraggedCursor<'_, S>) -> Option<Box<dyn ControllerState<S>>> {
+    Some(Box::new(dragging_state::making_xover(cursor)?))
 }
 
 fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {

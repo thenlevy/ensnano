@@ -23,6 +23,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! In such a state, cursor movement all cursor movement have similar consequences shuch has moving
 //! the camera or moving an object.
 
+use crate::element_selector;
+
 use super::*;
 
 pub(super) struct DraggedCursor<'a, S: AppState> {
@@ -50,6 +52,42 @@ impl<'a, S: AppState> DraggedCursor<'a, S> {
     fn get_element_under_cursor(&mut self) -> Option<SceneElement> {
         self.pixel_reader.set_selected_id(self.position)
     }
+
+    fn from_click_cursor(
+        clicked_position: PhysicalPosition<f64>,
+        current_position: PhysicalPosition<f64>,
+        controller: &'a Controller<S>,
+        pixel_reader: &'a mut ElementSelector,
+    ) -> Self {
+        let normalized_x = current_position.x / controller.area_size.width as f64;
+        let normalized_y = current_position.y / controller.area_size.height as f64;
+
+        let mouse_dx =
+            (current_position.x - clicked_position.x) / controller.area_size.width as f64;
+        let mouse_dy =
+            (current_position.y - clicked_position.y) / controller.area_size.height as f64;
+
+        Self {
+            position: current_position,
+            delta_position: PhysicalPosition {
+                x: mouse_dx,
+                y: mouse_dy,
+            },
+            normalized_position: PhysicalPosition {
+                x: normalized_x,
+                y: normalized_y,
+            },
+            controller,
+            pixel_reader,
+        }
+    }
+
+    fn get_clicked_position(&self) -> PhysicalPosition<f64> {
+        PhysicalPosition {
+            x: self.position.x - self.delta_position.x * self.controller.area_size.width as f64,
+            y: self.position.y - self.delta_position.y * self.controller.area_size.height as f64,
+        }
+    }
 }
 
 pub(super) struct ClickInfo {
@@ -65,6 +103,19 @@ impl ClickInfo {
             clicked_position,
             current_position: clicked_position,
         }
+    }
+
+    pub fn to_dragging_cursor<'a, S: AppState>(
+        self,
+        controller: &'a Controller<S>,
+        pixel_reader: &'a mut ElementSelector,
+    ) -> DraggedCursor<'a, S> {
+        DraggedCursor::from_click_cursor(
+            self.clicked_position,
+            self.current_position,
+            controller,
+            pixel_reader,
+        )
     }
 }
 
@@ -105,24 +156,7 @@ impl<Table: DraggingTransitionTable> DraggingState<Table> {
         pixel_reader: &'a mut ElementSelector,
     ) -> DraggedCursor<'a, S> {
         self.current_cursor_position = position;
-        let normalized_x = position.x / controller.area_size.width as f64;
-        let normalized_y = position.y / controller.area_size.height as f64;
-
-        let mouse_dx = (position.x - self.clicked_position.x) / controller.area_size.width as f64;
-        let mouse_dy = (position.y - self.clicked_position.y) / controller.area_size.height as f64;
-        DraggedCursor {
-            position: self.current_cursor_position,
-            delta_position: PhysicalPosition {
-                x: mouse_dx,
-                y: mouse_dy,
-            },
-            normalized_position: PhysicalPosition {
-                x: normalized_x,
-                y: normalized_y,
-            },
-            controller,
-            pixel_reader,
-        }
+        DraggedCursor::from_click_cursor(self.clicked_position, position, controller, pixel_reader)
     }
 }
 
@@ -323,7 +357,6 @@ pub(super) struct MakingXover {
     source_nucl: Nucl,
     /// The space position of `self.source_element`
     source_position: Vec3,
-    initial_free_xover_end_position: Vec3,
     /// The element that is currently under the cursor
     target_element: Option<SceneElement>,
     /// The xover that will be attempted when releasing the button
@@ -373,4 +406,40 @@ impl DraggingTransitionTable for MakingXover {
     fn on_leaving(&self) -> TransistionConsequence {
         TransistionConsequence::Nothing
     }
+
+    fn cursor() -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Grabbing)
+    }
+}
+
+pub(super) fn making_xover<S: AppState>(
+    mut cursor: DraggedCursor<'_, S>,
+) -> Option<DraggingState<MakingXover>> {
+    let source_element = cursor.get_element_under_cursor();
+    let (nucl, d_id) = cursor
+        .controller
+        .data
+        .borrow()
+        .element_to_nucl(&source_element, true)?;
+    let source_position = cursor
+        .controller
+        .data
+        .borrow()
+        .get_nucl_position(nucl, d_id)?;
+
+    let transition_table = MakingXover {
+        magic_xover: false,
+        source_element,
+        source_nucl: nucl,
+        target_element: None,
+        current_xover: None,
+        source_position,
+    };
+
+    Some(DraggingState {
+        current_cursor_position: cursor.position,
+        clicked_button: MouseButton::Left,
+        clicked_position: cursor.get_clicked_position(),
+        transition_table,
+    })
 }
