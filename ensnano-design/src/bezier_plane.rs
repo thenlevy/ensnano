@@ -473,7 +473,7 @@ impl InstanciatedPath {
     pub fn get_curve_points(&self) -> &[DVec3] {
         self.curve_2d
             .as_ref()
-            .map(|c| c.positions.as_slice())
+            .map(|c| c.positions_forward.as_slice())
             .unwrap_or(&[])
     }
 
