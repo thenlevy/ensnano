@@ -28,6 +28,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::dragging_state::{ClickInfo, XoverOrigin};
 use super::*;
+use std::time::Instant;
 
 /// The limit between "near" and "far" distances.
 const FAR_AWAY: f64 = 5.0;
@@ -54,6 +55,25 @@ impl<S: AppState, F: 'static> OptionalTransition<S> for F where
 enum OptionalTransitionPtr<S: AppState> {
     Owned(Box<dyn OptionalTransition<S>>),
     Borrowed(&'static dyn OptionalTransition<S>),
+}
+
+impl<S: AppState> Default for OptionalTransitionPtr<S> {
+    fn default() -> Self {
+        Self::Borrowed(&back_to_normal_state)
+    }
+}
+
+impl<S: AppState> OptionalTransitionPtr<S> {
+    fn double_clicking(element: Option<SceneElement>) -> Self {
+        let now = Instant::now();
+        Self::Owned(Box::new(move |info| {
+            Some(Box::new(PointAndClicking::double_clicking(
+                info.clicked_position,
+                now,
+                element,
+            )))
+        }))
+    }
 }
 
 impl<S: AppState> std::ops::Deref for OptionalTransitionPtr<S> {
@@ -117,11 +137,11 @@ pub(super) struct PointAndClicking<S: AppState> {
     pressed_button: MouseButton,
     /// The consequences of releasing of clicking of the object initially pointed by the cursor
     release_consequences: Consequence,
+    /// An `OptionalTransition` triggered by releasing the button that was pressed to enter the
+    /// state
+    release_transition: OptionalTransitionPtr<S>,
     /// An `OptionalTransition` triggered by moving the cursor far away from
     /// `self.clicked_position`.
-    ///
-    /// If `None`, the controller's automata will transition to `NormalState` when the cursor moves
-    /// far away from `self.clicked_position`.
     away_state: OptionalTransitionPtr<S>,
     /// If Some(_), a function that will update `self.away_state` when the cursor position
     /// changes.
@@ -193,12 +213,19 @@ impl<S: AppState> ControllerState<S> for PointAndClicking<S> {
                 state: ElementState::Released,
                 button,
                 ..
-            } if *button == self.pressed_button => Transition {
-                new_state: Some(Box::new(NormalState {
-                    mouse_position: position,
-                })),
-                consequences: self.release_consequences.clone(),
-            },
+            } if *button == self.pressed_button => {
+                let new_state =
+                    (self.release_transition)(self.get_click_info(position)).or_else(|| {
+                        Some(Box::new(NormalState {
+                            mouse_position: position,
+                        }))
+                    });
+
+                Transition {
+                    new_state,
+                    consequences: self.release_consequences.clone(),
+                }
+            }
             _ => Transition::nothing(),
         }
     }
@@ -235,6 +262,7 @@ impl<S: AppState> PointAndClicking<S> {
         Self {
             away_state: OptionalTransitionPtr::Borrowed(&rotating_camera),
             away_state_maker: None,
+            release_transition: Default::default(),
             clicked_position,
             description: "Setting Pivot",
             pressed_button: MouseButton::Right,
@@ -250,7 +278,7 @@ fn rotating_camera<S: AppState>(click: ClickInfo) -> Option<Box<dyn ControllerSt
     Some(Box::new(dragging_state::rotating_camera(click)))
 }
 
-fn no_away_state<S: AppState>(_: ClickInfo) -> Option<Box<dyn ControllerState<S>>> {
+fn back_to_normal_state<S: AppState>(_: ClickInfo) -> Option<Box<dyn ControllerState<S>>> {
     None
 }
 
@@ -281,19 +309,43 @@ impl<S: AppState> PointAndClicking<S> {
         adding: bool,
     ) -> Self {
         Self {
-            away_state: OptionalTransitionPtr::Borrowed(&no_away_state),
+            away_state: Default::default(),
             away_state_maker: Some(ContextDependentTransitionPtr::Owned(Box::new(
                 move |_, controller, _, _| build_strand_maker(controller, element),
             ))),
-            clicked_date: std::time::Instant::now(),
+            clicked_date: Instant::now(),
             clicked_position,
             description: "Selecting",
             pressed_button: MouseButton::Left,
             release_consequences: Consequence::ElementSelected(element, adding),
+            release_transition: OptionalTransitionPtr::double_clicking(element),
             long_hold_state: None,
             long_hold_state_maker: Some(ContextDependentTransitionPtr::Borrowed(
                 &making_xover_maker,
             )),
+        }
+    }
+
+    /// A state in which the user may be performing a double click
+    ///
+    /// If the user clicks on the element a second time in a short (i.e. < `LONG_HOLDING_TIME` )
+    /// time interval, this triggers a "double click" consequence.
+    fn double_clicking(
+        clicked_position: PhysicalPosition<f64>,
+        clicked_date: Instant,
+        element: Option<SceneElement>,
+    ) -> Self {
+        Self {
+            away_state: Default::default(),
+            away_state_maker: None,
+            clicked_date,
+            description: "Waiting for double click",
+            pressed_button: MouseButton::Left,
+            release_consequences: Consequence::DoubleClick(element),
+            release_transition: Default::default(),
+            long_hold_state: Some(Default::default()),
+            clicked_position,
+            long_hold_state_maker: None,
         }
     }
 }
