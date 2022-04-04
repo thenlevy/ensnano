@@ -299,15 +299,11 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                 consequences: Consequence::Nothing,
                             }
                         } else {
+                            let adding = controller.current_modifiers.shift()
+                                || ctrl(&controller.current_modifiers);
+                            let new_state = PointAndClicking::selecting(position, element, adding);
                             Transition {
-                                new_state: Some(Box::new(Selecting {
-                                    element,
-                                    clicked_position: position,
-                                    mouse_position: position,
-                                    click_date: Instant::now(),
-                                    adding: controller.current_modifiers.shift()
-                                        | ctrl(&controller.current_modifiers),
-                                })),
+                                new_state: Some(Box::new(new_state)),
                                 consequences: Consequence::Nothing,
                             }
                         }
@@ -355,15 +351,12 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                     }
                                 }
                             } else {
+                                let adding = controller.current_modifiers.shift()
+                                    || ctrl(&controller.current_modifiers);
+                                let new_state =
+                                    PointAndClicking::selecting(position, element, adding);
                                 Transition {
-                                    new_state: Some(Box::new(Selecting {
-                                        element,
-                                        clicked_position: position,
-                                        mouse_position: position,
-                                        click_date: Instant::now(),
-                                        adding: controller.current_modifiers.shift()
-                                            | ctrl(&controller.current_modifiers),
-                                    })),
+                                    new_state: Some(Box::new(new_state)),
                                     consequences: Consequence::Nothing,
                                 }
                             }
@@ -396,15 +389,12 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                     consequences: Consequence::HelixSelected(obj.helix()),
                                 }
                             } else {
+                                let adding = controller.current_modifiers.shift()
+                                    || ctrl(&controller.current_modifiers);
+                                let new_state =
+                                    PointAndClicking::selecting(position, element, adding);
                                 Transition {
-                                    new_state: Some(Box::new(Selecting {
-                                        element: clicked_element,
-                                        clicked_position: position,
-                                        mouse_position: position,
-                                        click_date: Instant::now(),
-                                        adding: controller.current_modifiers.shift()
-                                            | ctrl(&controller.current_modifiers),
-                                    })),
+                                    new_state: Some(Box::new(new_state)),
                                     consequences: Consequence::Nothing,
                                 }
                             }
@@ -472,17 +462,15 @@ impl<S: AppState> ControllerState<S> for NormalState {
                             Transition::nothing()
                         }
                     }
-                    _ => Transition {
-                        new_state: Some(Box::new(Selecting {
-                            element,
-                            clicked_position: position,
-                            mouse_position: position,
-                            click_date: Instant::now(),
-                            adding: controller.current_modifiers.shift()
-                                | ctrl(&controller.current_modifiers),
-                        })),
-                        consequences: Consequence::Nothing,
-                    },
+                    _ => {
+                        let adding = controller.current_modifiers.shift()
+                            || ctrl(&controller.current_modifiers);
+                        let new_state = PointAndClicking::selecting(position, element, adding);
+                        Transition {
+                            new_state: Some(Box::new(new_state)),
+                            consequences: Consequence::Nothing,
+                        }
+                    }
                 }
             }
             WindowEvent::MouseInput {
@@ -534,6 +522,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
     }
 }
 
+/*
 struct Selecting {
     mouse_position: PhysicalPosition<f64>,
     clicked_position: PhysicalPosition<f64>,
@@ -646,6 +635,7 @@ impl<S: AppState> ControllerState<S> for Selecting {
         }
     }
 }
+*/
 
 struct WaitDoubleClick {
     click_date: Instant,

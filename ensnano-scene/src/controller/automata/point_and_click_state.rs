@@ -26,7 +26,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! If the cursor moves away form this position this causes a transition to either the normal
 //! state, or a specific DraggingState.
 
-use super::dragging_state::{ClickInfo, DraggedCursor, XoverOrigin};
+use super::dragging_state::{ClickInfo, XoverOrigin};
 use super::*;
 
 /// The limit between "near" and "far" distances.
@@ -56,11 +56,19 @@ impl<S: AppState, F: 'static> OptionalTransition<S> for F where
 ///
 /// This is usefull when the context has an influence on weither a certain event should trigger an
 /// OptionalTransition.
-trait ContextDependentTransition<S: AppState>: for<'a> Fn(&'a Controller<S>, &'a mut ElementSelector, ClickInfo) -> Box<dyn OptionalTransition<S>> { }
+trait ContextDependentTransition<S: AppState>:
+    for<'a> Fn(&'a Controller<S>, &'a mut ElementSelector, ClickInfo) -> Box<dyn OptionalTransition<S>>
+{
+}
 
 impl<S: AppState, F: 'static> ContextDependentTransition<S> for F where
-    F: for<'a> Fn(&'a Controller<S>, &'a mut ElementSelector, ClickInfo) -> Box<dyn OptionalTransition<S>> { }
-
+    F: for<'a> Fn(
+        &'a Controller<S>,
+        &'a mut ElementSelector,
+        ClickInfo,
+    ) -> Box<dyn OptionalTransition<S>>
+{
+}
 
 /// A state in which the user is clicking on an object.
 ///
@@ -82,6 +90,8 @@ pub(super) struct PointAndClicking<S: AppState> {
     /// If Some(_), an `OptionalTransition` triggered when the cursor has been held for a long
     /// time.
     long_hold_state: Option<Box<dyn OptionalTransition<S> + 'static>>,
+    /// If Some(_), a function that will update `self.long_hold_state` when the cursor position
+    /// changes.
     long_hold_state_maker: Option<&'static dyn ContextDependentTransition<S>>,
     /// A description of the current state of the controller's automata
     description: &'static str,
@@ -122,8 +132,11 @@ impl<S: AppState> ControllerState<S> for PointAndClicking<S> {
                     }
                 } else {
                     if let Some(transition_maker) = self.long_hold_state_maker.as_ref() {
-                        self.long_hold_state = Some(transition_maker(_controller, _pixel_reader, self.get_click_info(position)))
-
+                        self.long_hold_state = Some(transition_maker(
+                            _controller,
+                            _pixel_reader,
+                            self.get_click_info(position),
+                        ))
                     }
                     Transition::nothing()
                 }
@@ -188,26 +201,52 @@ fn rotating_camera<S: AppState>(click: ClickInfo) -> Option<Box<dyn ControllerSt
     Some(Box::new(dragging_state::rotating_camera(click)))
 }
 
+fn no_away_state<S: AppState>(_: ClickInfo) -> Option<Box<dyn ControllerState<S>>> {
+    None
+}
+
 impl<S: AppState> PointAndClicking<S> {
-    /// A state in which the user is selecting an element. 
+    /// A state in which the user is selecting an element.
     ///
     /// If the user is clicking on a nucleotide and hold the mouse button for a long time, the
     /// controller's automata transitions to the `MakingXover` state.
-    pub (super) fn selecting(clicked_position: PhysicalPosition<f64>, element: Option<SceneElement>, adding: bool) -> Self {
-        todo!()
+    pub(super) fn selecting(
+        clicked_position: PhysicalPosition<f64>,
+        element: Option<SceneElement>,
+        adding: bool,
+    ) -> Self {
+        Self {
+            away_state: &no_away_state,
+            clicked_date: std::time::Instant::now(),
+            clicked_position,
+            description: "Selecting",
+            pressed_button: MouseButton::Left,
+            release_consequences: Consequence::ElementSelected(element, adding),
+            long_hold_state: None,
+            long_hold_state_maker: Some(&making_xover_maker),
+        }
     }
-
 }
 
-fn making_xover_maker<'a, S: AppState>(controller: &'a Controller<S>, pixel_reader: &'a mut ElementSelector, click: ClickInfo) -> Box<dyn OptionalTransition<S>> {
+fn making_xover_maker<'a, S: AppState>(
+    controller: &'a Controller<S>,
+    pixel_reader: &'a mut ElementSelector,
+    click: ClickInfo,
+) -> Box<dyn OptionalTransition<S>> {
     let mut cursor = click.to_dragging_cursor(controller, pixel_reader);
     let origin = cursor.get_xover_origin();
     Box::new(move |click: ClickInfo| making_xover(click, &origin))
 }
 
-fn making_xover<S: AppState>(click: ClickInfo, origin: &Option<XoverOrigin>) -> Option<Box<dyn ControllerState<S>>> {
+fn making_xover<S: AppState>(
+    click: ClickInfo,
+    origin: &Option<XoverOrigin>,
+) -> Option<Box<dyn ControllerState<S>>> {
     if let Some(source) = origin {
-        Some(Box::new(dragging_state::making_xover(click, source.clone())))
+        Some(Box::new(dragging_state::making_xover(
+            click,
+            source.clone(),
+        )))
     } else {
         None
     }

@@ -53,7 +53,7 @@ impl<'a, S: AppState> DraggedCursor<'a, S> {
         self.pixel_reader.set_selected_id(self.position)
     }
 
-    pub (super) fn from_click_cursor(
+    pub(super) fn from_click_cursor(
         clicked_position: PhysicalPosition<f64>,
         current_position: PhysicalPosition<f64>,
         controller: &'a Controller<S>,
@@ -92,11 +92,13 @@ impl<'a, S: AppState> DraggedCursor<'a, S> {
     /// If self is over a possible cross-over origin, return it.
     pub fn get_xover_origin(&mut self) -> Option<XoverOrigin> {
         let element = self.get_element_under_cursor();
-        let (nucl, d_id) = self.controller
+        let (nucl, d_id) = self
+            .controller
             .data
             .borrow()
             .element_to_nucl(&element, true)?;
-        let position = self.controller
+        let position = self
+            .controller
             .data
             .borrow()
             .get_nucl_position(nucl, d_id)?;
@@ -428,18 +430,16 @@ impl DraggingTransitionTable for MakingXover {
 
 /// The element that was clicked on to enter the MakingXover state
 #[derive(Clone)]
-pub (super) struct XoverOrigin {
+pub(super) struct XoverOrigin {
     scene_element: Option<SceneElement>,
     position: Vec3,
     nucl: Nucl,
 }
 
-
 pub(super) fn making_xover(
     click_info: ClickInfo,
     origin: XoverOrigin,
 ) -> DraggingState<MakingXover> {
-
     let transition_table = MakingXover {
         magic_xover: false,
         target_element: None,
