@@ -26,6 +26,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use crate::element_selector;
 
 use super::*;
+use ensnano_design::Axis;
 
 pub(super) struct DraggedCursor<'a, S: AppState> {
     /// The current cursor position
@@ -37,6 +38,7 @@ pub(super) struct DraggedCursor<'a, S: AppState> {
     normalized_position: PhysicalPosition<f64>,
     controller: &'a Controller<S>,
     pixel_reader: &'a mut ElementSelector,
+    app_state: &'a S,
 }
 
 impl<'a, S: AppState> DraggedCursor<'a, S> {
@@ -58,6 +60,7 @@ impl<'a, S: AppState> DraggedCursor<'a, S> {
         current_position: PhysicalPosition<f64>,
         controller: &'a Controller<S>,
         pixel_reader: &'a mut ElementSelector,
+        app_state: &'a S,
     ) -> Self {
         let normalized_x = current_position.x / controller.area_size.width as f64;
         let normalized_y = current_position.y / controller.area_size.height as f64;
@@ -79,6 +82,7 @@ impl<'a, S: AppState> DraggedCursor<'a, S> {
             },
             controller,
             pixel_reader,
+            app_state,
         }
     }
 
@@ -108,6 +112,30 @@ impl<'a, S: AppState> DraggedCursor<'a, S> {
             position,
         })
     }
+
+    fn get_projection_on_axis(&self, axis: Axis<'_>) -> Option<isize> {
+        self.controller.view.borrow().compute_projection_axis(
+            axis,
+            self.normalized_position.x,
+            self.normalized_position.y,
+            None,
+            self.controller.stereography.is_some(),
+        )
+    }
+
+    fn get_new_build_position(&mut self) -> Option<isize> {
+        let builder = self.app_state.get_strand_builders().get(0)?;
+        let element = self.get_element_under_cursor();
+        let nucl_under_cursor = self
+            .controller
+            .data
+            .borrow()
+            .element_to_nucl(&element, false);
+
+        nucl_under_cursor
+            .map(|n| n.0.position)
+            .or_else(|| self.get_projection_on_axis(builder.get_axis()))
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -130,12 +158,14 @@ impl ClickInfo {
         self,
         controller: &'a Controller<S>,
         pixel_reader: &'a mut ElementSelector,
+        app_state: &'a S,
     ) -> DraggedCursor<'a, S> {
         DraggedCursor::from_click_cursor(
             self.clicked_position,
             self.current_position,
             controller,
             pixel_reader,
+            app_state,
         )
     }
 }
@@ -175,9 +205,16 @@ impl<Table: DraggingTransitionTable> DraggingState<Table> {
         position: PhysicalPosition<f64>,
         controller: &'a Controller<S>,
         pixel_reader: &'a mut ElementSelector,
+        app_state: &'a S,
     ) -> DraggedCursor<'a, S> {
         self.current_cursor_position = position;
-        DraggedCursor::from_click_cursor(self.clicked_position, position, controller, pixel_reader)
+        DraggedCursor::from_click_cursor(
+            self.clicked_position,
+            position,
+            controller,
+            pixel_reader,
+            app_state,
+        )
     }
 }
 
@@ -205,7 +242,7 @@ impl<S: AppState, Table: DraggingTransitionTable> ControllerState<S> for Draggin
         position: PhysicalPosition<f64>,
         controller: &Controller<S>,
         pixel_reader: &mut ElementSelector,
-        _app_state: &S,
+        app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::MouseInput {
@@ -226,7 +263,7 @@ impl<S: AppState, Table: DraggingTransitionTable> ControllerState<S> for Draggin
             }
 
             WindowEvent::CursorMoved { .. } => {
-                let cursor = self.move_cursor(position, controller, pixel_reader);
+                let cursor = self.move_cursor(position, controller, pixel_reader, app_state);
                 let consequences = self
                     .transition_table
                     .on_cursor_moved(cursor)
@@ -451,6 +488,58 @@ pub(super) fn making_xover(
         current_cursor_position: click_info.current_position,
         clicked_button: click_info.button,
         clicked_position: click_info.clicked_position,
+        transition_table,
+    }
+}
+
+/// The user is moving strand builders
+pub(super) struct BuildingStrands {
+    to_initialize: Option<Vec<Nucl>>,
+}
+
+impl DraggingTransitionTable for BuildingStrands {
+    fn description() -> &'static str {
+        "Moving strands builders"
+    }
+
+    fn on_leaving(&self) -> TransistionConsequence {
+        TransistionConsequence::Nothing
+    }
+
+    fn on_enterring(&self) -> TransistionConsequence {
+        TransistionConsequence::Nothing
+    }
+
+    fn on_cursor_moved<S: AppState>(
+        &mut self,
+        mut cursor: DraggedCursor<'_, S>,
+    ) -> Option<Consequence> {
+        if let Some(nucls) = self.to_initialize.take() {
+            Some(Consequence::InitBuild(nucls))
+        } else {
+            cursor
+                .get_new_build_position()
+                .map(|p| Consequence::Building(p))
+        }
+    }
+
+    fn on_button_released(&self) -> Option<Consequence> {
+        Some(Consequence::BuildEnded)
+    }
+}
+
+pub(super) fn building_strands(
+    click_info: ClickInfo,
+    nucls: Vec<Nucl>,
+) -> DraggingState<BuildingStrands> {
+    let transition_table = BuildingStrands {
+        to_initialize: Some(nucls),
+    };
+
+    DraggingState {
+        current_cursor_position: click_info.current_position,
+        clicked_position: click_info.current_position,
+        clicked_button: click_info.button,
         transition_table,
     }
 }

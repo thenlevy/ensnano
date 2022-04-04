@@ -51,18 +51,54 @@ impl<S: AppState, F: 'static> OptionalTransition<S> for F where
 {
 }
 
+enum OptionalTransitionPtr<S: AppState> {
+    Owned(Box<dyn OptionalTransition<S>>),
+    Borrowed(&'static dyn OptionalTransition<S>),
+}
+
+impl<S: AppState> std::ops::Deref for OptionalTransitionPtr<S> {
+    type Target = dyn OptionalTransition<S> + 'static;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Owned(x) => x,
+            Self::Borrowed(x) => x,
+        }
+    }
+}
+
 /// A function that maps a context (i.e. a pair &Controller, &mut ElementSelector) to an
 /// OptionalTransition.
 ///
 /// This is usefull when the context has an influence on weither a certain event should trigger an
 /// OptionalTransition.
 trait ContextDependentTransition<S: AppState>:
-    for<'a> Fn(&'a Controller<S>, &'a mut ElementSelector, ClickInfo) -> Box<dyn OptionalTransition<S>>
+    for<'a> Fn(
+    &'a S,
+    &'a Controller<S>,
+    &'a mut ElementSelector,
+    ClickInfo,
+) -> Box<dyn OptionalTransition<S>>
 {
+}
+
+enum ContextDependentTransitionPtr<S: AppState> {
+    Owned(Box<dyn ContextDependentTransition<S>>),
+    Borrowed(&'static dyn ContextDependentTransition<S>),
+}
+
+impl<S: AppState> std::ops::Deref for ContextDependentTransitionPtr<S> {
+    type Target = dyn ContextDependentTransition<S> + 'static;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Owned(x) => x,
+            Self::Borrowed(x) => x,
+        }
+    }
 }
 
 impl<S: AppState, F: 'static> ContextDependentTransition<S> for F where
     F: for<'a> Fn(
+        &'a S,
         &'a Controller<S>,
         &'a mut ElementSelector,
         ClickInfo,
@@ -86,13 +122,16 @@ pub(super) struct PointAndClicking<S: AppState> {
     ///
     /// If `None`, the controller's automata will transition to `NormalState` when the cursor moves
     /// far away from `self.clicked_position`.
-    away_state: &'static dyn OptionalTransition<S>,
+    away_state: OptionalTransitionPtr<S>,
+    /// If Some(_), a function that will update `self.away_state` when the cursor position
+    /// changes.
+    away_state_maker: Option<ContextDependentTransitionPtr<S>>,
     /// If Some(_), an `OptionalTransition` triggered when the cursor has been held for a long
     /// time.
-    long_hold_state: Option<Box<dyn OptionalTransition<S> + 'static>>,
+    long_hold_state: Option<OptionalTransitionPtr<S>>,
     /// If Some(_), a function that will update `self.long_hold_state` when the cursor position
     /// changes.
-    long_hold_state_maker: Option<&'static dyn ContextDependentTransition<S>>,
+    long_hold_state_maker: Option<ContextDependentTransitionPtr<S>>,
     /// A description of the current state of the controller's automata
     description: &'static str,
     clicked_date: std::time::Instant,
@@ -113,12 +152,20 @@ impl<S: AppState> ControllerState<S> for PointAndClicking<S> {
         &mut self,
         event: &WindowEvent,
         position: PhysicalPosition<f64>,
-        _controller: &Controller<S>,
-        _pixel_reader: &mut ElementSelector,
-        _app_state: &S,
+        controller: &Controller<S>,
+        pixel_reader: &mut ElementSelector,
+        app_state: &S,
     ) -> Transition<S> {
         match event {
             WindowEvent::CursorMoved { .. } => {
+                if let Some(transition_maker) = self.away_state_maker.as_ref() {
+                    self.away_state = OptionalTransitionPtr::Owned(transition_maker(
+                        app_state,
+                        controller,
+                        pixel_reader,
+                        self.get_click_info(position),
+                    ))
+                }
                 if position_difference(position, self.clicked_position) > FAR_AWAY {
                     let new_state =
                         (self.away_state)(self.get_click_info(position)).or_else(|| {
@@ -132,11 +179,12 @@ impl<S: AppState> ControllerState<S> for PointAndClicking<S> {
                     }
                 } else {
                     if let Some(transition_maker) = self.long_hold_state_maker.as_ref() {
-                        self.long_hold_state = Some(transition_maker(
-                            _controller,
-                            _pixel_reader,
+                        self.long_hold_state = Some(OptionalTransitionPtr::Owned(transition_maker(
+                            app_state,
+                            controller,
+                            pixel_reader,
                             self.get_click_info(position),
-                        ))
+                        )))
                     }
                     Transition::nothing()
                 }
@@ -185,7 +233,8 @@ impl<S: AppState> PointAndClicking<S> {
         pivot_elment: Option<SceneElement>,
     ) -> Self {
         Self {
-            away_state: &rotating_camera,
+            away_state: OptionalTransitionPtr::Borrowed(&rotating_camera),
+            away_state_maker: None,
             clicked_position,
             description: "Setting Pivot",
             pressed_button: MouseButton::Right,
@@ -205,6 +254,22 @@ fn no_away_state<S: AppState>(_: ClickInfo) -> Option<Box<dyn ControllerState<S>
     None
 }
 
+fn build_strand_maker<'a, S: AppState>(
+    controller: &'a Controller<S>,
+    element: Option<SceneElement>,
+) -> Box<dyn OptionalTransition<S>> {
+    let nucl = controller.data.borrow().can_start_builder(element);
+    Box::new(move |click_info| build_strand(click_info, nucl))
+}
+
+fn build_strand<S: AppState>(
+    click: ClickInfo,
+    nucl: Option<Nucl>,
+) -> Option<Box<dyn ControllerState<S>>> {
+    let nucls = vec![nucl?];
+    Some(Box::new(dragging_state::building_strands(click, nucls)))
+}
+
 impl<S: AppState> PointAndClicking<S> {
     /// A state in which the user is selecting an element.
     ///
@@ -216,24 +281,30 @@ impl<S: AppState> PointAndClicking<S> {
         adding: bool,
     ) -> Self {
         Self {
-            away_state: &no_away_state,
+            away_state: OptionalTransitionPtr::Borrowed(&no_away_state),
+            away_state_maker: Some(ContextDependentTransitionPtr::Owned(Box::new(
+                move |_, controller, _, _| build_strand_maker(controller, element),
+            ))),
             clicked_date: std::time::Instant::now(),
             clicked_position,
             description: "Selecting",
             pressed_button: MouseButton::Left,
             release_consequences: Consequence::ElementSelected(element, adding),
             long_hold_state: None,
-            long_hold_state_maker: Some(&making_xover_maker),
+            long_hold_state_maker: Some(ContextDependentTransitionPtr::Borrowed(
+                &making_xover_maker,
+            )),
         }
     }
 }
 
 fn making_xover_maker<'a, S: AppState>(
+    app_state: &'a S,
     controller: &'a Controller<S>,
     pixel_reader: &'a mut ElementSelector,
     click: ClickInfo,
 ) -> Box<dyn OptionalTransition<S>> {
-    let mut cursor = click.to_dragging_cursor(controller, pixel_reader);
+    let mut cursor = click.to_dragging_cursor(controller, pixel_reader, app_state);
     let origin = cursor.get_xover_origin();
     Box::new(move |click: ClickInfo| making_xover(click, &origin))
 }
