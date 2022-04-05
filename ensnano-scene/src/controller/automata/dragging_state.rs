@@ -23,10 +23,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! In such a state, cursor movement all cursor movement have similar consequences shuch has moving
 //! the camera or moving an object.
 
-use crate::element_selector;
-
 use super::*;
-use ensnano_design::Axis;
 
 pub(super) struct DraggedCursor<'a, S: AppState> {
     /// The current cursor position
@@ -36,105 +33,26 @@ pub(super) struct DraggedCursor<'a, S: AppState> {
     delta_position: PhysicalPosition<f64>,
     /// The current cursor position normalized by the size of the scene's area.
     normalized_position: PhysicalPosition<f64>,
-    controller: &'a Controller<S>,
-    pixel_reader: &'a mut ElementSelector,
-    app_state: &'a S,
+    context: &'a mut EventContext<'a, S>,
 }
 
 impl<'a, S: AppState> DraggedCursor<'a, S> {
-    fn get_projection_on_plane(&self, plane_origin: Vec3) -> Vec3 {
-        self.controller.camera_controller.get_projection(
-            plane_origin,
-            self.normalized_position.x,
-            self.normalized_position.y,
-            self.controller.stereography.as_ref(),
-        )
-    }
-
-    pub fn get_element_under_cursor(&mut self) -> Option<SceneElement> {
-        self.pixel_reader.set_selected_id(self.position)
-    }
-
     pub(super) fn from_click_cursor(
         clicked_position: PhysicalPosition<f64>,
         current_position: PhysicalPosition<f64>,
-        controller: &'a Controller<S>,
-        pixel_reader: &'a mut ElementSelector,
-        app_state: &'a S,
+        context: &'a mut EventContext<'a, S>,
     ) -> Self {
-        let normalized_x = current_position.x / controller.area_size.width as f64;
-        let normalized_y = current_position.y / controller.area_size.height as f64;
-
-        let mouse_dx =
-            (current_position.x - clicked_position.x) / controller.area_size.width as f64;
-        let mouse_dy =
-            (current_position.y - clicked_position.y) / controller.area_size.height as f64;
+        let delta_postion = PhysicalPosition {
+            x: current_position.x - clicked_position.x,
+            y: current_position.y - clicked_position.y,
+        };
 
         Self {
             position: current_position,
-            delta_position: PhysicalPosition {
-                x: mouse_dx,
-                y: mouse_dy,
-            },
-            normalized_position: PhysicalPosition {
-                x: normalized_x,
-                y: normalized_y,
-            },
-            controller,
-            pixel_reader,
-            app_state,
+            delta_position: context.normalize_position(delta_postion),
+            normalized_position: context.normalize_position(current_position),
+            context,
         }
-    }
-
-    fn get_clicked_position(&self) -> PhysicalPosition<f64> {
-        PhysicalPosition {
-            x: self.position.x - self.delta_position.x * self.controller.area_size.width as f64,
-            y: self.position.y - self.delta_position.y * self.controller.area_size.height as f64,
-        }
-    }
-
-    /// If self is over a possible cross-over origin, return it.
-    pub fn get_xover_origin(&mut self) -> Option<XoverOrigin> {
-        let element = self.get_element_under_cursor();
-        let (nucl, d_id) = self
-            .controller
-            .data
-            .borrow()
-            .element_to_nucl(&element, true)?;
-        let position = self
-            .controller
-            .data
-            .borrow()
-            .get_nucl_position(nucl, d_id)?;
-        Some(XoverOrigin {
-            scene_element: element,
-            nucl,
-            position,
-        })
-    }
-
-    fn get_projection_on_axis(&self, axis: Axis<'_>) -> Option<isize> {
-        self.controller.view.borrow().compute_projection_axis(
-            axis,
-            self.normalized_position.x,
-            self.normalized_position.y,
-            None,
-            self.controller.stereography.is_some(),
-        )
-    }
-
-    fn get_new_build_position(&mut self) -> Option<isize> {
-        let builder = self.app_state.get_strand_builders().get(0)?;
-        let element = self.get_element_under_cursor();
-        let nucl_under_cursor = self
-            .controller
-            .data
-            .borrow()
-            .element_to_nucl(&element, false);
-
-        nucl_under_cursor
-            .map(|n| n.0.position)
-            .or_else(|| self.get_projection_on_axis(builder.get_axis()))
     }
 }
 
@@ -156,17 +74,9 @@ impl ClickInfo {
 
     pub fn to_dragging_cursor<'a, S: AppState>(
         self,
-        controller: &'a Controller<S>,
-        pixel_reader: &'a mut ElementSelector,
-        app_state: &'a S,
+        context: &'a mut EventContext<'a, S>,
     ) -> DraggedCursor<'a, S> {
-        DraggedCursor::from_click_cursor(
-            self.clicked_position,
-            self.current_position,
-            controller,
-            pixel_reader,
-            app_state,
-        )
+        DraggedCursor::from_click_cursor(self.clicked_position, self.current_position, context)
     }
 }
 
@@ -202,19 +112,10 @@ impl<Table: DraggingTransitionTable> DraggingState<Table> {
     /// Register the cursor movement and return an up-to-date DraggedCursor.
     fn move_cursor<'a, S: AppState>(
         &mut self,
-        position: PhysicalPosition<f64>,
-        controller: &'a Controller<S>,
-        pixel_reader: &'a mut ElementSelector,
-        app_state: &'a S,
+        context: &'a mut EventContext<'a, S>,
     ) -> DraggedCursor<'a, S> {
-        self.current_cursor_position = position;
-        DraggedCursor::from_click_cursor(
-            self.clicked_position,
-            position,
-            controller,
-            pixel_reader,
-            app_state,
-        )
+        self.current_cursor_position = context.cursor_position;
+        DraggedCursor::from_click_cursor(self.clicked_position, context.cursor_position, context)
     }
 }
 
@@ -236,14 +137,12 @@ impl<S: AppState, Table: DraggingTransitionTable> ControllerState<S> for Draggin
         Table::description().into()
     }
 
-    fn input(
+    fn input<'a>(
         &mut self,
         event: &WindowEvent,
-        position: PhysicalPosition<f64>,
-        controller: &Controller<S>,
-        pixel_reader: &mut ElementSelector,
-        app_state: &S,
+        context: &'a mut EventContext<'a, S>,
     ) -> Transition<S> {
+        let position = context.cursor_position;
         match event {
             WindowEvent::MouseInput {
                 button,
@@ -263,7 +162,7 @@ impl<S: AppState, Table: DraggingTransitionTable> ControllerState<S> for Draggin
             }
 
             WindowEvent::CursorMoved { .. } => {
-                let cursor = self.move_cursor(position, controller, pixel_reader, app_state);
+                let cursor = self.move_cursor(context);
                 let consequences = self
                     .transition_table
                     .on_cursor_moved(cursor)
@@ -427,15 +326,13 @@ impl DraggingTransitionTable for MakingXover {
         &mut self,
         mut cursor: DraggedCursor<'_, S>,
     ) -> Option<Consequence> {
-        let element = cursor.get_element_under_cursor();
+        let element = cursor.context.get_element_under_cursor();
         self.target_element = element.clone();
-        let projected_position = cursor.get_projection_on_plane(self.origin.position);
+        let projected_position = cursor.context.get_projection_on_plane(self.origin.position);
         self.current_xover = cursor
-            .controller
-            .data
-            .borrow()
+            .context
             .attempt_xover(&self.origin.scene_element, &self.target_element);
-        self.magic_xover = cursor.controller.current_modifiers.shift();
+        self.magic_xover = cursor.context.get_modifiers().shift();
         Some(Consequence::MoveFreeXover(element, projected_position))
     }
 
@@ -463,14 +360,6 @@ impl DraggingTransitionTable for MakingXover {
     fn cursor() -> Option<ensnano_interactor::CursorIcon> {
         Some(CursorIcon::Grabbing)
     }
-}
-
-/// The element that was clicked on to enter the MakingXover state
-#[derive(Clone)]
-pub(super) struct XoverOrigin {
-    scene_element: Option<SceneElement>,
-    position: Vec3,
-    nucl: Nucl,
 }
 
 pub(super) fn making_xover(
@@ -518,6 +407,7 @@ impl DraggingTransitionTable for BuildingStrands {
             Some(Consequence::InitBuild(nucls))
         } else {
             cursor
+                .context
                 .get_new_build_position()
                 .map(|p| Consequence::Building(p))
         }

@@ -26,7 +26,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! If the cursor moves away form this position this causes a transition to either the normal
 //! state, or a specific DraggingState.
 
-use super::dragging_state::{ClickInfo, XoverOrigin};
+use super::dragging_state::ClickInfo;
 use super::*;
 use std::time::Instant;
 
@@ -92,12 +92,7 @@ impl<S: AppState> std::ops::Deref for OptionalTransitionPtr<S> {
 /// This is usefull when the context has an influence on weither a certain event should trigger an
 /// OptionalTransition.
 trait ContextDependentTransition<S: AppState>:
-    for<'a> Fn(
-    &'a S,
-    &'a Controller<S>,
-    &'a mut ElementSelector,
-    ClickInfo,
-) -> Box<dyn OptionalTransition<S>>
+    for<'a> Fn(&'a mut EventContext<'a, S>, ClickInfo) -> Box<dyn OptionalTransition<S>>
 {
 }
 
@@ -117,12 +112,7 @@ impl<S: AppState> std::ops::Deref for ContextDependentTransitionPtr<S> {
 }
 
 impl<S: AppState, F: 'static> ContextDependentTransition<S> for F where
-    F: for<'a> Fn(
-        &'a S,
-        &'a Controller<S>,
-        &'a mut ElementSelector,
-        ClickInfo,
-    ) -> Box<dyn OptionalTransition<S>>
+    F: for<'a> Fn(&'a mut EventContext<'a, S>, ClickInfo) -> Box<dyn OptionalTransition<S>>
 {
 }
 
@@ -168,21 +158,17 @@ impl<S: AppState> PointAndClicking<S> {
 }
 
 impl<S: AppState> ControllerState<S> for PointAndClicking<S> {
-    fn input(
+    fn input<'a>(
         &mut self,
         event: &WindowEvent,
-        position: PhysicalPosition<f64>,
-        controller: &Controller<S>,
-        pixel_reader: &mut ElementSelector,
-        app_state: &S,
+        context: &'a mut EventContext<'a, S>,
     ) -> Transition<S> {
+        let position = context.cursor_position;
         match event {
             WindowEvent::CursorMoved { .. } => {
                 if let Some(transition_maker) = self.away_state_maker.as_ref() {
                     self.away_state = OptionalTransitionPtr::Owned(transition_maker(
-                        app_state,
-                        controller,
-                        pixel_reader,
+                        context,
                         self.get_click_info(position),
                     ))
                 }
@@ -200,9 +186,7 @@ impl<S: AppState> ControllerState<S> for PointAndClicking<S> {
                 } else {
                     if let Some(transition_maker) = self.long_hold_state_maker.as_ref() {
                         self.long_hold_state = Some(OptionalTransitionPtr::Owned(transition_maker(
-                            app_state,
-                            controller,
-                            pixel_reader,
+                            context,
                             self.get_click_info(position),
                         )))
                     }
@@ -283,10 +267,10 @@ fn back_to_normal_state<S: AppState>(_: ClickInfo) -> Option<Box<dyn ControllerS
 }
 
 fn build_strand_maker<'a, S: AppState>(
-    controller: &'a Controller<S>,
+    context: &'a EventContext<'a, S>,
     element: Option<SceneElement>,
 ) -> Box<dyn OptionalTransition<S>> {
-    let nucl = controller.data.borrow().can_start_builder(element);
+    let nucl = context.can_start_builder(element);
     Box::new(move |click_info| build_strand(click_info, nucl))
 }
 
@@ -311,7 +295,7 @@ impl<S: AppState> PointAndClicking<S> {
         Self {
             away_state: Default::default(),
             away_state_maker: Some(ContextDependentTransitionPtr::Owned(Box::new(
-                move |_, controller, _, _| build_strand_maker(controller, element),
+                move |context, _| build_strand_maker(context, element),
             ))),
             clicked_date: Instant::now(),
             clicked_position,
@@ -351,13 +335,10 @@ impl<S: AppState> PointAndClicking<S> {
 }
 
 fn making_xover_maker<'a, S: AppState>(
-    app_state: &'a S,
-    controller: &'a Controller<S>,
-    pixel_reader: &'a mut ElementSelector,
+    context: &mut EventContext<'a, S>,
     click: ClickInfo,
 ) -> Box<dyn OptionalTransition<S>> {
-    let mut cursor = click.to_dragging_cursor(controller, pixel_reader, app_state);
-    let origin = cursor.get_xover_origin();
+    let origin = context.get_xover_origin_under_cursor();
     Box::new(move |click: ClickInfo| making_xover(click, &origin))
 }
 
