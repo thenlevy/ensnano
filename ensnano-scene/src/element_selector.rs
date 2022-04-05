@@ -17,13 +17,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use std::rc::Rc;
 
-use super::ultraviolet::Vec2;
 use super::{Device, DrawArea, DrawType, Queue, ViewPtr};
 use ensnano_design::grid::{GridId, GridPosition};
 use ensnano_design::{BezierPathId, BezierPlaneId, BezierVertexId};
 use ensnano_interactor::{phantom_helix_decoder, BezierControlPoint, PhantomElement};
 use ensnano_utils as utils;
 use futures::executor;
+use num_enum::IntoPrimitive;
 use std::convert::TryInto;
 use utils::wgpu;
 use utils::winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -249,6 +249,11 @@ pub enum SceneElement {
         path_id: BezierPathId,
         vertex_id: usize,
     },
+    BezierTengent {
+        path_id: BezierPathId,
+        vertex_id: usize,
+        tengent_in: bool,
+    },
     PlaneCorner {
         plane_id: BezierPlaneId,
         corner_type: CornerType,
@@ -303,6 +308,7 @@ impl SceneElement {
             SceneElement::BezierControl { .. } => None,
             SceneElement::BezierVertex { .. } => Some(0),
             SceneElement::PlaneCorner { .. } => Some(0),
+            SceneElement::BezierTengent { .. } => Some(0),
         }
     }
 
@@ -337,6 +343,16 @@ struct SceneReader {
     draw_type: DrawType,
 }
 
+#[derive(IntoPrimitive)]
+#[repr(u32)]
+enum ObjType {
+    None = 0xFF,
+    BezierVertex = 0xFE,
+    BezierPlaneCorner = 0xFD,
+    BezierTengentIn = 0xFC,
+    BezierTengentOut = 0xFB,
+}
+
 impl SceneReader {
     pub fn new(draw_type: DrawType) -> Self {
         Self {
@@ -359,12 +375,12 @@ impl SceneReader {
             a
         );
         let color = r + g + b;
-        if a == 0xFF {
+        if a == ObjType::None.into() {
             None
         } else {
             match self.draw_type {
                 DrawType::Grid => {
-                    if a == 0xFE {
+                    if a == ObjType::BezierVertex.into() {
                         let vertex = BezierVertexId {
                             path_id: BezierPathId(r >> 16),
                             vertex_id: (g + b) as usize,
@@ -375,15 +391,27 @@ impl SceneReader {
                     }
                 }
                 DrawType::Design => {
-                    if a == 0xFE {
+                    if a == ObjType::BezierVertex.into() {
                         Some(SceneElement::BezierVertex {
                             path_id: BezierPathId(r >> 16),
                             vertex_id: (g + b) as usize,
                         })
-                    } else if a == 0xFD {
+                    } else if a == ObjType::BezierPlaneCorner.into() {
                         Some(SceneElement::PlaneCorner {
                             plane_id: BezierPlaneId(g + b),
                             corner_type: CornerType::from_u32(r >> 16),
+                        })
+                    } else if a == ObjType::BezierTengentIn.into() {
+                        Some(SceneElement::BezierTengent {
+                            path_id: BezierPathId(r >> 16),
+                            vertex_id: (g + b) as usize,
+                            tengent_in: true,
+                        })
+                    } else if a == ObjType::BezierTengentOut.into() {
+                        Some(SceneElement::BezierTengent {
+                            path_id: BezierPathId(r >> 16),
+                            vertex_id: (g + b) as usize,
+                            tengent_in: false,
                         })
                     } else {
                         Some(SceneElement::DesignElement(a, color))
@@ -402,5 +430,14 @@ impl SceneReader {
 }
 
 pub fn bezier_vertex_id(path_id: BezierPathId, vertex_id: usize) -> u32 {
-    (0xFE << 24) | ((path_id.0) << 16) | (vertex_id as u32)
+    (u32::from(ObjType::BezierVertex) << 24) | ((path_id.0) << 16) | (vertex_id as u32)
+}
+
+pub fn bezier_tengent_id(path_id: BezierPathId, vertex_id: usize, tengent_in: bool) -> u32 {
+    let front = if tengent_in {
+        u32::from(ObjType::BezierTengentIn)
+    } else {
+        u32::from(ObjType::BezierTengentOut)
+    };
+    front | ((path_id.0) << 16) | (vertex_id as u32)
 }

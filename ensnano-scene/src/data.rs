@@ -1018,6 +1018,7 @@ impl<R: DesignReader> Data<R> {
                         set.insert(helix_id as u32, false);
                     }
                     SceneElement::BezierVertex { .. } => (),
+                    SceneElement::BezierTengent { .. } => (),
                     SceneElement::PlaneCorner { .. } => (),
                 }
             }
@@ -1789,6 +1790,7 @@ impl<R: DesignReader> Data<R> {
             SceneElement::BezierVertex { vertex_id, path_id } => {
                 Some(CenterOfSelection::BezierVertex { path_id, vertex_id })
             }
+            SceneElement::BezierTengent { .. } => None,
             SceneElement::PlaneCorner { .. } => None,
         }
     }

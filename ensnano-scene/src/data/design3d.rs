@@ -681,7 +681,8 @@ impl<R: DesignReader> Design3D<R> {
             | SceneElement::BezierControl { .. }
             | SceneElement::BezierVertex { .. }
             | SceneElement::GridCircle(_, _)
-            | SceneElement::PlaneCorner { .. } => None,
+            | SceneElement::PlaneCorner { .. }
+            | SceneElement::BezierTengent { .. } => None,
         }
     }
 
@@ -1057,7 +1058,9 @@ impl<R: DesignReader> Design3D<R> {
                         SphereInstance {
                             position: bezier_end.position + bezier_end.vector_out,
                             color: Instance::color_from_u32(BEZIER_CONTROL1_COLOR),
-                            id: 0,
+                            id: crate::element_selector::bezier_tengent_id(
+                                *path_id, vertex_id, false,
+                            ),
                             radius: 5.0,
                         }
                         .to_raw_instance(),
@@ -1066,7 +1069,9 @@ impl<R: DesignReader> Design3D<R> {
                         SphereInstance {
                             position: bezier_end.position - bezier_end.vector_in,
                             color: Instance::color_from_u32(BEZIER_CONTROL1_COLOR),
-                            id: 0,
+                            id: crate::element_selector::bezier_tengent_id(
+                                *path_id, vertex_id, true,
+                            ),
                             radius: 5.0,
                         }
                         .to_raw_instance(),
