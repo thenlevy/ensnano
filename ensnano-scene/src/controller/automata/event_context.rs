@@ -161,6 +161,43 @@ impl<'a, S: AppState> EventContext<'a, S> {
         }
     }
 
+    pub fn get_bezier_vertex_being_eddited(&self) -> Option<(BezierPathId, usize)> {
+        if let (ActionMode::EditBezierPath { path_id, vertex_id }, _) =
+            self.app_state.get_action_mode()
+        {
+            path_id.zip(vertex_id)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_plane_of_bezier_vertex(
+        &self,
+        path_id: BezierPathId,
+        vertex_id: usize,
+    ) -> Option<BezierPlaneId> {
+        self.app_state
+            .get_design_reader()
+            .get_bezier_vertex(path_id, vertex_id)
+            .map(|v| v.plane_id)
+    }
+
+    pub fn get_intersection_with_bezier_plane(
+        self,
+        plane_id: BezierPlaneId,
+    ) -> Option<BezierPlaneIntersection> {
+        let normalized_position = self.normalized_cursor_position();
+        let ray = self
+            .controller
+            .camera_controller
+            .ray(normalized_position.x as f32, normalized_position.y as f32);
+        self.app_state
+            .get_design_reader()
+            .get_bezier_planes()
+            .get(&plane_id)
+            .and_then(|p| p.ray_intersection(ray.0, ray.1))
+    }
+
     pub fn is_pasting(&self) -> bool {
         self.app_state.is_pasting()
     }
@@ -199,6 +236,15 @@ impl<'a, S: AppState> EventContext<'a, S> {
             .view
             .borrow()
             .grid_intersection(normalized_position.x as f32, normalized_position.y as f32)
+    }
+
+    pub fn get_specific_grid_intersection(&self, grid_id: GridId) -> Option<GridIntersection> {
+        let normalized_position = self.normalized_cursor_position();
+        self.controller.view.borrow().specific_grid_intersection(
+            normalized_position.x as f32,
+            normalized_position.y as f32,
+            grid_id,
+        )
     }
 
     pub fn get_action_mode(&self) -> ActionMode {

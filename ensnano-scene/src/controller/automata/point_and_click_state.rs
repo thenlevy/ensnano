@@ -332,6 +332,47 @@ impl<S: AppState> PointAndClicking<S> {
             long_hold_state_maker: None,
         }
     }
+
+    /// A state in which the user is pasting something
+    pub(super) fn pasting(
+        clicked_position: PhysicalPosition<f64>,
+        element: Option<SceneElement>,
+    ) -> Self {
+        Self {
+            away_state: Default::default(),
+            away_state_maker: None,
+            clicked_date: Instant::now(),
+            description: "Pasting",
+            pressed_button: MouseButton::Left,
+            release_consequences: Consequence::Paste(element),
+            long_hold_state: None,
+            clicked_position,
+            long_hold_state_maker: None,
+            release_transition: Default::default(),
+        }
+    }
+
+    pub(super) fn building_helix(state: super::BuildingHelix) -> Self {
+        Self {
+            away_state: Default::default(),
+            away_state_maker: None,
+            clicked_date: Instant::now(),
+            description: "Building Helix",
+            pressed_button: MouseButton::Left,
+            release_consequences: Consequence::BuildHelix {
+                design_id: state.design_id,
+                grid_id: state.grid_id,
+                length: state.length_helix,
+                x: state.x_helix,
+                y: state.y_helix,
+                position: state.position_helix,
+            },
+            long_hold_state: None,
+            clicked_position: state.clicked_position,
+            long_hold_state_maker: None,
+            release_transition: Default::default(),
+        }
+    }
 }
 
 fn making_xover_maker<'a, S: AppState>(

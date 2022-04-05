@@ -95,6 +95,9 @@ pub(super) trait DraggingTransitionTable {
     }
     fn on_enterring(&self) -> TransistionConsequence;
     fn on_leaving(&self) -> TransistionConsequence;
+    fn handles_color_system(&self) -> Option<HandleColors> {
+        None
+    }
 }
 
 /// A state in which the user is holding a mouse button while moving the cursor.
@@ -127,6 +130,22 @@ macro_rules! dragging_state_constructor {
                 clicked_button: click.button,
                 clicked_position: click.clicked_position,
                 transition_table: $type,
+            }
+        }
+    };
+}
+
+macro_rules! dragging_state_constructor_with_state {
+    ($contructor_name: ident, $type: tt) => {
+        pub(super) fn $contructor_name(
+            click: ClickInfo,
+            transition_table: $type,
+        ) -> DraggingState<$type> {
+            DraggingState {
+                current_cursor_position: click.current_position,
+                clicked_button: click.button,
+                clicked_position: click.clicked_position,
+                transition_table,
             }
         }
     };
@@ -183,6 +202,10 @@ impl<S: AppState, Table: DraggingTransitionTable> ControllerState<S> for Draggin
 
     fn transition_from(&self, _controller: &Controller<S>) -> TransistionConsequence {
         self.transition_table.on_leaving()
+    }
+
+    fn handles_color_system(&self) -> Option<HandleColors> {
+        self.transition_table.handles_color_system()
     }
 }
 
@@ -433,3 +456,237 @@ pub(super) fn building_strands(
         transition_table,
     }
 }
+
+pub(super) struct TranslatingWidget {
+    direction: HandleDir,
+    translation_target: WidgetTarget,
+}
+
+impl DraggingTransitionTable for TranslatingWidget {
+    fn description() -> &'static str {
+        "Translating Widget"
+    }
+
+    fn on_cursor_moved<S: AppState>(
+        &mut self,
+        cursor: DraggedCursor<'_, S>,
+    ) -> Option<Consequence> {
+        Some(Consequence::Translation(
+            self.direction,
+            cursor.normalized_position.x,
+            cursor.normalized_position.y,
+            self.translation_target,
+        ))
+    }
+
+    fn on_button_released(&self) -> Option<Consequence> {
+        Some(Consequence::MovementEnded)
+    }
+
+    fn on_enterring(&self) -> TransistionConsequence {
+        TransistionConsequence::Nothing
+    }
+
+    fn on_leaving(&self) -> TransistionConsequence {
+        TransistionConsequence::Nothing
+    }
+
+    fn cursor() -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Grabbing)
+    }
+
+    fn handles_color_system(&self) -> Option<HandleColors> {
+        match self.translation_target {
+            WidgetTarget::Pivot => Some(HandleColors::Cym),
+            WidgetTarget::Object => Some(HandleColors::Rgb),
+        }
+    }
+}
+
+pub(super) fn translating_widget(
+    click_info: ClickInfo,
+    direction: HandleDir,
+    translation_target: WidgetTarget,
+) -> DraggingState<TranslatingWidget> {
+    let transition_table = TranslatingWidget {
+        direction,
+        translation_target,
+    };
+
+    DraggingState {
+        current_cursor_position: click_info.current_position,
+        clicked_position: click_info.current_position,
+        clicked_button: click_info.button,
+        transition_table,
+    }
+}
+
+pub(super) struct TranslatingGridObject {
+    pub object: GridObject,
+    pub grid_id: GridId,
+    pub x: isize,
+    pub y: isize,
+}
+
+impl DraggingTransitionTable for TranslatingGridObject {
+    fn description() -> &'static str {
+        "Translating Grid Object"
+    }
+
+    fn on_cursor_moved<S: AppState>(
+        &mut self,
+        cursor: DraggedCursor<'_, S>,
+    ) -> Option<Consequence> {
+        cursor
+            .context
+            .get_specific_grid_intersection(self.grid_id)
+            .filter(|intersection| intersection.x != self.x || intersection.y != self.y)
+            .map(|intersection| {
+                self.x = intersection.x;
+                self.y = intersection.y;
+                Consequence::ObjectTranslated {
+                    object: self.object,
+                    grid: self.grid_id,
+                    x: self.x,
+                    y: self.y,
+                }
+            })
+    }
+
+    fn on_leaving(&self) -> TransistionConsequence {
+        TransistionConsequence::Nothing
+    }
+
+    fn on_enterring(&self) -> TransistionConsequence {
+        TransistionConsequence::Nothing
+    }
+
+    fn on_button_released(&self) -> Option<Consequence> {
+        Some(Consequence::MovementEnded)
+    }
+
+    fn cursor() -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Grabbing)
+    }
+}
+
+dragging_state_constructor_with_state!(translating_grid_object, TranslatingGridObject);
+
+pub(super) struct RotatingWidget {
+    target: WidgetTarget,
+}
+
+impl DraggingTransitionTable for RotatingWidget {
+    fn description() -> &'static str {
+        "Rotating widget"
+    }
+
+    fn on_button_released(&self) -> Option<Consequence> {
+        Some(Consequence::MovementEnded)
+    }
+
+    fn on_enterring(&self) -> TransistionConsequence {
+        TransistionConsequence::StartRotatingPivot
+    }
+
+    fn on_leaving(&self) -> TransistionConsequence {
+        TransistionConsequence::StopRotatingPivot
+    }
+
+    fn on_cursor_moved<S: AppState>(
+        &mut self,
+        cursor: DraggedCursor<'_, S>,
+    ) -> Option<Consequence> {
+        Some(Consequence::Rotation(
+            cursor.normalized_position.x,
+            cursor.normalized_position.y,
+            self.target,
+        ))
+    }
+
+    fn cursor() -> Option<ensnano_interactor::CursorIcon> {
+        Some(CursorIcon::Grabbing)
+    }
+}
+
+pub(super) fn rotating_widget(
+    click_info: ClickInfo,
+    target: WidgetTarget,
+) -> DraggingState<RotatingWidget> {
+    let transition_table = RotatingWidget { target };
+
+    DraggingState {
+        current_cursor_position: click_info.current_position,
+        clicked_position: click_info.current_position,
+        clicked_button: click_info.button,
+        transition_table,
+    }
+}
+
+pub(super) enum MovingBezierVertex {
+    New {
+        plane_id: BezierPlaneId,
+    },
+    Existing {
+        vertex_id: usize,
+        path_id: BezierPathId,
+    },
+}
+
+impl DraggingTransitionTable for MovingBezierVertex {
+    fn description() -> &'static str {
+        "Moving Bezier Vertex"
+    }
+
+    fn on_button_released(&self) -> Option<Consequence> {
+        Some(Consequence::ReleaseBezierVertex)
+    }
+
+    fn on_cursor_moved<S: AppState>(
+        &mut self,
+        cursor: DraggedCursor<'_, S>,
+    ) -> Option<Consequence> {
+        let (plane_id, vertex_id, path_id) = match self {
+            Self::New { plane_id } => {
+                if let Some((path_id, vertex_id)) = cursor.context.get_bezier_vertex_being_eddited()
+                {
+                    (*plane_id, vertex_id, path_id)
+                } else {
+                    log::error!("Could not get id of bezier vertex being eddited");
+                    return None;
+                }
+            }
+            Self::Existing { vertex_id, path_id } => {
+                if let Some(plane_id) = cursor
+                    .context
+                    .get_plane_of_bezier_vertex(*path_id, *vertex_id)
+                {
+                    (plane_id, *vertex_id, *path_id)
+                } else {
+                    log::error!("Could not get plane_id of bezier vertex being eddited");
+                    return None;
+                }
+            }
+        };
+
+        cursor
+            .context
+            .get_intersection_with_bezier_plane(plane_id)
+            .map(|intersection| Consequence::MoveBezierVertex {
+                x: intersection.x,
+                y: intersection.y,
+                path_id,
+                vertex_id,
+            })
+    }
+
+    fn on_leaving(&self) -> TransistionConsequence {
+        TransistionConsequence::Nothing
+    }
+
+    fn on_enterring(&self) -> TransistionConsequence {
+        TransistionConsequence::Nothing
+    }
+}
+
+dragging_state_constructor_with_state!(moving_bezier_vertex, MovingBezierVertex);

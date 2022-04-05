@@ -145,6 +145,8 @@ enum TransistionConsequence {
     InitCameraMovement,
     EndCameraMovement,
     InitFreeXover(Nucl, usize, Vec3),
+    StopRotatingPivot,
+    StartRotatingPivot,
 }
 
 impl<S: AppState> Controller<S> {
@@ -356,6 +358,12 @@ impl<S: AppState> Controller<S> {
             TransistionConsequence::EndCameraMovement => self.end_movement(),
             TransistionConsequence::InitFreeXover(nucl, d_id, position) => {
                 self.data.borrow_mut().init_free_xover(nucl, position, d_id)
+            }
+            TransistionConsequence::StartRotatingPivot => {
+                self.data.borrow_mut().notify_rotating_pivot()
+            }
+            TransistionConsequence::StopRotatingPivot => {
+                self.data.borrow_mut().stop_rotating_pivot()
             }
         }
     }
