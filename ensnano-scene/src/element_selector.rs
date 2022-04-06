@@ -439,5 +439,5 @@ pub fn bezier_tengent_id(path_id: BezierPathId, vertex_id: usize, tengent_in: bo
     } else {
         u32::from(ObjType::BezierTengentOut)
     };
-    front | ((path_id.0) << 16) | (vertex_id as u32)
+    (front << 24) | ((path_id.0) << 16) | (vertex_id as u32)
 }
