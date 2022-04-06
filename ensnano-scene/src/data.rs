@@ -692,6 +692,8 @@ impl<R: DesignReader> Data<R> {
             }
             Selection::Grid(_, _) => HashSet::new(), // A grid is not made of atomic elements
             Selection::Phantom(_) => HashSet::new(),
+            Selection::BezierTengent { .. } => HashSet::new(),
+            Selection::BezierVertex(_) => HashSet::new(),
             Selection::Nothing => HashSet::new(),
             Selection::Design(d_id) => self.designs[*d_id as usize].get_all_elements(),
         }

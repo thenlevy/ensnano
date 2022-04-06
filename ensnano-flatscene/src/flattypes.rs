@@ -210,6 +210,8 @@ impl FlatSelection {
                 Selection::Phantom(pe) => Self::Phantom(pe.clone()),
                 Selection::Nothing => Self::Nothing,
                 Selection::BezierControlPoint { .. } => Self::Nothing,
+                Selection::BezierTengent { .. } => Self::Nothing,
+                Selection::BezierVertex(_) => Self::Nothing,
             }
         } else {
             Self::Nothing

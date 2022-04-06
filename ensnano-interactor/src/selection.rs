@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 pub use ensnano_design::BezierControlPoint;
 use ensnano_design::{
     grid::{GridId, HelixGridPosition},
-    BezierPathId,
+    BezierPathId, BezierVertexId,
 };
 use ensnano_design::{Nucl, Strand};
 use std::collections::BTreeSet;
@@ -38,6 +38,11 @@ pub enum Selection {
     BezierControlPoint {
         helix_id: usize,
         bezier_control: BezierControlPoint,
+    },
+    BezierVertex(BezierVertexId),
+    BezierTengent {
+        vertex_id: BezierVertexId,
+        inward: bool,
     },
     Nothing,
 }
@@ -83,6 +88,8 @@ impl Selection {
             Selection::Nothing => None,
             Selection::BezierControlPoint { .. } => Some(0),
             Selection::Xover(d, _) => Some(*d),
+            Selection::BezierTengent { .. } => Some(0),
+            Selection::BezierVertex(_) => Some(0),
         }
     }
 
@@ -145,6 +152,8 @@ impl Selection {
             Self::Bound(_, n1, n2) => Some(vec![n1.helix, n2.helix]),
             Self::Nothing => Some(vec![]),
             Self::BezierControlPoint { .. } => None,
+            Self::BezierTengent { .. } => None,
+            Self::BezierVertex(_) => None,
         }
     }
 
@@ -649,6 +658,8 @@ impl SelectionConversion for DnaElementKey {
                 }
                 Selection::Nothing => None,
                 Selection::BezierControlPoint { .. } => None, //TODO make DNAelement out of these
+                Selection::BezierVertex(_) => None,
+                Selection::BezierTengent { .. } => None,
             }
         } else {
             None
