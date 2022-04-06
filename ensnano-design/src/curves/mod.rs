@@ -296,6 +296,7 @@ impl Curve {
 
             if let Some(t_x) = self.geometry.inverse_curvilinear_abscissa(objective) {
                 t = t_x;
+                current_abcissa = objective;
                 p = self.geometry.position(t);
                 current_axis = self.itterative_axis(t, Some(&current_axis));
                 if let Some(t) = self.geometry.translation() {
