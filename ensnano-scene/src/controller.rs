@@ -71,7 +71,7 @@ pub struct Controller<S: AppState> {
     bezier_curve_origin: Option<HelixGridPosition>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Consequence {
     CameraMoved,
     CameraTranslated(f64, f64),

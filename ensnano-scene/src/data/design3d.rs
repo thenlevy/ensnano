@@ -652,6 +652,9 @@ impl<R: DesignReader> Design3D<R> {
             SceneElement::GridCircle(_, position) => {
                 self.design.get_grid_latice_position(*position)
             }
+            SceneElement::BezierVertex { path_id, vertex_id } => {
+                self.get_bezier_vertex_position(*path_id, *vertex_id)
+            }
             _ => None,
         }
     }
@@ -1239,8 +1242,8 @@ impl<R: DesignReader> Design3D<R> {
         self.design
             .get_bezier_paths()
             .and_then(|m| m.get(&path_id))
-            .and_then(|p| p.get_curve_points().get(vertex_id))
-            .map(|v| ensnano_design::utils::dvec_to_vec(*v))
+            .and_then(|p| p.bezier_controls().get(vertex_id))
+            .map(|v| v.position)
     }
 }
 

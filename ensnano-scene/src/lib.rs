@@ -190,6 +190,9 @@ impl<S: AppState> Scene<S> {
     }
 
     fn read_consequence(&mut self, consequence: Consequence, app_state: &S) {
+        if !matches!(consequence, Consequence::Nothing) {
+            log::info!("Consequence {:?}", consequence);
+        }
         match consequence {
             Consequence::Nothing => (),
             Consequence::CameraMoved => self.notify(SceneNotification::CameraMoved),
