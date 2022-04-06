@@ -30,6 +30,19 @@ pub struct EventContext<'a, S: AppState> {
 }
 
 impl<'a, S: AppState> EventContext<'a, S> {
+    pub fn new(
+        controller: &'a Controller<S>,
+        app_state: &'a S,
+        pixel_reader: &'a mut ElementSelector,
+        cursor_position: PhysicalPosition<f64>,
+    ) -> Self {
+        Self {
+            cursor_position,
+            controller,
+            app_state,
+            pixel_reader,
+        }
+    }
     pub fn normalized_cursor_position(&self) -> PhysicalPosition<f64> {
         self.normalize_position(self.cursor_position)
     }
@@ -55,6 +68,13 @@ impl<'a, S: AppState> EventContext<'a, S> {
 
     pub fn get_element_under_cursor(&mut self) -> Option<SceneElement> {
         self.pixel_reader.set_selected_id(self.cursor_position)
+    }
+
+    pub fn shoot_ray(&self, point: PhysicalPosition<f64>) -> (Vec3, Vec3) {
+        let normalized_point = self.normalize_position(point);
+        self.controller
+            .camera_controller
+            .ray(normalized_point.x as f32, normalized_point.y as f32)
     }
 
     /// If element is a grid, get the grid disc corresponding to the grid position under the
@@ -86,7 +106,7 @@ impl<'a, S: AppState> EventContext<'a, S> {
         self.controller
             .data
             .borrow()
-            .element_to_nucl(&element, true)
+            .element_to_nucl(&element, no_phantom)
             .map(|(n, _)| n)
     }
 
@@ -95,7 +115,7 @@ impl<'a, S: AppState> EventContext<'a, S> {
     }
 
     /// If self is over a possible cross-over origin, return it.
-    pub fn get_xover_origin_under_cursor(&mut self) -> Option<XoverOrigin> {
+    pub(super) fn get_xover_origin_under_cursor(&mut self) -> Option<XoverOrigin> {
         let element = self.get_element_under_cursor();
         let nucl = self.element_to_nucl(&element, true)?;
         let position = self.get_nucl_position(nucl)?;
@@ -182,15 +202,19 @@ impl<'a, S: AppState> EventContext<'a, S> {
             .map(|v| v.plane_id)
     }
 
-    pub fn get_intersection_with_bezier_plane(
-        self,
+    pub fn get_current_cursor_intersection_with_bezier_plane(
+        &self,
         plane_id: BezierPlaneId,
     ) -> Option<BezierPlaneIntersection> {
-        let normalized_position = self.normalized_cursor_position();
-        let ray = self
-            .controller
-            .camera_controller
-            .ray(normalized_position.x as f32, normalized_position.y as f32);
+        self.get_point_intersection_with_bezier_plane(plane_id, self.cursor_position)
+    }
+
+    pub fn get_point_intersection_with_bezier_plane(
+        &self,
+        plane_id: BezierPlaneId,
+        point: PhysicalPosition<f64>,
+    ) -> Option<BezierPlaneIntersection> {
+        let ray = self.shoot_ray(point);
         self.app_state
             .get_design_reader()
             .get_bezier_planes()
@@ -215,11 +239,7 @@ impl<'a, S: AppState> EventContext<'a, S> {
     /// If there is a bezier plane under the cursor, return it's identifier and the coordinates of
     /// the projection of the curosor on the plane
     pub fn get_plane_under_cursor(&self) -> Option<(BezierPlaneId, BezierPlaneIntersection)> {
-        let normalized_position = self.normalized_cursor_position();
-        let ray = self
-            .controller
-            .camera_controller
-            .ray(normalized_position.x as f32, normalized_position.y as f32);
+        let ray = self.shoot_ray(self.cursor_position);
         ensnano_design::ray_bezier_plane_intersection(
             self.app_state
                 .get_design_reader()

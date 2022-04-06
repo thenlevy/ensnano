@@ -92,7 +92,7 @@ impl<S: AppState> std::ops::Deref for OptionalTransitionPtr<S> {
 /// This is usefull when the context has an influence on weither a certain event should trigger an
 /// OptionalTransition.
 trait ContextDependentTransition<S: AppState>:
-    for<'a> Fn(&'a mut EventContext<'a, S>, ClickInfo) -> Box<dyn OptionalTransition<S>>
+    for<'a, 'b> Fn(&'b mut EventContext<'a, S>, ClickInfo) -> Box<dyn OptionalTransition<S>>
 {
 }
 
@@ -112,7 +112,7 @@ impl<S: AppState> std::ops::Deref for ContextDependentTransitionPtr<S> {
 }
 
 impl<S: AppState, F: 'static> ContextDependentTransition<S> for F where
-    F: for<'a> Fn(&'a mut EventContext<'a, S>, ClickInfo) -> Box<dyn OptionalTransition<S>>
+    F: for<'a, 'b> Fn(&'b mut EventContext<'a, S>, ClickInfo) -> Box<dyn OptionalTransition<S>>
 {
 }
 
@@ -161,14 +161,14 @@ impl<S: AppState> ControllerState<S> for PointAndClicking<S> {
     fn input<'a>(
         &mut self,
         event: &WindowEvent,
-        context: &'a mut EventContext<'a, S>,
+        mut context: EventContext<'a, S>,
     ) -> Transition<S> {
         let position = context.cursor_position;
         match event {
             WindowEvent::CursorMoved { .. } => {
                 if let Some(transition_maker) = self.away_state_maker.as_ref() {
                     self.away_state = OptionalTransitionPtr::Owned(transition_maker(
-                        context,
+                        &mut context,
                         self.get_click_info(position),
                     ))
                 }
@@ -186,7 +186,7 @@ impl<S: AppState> ControllerState<S> for PointAndClicking<S> {
                 } else {
                     if let Some(transition_maker) = self.long_hold_state_maker.as_ref() {
                         self.long_hold_state = Some(OptionalTransitionPtr::Owned(transition_maker(
-                            context,
+                            &mut context,
                             self.get_click_info(position),
                         )))
                     }

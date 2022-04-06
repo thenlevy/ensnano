@@ -36,7 +36,7 @@ use camera::{CameraController, FiniteVec3};
 
 mod automata;
 pub use automata::WidgetTarget;
-use automata::{NormalState, State, Transition};
+use automata::{EventContext, NormalState, State, Transition};
 
 /// The effect that draging the mouse have
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -251,46 +251,50 @@ impl<S: AppState> Controller<S> {
             if ctrl(&self.current_modifiers) {
                 self.camera_controller.update_stereographic_zoom(delta);
                 Transition::consequence(Consequence::CameraMoved)
-            } else if self.current_modifiers.shift() {
-                self.state.borrow_mut().notify_scroll();
-                let element = pixel_reader.set_selected_id(position);
-                if let Some(builder) = app_state.get_strand_builders().get(0) {
-                    let init_position = builder.get_moving_end_nucl().position;
-                    let delta = match delta {
-                        MouseScrollDelta::LineDelta(_, y) => y.signum() as isize,
-                        MouseScrollDelta::PixelDelta(pos) => pos.y.signum() as isize,
-                    };
-                    Transition::consequence(Consequence::Building(init_position + delta))
-                } else if let Some(nucl) = self
-                    .data
-                    .borrow()
-                    .can_start_builder(self.state.borrow().element_being_selected())
+            /*} else if self.current_modifiers.shift() {
+            self.state.borrow_mut().notify_scroll();
+            let element = pixel_reader.set_selected_id(position);
+            if let Some(builder) = app_state.get_strand_builders().get(0) {
+                let init_position = builder.get_moving_end_nucl().position;
+                let delta = match delta {
+                    MouseScrollDelta::LineDelta(_, y) => y.signum() as isize,
+                    MouseScrollDelta::PixelDelta(pos) => pos.y.signum() as isize,
+                };
+                Transition::consequence(Consequence::Building(init_position + delta))
+            } else if let Some(nucl) = self
+                .data
+                .borrow()
+                .can_start_builder(self.state.borrow().element_being_selected())
+            {
+                Transition::init_building(vec![nucl], false)
+            } else if let Selection::Nucleotide(_, nucl) =
+                self.data.borrow().element_to_selection(&element)
+            {
+                Transition::init_building(vec![nucl], false)
+            } else if let Selection::Xover(_, xover_id) =
+                self.data.borrow().element_to_selection(&element)
+            {
+                if let Some((n1, n2)) =
+                    app_state.get_design_reader().get_xover_with_id(xover_id)
                 {
-                    Transition::init_building(vec![nucl], false)
-                } else if let Selection::Nucleotide(_, nucl) =
-                    self.data.borrow().element_to_selection(&element)
-                {
-                    Transition::init_building(vec![nucl], false)
-                } else if let Selection::Xover(_, xover_id) =
-                    self.data.borrow().element_to_selection(&element)
-                {
-                    if let Some((n1, n2)) =
-                        app_state.get_design_reader().get_xover_with_id(xover_id)
-                    {
-                        Transition::init_building(vec![n1, n2], false)
-                    } else {
-                        self.camera_controller.process_scroll(
-                            delta,
-                            mouse_x as f32,
-                            mouse_y as f32,
-                        );
-                        Transition::consequence(Consequence::CameraMoved)
-                    }
+                    Transition::init_building(vec![n1, n2], false)
                 } else {
-                    self.camera_controller
-                        .process_scroll(delta, mouse_x as f32, mouse_y as f32);
+                    self.camera_controller.process_scroll(
+                        delta,
+                        mouse_x as f32,
+                        mouse_y as f32,
+                    );
                     Transition::consequence(Consequence::CameraMoved)
                 }
+            } else {
+                self.camera_controller
+                    .process_scroll(delta, mouse_x as f32, mouse_y as f32);
+                Transition::consequence(Consequence::CameraMoved)
+            }
+
+                * The above code was used to move the current strand builder with the mouse
+                * wheel
+                */
             } else {
                 self.camera_controller
                     .process_scroll(delta, mouse_x as f32, mouse_y as f32);
@@ -335,9 +339,10 @@ impl<S: AppState> Controller<S> {
             };
             Transition::consequence(csq)
         } else {
-            self.state
-                .borrow_mut()
-                .input(event, position, &self, pixel_reader, app_state)
+            self.state.borrow_mut().input(
+                event,
+                EventContext::new(self, app_state, pixel_reader, position),
+            )
         };
 
         if let Some(state) = transition.new_state {
