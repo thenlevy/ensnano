@@ -82,7 +82,9 @@ impl BezierPlaneDescriptor {
     }
 
     fn position(&self, vec: Vec2) -> Vec3 {
-        self.position + Vec3::unit_z() * vec.x + Vec3::unit_y() * vec.y
+        self.position
+            + Vec3::unit_z().rotated_by(self.orientation) * vec.x
+            + Vec3::unit_y().rotated_by(self.orientation) * vec.y
     }
 }
 

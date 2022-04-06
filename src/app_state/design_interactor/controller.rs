@@ -31,7 +31,7 @@ use ensnano_design::{
 };
 use ensnano_interactor::{
     operation::{Operation, TranslateBezierPathVertex},
-    ActionMode, BezierControlPoint, HyperboloidOperation, SimulationState,
+    ActionMode, BezierControlPoint, HyperboloidOperation, NewBezierTengentVector, SimulationState,
 };
 use ensnano_interactor::{
     BezierPlaneHomothethy, DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier,
@@ -336,6 +336,9 @@ impl Controller {
                 |c, d| c.apply_homothethy_on_bezier_plane(d, homothethy),
                 design,
             )),
+            DesignOperation::SetVectorOfBezierTengent(requested_vector) => {
+                self.apply(|c, d| c.set_bezier_tengent(d, requested_vector), design)
+            }
         };
 
         if let Ok(ret) = &mut ret {
@@ -1235,6 +1238,37 @@ impl Controller {
             .get_vertex_mut(vertex_id)
             .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
         vertex.position = position;
+        drop(new_paths);
+        Ok(design)
+    }
+
+    fn set_bezier_tengent(
+        &mut self,
+        mut design: Design,
+        request: NewBezierTengentVector,
+    ) -> Result<Design, ErrOperation> {
+        self.update_state_and_design(&mut design);
+
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path_id = request.vertex_id.path_id;
+        let vertex_id = request.vertex_id.vertex_id;
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        let vertex = path
+            .get_vertex_mut(vertex_id)
+            .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
+        if request.tengent_in {
+            vertex.position_in = Some(vertex.position + request.new_vector);
+            if request.adjust_other_tengent {
+                vertex.position_out = Some(vertex.position - request.new_vector);
+            }
+        } else {
+            vertex.position_out = Some(vertex.position + request.new_vector);
+            if request.adjust_other_tengent {
+                vertex.position_in = Some(vertex.position - request.new_vector);
+            }
+        }
         drop(new_paths);
         Ok(design)
     }

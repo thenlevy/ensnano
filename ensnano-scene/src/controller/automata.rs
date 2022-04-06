@@ -185,6 +185,41 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         ))),
                         consequences: Consequence::Nothing,
                     };
+                } else if let Some(SceneElement::BezierTengent {
+                    path_id,
+                    vertex_id,
+                    tengent_in,
+                }) = element
+                {
+                    if let Some(vertex) = context.get_bezier_vertex(path_id, vertex_id) {
+                        let click_info = ClickInfo::new(MouseButton::Left, context.cursor_position);
+                        let current_tengent_position = context
+                            .get_current_cursor_intersection_with_bezier_plane(vertex.plane_id)
+                            .map(|i| i.position())
+                            .unwrap_or_else(|| {
+                                log::error!(
+                                    "Could not get curosr intersection with plane {:?}",
+                                    vertex.plane_id
+                                );
+                                Vec2::unit_x()
+                            });
+                        let new_state = dragging_state::moving_bezier_tengent(
+                            click_info,
+                            MovingBezierTengent {
+                                plane_id: vertex.plane_id,
+                                vertex_id: BezierVertexId { path_id, vertex_id },
+                                vertex_position_on_plane: vertex.position,
+                                tengent_in,
+                                tengent_vector: (current_tengent_position - vertex.position),
+                            },
+                        );
+                        return Transition {
+                            new_state: Some(Box::new(new_state)),
+                            consequences: Consequence::Nothing,
+                        };
+                    } else {
+                        log::error!("Could not get vertex {:?}, {vertex_id}", path_id)
+                    }
                 } else if path_id.is_some() {
                     if let Some((plane_id, intersection)) = context.get_plane_under_cursor() {
                         let click_info = ClickInfo::new(MouseButton::Left, context.cursor_position);

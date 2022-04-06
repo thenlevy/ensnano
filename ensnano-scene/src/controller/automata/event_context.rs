@@ -296,6 +296,16 @@ impl<'a, S: AppState> EventContext<'a, S> {
             element => element,
         }
     }
+
+    pub fn get_bezier_vertex(
+        &self,
+        path_id: BezierPathId,
+        vertex_id: usize,
+    ) -> Option<BezierVertex> {
+        self.app_state
+            .get_design_reader()
+            .get_bezier_vertex(path_id, vertex_id)
+    }
 }
 
 /// The element that was clicked on and that can be the origin of a crossover.

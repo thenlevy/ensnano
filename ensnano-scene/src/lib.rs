@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use ensnano_design::grid::HelixGridPosition;
 use ensnano_design::ultraviolet;
+use ensnano_interactor::NewBezierTengentVector;
 use ensnano_utils::wgpu;
 use ensnano_utils::winit;
 use std::cell::RefCell;
@@ -513,6 +514,20 @@ impl<S: AppState> Scene<S> {
                 },
             )),
             Consequence::ReleaseBezierCorner => self.requests.lock().unwrap().suspend_op(),
+            Consequence::ReleaseBezierTengent => self.requests.lock().unwrap().suspend_op(),
+            Consequence::MoveBezierTengent {
+                vertex_id,
+                tengent_in,
+                adjust_other,
+                new_vector,
+            } => self.requests.lock().unwrap().apply_design_operation(
+                DesignOperation::SetVectorOfBezierTengent(NewBezierTengentVector {
+                    adjust_other_tengent: adjust_other,
+                    new_vector,
+                    tengent_in,
+                    vertex_id,
+                }),
+            ),
         };
     }
 

@@ -23,7 +23,8 @@ use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{GridDescriptor, GridId, GridObject, GridTypeDescr, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
-    BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, Nucl, Parameters,
+    BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, BezierVertexId, Nucl,
+    Parameters,
 };
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 pub mod graphics;
@@ -291,6 +292,16 @@ pub enum DesignOperation {
     ApplyHomothethyOnBezierPlane {
         homothethy: BezierPlaneHomothethy,
     },
+    SetVectorOfBezierTengent(NewBezierTengentVector),
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct NewBezierTengentVector {
+    pub vertex_id: BezierVertexId,
+    /// Wether `new_vector` is the vector of the inward or outward tengent
+    pub tengent_in: bool,
+    pub adjust_other_tengent: bool,
+    pub new_vector: Vec2,
 }
 
 #[derive(Clone, Debug, Copy)]

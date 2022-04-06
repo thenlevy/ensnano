@@ -22,7 +22,7 @@ use super::{
 };
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use ensnano_design::grid::{GridId, GridObject, GridPosition, HelixGridPosition};
-use ensnano_design::{BezierPathId, BezierPlaneId, BezierVertex, Nucl};
+use ensnano_design::{BezierPathId, BezierPlaneId, BezierVertex, BezierVertexId, Nucl};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::DesignReader;
 use ensnano_interactor::Selection;
@@ -138,6 +138,13 @@ pub enum Consequence {
         fixed_corner_position: Vec2,
     },
     ReleaseBezierCorner,
+    ReleaseBezierTengent,
+    MoveBezierTengent {
+        vertex_id: BezierVertexId,
+        tengent_in: bool,
+        adjust_other: bool,
+        new_vector: Vec2,
+    },
 }
 
 enum TransistionConsequence {

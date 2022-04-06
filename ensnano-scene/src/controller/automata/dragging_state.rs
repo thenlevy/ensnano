@@ -23,6 +23,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! In such a state, cursor movement all cursor movement have similar consequences shuch has moving
 //! the camera or moving an object.
 
+use ensnano_design::BezierVertexId;
+
 use super::*;
 
 pub(super) struct DraggedCursor<'a, 'b, S: AppState> {
@@ -73,13 +75,6 @@ impl ClickInfo {
             clicked_position,
             current_position: clicked_position,
         }
-    }
-
-    pub fn to_dragging_cursor<'a, 'b, S: AppState>(
-        self,
-        context: &'b mut EventContext<'a, S>,
-    ) -> DraggedCursor<'a, 'b, S> {
-        DraggedCursor::from_click_cursor(self.clicked_position, self.current_position, context)
     }
 }
 
@@ -178,7 +173,6 @@ impl<S: AppState, Table: DraggingTransitionTable> ControllerState<S> for Draggin
         event: &WindowEvent,
         mut context: EventContext<'a, S>,
     ) -> Transition<S> {
-        let position = context.cursor_position;
         match event {
             WindowEvent::MouseInput {
                 button,
@@ -364,7 +358,7 @@ impl DraggingTransitionTable for MakingXover {
 
     fn on_cursor_moved<S: AppState>(
         &mut self,
-        mut cursor: DraggedCursor<'_, '_, S>,
+        cursor: DraggedCursor<'_, '_, S>,
     ) -> Option<Consequence> {
         let element = cursor.context.get_element_under_cursor();
         self.target_element = element.clone();
@@ -722,3 +716,66 @@ impl DraggingTransitionTable for MovingBezierCorner {
 }
 
 dragging_state_constructor_with_state!(moving_bezier_corner, MovingBezierCorner);
+
+/// The user is moving a tengent on a BezierPath.
+///
+/// If the ctrl key is pressed, moving the cursor changes the orientation of the grids, otherwise
+/// it changes the length of the tengent.
+pub(super) struct MovingBezierTengent {
+    pub plane_id: BezierPlaneId,
+    pub vertex_id: BezierVertexId,
+    pub vertex_position_on_plane: Vec2,
+    pub tengent_in: bool,
+    pub tengent_vector: Vec2,
+}
+
+impl DraggingTransitionTable for MovingBezierTengent {
+    fn description() -> &'static str {
+        "Moving Bezier Tengent"
+    }
+
+    fn on_button_released(&self) -> Option<Consequence> {
+        Some(Consequence::ReleaseBezierTengent)
+    }
+
+    fn on_cursor_moved<S: AppState>(
+        &mut self,
+        cursor: DraggedCursor<'_, '_, S>,
+    ) -> Option<Consequence> {
+        let rotate = super::ctrl(cursor.context.get_modifiers());
+
+        let new_tengent = if rotate {
+            // change the angle without changing the norm
+            cursor
+                .context
+                .get_current_cursor_intersection_with_bezier_plane(self.plane_id)
+                .map(|cursor_proj| {
+                    let norm = self.tengent_vector.mag();
+                    (cursor_proj.position() - self.vertex_position_on_plane).normalized() * norm
+                })
+        } else {
+            // Change the norm without changing the angle
+            cursor
+                .context
+                .get_current_cursor_intersection_with_bezier_plane(self.plane_id)
+                .map(|cursor_proj| {
+                    let new_norm = (cursor_proj.position() - self.vertex_position_on_plane).mag();
+                    self.tengent_vector.normalized() * new_norm
+                })
+        };
+
+        new_tengent.map(|t| {
+            self.tengent_vector = t;
+            Consequence::MoveBezierTengent {
+                vertex_id: self.vertex_id,
+                tengent_in: self.tengent_in,
+                adjust_other: true, // TODO decide what the user must do to change this value
+                new_vector: t,
+            }
+        })
+    }
+
+    no_csq_leaving_or_entering!();
+}
+
+dragging_state_constructor_with_state!(moving_bezier_tengent, MovingBezierTengent);
