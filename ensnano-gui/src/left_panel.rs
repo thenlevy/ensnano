@@ -810,11 +810,12 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 self.requests.lock().unwrap().create_bezier_plane();
             }
             Message::StartBezierPath => {
+                let path_id = self.application_state.get_selected_bezier_path();
                 self.requests
                     .lock()
                     .unwrap()
                     .change_action_mode(ActionMode::EditBezierPath {
-                        path_id: None,
+                        path_id,
                         vertex_id: None,
                     })
             }
