@@ -266,12 +266,21 @@ fn back_to_normal_state<S: AppState>(_: ClickInfo) -> Option<Box<dyn ControllerS
     None
 }
 
-fn build_strand_maker<'a, S: AppState>(
+fn leaving_selection<'a, S: AppState>(
     context: &'a EventContext<'a, S>,
     element: Option<SceneElement>,
 ) -> Box<dyn OptionalTransition<S>> {
-    let nucl = context.can_start_builder(element);
-    Box::new(move |click_info| build_strand(click_info, nucl))
+    if let Some(SceneElement::BezierVertex { path_id, vertex_id }) = element {
+        Box::new(move |click_info| {
+            Some(Box::new(dragging_state::moving_bezier_vertex(
+                click_info,
+                MovingBezierVertex::Existing { vertex_id, path_id },
+            )))
+        })
+    } else {
+        let nucl = context.can_start_builder(element);
+        Box::new(move |click_info| build_strand(click_info, nucl))
+    }
 }
 
 fn build_strand<S: AppState>(
@@ -295,7 +304,7 @@ impl<S: AppState> PointAndClicking<S> {
         Self {
             away_state: Default::default(),
             away_state_maker: Some(ContextDependentTransitionPtr::Owned(Box::new(
-                move |context, _| build_strand_maker(context, element),
+                move |context, _| leaving_selection(context, element),
             ))),
             clicked_date: Instant::now(),
             clicked_position,

@@ -150,6 +150,14 @@ impl GuiState for AppState {
     fn get_show_bezier_paths(&self) -> bool {
         self.0.parameters.show_bezier_paths
     }
+
+    fn get_selected_bezier_path(&self) -> Option<ensnano_design::BezierPathId> {
+        if let Some(Selection::BezierVertex(vertex)) = self.0.selection.selection.get(0) {
+            Some(vertex.path_id)
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]

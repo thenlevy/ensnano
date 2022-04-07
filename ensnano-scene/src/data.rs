@@ -31,6 +31,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use ensnano_design::grid::GridObject;
+use ensnano_design::BezierVertexId;
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
@@ -1105,7 +1106,20 @@ impl<R: DesignReader> Data<R> {
                 bezier_control: *bezier_control,
                 helix_id: *helix_id,
             },
-            _ => Selection::Nothing,
+            SceneElement::PlaneCorner { .. } => Selection::Nothing,
+            SceneElement::BezierVertex { path_id, vertex_id } => {
+                Selection::BezierVertex(BezierVertexId {
+                    path_id: *path_id,
+                    vertex_id: *vertex_id,
+                })
+            }
+            SceneElement::WidgetElement(_) => Selection::Nothing,
+            SceneElement::BezierTengent {
+                path_id, vertex_id, ..
+            } => Selection::BezierVertex(BezierVertexId {
+                path_id: *path_id,
+                vertex_id: *vertex_id,
+            }),
         }
     }
 

@@ -175,15 +175,6 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         ))),
                         consequences: Consequence::Nothing,
                     };
-                } else if let Some(SceneElement::BezierVertex { vertex_id, path_id }) = element {
-                    let click_info = ClickInfo::new(MouseButton::Left, context.cursor_position);
-                    return Transition {
-                        new_state: Some(Box::new(dragging_state::moving_bezier_vertex(
-                            click_info,
-                            MovingBezierVertex::Existing { vertex_id, path_id },
-                        ))),
-                        consequences: Consequence::Nothing,
-                    };
                 } else if let Some(SceneElement::BezierTengent {
                     path_id,
                     vertex_id,

@@ -999,6 +999,7 @@ pub trait AppState:
     fn want_thick_helices(&self) -> bool;
     fn expand_insertions(&self) -> bool;
     fn get_show_bezier_paths(&self) -> bool;
+    fn get_selected_bezier_path(&self) -> Option<BezierPathId>;
 }
 
 pub trait DesignReader: 'static {
