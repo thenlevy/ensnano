@@ -196,6 +196,10 @@ pub enum Message<S> {
         grid_type: GridTypeDescr,
     },
     SetShowBezierPaths(bool),
+    MakeBezierPathCyclic {
+        path_id: BezierPathId,
+        cyclic: bool,
+    },
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -827,6 +831,12 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::SetShowBezierPaths(b) => {
                 self.requests.lock().unwrap().set_show_bezier_paths(b)
+            }
+            Message::MakeBezierPathCyclic { path_id, cyclic } => {
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .make_bezier_path_cyclic(path_id, cyclic);
             }
         };
         Command::none()

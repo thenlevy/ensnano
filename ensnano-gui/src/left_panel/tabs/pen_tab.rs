@@ -87,11 +87,24 @@ impl PenTab {
         section!(ret, ui_size, "Bezier Planes");
         add_buttons!(ret, self, ui_size);
         add_grid_buttons!(ret, self, ui_size, app_state);
-        let path_txt = app_state
-            .get_selected_bezier_path()
+        let selected_path_id = app_state.get_selected_bezier_path();
+        let path_txt = selected_path_id
             .map(|p| format!("{:?}", p))
             .unwrap_or_else(|| "None".to_string());
         ret = ret.push(Text::new(format!("Selected path {path_txt}")));
+
+        if let Some(b) =
+            selected_path_id.and_then(|p_id| app_state.get_reader().is_bezier_path_cyclic(p_id))
+        {
+            ret = ret.push(Checkbox::new(b, "Cyclic", move |cyclic| {
+                Message::MakeBezierPathCyclic {
+                    path_id: selected_path_id.unwrap(),
+                    cyclic,
+                }
+            }));
+        }
+
+        extra_jump!(ret);
         ret = ret.push(Checkbox::new(
             app_state.get_show_bezier_paths(),
             "Show bezier paths",

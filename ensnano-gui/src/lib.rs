@@ -206,6 +206,7 @@ pub trait Requests: 'static + Send {
     fn create_bezier_plane(&mut self);
     fn turn_path_into_grid(&mut self, path_id: BezierPathId, grid_type: GridTypeDescr);
     fn set_show_bezier_paths(&mut self, show: bool);
+    fn make_bezier_path_cyclic(&mut self, path_id: BezierPathId, cyclic: bool);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1022,6 +1023,7 @@ pub trait DesignReader: 'static {
     fn rainbow_scaffold(&self) -> bool;
     fn get_insertion_length(&self, selection: &Selection) -> Option<usize>;
     fn get_insertion_point(&self, selection: &Selection) -> Option<InsertionPoint>;
+    fn is_bezier_path_cyclic(&self, path_id: BezierPathId) -> Option<bool>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

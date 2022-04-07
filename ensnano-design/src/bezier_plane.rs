@@ -209,7 +209,7 @@ impl<'a> Drop for BezierPathsMut<'a> {
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct BezierPath {
     vertices: Vec<BezierVertex>,
-    cyclic: bool,
+    pub cyclic: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grid_type: Option<GridTypeDescr>,
 }

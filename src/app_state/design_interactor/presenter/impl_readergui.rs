@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ensnano_design::{elements::DnaElement, CameraId};
+use ensnano_design::{elements::DnaElement, CameraId, Collection};
 
 use super::*;
 use crate::gui::DesignReader as ReaderGui;
@@ -221,5 +221,13 @@ impl ReaderGui for DesignReader {
             }
             _ => None,
         }
+    }
+
+    fn is_bezier_path_cyclic(&self, path_id: ensnano_design::BezierPathId) -> Option<bool> {
+        self.presenter
+            .current_design
+            .bezier_paths
+            .get(&path_id)
+            .map(|p| p.cyclic)
     }
 }

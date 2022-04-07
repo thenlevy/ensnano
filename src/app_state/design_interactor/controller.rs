@@ -339,6 +339,9 @@ impl Controller {
             DesignOperation::SetVectorOfBezierTengent(requested_vector) => {
                 self.apply(|c, d| c.set_bezier_tengent(d, requested_vector), design)
             }
+            DesignOperation::MakeBezierPathCyclic { path_id, cyclic } => {
+                self.apply(|c, d| c.make_bezier_path_cyclic(d, path_id, cyclic), design)
+            }
         };
 
         if let Ok(ret) = &mut ret {
@@ -1253,6 +1256,21 @@ impl Controller {
         vertex.position = position;
         vertex.position_out = old_tengent_out.map(|t| vertex.position + t);
         vertex.position_in = old_tengent_in.map(|t| vertex.position + t);
+        drop(new_paths);
+        Ok(design)
+    }
+
+    fn make_bezier_path_cyclic(
+        &mut self,
+        mut design: Design,
+        path_id: BezierPathId,
+        cyclic: bool,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        path.cyclic = cyclic;
         drop(new_paths);
         Ok(design)
     }

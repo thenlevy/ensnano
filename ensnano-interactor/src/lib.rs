@@ -293,6 +293,10 @@ pub enum DesignOperation {
         homothethy: BezierPlaneHomothethy,
     },
     SetVectorOfBezierTengent(NewBezierTengentVector),
+    MakeBezierPathCyclic {
+        path_id: BezierPathId,
+        cyclic: bool,
+    },
 }
 
 #[derive(Clone, Debug, Copy)]

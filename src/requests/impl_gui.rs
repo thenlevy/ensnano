@@ -447,6 +447,12 @@ impl GuiRequests for Requests {
             DesignOperation::TurnPathVerticesIntoGrid { path_id, grid_type },
         ))
     }
+
+    fn make_bezier_path_cyclic(&mut self, path_id: ensnano_design::BezierPathId, cyclic: bool) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::MakeBezierPathCyclic { path_id, cyclic },
+        ))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {
