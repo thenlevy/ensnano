@@ -1239,7 +1239,7 @@ impl Controller {
         vertex_id: usize,
         position: Vec2,
     ) -> Result<Design, ErrOperation> {
-        self.update_state_not_design(&design);
+        self.update_state_and_design(&mut design);
 
         let mut new_paths = design.bezier_paths.make_mut();
         let path = new_paths
@@ -1248,7 +1248,11 @@ impl Controller {
         let vertex = path
             .get_vertex_mut(vertex_id)
             .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
+        let old_tengent_in = vertex.position_in.map(|p| p - vertex.position);
+        let old_tengent_out = vertex.position_out.map(|p| p - vertex.position);
         vertex.position = position;
+        vertex.position_out = old_tengent_out.map(|t| vertex.position + t);
+        vertex.position_in = old_tengent_in.map(|t| vertex.position + t);
         drop(new_paths);
         Ok(design)
     }
