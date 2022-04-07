@@ -23,7 +23,7 @@ use ultraviolet::{DVec2, DVec3};
 use ordered_float::OrderedFloat;
 use std::f64::consts::TAU;
 
-const H: f64 = crate::Parameters::DEFAULT.helix_radius as f64
+const INTER_HELIX_GAP: f64 = crate::Parameters::DEFAULT.helix_radius as f64
     + crate::Parameters::DEFAULT.inter_helix_gap as f64 / 2.;
 
 const NB_STEPS: usize = 10_000_000;
@@ -46,7 +46,7 @@ impl Torus {
 
     fn t_for_curvilinear_abscissa(&self, s: f64) -> f64 {
         let p = 9.688448061179066_f64;
-        let perimeter = 4. * H * self.half_nb_helix as f64;
+        let perimeter = 4. * INTER_HELIX_GAP * self.half_nb_helix as f64;
         let scale = perimeter / p;
         let mut sp = s / scale;
         let a = 2.;
@@ -78,14 +78,14 @@ impl Torus {
 
     fn position_moebius(&self, t: f64) -> DVec3 {
         let p = 9.688448061179066_f64;
-        let perimeter = 4. * H * self.half_nb_helix as f64;
+        let perimeter = 4. * INTER_HELIX_GAP * self.half_nb_helix as f64;
         // println!("p: {}\t P: {}\tφ:{}\tφφ:{}", perimeter, self.perimeter_ellipse(2.,1., NB_STEPS), self.t_for_curvilinear_abscissa_poly(perimeter/2.), self.t_for_curvilinear_abscissa(perimeter/2.));
         let scale = perimeter / p;
         let a = 2. * scale;
         let b = 1. * scale;
         let theta = self.theta(t) - self.theta0;
-        let s_dtheta = (perimeter / 2. - 4. * H) / TAU;
-        let s = 4. * H * self.theta0 / TAU + s_dtheta * theta;
+        let s_dtheta = (perimeter / 2. - 4. * INTER_HELIX_GAP) / TAU;
+        let s = 4. * INTER_HELIX_GAP * self.theta0 / TAU + s_dtheta * theta;
         let phi = self.t_for_curvilinear_abscissa(s);
         let (t2c, t2s) = ((theta / 2.).cos(), (theta / 2.).sin());
         let (x, y) = (a * phi.cos(), b * phi.sin());
@@ -309,7 +309,9 @@ fn search_dicho(goal: f64, slice: &[f64]) -> Option<usize> {
 pub(super) struct TwistedTorus {
     instanciated_curve: Arc<dyn Curve2D + Sync + Send>,
     descriptor: TwistedTorusDescriptor,
+    /// A scaling of the revolving curve so that the correct number of helices fit in the shape
     scale: f64,
+    /// The unscaled perimeter of the revolving curve
     perimeter: f64,
     nb_turn_per_helix: usize,
 }
@@ -317,8 +319,9 @@ pub(super) struct TwistedTorus {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct TwistedTorusDescriptor {
     pub curve: CurveDescriptor2D,
-    /// Number of half rotation of the Ellipse per turn
-    pub half_twist_count_per_turn: isize,
+    /// Number of time the shape appears in a full turn
+    #[serde(alias = "half_twist_count_per_turn")]
+    pub symetry_per_turn: isize,
     /// Radius of the structure,
     pub big_radius: OrderedFloat<f64>,
     pub number_of_helix_per_section: usize,
@@ -331,13 +334,35 @@ pub struct TwistedTorusDescriptor {
 impl TwistedTorus {
     pub fn new(descriptor: TwistedTorusDescriptor) -> Self {
         let instanciated_curve = descriptor.curve.clone().instanciate();
-        let scale =
-            2. * H * descriptor.number_of_helix_per_section as f64 / instanciated_curve.perimeter();
-        let k = descriptor.helix_index_shift_per_turn;
-        let n = descriptor.number_of_helix_per_section;
-        let q = descriptor.half_twist_count_per_turn;
+        let scale = 2. * INTER_HELIX_GAP * descriptor.number_of_helix_per_section as f64
+            / instanciated_curve.perimeter();
+        let shift_per_turn = descriptor.helix_index_shift_per_turn;
+        let nb_helices = descriptor.number_of_helix_per_section;
+        let nb_symetry_per_turn = descriptor.symetry_per_turn;
         let rho = instanciated_curve.symetry_order();
-        let nb_turn_per_helix = n as usize / gcd(n as isize, k + (n as isize * q) / rho as isize);
+
+        // At each turn, all helices positions are shifted by total_shift = nb_helices / rho * number of symetry
+        // per turn
+        //
+        // ex for rho = 4, and 1 symetry per turn
+        //
+        // 1 2 3
+        // 8   4
+        // 7 6 5
+        //
+        // 7 8 1
+        // 6   2
+        // 5 4 3
+        // in addition, the helix is shifted by `shift_per_turn` position every turn.
+        let total_shift = shift_per_turn + nb_helices as isize * nb_symetry_per_turn / rho as isize;
+
+        // The number of turn needed for an helix to return to its initial position is k where:
+        //  k * total_shift == gcm(total_shift, nb_helices).
+        //  =>   k = gcm(total_shift, nb_helices) / total_shift
+        //  =>   k * gcd(total_shift, nb_helices) = nb_helices * total_shift / total_shift
+        //  =>   k = nb_helices / gcd(total_shift, nb_helices)
+        let nb_turn_per_helix = nb_helices as usize / gcd(nb_helices as isize, total_shift);
+
         Self {
             descriptor,
             scale,
@@ -369,9 +394,11 @@ impl TwistedTorus {
         self.nb_turn_per_helix as f64 * t * TAU
     }
 
+    /// Maps an angle theta in [0, `self.nb_turn_per_helix` * 2 \pi] to a curvilinear abscissa on
+    /// the revolving shape.
     fn objective_s(&self, theta: f64) -> f64 {
         *self.descriptor.initial_curvilinear_abscissa
-            + 2. * H
+            + 2. * INTER_HELIX_GAP
                 * (self.descriptor.helix_index_shift_per_turn as f64 * theta / TAU
                     + self.descriptor.initial_index_shift as f64)
     }
@@ -385,18 +412,19 @@ impl Curved for TwistedTorus {
         let t_curve = self
             .instanciated_curve
             .t_for_curvilinear_abscissa(s_theta.rem_euclid(self.perimeter));
+
         let point_curve = self.instanciated_curve.position(t_curve) * self.scale;
-        let phi = self.descriptor.half_twist_count_per_turn as f64 * theta
+
+        let curve_angle = self.descriptor.symetry_per_turn as f64 * theta
             / (self.instanciated_curve.symetry_order() as f64);
 
+        let rotated_curve_x = point_curve.x * curve_angle.cos() - point_curve.y * curve_angle.sin();
+        let rotated_curve_y = point_curve.x * curve_angle.sin() + point_curve.y * curve_angle.cos();
+
         DVec3 {
-            x: (point_curve.x * phi.cos() - point_curve.y * phi.sin()
-                + *self.descriptor.big_radius)
-                * theta.cos(),
-            y: point_curve.x * phi.sin() + point_curve.y * phi.cos(),
-            z: (point_curve.x * phi.cos() - point_curve.y * phi.sin()
-                + *self.descriptor.big_radius)
-                * theta.sin(),
+            x: (rotated_curve_x + *self.descriptor.big_radius) * theta.cos(),
+            y: rotated_curve_y,
+            z: (rotated_curve_x + *self.descriptor.big_radius) * theta.sin(),
         }
     }
 
