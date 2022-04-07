@@ -521,11 +521,11 @@ impl<S: AppState> Scene<S> {
             Consequence::MoveBezierTengent {
                 vertex_id,
                 tengent_in,
-                adjust_other,
+                full_symetry_other: adjust_other,
                 new_vector,
             } => self.requests.lock().unwrap().apply_design_operation(
                 DesignOperation::SetVectorOfBezierTengent(NewBezierTengentVector {
-                    adjust_other_tengent: adjust_other,
+                    full_symetry_other_tengent: adjust_other,
                     new_vector,
                     tengent_in,
                     vertex_id,

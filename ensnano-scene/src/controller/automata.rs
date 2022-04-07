@@ -26,7 +26,6 @@ use ensnano_design::{
 use ensnano_interactor::{ActionMode, CursorIcon};
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::time::Instant;
 
 use super::AppState;
 
@@ -513,10 +512,6 @@ struct BuildingHelix {
     length_helix: usize,
     position_helix: isize,
     clicked_position: PhysicalPosition<f64>,
-}
-
-fn position_difference(a: PhysicalPosition<f64>, b: PhysicalPosition<f64>) -> f64 {
-    (a.x - b.x).abs().max((a.y - b.y).abs())
 }
 
 fn ctrl(modifiers: &ModifiersState) -> bool {

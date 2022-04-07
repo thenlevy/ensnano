@@ -138,6 +138,7 @@ pub struct DrawOptions {
     pub show_stereographic_camera: bool,
     pub thick_helices: bool,
     pub h_bonds: bool,
+    pub show_bezier_planes: bool,
 }
 
 impl View {

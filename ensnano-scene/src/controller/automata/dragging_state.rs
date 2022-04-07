@@ -28,8 +28,6 @@ use ensnano_design::BezierVertexId;
 use super::*;
 
 pub(super) struct DraggedCursor<'a, 'b, S: AppState> {
-    /// The current cursor position
-    position: PhysicalPosition<f64>,
     /// The cursor position when the mouse button was pressed
     clicked_position: PhysicalPosition<f64>,
     /// The *normalized* difference between the current cursor position and the position of the
@@ -52,7 +50,6 @@ impl<'a, 'b, S: AppState> DraggedCursor<'a, 'b, S> {
         };
 
         Self {
-            position: current_position,
             clicked_position,
             delta_position: context.normalize_position(delta_postion),
             normalized_position: context.normalize_position(current_position),
@@ -427,7 +424,7 @@ impl DraggingTransitionTable for BuildingStrands {
 
     fn on_cursor_moved<S: AppState>(
         &mut self,
-        mut cursor: DraggedCursor<'_, '_, S>,
+        cursor: DraggedCursor<'_, '_, S>,
     ) -> Option<Consequence> {
         if let Some(nucls) = self.to_initialize.take() {
             Some(Consequence::InitBuild(nucls))
@@ -742,18 +739,10 @@ impl DraggingTransitionTable for MovingBezierTengent {
         &mut self,
         cursor: DraggedCursor<'_, '_, S>,
     ) -> Option<Consequence> {
-        let rotate = super::ctrl(cursor.context.get_modifiers());
+        let translate_only = cursor.context.get_modifiers().shift();
+        let full_symetry_other = cursor.context.get_modifiers().alt();
 
-        let new_tengent = if rotate {
-            // change the angle without changing the norm
-            cursor
-                .context
-                .get_current_cursor_intersection_with_bezier_plane(self.plane_id)
-                .map(|cursor_proj| {
-                    let norm = self.tengent_vector.mag();
-                    (cursor_proj.position() - self.vertex_position_on_plane).normalized() * norm
-                })
-        } else {
+        let new_tengent = if translate_only {
             // Change the norm without changing the angle
             cursor
                 .context
@@ -762,6 +751,12 @@ impl DraggingTransitionTable for MovingBezierTengent {
                     let new_norm = (cursor_proj.position() - self.vertex_position_on_plane).mag();
                     self.tengent_vector.normalized() * new_norm
                 })
+        } else {
+            // Move the tengent freely
+            cursor
+                .context
+                .get_current_cursor_intersection_with_bezier_plane(self.plane_id)
+                .map(|cursor_proj| cursor_proj.position() - self.vertex_position_on_plane)
         };
 
         new_tengent.map(|t| {
@@ -769,7 +764,7 @@ impl DraggingTransitionTable for MovingBezierTengent {
             Consequence::MoveBezierTengent {
                 vertex_id: self.vertex_id,
                 tengent_in: self.tengent_in,
-                adjust_other: true, // TODO decide what the user must do to change this value
+                full_symetry_other,
                 new_vector: t,
             }
         })

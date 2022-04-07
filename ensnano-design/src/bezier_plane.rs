@@ -25,7 +25,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use ultraviolet::{DMat3, DVec3, Mat3, Rotor3, Vec2, Vec3};
 
-const TENGENT: f32 = 1. / 3.;
+const DEFAULT_BEZIER_TENGENT_NORM: f32 = 1. / 3.;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BezierPlaneDescriptor {
@@ -329,13 +329,13 @@ fn path_to_curve_descriptor(
                     let plane = source_planes.get(&v.plane_id)?;
                     pos - plane.position(position_in)
                 } else {
-                    (pos_to - pos_from) * TENGENT
+                    (pos_to - pos_from) * DEFAULT_BEZIER_TENGENT_NORM
                 };
                 let vector_out = if let Some(position_out) = v.position_out {
                     let plane = source_planes.get(&v.plane_id)?;
                     plane.position(position_out) - pos
                 } else {
-                    (pos_to - pos_from) * TENGENT
+                    (pos_to - pos_from) * DEFAULT_BEZIER_TENGENT_NORM
                 };
 
                 Some(InstanciatedBeizerEnd {

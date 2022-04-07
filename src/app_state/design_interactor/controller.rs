@@ -1026,6 +1026,17 @@ impl Controller {
         }
     }
 
+    fn update_state_not_design(&mut self, design: &Design) {
+        if let ControllerState::ApplyingOperation { .. } = &self.state {
+            return;
+        } else {
+            self.state = ControllerState::ApplyingOperation {
+                design: AddressPointer::new(design.clone()),
+                operation: None,
+            };
+        }
+    }
+
     fn return_design(&self, design: Design, label: std::borrow::Cow<'static, str>) -> OkOperation {
         if self.is_in_persistant_state().is_persistant() {
             OkOperation::Push { design, label }
@@ -1228,7 +1239,7 @@ impl Controller {
         vertex_id: usize,
         position: Vec2,
     ) -> Result<Design, ErrOperation> {
-        self.update_state_and_design(&mut design);
+        self.update_state_not_design(&design);
 
         let mut new_paths = design.bezier_paths.make_mut();
         let path = new_paths
@@ -1247,7 +1258,7 @@ impl Controller {
         mut design: Design,
         request: NewBezierTengentVector,
     ) -> Result<Design, ErrOperation> {
-        self.update_state_and_design(&mut design);
+        self.update_state_not_design(&design);
 
         let mut new_paths = design.bezier_paths.make_mut();
         let path_id = request.vertex_id.path_id;
@@ -1260,13 +1271,30 @@ impl Controller {
             .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
         if request.tengent_in {
             vertex.position_in = Some(vertex.position + request.new_vector);
-            if request.adjust_other_tengent {
+            if request.full_symetry_other_tengent {
                 vertex.position_out = Some(vertex.position - request.new_vector);
+            } else {
+                let norm = vertex
+                    .position_out
+                    .map(|p| (vertex.position - p).mag())
+                    .unwrap_or(request.new_vector.mag());
+                let out_vec = request.new_vector.normalized() * -norm;
+                log::info!("norm {:?}", norm);
+                log::info!("new vec {:?}", request.new_vector);
+                log::info!("out vec {:?}", out_vec);
+                vertex.position_out = Some(vertex.position + out_vec);
             }
         } else {
             vertex.position_out = Some(vertex.position + request.new_vector);
-            if request.adjust_other_tengent {
+            if request.full_symetry_other_tengent {
                 vertex.position_in = Some(vertex.position - request.new_vector);
+            } else {
+                let norm = vertex
+                    .position_in
+                    .map(|p| (vertex.position - p).mag())
+                    .unwrap_or(request.new_vector.mag());
+                let in_vec = request.new_vector.normalized() * -norm;
+                vertex.position_in = Some(vertex.position + in_vec);
             }
         }
         drop(new_paths);

@@ -142,7 +142,7 @@ pub enum Consequence {
     MoveBezierTengent {
         vertex_id: BezierVertexId,
         tengent_in: bool,
-        adjust_other: bool,
+        full_symetry_other: bool,
         new_vector: Vec2,
     },
 }

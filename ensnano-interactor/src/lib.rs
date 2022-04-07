@@ -300,7 +300,7 @@ pub struct NewBezierTengentVector {
     pub vertex_id: BezierVertexId,
     /// Wether `new_vector` is the vector of the inward or outward tengent
     pub tengent_in: bool,
-    pub adjust_other_tengent: bool,
+    pub full_symetry_other_tengent: bool,
     pub new_vector: Vec2,
 }
 
