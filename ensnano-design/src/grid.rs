@@ -1383,10 +1383,11 @@ impl GridData {
 
         if let Some(desc) = helix.instanciated_descriptor.as_ref() {
             let curve = desc.make_curve(&self.parameters, cached_curve);
+            curve.update_additional_segments(&mut helix.additonal_isometries);
             helix.instanciated_curve = Some(InstanciatedCurve {
                 curve,
                 source: desc.clone(),
-            })
+            });
         }
     }
 

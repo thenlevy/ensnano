@@ -33,7 +33,7 @@ mod sphere_like_spiral;
 mod time_nucl_map;
 mod torus;
 mod twist;
-use super::{GridDescriptor, GridId};
+use super::GridId;
 use crate::grid::*;
 use bezier::TranslatedPiecewiseBezier;
 pub use bezier::{BezierControlPoint, BezierEnd, CubicBezierConstructor, CubicBezierControlPoint};
@@ -149,6 +149,14 @@ pub(super) trait Curved {
     fn full_turn_at_t(&self) -> Option<f64> {
         None
     }
+
+    /// This method can be overriden to express the fact that a curve needs to be represented by
+    /// several helices segments in 2D.
+    /// If that is the case, return the index of the corresponding segment for t. This methods must
+    /// be increasing.
+    fn subdivision_for_t(&self, _t: f64) -> Option<usize> {
+        None
+    }
 }
 
 /// The bounds of the curve. This describe the interval in which t can be taken
@@ -183,6 +191,8 @@ pub(super) struct Curve {
     /// The time point at which nucleotides where positioned
     t_nucl: Arc<Vec<f64>>,
     nucl_pos_full_turn: Option<isize>,
+    /// The first nucleotide of each additional helix segment needed to represent the curve.
+    additional_segment_left: Vec<usize>,
 }
 
 impl Curve {
@@ -197,6 +207,7 @@ impl Curve {
             nucl_t0: 0,
             t_nucl: Arc::new(Vec::new()),
             nucl_pos_full_turn: None,
+            additional_segment_left: Vec::new(),
         };
         let len_segment = ret.geometry.z_step_ratio().unwrap_or(1.0) * parameters.z_step as f64;
         ret.discretize(
@@ -247,6 +258,8 @@ impl Curve {
         let mut t = self.geometry.t_min();
         let mut current_axis = self.itterative_axis(t, None);
         let mut translation_axis = current_axis;
+
+        let mut current_segment = 0;
 
         if let Some(frame) = self.geometry.initial_frame() {
             let up = frame[1];
@@ -325,6 +338,11 @@ impl Curve {
             if t < self.geometry.t_max() {
                 if forward {
                     t_nucl.push(t);
+                    let segment_idx = self.geometry.subdivision_for_t(t).unwrap_or(0);
+                    if segment_idx != current_segment {
+                        current_segment = segment_idx;
+                        self.additional_segment_left.push(points_forward.len())
+                    }
                     points_forward.push(p);
                     if self.nucl_pos_full_turn.is_none()
                         && self
@@ -400,7 +418,7 @@ impl Curve {
         self.curvature.get(n).cloned()
     }
 
-    fn idx_convertsion(&self, n: isize) -> Option<usize> {
+    pub fn idx_convertsion(&self, n: isize) -> Option<usize> {
         if n >= 0 {
             Some(n as usize + self.nucl_t0)
         } else {
@@ -551,6 +569,22 @@ impl Curve {
         } else {
             Some(self.geometry.t_max())
         }
+    }
+
+    pub fn update_additional_segments(
+        &self,
+        segments: &mut Vec<crate::helices::AdditionalHelix2D>,
+    ) {
+        // TODO Existing segments could be updated instead of replaced to preserve existing
+        // isometries
+        *segments = self
+            .additional_segment_left
+            .iter()
+            .map(|s| crate::helices::AdditionalHelix2D {
+                left: *s as isize - self.nucl_t0 as isize,
+                additional_isometry: None,
+            })
+            .collect()
     }
 }
 

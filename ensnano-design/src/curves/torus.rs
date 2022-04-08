@@ -428,6 +428,10 @@ impl Curved for TwistedTorus {
         }
     }
 
+    fn subdivision_for_t(&self, t: f64) -> Option<usize> {
+        Some((self.nb_turn_per_helix as f64 * t).floor() as usize)
+    }
+
     fn bounds(&self) -> super::CurveBounds {
         super::CurveBounds::Finite
     }
