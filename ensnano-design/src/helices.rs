@@ -18,7 +18,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use crate::design_operations::ErrOperation;
 use crate::grid::*;
-use crate::BezierVertexId;
 
 use super::curves::*;
 use super::{
@@ -26,7 +25,7 @@ use super::{
     grid::{Grid, GridData, HelixGridPosition},
     scadnano::*,
     utils::*,
-    BezierPathId, Collection, Nucl, Parameters,
+    BezierPathId, Nucl, Parameters,
 };
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -198,6 +197,10 @@ pub struct Helix {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub isometry2d: Option<Isometry2>,
 
+    /// Additional segments for representing the helix in 2d
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub additonal_isometries: Vec<AdditionalHelix2D>,
+
     #[serde(default = "Vec2::one")]
     /// Symmetry applied inside the representation of the helix in 2d
     pub symmetry: Vec2,
@@ -261,6 +264,7 @@ impl Helix {
             orientation,
             grid_position: None,
             isometry2d: None,
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             visible: true,
             roll: 0f32,
@@ -342,6 +346,7 @@ impl Helix {
             visible: true,
             roll: 0f32,
             isometry2d: Some(isometry2d),
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             locked_for_simulations: false,
             curve: None,
@@ -386,6 +391,7 @@ impl Helix {
             position: origin,
             orientation,
             isometry2d: None,
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             grid_position: None,
             visible: true,
@@ -407,6 +413,7 @@ impl Helix {
             position,
             orientation: grid.orientation,
             isometry2d: None,
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             grid_position: Some(HelixGridPosition {
                 grid: g_id,
@@ -434,6 +441,7 @@ impl Helix {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
             isometry2d: None,
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             grid_position: None,
             visible: true,
@@ -468,8 +476,8 @@ impl Helix {
 
     pub fn translate_bezier_point(
         &mut self,
-        bezier_point: BezierControlPoint,
-        translation: GridAwareTranslation,
+        _bezier_point: BezierControlPoint,
+        _translation: GridAwareTranslation,
     ) -> Result<(), ErrOperation> {
         /*
         let point = match bezier_point {
@@ -529,6 +537,7 @@ impl Helix {
             position,
             orientation: Rotor3::identity(),
             isometry2d: None,
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             grid_position: Some(grid_pos_start),
             visible: true,
@@ -570,6 +579,7 @@ impl Helix {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
             isometry2d: None,
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             grid_position: Some(grid_pos),
             visible: true,
@@ -661,6 +671,7 @@ impl Helix {
             roll: 0.,
             visible: true,
             isometry2d: None,
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             locked_for_simulations: false,
             curve: None,
@@ -886,4 +897,15 @@ impl<'a> Axis<'a> {
             None
         }
     }
+}
+
+/// An additional 2d helix used to represent an helix in the 2d view
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdditionalHelix2D {
+    /// The minimum nucleotide index of the helix.
+    /// Nucleotides with smalle indices are represented by the previous helix
+    pub left: isize,
+    /// The Isomettry to be applied after applying the isometry of the main helix 2d representation
+    /// to obtain this segment
+    pub additional_isometry: Option<Isometry2>,
 }
