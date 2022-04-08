@@ -28,12 +28,42 @@ use ultraviolet::{Isometry2, Vec3};
 
 impl Reader2D for DesignReader {
     type NuclCollection = super::design_content::NuclCollection;
-    fn get_isometry(&self, h_id: usize) -> Option<Isometry2> {
-        self.presenter
-            .current_design
-            .helices
-            .get(&h_id)
-            .and_then(|h| h.isometry2d)
+    fn get_isometry(&self, h_id: usize, segment_idx: usize) -> Option<Isometry2> {
+        if segment_idx == 0 {
+            self.presenter
+                .current_design
+                .helices
+                .get(&h_id)
+                .and_then(|h| h.isometry2d)
+        } else {
+            self.presenter
+                .current_design
+                .helices
+                .get(&h_id)
+                .and_then(|h| h.additonal_isometries.get(segment_idx - 1))
+                .and_then(|i| i.additional_isometry)
+        }
+    }
+
+    fn get_helix_segment_symmetry(
+        &self,
+        h_id: usize,
+        segment_idx: usize,
+    ) -> Option<ensnano_design::Vec2> {
+        if segment_idx == 0 {
+            self.presenter
+                .current_design
+                .helices
+                .get(&h_id)
+                .map(|h| h.symmetry)
+        } else {
+            self.presenter
+                .current_design
+                .helices
+                .get(&h_id)
+                .and_then(|h| h.additonal_isometries.get(segment_idx - 1))
+                .and_then(|i| i.additional_symmetry)
+        }
     }
 
     fn get_strand_points(&self, s_id: usize) -> Option<Vec<Nucl>> {

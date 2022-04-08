@@ -583,6 +583,7 @@ impl Curve {
             .map(|s| crate::helices::AdditionalHelix2D {
                 left: *s as isize - self.nucl_t0 as isize,
                 additional_isometry: None,
+                additional_symmetry: None,
             })
             .collect()
     }

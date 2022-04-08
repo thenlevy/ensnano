@@ -16,8 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::super::view::{CircleInstance, InsertionInstance};
-use super::super::{CameraPtr, Flat, FlatHelix, FlatIdx};
+use super::super::{CameraPtr, Flat, FlatHelix};
 use super::{FlatNucl, Helix2d, NuclCollection};
+use crate::flattypes::FlatHelixMaps;
 use crate::view::EditionInfo;
 use ahash::RandomState;
 use ensnano_design::ultraviolet;
@@ -99,12 +100,12 @@ impl Helix {
         }
     }
 
-    pub fn update(&mut self, helix2d: &Helix2d, id_map: &HashMap<usize, FlatIdx>) {
+    pub fn update(&mut self, helix2d: &Helix2d, id_map: &FlatHelixMaps) {
         self.left = self.left.min(helix2d.left);
         self.right = self.right.max(helix2d.right);
         self.visible = helix2d.visible;
         self.real_id = helix2d.id;
-        if let Some(flat_id) = FlatHelix::from_real(self.real_id, id_map) {
+        if let Some(flat_id) = FlatHelix::from_real(self.real_id, helix2d.segment_idx, id_map) {
             self.flat_id = flat_id
         } else {
             log::error!("real id does not exist {}", self.real_id);
@@ -205,7 +206,7 @@ impl Helix {
 
     /// Return the position of the nucleotide in the 2d drawing
     pub fn get_nucl_position(&self, nucl: &FlatNucl, shift: Shift) -> Vec2 {
-        let mut local_position = nucl.position as f32 * Vec2::unit_x()
+        let mut local_position = nucl.flat_position as f32 * Vec2::unit_x()
             + match shift {
                 Shift::Prime3 => {
                     if nucl.forward {
@@ -262,7 +263,7 @@ impl Helix {
 
     /// Return the position at which the 3' tick should end
     pub fn get_arrow_end(&self, nucl: &FlatNucl) -> Vec2 {
-        let mut local_position = nucl.position as f32 * Vec2::unit_x()
+        let mut local_position = nucl.flat_position as f32 * Vec2::unit_x()
             + if nucl.forward {
                 Vec2::new(0.2, 0.3)
             } else {
@@ -432,7 +433,7 @@ impl Helix {
         let top_left_pos = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
-                position: self.left - 1,
+                flat_position: self.left - 1,
                 forward: true,
             },
             Shift::No,
@@ -440,7 +441,7 @@ impl Helix {
         let bottom_left_pos = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
-                position: self.left - 1,
+                flat_position: self.left - 1,
                 forward: false,
             },
             Shift::No,
@@ -448,7 +449,7 @@ impl Helix {
         let top_right_pos = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
-                position: self.right + 1,
+                flat_position: self.right + 1,
                 forward: true,
             },
             Shift::No,
@@ -456,7 +457,7 @@ impl Helix {
         let bottom_right_pos = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
-                position: self.right + 1,
+                flat_position: self.right + 1,
                 forward: false,
             },
             Shift::No,
@@ -545,7 +546,7 @@ impl Helix {
         let center = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
-                position,
+                flat_position: position,
                 forward,
             },
             Shift::No,
@@ -563,19 +564,19 @@ impl Helix {
         } else if self.leftmost_x() - 1. - 2. * CIRCLE_WIDGET_RADIUS > left {
             // There is room on the left of the helix
             Some(FlatNucl {
-                position: self.left - 3,
+                flat_position: self.left - 3,
                 helix: self.flat_id,
                 forward: true,
             })
         } else if self.rightmost_x() + 2. + 2. * CIRCLE_WIDGET_RADIUS < right {
             Some(FlatNucl {
-                position: self.left - 3,
+                flat_position: self.left - 3,
                 helix: self.flat_id,
                 forward: true,
             })
         } else {
             Some(FlatNucl {
-                position: self.left,
+                flat_position: self.left,
                 helix: self.flat_id,
                 forward: true,
             })
@@ -585,7 +586,7 @@ impl Helix {
     /// A default nucleotide position for when the helix cannot be seen by the camera
     pub fn default_pivot(&self) -> FlatNucl {
         FlatNucl {
-            position: self.left - 3,
+            flat_position: self.left - 3,
             helix: self.flat_id,
             forward: true,
         }
@@ -691,7 +692,7 @@ impl Helix {
     ) {
         let candidate_pos: Option<isize> = hovered_nucl
             .filter(|n| n.helix == self.flat_id)
-            .map(|n| n.position);
+            .map(|n| n.flat_position);
         let show_seq = show_seq && camera.borrow().get_globals().zoom >= ZOOM_THRESHOLD;
         let size_id = 3.;
         let zoom_font = if camera.borrow().get_globals().zoom < 7.0 {
@@ -723,7 +724,7 @@ impl Helix {
         let moving_pos = edition_info
             .as_ref()
             .filter(|info| info.nucl.helix == self.flat_id)
-            .map(|info| info.nucl.position);
+            .map(|info| info.nucl.flat_position);
         let mut print_pos = |pos: isize| {
             let color = if Some(pos) == moving_pos || candidate_pos == Some(pos) {
                 [1., 0., 0., 1.].into()
@@ -775,7 +776,7 @@ impl Helix {
 
         if let Some(building) = edition_info {
             if building.nucl.helix == self.flat_id {
-                print_info(building.nucl.position, &building.to_string());
+                print_info(building.nucl.flat_position, &building.to_string());
             }
         }
 
@@ -835,8 +836,8 @@ impl Helix {
         if let Some((x0, x1)) =
             self.screen_rectangle_intersection(camera, left, top, right, bottom, HelixLine::Middle)
         {
-            if self.x_conversion(nucl.position as f32) >= x0.floor()
-                && self.x_conversion(nucl.position as f32) < x1.ceil()
+            if self.x_conversion(nucl.flat_position as f32) >= x0.floor()
+                && self.x_conversion(nucl.flat_position as f32) < x1.ceil()
             {
                 return true;
             }
@@ -845,8 +846,8 @@ impl Helix {
             if let Some((x0, x1)) =
                 self.screen_rectangle_intersection(camera, left, top, right, bottom, HelixLine::Top)
             {
-                if self.x_conversion(nucl.position as f32) >= x0.floor()
-                    && self.x_conversion(nucl.position as f32) < x1.ceil()
+                if self.x_conversion(nucl.flat_position as f32) >= x0.floor()
+                    && self.x_conversion(nucl.flat_position as f32) < x1.ceil()
                 {
                     return true;
                 }
@@ -860,8 +861,8 @@ impl Helix {
                 bottom,
                 HelixLine::Bottom,
             ) {
-                if self.x_conversion(nucl.position as f32) >= x0.floor()
-                    && self.x_conversion(nucl.position as f32) < x1.ceil()
+                if self.x_conversion(nucl.flat_position as f32) >= x0.floor()
+                    && self.x_conversion(nucl.flat_position as f32) < x1.ceil()
                 {
                     return true;
                 }

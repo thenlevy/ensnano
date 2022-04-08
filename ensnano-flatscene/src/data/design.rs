@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::{Arc, Mutex};
 
 use super::super::{FlatHelix, FlatIdx, FlatNucl, Requests};
@@ -30,11 +30,13 @@ use ensnano_interactor::{torsion::Torsion, Referential};
 use ensnano_utils::full_isometry::FullIsometry;
 use ultraviolet::{Isometry2, Rotor2, Vec2, Vec3};
 
+use crate::flattypes::FlatHelixMaps;
+
 pub(super) struct Design2d<R: DesignReader> {
     /// The 2d helices
     helices: HelixVec<Helix2d>,
     /// Maps id of helices in design to location in self.helices
-    id_map: HashMap<usize, FlatIdx>,
+    id_map: FlatHelixMaps,
     /// the 2d strands
     strands: Vec<Strand>,
     /// A pointer to the design
@@ -53,7 +55,7 @@ impl<R: DesignReader> Design2d<R> {
         Self {
             design,
             helices: HelixVec::new(),
-            id_map: HashMap::new(),
+            id_map: Default::default(),
             strands: Vec::new(),
             pasted_strands: Vec::new(),
             last_flip_other: None,
@@ -126,11 +128,11 @@ impl<R: DesignReader> Design2d<R> {
             })
             .collect();
 
-        for h_id in self.id_map.keys() {
+        for ((h_id, segment_id), flat_idx) in self.id_map.iter() {
             let visibility = self.design.get_visibility_helix(*h_id);
-            if let Some(flat_helix) = FlatHelix::from_real(*h_id, &self.id_map) {
-                self.helices[flat_helix.flat].visible = visibility.unwrap_or(false);
-            }
+            self.helices
+                .get_mut(*flat_idx)
+                .map(|h| h.visible = visibility.unwrap_or(false));
         }
 
         for h in self.helices.iter_mut() {
@@ -151,11 +153,13 @@ impl<R: DesignReader> Design2d<R> {
 
     fn rm_deleted_helices(&mut self) {
         let mut to_remove = Vec::new();
-        for (h_id, h) in self.id_map.iter() {
+        for ((h_id, _segment_id), h) in self.id_map.iter() {
             if !self.design.has_helix(*h_id) {
                 let flat_helix = FlatHelix {
                     flat: *h,
                     real: *h_id,
+                    segment_idx: 0,
+                    segment_left: None,
                 };
                 to_remove.push(flat_helix);
                 self.removed.insert(*h);
@@ -181,46 +185,15 @@ impl<R: DesignReader> Design2d<R> {
         helix2d.right = right;
     }
 
-    /// Add a nucleotide to self.
-    /// If the nucleotides lies on an helix that is not known from self, create a new helix.
+    /// Add a nucleotide to self and increase the left/right bond the the 2d segment representation
     fn read_nucl(&mut self, nucl: &Nucl) {
         let helix = nucl.helix;
-        if let Some(flat) = self.id_map.get(&helix) {
-            let flat_helix = FlatHelix {
-                real: helix,
-                flat: *flat,
-            };
-            let helix2d = &mut self.helices[flat_helix.flat];
+        if let Some(flat_nucl) = FlatNucl::from_real(nucl, &self.id_map) {
+            let helix2d = &mut self.helices[flat_nucl.helix.flat];
             helix2d.left = helix2d.left.min(nucl.position - 1);
             helix2d.right = helix2d.right.max(nucl.position + 1);
         } else {
-            self.id_map.insert(helix, FlatIdx(self.helices.len()));
-            let iso_opt = self.design.get_isometry(helix);
-            let isometry = if let Some(iso) = iso_opt {
-                iso
-            } else {
-                let iso = Isometry2::new(
-                    (5. * helix as f32 - 1.) * Vec2::unit_y(),
-                    Rotor2::identity(),
-                );
-                self.requests.lock().unwrap().set_isometry(helix, iso);
-                iso
-            };
-            let isometry = FullIsometry::from_isommetry_symmetry(
-                isometry,
-                self.design
-                    .get_raw_helix(helix)
-                    .map(|h| h.symmetry)
-                    .unwrap_or(Vec2::one()),
-            );
-            self.helices.push(Helix2d {
-                id: helix,
-                left: nucl.position - 1,
-                right: nucl.position + 1,
-                isometry,
-                visible: self.design.get_visibility_helix(helix).unwrap_or(false),
-                abscissa_converter: Arc::new(self.design.get_abcissa_converter(helix)),
-            });
+            log::error!("Could not convert {nucl} to flat nucl")
         }
     }
 
@@ -231,6 +204,7 @@ impl<R: DesignReader> Design2d<R> {
         }
         let helices = self.design.get_helices_map();
         self.known_map = helices;
+        let helices = self.design.get_helices_map().clone();
         for (h_id, helix) in helices.iter() {
             // update helix only if necessary
             if self
@@ -240,39 +214,60 @@ impl<R: DesignReader> Design2d<R> {
                 .is_none()
             {
                 self.known_helices.insert(*h_id, helix);
-                let iso_opt = self.design.get_isometry(*h_id);
-                let isometry = if let Some(iso) = iso_opt {
-                    iso
-                } else {
-                    let iso = Isometry2::new(
-                        (5. * *h_id as f32 - 1.) * Vec2::unit_y(),
-                        Rotor2::identity(),
-                    );
-                    self.requests.lock().unwrap().set_isometry(*h_id, iso);
-                    iso
-                };
-                let symmetry = self
-                    .design
-                    .get_raw_helix(*h_id)
-                    .map(|h| h.symmetry)
-                    .unwrap_or(Vec2::one());
-                if !self.id_map.contains_key(h_id) {
-                    self.id_map.insert(*h_id, FlatIdx(self.helices.len()));
-                    self.helices.push(Helix2d {
-                        id: *h_id,
-                        left: -1,
-                        right: 1,
-                        isometry: FullIsometry::from_isommetry_symmetry(isometry, symmetry),
-                        visible: self.design.get_visibility_helix(*h_id).unwrap_or(false),
-                        abscissa_converter: Arc::new(self.design.get_abcissa_converter(*h_id)),
-                    });
-                } else {
-                    let flat = self.id_map.get(h_id).unwrap();
-                    let helix2d = &mut self.helices[*flat];
-                    helix2d.isometry = FullIsometry::from_isommetry_symmetry(isometry, symmetry);
-                    helix2d.abscissa_converter = Arc::new(self.design.get_abcissa_converter(*h_id));
+                let segments: Vec<isize> =
+                    helix.additonal_isometries.iter().map(|i| i.left).collect();
+                let nb_segments = segments.len();
+                self.id_map.insert_segments(*h_id, segments);
+                for segment_idx in 0..=nb_segments {
+                    self.read_helix_segment(*h_id, segment_idx)
                 }
             }
+        }
+    }
+
+    fn read_helix_segment(&mut self, h_id: usize, segment_idx: usize) {
+        let iso_opt = self.design.get_isometry(h_id, segment_idx);
+        let isometry = if let Some(iso) = iso_opt {
+            iso
+        } else {
+            let iso = Isometry2::new(
+                (5. * (h_id as f32 + segment_idx as f32) - 1.) * Vec2::unit_y(),
+                Rotor2::identity(),
+            );
+            self.requests
+                .lock()
+                .unwrap()
+                .set_isometry(h_id, segment_idx, iso);
+            iso
+        };
+        let symmetry = self
+            .design
+            .get_helix_segment_symmetry(h_id, segment_idx)
+            .unwrap_or(Vec2::one());
+        if !self.id_map.contains_segment(h_id, segment_idx) {
+            let flat_idx = FlatIdx(self.helices.len());
+            self.id_map.insert_segment_key(flat_idx, h_id, segment_idx);
+            let (min_left, max_right) = self
+                .id_map
+                .get_left_right_segment(h_id, segment_idx)
+                .unwrap_or((isize::MIN, isize::MAX));
+            self.helices.push(Helix2d {
+                id: h_id,
+                segment_idx,
+                left: -1,
+                right: 1,
+                min_left,
+                max_right,
+                isometry: FullIsometry::from_isommetry_symmetry(isometry, symmetry),
+                visible: self.design.get_visibility_helix(h_id).unwrap_or(false),
+                abscissa_converter: Arc::new(self.design.get_abcissa_converter(h_id)),
+            });
+        } else {
+            // unwrap Ok because we know that the key exists
+            let flat = self.id_map.get_segment_idx(h_id, segment_idx).unwrap();
+            let helix2d = &mut self.helices[flat];
+            helix2d.isometry = FullIsometry::from_isommetry_symmetry(isometry, symmetry);
+            helix2d.abscissa_converter = Arc::new(self.design.get_abcissa_converter(h_id));
         }
     }
 
@@ -297,7 +292,11 @@ impl<R: DesignReader> Design2d<R> {
                 self.last_flip_other = Some(flat_helix);
                 !self.helices[flat_helix.flat].visible
             };
-            for helix in self.id_map.keys().filter(|h| **h != flat_helix.real) {
+            for ((helix, _), _) in self
+                .id_map
+                .iter()
+                .filter(|((h, _), _)| *h != flat_helix.real)
+            {
                 self.requests
                     .lock()
                     .unwrap()
@@ -328,13 +327,14 @@ impl<R: DesignReader> Design2d<R> {
     }
 
     pub fn remake_id_map(&mut self) {
-        self.id_map.clear();
+        self.id_map.clear_maps();
         for (i, h) in self.helices.iter().enumerate() {
-            self.id_map.insert(h.id, FlatIdx(i));
+            self.id_map
+                .insert_segment_key(FlatIdx(i), h.id, h.segment_idx);
         }
     }
 
-    pub fn id_map(&self) -> &HashMap<usize, FlatIdx> {
+    pub fn id_map(&self) -> &FlatHelixMaps {
         &self.id_map
     }
 
@@ -426,9 +426,12 @@ pub struct Helix2d {
     pub left: isize,
     /// The largest position of a nucleotide of the the helix
     pub right: isize,
+    pub min_left: isize,
+    pub max_right: isize,
     pub isometry: FullIsometry,
     pub visible: bool,
     pub abscissa_converter: Arc<AbscissaConverter>,
+    pub segment_idx: usize,
 }
 
 impl Helix2d {
@@ -449,7 +452,7 @@ pub struct FlatTorsion {
 }
 
 impl FlatTorsion {
-    pub fn from_real(real: &Torsion, id_map: &HashMap<usize, FlatIdx>) -> Self {
+    pub fn from_real(real: &Torsion, id_map: &FlatHelixMaps) -> Self {
         Self {
             strength_prime5: real.strength_prime5,
             strength_prime3: real.strength_prime3,
@@ -472,7 +475,8 @@ pub trait DesignReader: 'static {
     fn get_visibility_helix(&self, h_id: usize) -> Option<bool>;
     fn get_suggestions(&self) -> Vec<(Nucl, Nucl)>;
     fn has_helix(&self, h_id: usize) -> bool;
-    fn get_isometry(&self, h_id: usize) -> Option<Isometry2>;
+    fn get_isometry(&self, h_id: usize, segment_idx: usize) -> Option<Isometry2>;
+    fn get_helix_segment_symmetry(&self, h_id: usize, segment_idx: usize) -> Option<Vec2>;
     fn can_start_builder_at(&self, nucl: Nucl) -> bool;
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;

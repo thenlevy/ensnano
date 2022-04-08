@@ -908,4 +908,5 @@ pub struct AdditionalHelix2D {
     /// The Isomettry to be applied after applying the isometry of the main helix 2d representation
     /// to obtain this segment
     pub additional_isometry: Option<Isometry2>,
+    pub additional_symmetry: Option<Vec2>,
 }

@@ -278,7 +278,7 @@ impl<S: AppState> FlatScene<S> {
                 .set_paste_candidate(candidate.map(|n| n.to_real())),
             Consequence::NewCandidate(candidate) => {
                 let phantom = candidate.map(|n| PhantomElement {
-                    position: n.position as i32,
+                    position: n.flat_position as i32,
                     helix_id: n.helix.real as u32,
                     forward: n.forward,
                     bound: false,
@@ -633,7 +633,7 @@ pub trait Requests {
     fn attempt_paste(&mut self, nucl: Option<Nucl>);
     fn request_centering_on_nucl(&mut self, nucl: Nucl, design_id: usize);
     fn update_opperation(&mut self, operation: Arc<dyn Operation>);
-    fn set_isometry(&mut self, helix: usize, isometry: Isometry2);
+    fn set_isometry(&mut self, helix: usize, segment_idx: usize, isometry: Isometry2);
     fn set_visibility_helix(&mut self, helix: usize, visibility: bool);
     fn flip_group(&mut self, helix: usize);
     fn suspend_op(&mut self);

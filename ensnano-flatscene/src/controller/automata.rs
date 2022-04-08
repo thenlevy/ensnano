@@ -1540,10 +1540,10 @@ impl<S: AppState> ControllerState<S> for InitBuilding {
                     match click_result {
                         ClickResult::Nucl(FlatNucl {
                             helix,
-                            position,
+                            flat_position: position,
                             forward,
                         }) if helix == self.nucl.helix && forward == self.nucl.forward => {
-                            if position != self.nucl.position {
+                            if position != self.nucl.flat_position {
                                 //self.builder.move_to(position);
                                 controller.data.borrow_mut().notify_update();
                                 Transition {
@@ -1847,7 +1847,9 @@ impl<S: AppState> ControllerState<S> for Building {
                 }
                 match nucl {
                     FlatNucl {
-                        helix, position, ..
+                        helix,
+                        flat_position: position,
+                        ..
                     } if helix == self.nucl.helix => {
                         controller.data.borrow_mut().notify_update();
                         Transition::consequence(Consequence::MoveBuilders(position))

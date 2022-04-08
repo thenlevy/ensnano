@@ -30,6 +30,7 @@ mod strand;
 pub use strand::{FreeEnd, Strand, StrandVertex};
 mod design;
 use super::{CameraPtr, FlatHelix, FlatIdx, FlatNucl};
+use crate::FlatHelixMaps;
 use ahash::RandomState;
 use design::{Design2d, Helix2d};
 pub use design::{DesignReader, FlatTorsion, NuclCollection};
@@ -96,7 +97,7 @@ impl<R: DesignReader> Data<R> {
         self.instance_update = false;
     }
 
-    pub fn id_map(&self) -> &HashMap<usize, FlatIdx> {
+    pub fn id_map(&self) -> &FlatHelixMaps {
         self.design.id_map()
     }
 
@@ -124,7 +125,7 @@ impl<R: DesignReader> Data<R> {
                     }
                 }
                 Selection::Helix(_, h) => {
-                    if let Some(flat_helix) = FlatHelix::from_real(*h as usize, id_map) {
+                    if let Some(flat_helix) = FlatHelix::from_real(*h as usize, 0, id_map) {
                         selected_helices.push(flat_helix.flat);
                     }
                 }
@@ -151,7 +152,7 @@ impl<R: DesignReader> Data<R> {
                     }
                 }
                 Selection::Helix(_, h) => {
-                    if let Some(flat_helix) = FlatHelix::from_real(*h as usize, id_map) {
+                    if let Some(flat_helix) = FlatHelix::from_real(*h as usize, 0, id_map) {
                         candidate_helices.push(flat_helix.flat);
                     }
                 }
@@ -226,7 +227,7 @@ impl<R: DesignReader> Data<R> {
             helix.update(&new_helices[i], id_map);
         }
         for h in new_helices[nb_helix..].iter() {
-            if let Some(flat_helix) = FlatHelix::from_real(h.id, id_map) {
+            if let Some(flat_helix) = FlatHelix::from_real(h.id, h.segment_idx, id_map) {
                 self.helices.push(Helix::new(
                     h.left,
                     h.right,
@@ -280,7 +281,7 @@ impl<R: DesignReader> Data<R> {
         for h in self.helices.iter() {
             let ret = h.get_click(x, y).map(|(position, forward)| FlatNucl {
                 helix: h.flat_id,
-                position,
+                flat_position: position,
                 forward,
             });
             if let Some(ret) = ret {
@@ -361,7 +362,7 @@ impl<R: DesignReader> Data<R> {
     pub fn get_click_unbounded_helix(&self, x: f32, y: f32, helix: FlatHelix) -> FlatNucl {
         let (position, forward) = self.helices[helix.flat].get_click_unbounded(x, y);
         FlatNucl {
-            position,
+            flat_position: position,
             forward,
             helix,
         }
@@ -412,13 +413,13 @@ impl<R: DesignReader> Data<R> {
             let mut ids = Vec::new();
             for s in selection.iter() {
                 if let Selection::Helix(_, h) = s {
-                    if let Some(h) = self.design.id_map().get(&(*h as usize)) {
-                        ids.push(*h)
+                    if let Some(h) = self.design.id_map().get_segment_idx(*h as usize, 0) {
+                        ids.push(h)
                     }
                 }
             }
             for h_id in ids.iter() {
-                if let Some(h) = self.helices.get_mut(h_id.0) {
+                if let Some(h) = self.helices.get_mut(*h_id) {
                     let (left, right) = h.redim_zero();
                     self.design.update_helix(h.flat_id, left, right);
                 }
@@ -686,8 +687,8 @@ impl<R: DesignReader> Data<R> {
             .iter()
             .map(|s| match s {
                 Selection::Helix(d_id, h_id) if *d_id == self.id => {
-                    if let Some(flat_id) = id_map.get(&(*h_id as usize)) {
-                        if let Some(h) = self.helices.get(*flat_id) {
+                    if let Some(flat_id) = id_map.get_segment_idx(*h_id as usize, 0) {
+                        if let Some(h) = self.helices.get(flat_id) {
                             let translation_pivot = h
                                 .get_circle_pivot(camera)
                                 .unwrap_or_else(|| h.default_pivot());
@@ -1126,11 +1127,11 @@ fn apply_symetric_difference_to_selection(
 }
 
 trait ToFlatInfo {
-    fn to_flat(self, id_map: &HashMap<usize, FlatIdx>) -> Option<super::view::EditionInfo>;
+    fn to_flat(self, id_map: &FlatHelixMaps) -> Option<super::view::EditionInfo>;
 }
 
 impl ToFlatInfo for super::StrandBuildingStatus {
-    fn to_flat(self, id_map: &HashMap<usize, FlatIdx>) -> Option<super::view::EditionInfo> {
+    fn to_flat(self, id_map: &FlatHelixMaps) -> Option<super::view::EditionInfo> {
         let flat_nucl = FlatNucl::from_real(&self.dragged_nucl, id_map)?;
         Some(EditionInfo {
             nt_length: self.nt_length,

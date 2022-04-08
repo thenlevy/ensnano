@@ -490,7 +490,7 @@ impl View {
         self.was_updated = true;
         match selection {
             FlatSelection::Bound(_, n1, n2) => {
-                self.helices[n1.helix].make_visible(n1.position, self.camera_top.clone());
+                self.helices[n1.helix].make_visible(n1.flat_position, self.camera_top.clone());
                 let world_pos_1 = self.helices[n1.helix].get_nucl_position(&n1, Shift::No);
                 let world_pos_2 = self.helices[n2.helix].get_nucl_position(&n2, Shift::No);
                 let screen_pos_1 = self
@@ -518,7 +518,9 @@ impl View {
             FlatSelection::Nucleotide(
                 _,
                 FlatNucl {
-                    helix, position, ..
+                    helix,
+                    flat_position: position,
+                    ..
                 },
             ) => {
                 self.helices[helix].make_visible(position, self.camera_top.clone());
@@ -531,14 +533,14 @@ impl View {
     pub fn center_split(&mut self, n1: FlatNucl, n2: FlatNucl) {
         let zoom = self.camera_top.borrow().get_globals().zoom;
         self.camera_bottom.borrow_mut().set_zoom(zoom);
-        self.helices[n1.helix].make_visible(n1.position, self.camera_top.clone());
-        self.helices[n2.helix].make_visible(n2.position, self.camera_bottom.clone());
+        self.helices[n1.helix].make_visible(n1.flat_position, self.camera_top.clone());
+        self.helices[n2.helix].make_visible(n2.flat_position, self.camera_bottom.clone());
     }
 
     /// Center the top camera on a nucleotide
     pub fn center_nucl(&mut self, nucl: FlatNucl, bottom: bool) {
         let helix = nucl.helix;
-        let position = self.helices[helix].get_pivot(nucl.position);
+        let position = self.helices[helix].get_pivot(nucl.flat_position);
         if bottom {
             self.camera_bottom.borrow_mut().set_center(position);
         } else {
@@ -1072,8 +1074,8 @@ impl View {
             };
             let h1 = &self.helices[n1.helix];
             let h2 = &self.helices[n2.helix];
-            circles.push(h1.get_circle_nucl(n1.position, n1.forward, color));
-            circles.push(h2.get_circle_nucl(n2.position, n2.forward, color));
+            circles.push(h1.get_circle_nucl(n1.flat_position, n1.forward, color));
+            circles.push(h2.get_circle_nucl(n2.flat_position, n2.forward, color));
         }
     }
 
@@ -1082,7 +1084,7 @@ impl View {
         for n in self.candidate_nucl.iter() {
             let candidate_color = ensnano_interactor::consts::CANDIDATE_COLOR;
             if let Some(h1) = self.helices.get(n.helix.flat.0) {
-                let mut c = h1.get_circle_nucl(n.position, n.forward, candidate_color);
+                let mut c = h1.get_circle_nucl(n.flat_position, n.forward, candidate_color);
                 c.set_radius(1. / 2.);
                 circles.push(c)
             } else {
@@ -1093,7 +1095,7 @@ impl View {
         for n in self.selected_nucl.iter() {
             let selected_color = ensnano_interactor::consts::SELECTED_COLOR;
             if let Some(h1) = self.helices.get(n.helix.flat.0) {
-                let mut c = h1.get_circle_nucl(n.position, n.forward, selected_color);
+                let mut c = h1.get_circle_nucl(n.flat_position, n.forward, selected_color);
                 c.set_radius(std::f32::consts::FRAC_1_SQRT_2);
                 circles.push(c)
             } else {
@@ -1111,20 +1113,20 @@ impl View {
                 .min(1.);
             let color = torsion_color(torsion.strength_prime5 - torsion.strength_prime3);
             let h0 = &self.helices[n0.helix];
-            let mut circle = h0.get_circle_nucl(n0.position, n0.forward, color);
+            let mut circle = h0.get_circle_nucl(n0.flat_position, n0.forward, color);
             circle.radius *= multiplier;
             if let Some(friend) = torsion.friend {
                 // The circle center should be placed between the two friend cross-overs
-                let circle2 = h0.get_circle_nucl(friend.0.position, n0.forward, color);
+                let circle2 = h0.get_circle_nucl(friend.0.flat_position, n0.forward, color);
                 circle.center = (circle.center + circle2.center) / 2.;
             }
             circles.push(circle);
             let h1 = &self.helices[n1.helix];
-            let mut circle = h1.get_circle_nucl(n1.position, n1.forward, color);
+            let mut circle = h1.get_circle_nucl(n1.flat_position, n1.forward, color);
             circle.radius *= multiplier;
             if let Some(friend) = torsion.friend {
                 // The circle center should be placed between the two friend cross-overs
-                let circle2 = h1.get_circle_nucl(friend.1.position, n1.forward, color);
+                let circle2 = h1.get_circle_nucl(friend.1.flat_position, n1.forward, color);
                 circle.center = (circle.center + circle2.center) / 2.;
             }
             circles.push(circle);
