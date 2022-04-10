@@ -88,7 +88,7 @@ impl<R: DesignReader> Design2d<R> {
             for nucl in strand.iter() {
                 self.read_nucl(nucl)
             }
-            let flat_strand = strand
+            let flat_strand: Vec<_> = strand
                 .iter()
                 .filter_map(|n| FlatNucl::from_real(n, self.id_map()))
                 .collect();
@@ -229,9 +229,12 @@ impl<R: DesignReader> Design2d<R> {
         let iso_opt = self.design.get_isometry(h_id, segment_idx);
         let isometry = if let Some(iso) = iso_opt {
             iso
+        } else if let Some(mut iso) = self.design.get_isometry(h_id, 0) {
+            iso.prepend_translation(10. * segment_idx as f32 * Vec2::unit_y());
+            iso
         } else {
             let iso = Isometry2::new(
-                (5. * (h_id as f32 + segment_idx as f32) - 1.) * Vec2::unit_y(),
+                (5. * (10. * h_id as f32 + segment_idx as f32) - 1.) * Vec2::unit_y(),
                 Rotor2::identity(),
             );
             self.requests

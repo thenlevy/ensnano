@@ -20,7 +20,7 @@ use super::*;
 
 use crate::flatscene::DesignReader as Reader2D;
 use ahash::RandomState;
-use ensnano_design::{Domain, Extremity, Helix, Strand};
+use ensnano_design::{Domain, Extremity, Helix, HelixInterval, Strand};
 use ensnano_interactor::{torsion::Torsion, Referential};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
@@ -68,16 +68,11 @@ impl Reader2D for DesignReader {
 
     fn get_strand_points(&self, s_id: usize) -> Option<Vec<Nucl>> {
         let strand = self.presenter.current_design.strands.get(&s_id)?;
+        let helices = &self.presenter.current_design.helices;
         let mut ret = Vec::new();
         for domain in strand.domains.iter() {
             if let Domain::HelixDomain(domain) = domain {
-                if domain.forward {
-                    ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
-                    ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
-                } else {
-                    ret.push(Nucl::new(domain.helix, domain.end - 1, domain.forward));
-                    ret.push(Nucl::new(domain.helix, domain.start, domain.forward));
-                }
+                ret.extend(split_domain_into_helices_segment(domain, helices));
             }
         }
         if strand.cyclic {
@@ -248,6 +243,48 @@ impl crate::flatscene::NuclCollection for super::design_content::NuclCollection 
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Nucl> + 'a> {
         self.iter_nucls()
     }
+}
+
+fn split_domain_into_helices_segment(
+    domain: &HelixInterval,
+    helices: &ensnano_design::Helices,
+) -> Vec<Nucl> {
+    let helix = helices.get(&domain.helix);
+    let empty = vec![];
+    let additional_segments = helix.map(|h| &h.additonal_isometries).unwrap_or(&empty);
+    let mut ret = Vec::new();
+
+    let intermediate_positions: Vec<isize> = additional_segments
+        .iter()
+        .map(|s| [s.left - 1, s.left])
+        .flatten()
+        .collect();
+
+    let mut iter = intermediate_positions
+        .into_iter()
+        .skip_while(|pos| *pos < domain.start);
+
+    ret.push(Nucl {
+        helix: domain.helix,
+        forward: domain.forward,
+        position: domain.start,
+    });
+    while let Some(position) = iter.next().filter(|pos| *pos < domain.end - 1) {
+        ret.push(Nucl {
+            helix: domain.helix,
+            forward: domain.forward,
+            position,
+        });
+    }
+    ret.push(Nucl {
+        helix: domain.helix,
+        forward: domain.forward,
+        position: domain.end - 1,
+    });
+    if !domain.forward {
+        ret.reverse();
+    }
+    ret
 }
 
 #[cfg(test)]
