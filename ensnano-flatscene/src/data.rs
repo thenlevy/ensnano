@@ -362,7 +362,7 @@ impl<R: DesignReader> Data<R> {
     pub fn get_click_unbounded_helix(&self, x: f32, y: f32, helix: FlatHelix) -> FlatNucl {
         let (position, forward) = self.helices[helix.flat].get_click_unbounded(x, y);
         FlatNucl {
-            flat_position: position,
+            flat_position: position + helix.segment_left.unwrap_or(0),
             forward,
             helix,
         }
