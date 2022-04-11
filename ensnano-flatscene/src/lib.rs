@@ -278,7 +278,7 @@ impl<S: AppState> FlatScene<S> {
                 .set_paste_candidate(candidate.map(|n| n.to_real())),
             Consequence::NewCandidate(candidate) => {
                 let phantom = candidate.map(|n| PhantomElement {
-                    position: n.flat_position as i32,
+                    position: n.flat_position as i32 + n.helix.segment_left.unwrap_or(0) as i32,
                     helix_id: n.helix.real as u32,
                     forward: n.forward,
                     bound: false,
