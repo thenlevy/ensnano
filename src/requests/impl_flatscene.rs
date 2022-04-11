@@ -58,7 +58,11 @@ impl FlatSceneRequests for Requests {
 
     fn set_isometry(&mut self, helix: usize, segment: usize, isometry: Isometry2) {
         self.keep_proceed.push_back(Action::SilentDesignOperation(
-                DesignOperation::SetIsometry { helix, isometry, segment },
+            DesignOperation::SetIsometry {
+                helix,
+                isometry,
+                segment,
+            },
         ))
     }
 

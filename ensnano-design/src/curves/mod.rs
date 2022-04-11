@@ -575,17 +575,22 @@ impl Curve {
         &self,
         segments: &mut Vec<crate::helices::AdditionalHelix2D>,
     ) {
-        // TODO Existing segments could be updated instead of replaced to preserve existing
-        // isometries
-        *segments = self
-            .additional_segment_left
-            .iter()
-            .map(|s| crate::helices::AdditionalHelix2D {
-                left: *s as isize - self.nucl_t0 as isize,
-                additional_isometry: None,
-                additional_symmetry: None,
-            })
-            .collect()
+        segments.truncate(self.additional_segment_left.len());
+        let mut iter =
+            self.additional_segment_left
+                .iter()
+                .map(|s| crate::helices::AdditionalHelix2D {
+                    left: *s as isize - self.nucl_t0 as isize,
+                    additional_isometry: None,
+                    additional_symmetry: None,
+                });
+
+        for s in segments.iter_mut() {
+            if let Some(i) = iter.next() {
+                s.left = i.left;
+            }
+        }
+        segments.extend(iter);
     }
 }
 
@@ -1149,7 +1154,10 @@ impl Helix {
     }
 
     fn need_curve_update_only(&self) -> bool {
-        let up_to_date = self.instanciated_curve.as_ref().map(|c| Arc::as_ptr(&c.source))
+        let up_to_date = self
+            .instanciated_curve
+            .as_ref()
+            .map(|c| Arc::as_ptr(&c.source))
             == self
                 .instanciated_descriptor
                 .as_ref()

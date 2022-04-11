@@ -1402,7 +1402,12 @@ impl GridData {
             self.update_instanciated_curve_descriptor(helix)
         }
 
-        if self.paths_data.as_ref().map(|p| helix.need_curve_update(&self.source_free_grids, p)).unwrap_or(true) {
+        if self
+            .paths_data
+            .as_ref()
+            .map(|p| helix.need_curve_update(&self.source_free_grids, p))
+            .unwrap_or(true)
+        {
             if let Some(desc) = helix.instanciated_descriptor.as_ref() {
                 let curve = desc.make_curve(&self.parameters, cached_curve);
                 curve.update_additional_segments(&mut helix.additonal_isometries);
