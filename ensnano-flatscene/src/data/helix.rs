@@ -20,9 +20,10 @@ use super::super::{CameraPtr, Flat, FlatHelix};
 use super::{FlatNucl, Helix2d, NuclCollection};
 use crate::flattypes::FlatHelixMaps;
 use crate::view::EditionInfo;
+use abcissa_converter::{AbscissaConverter, AbscissaConverter_};
 use ahash::RandomState;
 use ensnano_design::ultraviolet;
-use ensnano_design::{AbscissaConverter, Nucl};
+use ensnano_design::Nucl;
 use ensnano_interactor::consts::*;
 use ensnano_utils::{
     chars2d::{Line, Sentence, TextDrawer},
@@ -83,7 +84,7 @@ impl Helix {
         flat_id: FlatHelix,
         real_id: usize,
         visible: bool,
-        abscissa_converter: Arc<AbscissaConverter>,
+        abscissa_converter_: Arc<AbscissaConverter_>,
     ) -> Self {
         Self {
             left,
@@ -96,7 +97,10 @@ impl Helix {
             flat_id,
             real_id,
             visible,
-            abscissa_converter,
+            abscissa_converter: Arc::new(AbscissaConverter {
+                converter: abscissa_converter_,
+                left: flat_id.segment_left,
+            }),
         }
     }
 
@@ -105,13 +109,19 @@ impl Helix {
         self.right = self.right.max(helix2d.right);
         self.visible = helix2d.visible;
         self.real_id = helix2d.id;
+        let left;
         if let Some(flat_id) = FlatHelix::from_real(self.real_id, helix2d.segment_idx, id_map) {
+            left = flat_id.segment_left;
             self.flat_id = flat_id
         } else {
             log::error!("real id does not exist {}", self.real_id);
+            left = None;
         }
         self.isometry = helix2d.isometry;
-        self.abscissa_converter = helix2d.abscissa_converter.clone();
+        self.abscissa_converter = Arc::new(AbscissaConverter {
+            converter: helix2d.abscissa_converter.clone(),
+            left,
+        })
     }
 
     pub fn background_vertices(&self) -> Vertices {
@@ -1059,4 +1069,46 @@ impl HelixLine {
 pub enum HelixHandle {
     Left,
     Right,
+}
+
+mod abcissa_converter {
+    use super::*;
+    pub(super) use ensnano_design::AbscissaConverter as AbscissaConverter_;
+
+    #[derive(Debug)]
+    pub(super) struct AbscissaConverter {
+        pub left: Option<isize>,
+        pub converter: Arc<AbscissaConverter_>,
+    }
+
+    impl AbscissaConverter {
+        pub fn nucl_to_x_convertion(&self, n: isize) -> f64 {
+            let adjust = if let Some(n) = self.left {
+                self.converter.nucl_to_x_convertion(n)
+            } else {
+                0.0
+            };
+            self.converter
+                .nucl_to_x_convertion(n + self.left.unwrap_or(0))
+                - adjust
+        }
+
+        pub fn x_conversion(&self, x: f64) -> f64 {
+            if let Some(n) = self.left {
+                let adjust = self.converter.nucl_to_x_convertion(n);
+                self.converter.x_conversion(x + n as f64) - adjust
+            } else {
+                self.converter.x_conversion(x)
+            }
+        }
+
+        pub fn x_to_nucl_conversion(&self, x: f64) -> f64 {
+            if let Some(n) = self.left {
+                let shift = self.converter.nucl_to_x_convertion(n);
+                self.converter.x_to_nucl_conversion(x + shift) - n as f64
+            } else {
+                self.converter.x_to_nucl_conversion(x)
+            }
+        }
+    }
 }

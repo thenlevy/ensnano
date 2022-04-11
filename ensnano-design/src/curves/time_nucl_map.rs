@@ -64,6 +64,7 @@ impl HelixTimeMap {
         }
     }
 
+    /// Same as nucl_to_x_convertion but for "non integer nucl positions"
     pub fn x_conversion(&self, x: f64) -> f64 {
         if self.nucl_time.len() < 2 {
             x * self.length_normalisation
@@ -161,11 +162,25 @@ impl RevolutionCurveTimeMaps {
             .filter(|(_, h)| h.get_revolution_curve_desc() == Some(curve))
         {
             if let Some(curve) = h.instanciated_curve.as_ref() {
-                let time_points = &curve.curve.t_nucl;
-                if time_points.len() > 2 {
-                    let x_per_time = (time_points.len() as f64 - 1.)
-                        / (time_points.last().unwrap() - time_points.first().unwrap());
-                    length_normalisation = length_normalisation.max(x_per_time);
+                let mut positions = vec![0];
+                for next_left in h
+                    .additonal_isometries
+                    .iter()
+                    .map(|s| s.left)
+                    .filter(|left| *left < curve.curve.t_nucl.len() as isize)
+                {
+                    positions.push(next_left);
+                }
+                if positions.last().cloned() != Some(curve.curve.t_nucl.len() as isize) {
+                    positions.push(curve.curve.t_nucl.len() as isize);
+                }
+                for (a, b) in positions.iter().zip(positions.iter().skip(1)) {
+                    let time_points = &curve.curve.t_nucl[(*a as usize)..(*b as usize)];
+                    if time_points.len() > 2 {
+                        let x_per_time = (time_points.len() as f64 - 1.)
+                            / (time_points.last().unwrap() - time_points.first().unwrap());
+                        length_normalisation = length_normalisation.max(x_per_time);
+                    }
                 }
             }
         }
