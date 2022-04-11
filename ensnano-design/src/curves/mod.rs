@@ -27,7 +27,7 @@ use crate::{
 };
 
 use super::{Helix, Parameters};
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 mod bezier;
 mod sphere_like_spiral;
 mod time_nucl_map;
@@ -41,7 +41,7 @@ pub(crate) use bezier::{InstanciatedBeizerEnd, InstanciatedPiecewiseBeizer};
 pub use sphere_like_spiral::SphereLikeSpiral;
 use std::collections::HashMap;
 pub use time_nucl_map::AbscissaConverter;
-pub(crate) use time_nucl_map::PathTimeMaps;
+pub(crate) use time_nucl_map::{PathTimeMaps, RevolutionCurveTimeMaps};
 pub use torus::Torus;
 use torus::TwistedTorus;
 pub use torus::{CurveDescriptor2D, TwistedTorusDescriptor};
@@ -1096,7 +1096,7 @@ impl InstanciatedCurveDescriptor_ {
 
 #[derive(Default, Clone)]
 /// A map from curve descriptor to instanciated curves to avoid duplication of computations
-pub struct CurveCache(HashMap<TwistedTorusDescriptor, Arc<Curve>>);
+pub struct CurveCache(pub(crate) HashMap<TwistedTorusDescriptor, Arc<Curve>>);
 
 #[derive(Clone)]
 /// An instanciated curve with pre-computed nucleotides positions and orientations

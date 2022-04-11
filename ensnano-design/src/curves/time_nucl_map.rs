@@ -144,6 +144,62 @@ pub(crate) struct PathTimeMaps {
     length_normalisation: f64,
 }
 
+#[derive(Debug)]
+pub(crate) struct RevolutionCurveTimeMaps {
+    time_maps: BTreeMap<usize, HelixTimeMap>,
+    length_normalisation: f64,
+}
+
+impl RevolutionCurveTimeMaps {
+    pub fn new(curve: &CurveDescriptor2D, helices: &[(usize, &Helix)]) -> Self {
+        let mut time_maps = BTreeMap::new();
+
+        let mut length_normalisation: f64 = 1.;
+
+        for (_, h) in helices
+            .iter()
+            .filter(|(_, h)| h.get_revolution_curve_desc() == Some(curve))
+        {
+            if let Some(curve) = h.instanciated_curve.as_ref() {
+                let time_points = &curve.curve.t_nucl;
+                if time_points.len() > 2 {
+                    let x_per_time = (time_points.len() as f64 - 1.)
+                        / (time_points.last().unwrap() - time_points.first().unwrap());
+                    length_normalisation = length_normalisation.max(x_per_time);
+                }
+            }
+        }
+
+        for (h_id, h) in helices
+            .iter()
+            .filter(|(_, h)| h.get_revolution_curve_desc() == Some(&curve))
+        {
+            if let Some(curve) = h.instanciated_curve.as_ref() {
+                time_maps.insert(
+                    *h_id,
+                    HelixTimeMap {
+                        nucl_time: curve.curve.t_nucl.clone(),
+                        nb_negative_nucl: curve.curve.nucl_t0,
+                        length_normalisation,
+                    },
+                );
+            }
+        }
+        Self {
+            time_maps,
+            length_normalisation,
+        }
+    }
+
+    pub fn get_abscissa_converter(&self, h_id: usize) -> AbscissaConverter {
+        if let Some(map) = self.time_maps.get(&h_id) {
+            AbscissaConverter(AbscissaConverter_::Real(map.clone()))
+        } else {
+            AbscissaConverter(AbscissaConverter_::Fake(self.length_normalisation))
+        }
+    }
+}
+
 impl PathTimeMaps {
     pub fn new(path_id: BezierPathId, helices: &[(usize, &Helix)]) -> Self {
         let mut time_maps = BTreeMap::new();

@@ -17,9 +17,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::{
-    curves::AbscissaConverter, BezierPathData, BezierPathId, BezierVertexId, CurveDescriptor,
+    curves::{AbscissaConverter, CurveDescriptor2D},
+    BezierPathData, BezierPathId, BezierVertexId, CurveDescriptor,
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    iter::Rev,
+};
 
 use super::{
     curves,
@@ -29,6 +33,7 @@ use super::{
 };
 use curves::{
     CurveCache, GridPositionProvider, InstanciatedCurve, InstanciatedCurveDescriptor, PathTimeMaps,
+    RevolutionCurveTimeMaps,
 };
 mod copy_grid;
 mod deserialize;
@@ -714,6 +719,7 @@ pub struct GridData {
     center_of_gravity: HashMap<GridId, CenterOfGravity>,
     paths_data: Option<BezierPathData>,
     path_time_maps: Arc<BTreeMap<BezierPathId, Arc<PathTimeMaps>>>,
+    revolution_curve_time_maps: Arc<BTreeMap<CurveDescriptor2D, Arc<RevolutionCurveTimeMaps>>>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -804,6 +810,7 @@ impl GridData {
             center_of_gravity: Default::default(),
             paths_data: Some(paths_data),
             path_time_maps: Default::default(),
+            revolution_curve_time_maps: Default::default(),
         };
         ret.reposition_all_helices();
         ret.update_all_curves(Arc::make_mut(&mut design.cached_curve));
@@ -893,6 +900,13 @@ impl GridData {
             for path_id in paths_data.source_paths.keys() {
                 let path_time_map = PathTimeMaps::new(*path_id, &helices);
                 maps_mut.insert(*path_id, Arc::new(path_time_map));
+            }
+        }
+        {
+            let maps_mut = Arc::make_mut(&mut self.revolution_curve_time_maps);
+            for k in cached_curve.0.keys() {
+                let curve_time_map = RevolutionCurveTimeMaps::new(&k.curve, &helices);
+                maps_mut.insert(k.curve.clone(), Arc::new(curve_time_map));
             }
         }
         self.source_helices = new_helices;
@@ -1180,10 +1194,20 @@ impl GridData {
 
     fn get_real_abscissa_converter(&self, h_id: usize) -> Option<AbscissaConverter> {
         let helix = self.source_helices.get(&h_id)?;
-        let path_id = helix.path_id?;
-        self.path_time_maps
-            .get(&path_id)
-            .map(|map| map.get_abscissa_converter(h_id))
+        let path_id = helix.path_id;
+        path_id
+            .and_then(|path_id| {
+                self.path_time_maps
+                    .get(&path_id)
+                    .map(|map| map.get_abscissa_converter(h_id))
+            })
+            .or_else(|| {
+                helix.get_revolution_curve_desc().and_then(|key| {
+                    self.revolution_curve_time_maps
+                        .get(key)
+                        .map(|m| m.get_abscissa_converter(h_id))
+                })
+            })
     }
 }
 
