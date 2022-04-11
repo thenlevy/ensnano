@@ -124,8 +124,12 @@ impl<R: DesignReader> Data<R> {
                         selected_xovers.insert((n1, n2));
                     }
                 }
-                Selection::Helix(_, h) => {
-                    if let Some(flat_helix) = FlatHelix::from_real(*h as usize, 0, id_map) {
+                Selection::Helix {
+                    helix_id,
+                    segment_id,
+                    ..
+                } => {
+                    if let Some(flat_helix) = FlatHelix::from_real(*helix_id, *segment_id, id_map) {
                         selected_helices.push(flat_helix.flat);
                     }
                 }
@@ -151,8 +155,12 @@ impl<R: DesignReader> Data<R> {
                         candidate_xovers.insert((n1, n2));
                     }
                 }
-                Selection::Helix(_, h) => {
-                    if let Some(flat_helix) = FlatHelix::from_real(*h as usize, 0, id_map) {
+                Selection::Helix {
+                    helix_id,
+                    segment_id,
+                    ..
+                } => {
+                    if let Some(flat_helix) = FlatHelix::from_real(*helix_id, *segment_id, id_map) {
                         candidate_helices.push(flat_helix.flat);
                     }
                 }
@@ -385,7 +393,11 @@ impl<R: DesignReader> Data<R> {
         */
         let new_selection = helices
             .into_iter()
-            .map(|flat| Selection::Helix(0, flat.real as u32))
+            .map(|flat| Selection::Helix {
+                design_id: 0,
+                helix_id: flat.real,
+                segment_id: flat.segment_idx,
+            })
             .collect();
         self.requests.lock().unwrap().new_selection(new_selection);
     }
@@ -412,8 +424,13 @@ impl<R: DesignReader> Data<R> {
         if let Some(selection) = selection {
             let mut ids = Vec::new();
             for s in selection.iter() {
-                if let Selection::Helix(_, h) = s {
-                    if let Some(h) = self.design.id_map().get_segment_idx(*h as usize, 0) {
+                if let Selection::Helix {
+                    helix_id,
+                    segment_id,
+                    ..
+                } = s
+                {
+                    if let Some(h) = self.design.id_map().get_segment_idx(*helix_id, *segment_id) {
                         ids.push(h)
                     }
                 }
@@ -648,7 +665,11 @@ impl<R: DesignReader> Data<R> {
                 h.set_color(SELECTED_HELIX2D_COLOR);
                 translation_pivots.push(translation_pivot);
                 rotation_pivots.push(rotation_pivot);
-                selection.push(Selection::Helix(self.id, h.real_id as u32));
+                selection.push(Selection::Helix {
+                    segment_id: h.flat_id.segment_idx,
+                    helix_id: h.real_id,
+                    design_id: self.id,
+                });
             }
         }
         if adding {
@@ -686,8 +707,12 @@ impl<R: DesignReader> Data<R> {
         let ret: Option<Vec<(FlatNucl, Vec2)>> = selection
             .iter()
             .map(|s| match s {
-                Selection::Helix(d_id, h_id) if *d_id == self.id => {
-                    if let Some(flat_id) = id_map.get_segment_idx(*h_id as usize, 0) {
+                Selection::Helix {
+                    design_id,
+                    helix_id,
+                    segment_id,
+                } if *design_id == self.id => {
+                    if let Some(flat_id) = id_map.get_segment_idx(*helix_id, *segment_id) {
                         if let Some(h) = self.helices.get(flat_id) {
                             let translation_pivot = h
                                 .get_circle_pivot(camera)
@@ -850,7 +875,11 @@ impl<R: DesignReader> Data<R> {
         }
         match click_result {
             ClickResult::CircleWidget { translation_pivot } => {
-                let selection = Selection::Helix(self.id, translation_pivot.helix.real as u32);
+                let selection = Selection::Helix {
+                    design_id: self.id,
+                    helix_id: translation_pivot.helix.real,
+                    segment_id: translation_pivot.helix.segment_idx,
+                };
                 if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
                     new_selection.remove(pos);
                 } else {
@@ -965,10 +994,15 @@ impl<R: DesignReader> Data<R> {
     ) -> Option<Selection> {
         if let Some(n_id) = self.design.get_nucl_id(phantom.to_nucl()) {
             match selection_mode {
-                SelectionMode::Helix => self
-                    .design
-                    .get_helix_from_eid(n_id)
-                    .map(|h| Selection::Helix(phantom.design_id, h as u32)),
+                SelectionMode::Helix => {
+                    self.design
+                        .get_helix_from_eid(n_id)
+                        .map(|h| Selection::Helix {
+                            segment_id: 0,
+                            helix_id: h,
+                            design_id: self.id,
+                        })
+                }
                 SelectionMode::Strand => self
                     .design
                     .get_strand_from_eid(n_id)
@@ -1098,9 +1132,10 @@ fn apply_symetric_difference_to_pivots(
 
     for i in (0..old_rotation_pivots.len()).rev() {
         let real_helix = old_translation_pivots[i].helix.real;
+        let segment_idx = old_translation_pivots[i].helix.segment_idx;
         if selection
             .iter()
-            .find(|s| matches!(s, Selection::Helix(_, h_id) if *h_id == real_helix as u32))
+            .find(|s| matches!(s, Selection::Helix{helix_id, segment_id, ..} if *helix_id == real_helix && *segment_id == segment_idx))
             .is_some()
         {
             old_translation_pivots.remove(i);

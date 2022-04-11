@@ -381,7 +381,10 @@ impl<S: AppState> FlatScene<S> {
                 pivots,
                 translation,
             } => {
-                let pivots = pivots.into_iter().map(|n| n.to_real()).collect();
+                let pivots = pivots
+                    .into_iter()
+                    .map(|n| (n.to_real(), n.helix.segment_idx))
+                    .collect();
                 self.requests.lock().unwrap().apply_design_operation(
                     DesignOperation::SnapHelices {
                         pivots,
@@ -447,10 +450,11 @@ impl<S: AppState> FlatScene<S> {
                 .requests
                 .lock()
                 .unwrap()
-                .new_candidates(vec![Selection::Helix(
-                    self.selected_design as u32,
-                    flat_helix.real as u32,
-                )]),
+                .new_candidates(vec![Selection::Helix {
+                    design_id: self.selected_design as u32,
+                    helix_id: flat_helix.real,
+                    segment_id: flat_helix.segment_idx,
+                }]),
             _ => (),
         }
     }

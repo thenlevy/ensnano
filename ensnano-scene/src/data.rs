@@ -686,7 +686,11 @@ impl<R: DesignReader> Data<R> {
                 .iter()
                 .cloned()
                 .collect(),
-            Selection::Helix(d_id, h_id) => self.designs[*d_id as usize].get_helix_elements(*h_id),
+            Selection::Helix {
+                design_id,
+                helix_id,
+                ..
+            } => self.designs[*design_id as usize].get_helix_elements(*helix_id as u32),
             Selection::BezierControlPoint { .. } => HashSet::new(),
             Selection::Strand(d_id, s_id) => {
                 self.designs[*d_id as usize].get_strand_elements(*s_id)
@@ -1072,7 +1076,11 @@ impl<R: DesignReader> Data<R> {
                                 Selection::Nothing
                             }
                         }
-                        SelectionMode::Helix => Selection::Helix(*design_id, group_id),
+                        SelectionMode::Helix => Selection::Helix {
+                            design_id: *design_id,
+                            helix_id: group_id as usize,
+                            segment_id: 0,
+                        },
                     }
                 } else {
                     Selection::Nothing
@@ -1084,7 +1092,11 @@ impl<R: DesignReader> Data<R> {
                     .designs
                     .get(*d_id as usize)
                     .and_then(|d| d.get_helix_grid(*position))
-                    .map(|h_id| Selection::Helix(*d_id, h_id));
+                    .map(|h_id| Selection::Helix {
+                        design_id: *d_id,
+                        helix_id: h_id as usize,
+                        segment_id: 0,
+                    });
                 helix.unwrap_or(Selection::Grid(*d_id, position.grid))
             }
             SceneElement::PhantomElement(phantom) if phantom.bound => Selection::Bound(
@@ -1094,7 +1106,11 @@ impl<R: DesignReader> Data<R> {
             ),
             SceneElement::PhantomElement(phantom) => {
                 if selection_mode == SelectionMode::Helix {
-                    Selection::Helix(phantom.design_id, phantom.to_nucl().helix as u32)
+                    Selection::Helix {
+                        design_id: phantom.design_id,
+                        helix_id: phantom.to_nucl().helix,
+                        segment_id: 0,
+                    }
                 } else {
                     Selection::Nucleotide(phantom.design_id, phantom.to_nucl())
                 }
@@ -1413,16 +1429,16 @@ impl<R: DesignReader> Data<R> {
         }
 
         for c in app_state.get_candidates() {
-            if let Selection::Helix(0, h_id) = c {
-                if let Some(pos) = design.get_helix_grid_position(*h_id) {
+            if let Selection::Helix { helix_id, .. } = c {
+                if let Some(pos) = design.get_helix_grid_position(*helix_id as u32) {
                     add_discs(pos.light(), discs!(), DiscLevel::Candidate)
                 };
             }
         }
 
         for s in app_state.get_selection() {
-            if let Selection::Helix(0, h_id) = s {
-                if let Some(pos) = design.get_helix_grid_position(*h_id) {
+            if let Selection::Helix { helix_id, .. } = s {
+                if let Some(pos) = design.get_helix_grid_position(*helix_id as u32) {
                     add_discs(pos.light(), discs!(), DiscLevel::Selection)
                 }
             }
@@ -1544,13 +1560,17 @@ impl<R: DesignReader> Data<R> {
                 .designs
                 .get(*d_id as usize)
                 .and_then(|d| d.get_grid_basis(*g_id)),
-            Some(Selection::Helix(d_id, h_id)) => {
+            Some(Selection::Helix {
+                design_id,
+                helix_id,
+                ..
+            }) => {
                 if let Some(grid_position) =
-                    self.designs[*d_id as usize].get_helix_grid_position(*h_id)
+                    self.designs[*design_id as usize].get_helix_grid_position(*helix_id as u32)
                 {
-                    self.designs[*d_id as usize].get_grid_basis(grid_position.grid)
+                    self.designs[*design_id as usize].get_grid_basis(grid_position.grid)
                 } else {
-                    self.designs[*d_id as usize].get_helix_basis(*h_id)
+                    self.designs[*design_id as usize].get_helix_basis(*helix_id as u32)
                 }
             }
             Some(_) => Some(Rotor3::identity()),
@@ -1720,13 +1740,17 @@ impl<R: DesignReader> Data<R> {
             .get_design()
             .and_then(|d_id| self.designs.get(d_id as usize))?;
         match selected_object {
-            Selection::Helix(d_id, h_id) => {
-                if let Some(pos) = design.get_helix_grid_position(*h_id) {
-                    Some(SceneElement::GridCircle(*d_id, pos.light()))
+            Selection::Helix {
+                design_id,
+                helix_id,
+                ..
+            } => {
+                if let Some(pos) = design.get_helix_grid_position(*helix_id as u32) {
+                    Some(SceneElement::GridCircle(*design_id, pos.light()))
                 } else {
                     Some(SceneElement::PhantomElement(PhantomElement {
-                        design_id: *d_id,
-                        helix_id: *h_id,
+                        design_id: *design_id,
+                        helix_id: *helix_id as u32,
                         forward: true,
                         bound: false,
                         position: 0,

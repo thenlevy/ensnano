@@ -352,7 +352,7 @@ impl Presenter {
                     }
                     Selection::Grid(_, _) => false,
                     Selection::Nucleotide(_, n) => nucl == *n,
-                    Selection::Helix(_, h_id) => nucl.helix == *h_id as usize,
+                    Selection::Helix { helix_id, .. } => nucl.helix == *helix_id,
                     Selection::Nothing => false,
                     Selection::Xover(_, xover_id) => {
                         if let Some((n1, n2)) = self.junctions_ids.get_element(*xover_id) {

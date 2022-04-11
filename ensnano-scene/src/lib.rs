@@ -271,11 +271,14 @@ impl<S: AppState> Scene<S> {
                 self.data.borrow_mut().notify_handle_movement();
                 self.view.borrow_mut().end_movement();
             }
-            Consequence::HelixSelected(h_id) => self
-                .requests
-                .lock()
-                .unwrap()
-                .set_selection(vec![Selection::Helix(0, h_id as u32)], None),
+            Consequence::HelixSelected(helix_id) => self.requests.lock().unwrap().set_selection(
+                vec![Selection::Helix {
+                    design_id: 0,
+                    helix_id,
+                    segment_id: 0,
+                }],
+                None,
+            ),
             Consequence::InitRotation(mode, x, y, target) => {
                 self.view
                     .borrow_mut()
@@ -759,12 +762,16 @@ impl<S: AppState> Scene<S> {
             })
         } else {
             match self.data.borrow().get_selected_element(app_state) {
-                Selection::Helix(d_id, h_id) => Arc::new(HelixRotation {
-                    helices: helices.unwrap_or(vec![h_id as usize]),
+                Selection::Helix {
+                    design_id,
+                    helix_id,
+                    ..
+                } => Arc::new(HelixRotation {
+                    helices: helices.unwrap_or(vec![helix_id]),
                     angle,
                     plane,
                     origin,
-                    design_id: d_id as usize,
+                    design_id: design_id as usize,
                     group_id,
                     replace: false,
                 }),

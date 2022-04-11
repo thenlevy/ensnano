@@ -177,7 +177,7 @@ pub enum DesignOperation {
     },
     /// Apply a translation to the 2d representation of helices holding each pivot
     SnapHelices {
-        pivots: Vec<Nucl>,
+        pivots: Vec<(Nucl, usize)>,
         translation: Vec2,
     },
     RotateHelices {

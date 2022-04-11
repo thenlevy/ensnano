@@ -1859,15 +1859,27 @@ impl Controller {
         design
     }
 
-    fn snap_helices(&mut self, mut design: Design, pivots: Vec<Nucl>, translation: Vec2) -> Design {
+    fn snap_helices(
+        &mut self,
+        mut design: Design,
+        pivots: Vec<(Nucl, usize)>,
+        translation: Vec2,
+    ) -> Design {
         self.update_state_and_design(&mut design);
         let mut new_helices = design.helices.make_mut();
-        for p in pivots.iter() {
-            if let Some(old_pos) = nucl_pos_2d(new_helices.as_ref(), p) {
+        for (p, segment_idx) in pivots.iter() {
+            if let Some(old_pos) = nucl_pos_2d(new_helices.as_ref(), p, *segment_idx) {
                 if let Some(h) = new_helices.get_mut(&p.helix) {
                     let position = old_pos + translation;
                     let position = Vec2::new(position.x.round(), position.y.round());
-                    if let Some(isometry) = h.isometry2d.as_mut() {
+                    let isometry = if *segment_idx > 0 {
+                        h.additonal_isometries
+                            .get_mut(segment_idx - 1)
+                            .and_then(|i| i.additional_isometry.as_mut())
+                    } else {
+                        h.isometry2d.as_mut()
+                    };
+                    if let Some(isometry) = isometry {
                         isometry.append_translation(position - old_pos)
                     }
                 }
@@ -3050,14 +3062,22 @@ impl Controller {
     }
 }
 
-fn nucl_pos_2d(helices: &Helices, nucl: &Nucl) -> Option<Vec2> {
+fn nucl_pos_2d(helices: &Helices, nucl: &Nucl, segment: usize) -> Option<Vec2> {
+    let isometry = helices.get(&nucl.helix).and_then(|h| {
+        if segment > 0 {
+            h.additonal_isometries
+                .get(segment - 1)
+                .and_then(|i| (i.additional_isometry.or(h.isometry2d)))
+        } else {
+            h.isometry2d
+        }
+    });
     let local_position = nucl.position as f32 * Vec2::unit_x()
         + if nucl.forward {
             Vec2::zero()
         } else {
             Vec2::unit_y()
         };
-    let isometry = helices.get(&nucl.helix).and_then(|h| h.isometry2d);
 
     isometry.map(|i| i.into_homogeneous_matrix().transform_point2(local_position))
 }

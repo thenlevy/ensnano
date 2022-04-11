@@ -32,7 +32,11 @@ pub enum Selection {
     Xover(u32, usize),
     Design(u32),
     Strand(u32, u32),
-    Helix(u32, u32),
+    Helix {
+        design_id: u32,
+        helix_id: usize,
+        segment_id: usize,
+    },
     Grid(u32, GridId),
     Phantom(PhantomElement),
     BezierControlPoint {
@@ -81,7 +85,7 @@ impl Selection {
             Selection::Design(d) => Some(*d),
             Selection::Bound(d, _, _) => Some(*d),
             Selection::Strand(d, _) => Some(*d),
-            Selection::Helix(d, _) => Some(*d),
+            Selection::Helix { design_id, .. } => Some(*design_id as u32),
             Selection::Nucleotide(d, _) => Some(*d),
             Selection::Grid(d, _) => Some(*d),
             Selection::Phantom(pe) => Some(pe.design_id),
@@ -138,7 +142,7 @@ impl Selection {
         match self {
             Self::Design(_) => None,
             Self::Grid(_, _) => None,
-            Self::Helix(_, h_id) => Some(vec![*h_id as usize]),
+            Self::Helix { helix_id, .. } => Some(vec![*helix_id as usize]),
             Self::Nucleotide(_, nucl) => Some(vec![nucl.helix]),
             Self::Phantom(pe) => Some(vec![pe.to_nucl().helix]),
             Self::Strand(_, s_id) => {
@@ -334,11 +338,15 @@ pub fn list_of_helices(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
     let mut helices = BTreeSet::new();
     for s in selection.iter() {
         match s {
-            Selection::Helix(d_id, h_id) => {
+            Selection::Helix {
+                design_id: d_id,
+                helix_id,
+                ..
+            } => {
                 if *d_id != design_id {
                     return None;
                 }
-                helices.insert(*h_id as usize);
+                helices.insert(*helix_id);
             }
             _ => return None,
         }
@@ -349,8 +357,8 @@ pub fn list_of_helices(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
 pub fn extract_helices(selection: &[Selection]) -> Vec<usize> {
     let mut ret = Vec::new();
     for s in selection.iter() {
-        if let Selection::Helix(_, h_id) = s {
-            ret.push(*h_id as usize);
+        if let Selection::Helix { helix_id, .. } = s {
+            ret.push(*helix_id);
         }
     }
     ret.dedup();
@@ -360,8 +368,8 @@ pub fn extract_helices(selection: &[Selection]) -> Vec<usize> {
 pub fn extract_helices_with_controls(selection: &[Selection]) -> Vec<usize> {
     let mut ret = Vec::new();
     for s in selection.iter() {
-        if let Selection::Helix(_, h_id) = s {
-            ret.push(*h_id as usize);
+        if let Selection::Helix { helix_id, .. } = s {
+            ret.push(*helix_id);
         } else if let Selection::BezierControlPoint { helix_id, .. } = s {
             ret.push(*helix_id);
         }
@@ -424,11 +432,15 @@ pub fn all_helices_no_grid(selection: &[Selection], reader: &dyn DesignReader) -
 
     for s in selection.iter() {
         match s {
-            Selection::Helix(d_id, h_id) => {
+            Selection::Helix {
+                design_id: d_id,
+                helix_id,
+                ..
+            } => {
                 if *d_id != design_id {
                     return false;
                 }
-                if reader.get_grid_position_of_helix(*h_id as usize).is_some() {
+                if reader.get_grid_position_of_helix(*helix_id).is_some() {
                     return false;
                 }
                 nb_helices += 1;
@@ -633,7 +645,7 @@ impl SelectionConversion for DnaElementKey {
                 Selection::Grid(_, GridId::FreeGrid(g_id)) => Some(Self::Grid(*g_id)),
                 Selection::Grid(_, _) => None,
                 Selection::Design(_) => None,
-                Selection::Helix(_, h_id) => Some(Self::Helix(*h_id as usize)),
+                Selection::Helix { helix_id, .. } => Some(Self::Helix(*helix_id)),
                 Selection::Strand(_, s_id) => Some(Self::Strand(*s_id as usize)),
                 Selection::Nucleotide(_, nucl) => Some(Self::Nucleotide {
                     helix: nucl.helix,
@@ -681,7 +693,11 @@ impl SelectionConversion for DnaElementKey {
                 },
             ),
             Self::CrossOver { xover_id } => Selection::Xover(d_id, *xover_id),
-            Self::Helix(h_id) => Selection::Helix(d_id, *h_id as u32),
+            Self::Helix(h_id) => Selection::Helix {
+                design_id: d_id,
+                helix_id: *h_id,
+                segment_id: 0,
+            },
             Self::Strand(s_id) => Selection::Strand(d_id, *s_id as u32),
             Self::Grid(g_id) => Selection::Grid(d_id, GridId::FreeGrid(*g_id)),
         }
