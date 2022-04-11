@@ -1149,11 +1149,11 @@ impl Helix {
     }
 
     fn need_curve_update_only(&self) -> bool {
-        let up_to_date = self.curve.as_ref().map(Arc::as_ptr)
+        let up_to_date = self.instanciated_curve.as_ref().map(|c| Arc::as_ptr(&c.source))
             == self
                 .instanciated_descriptor
                 .as_ref()
-                .map(|target| Arc::as_ptr(&target.source));
+                .map(|target| Arc::as_ptr(&target));
         !up_to_date
     }
 

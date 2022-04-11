@@ -56,14 +56,10 @@ impl FlatSceneRequests for Requests {
         self.operation_update = Some(operation);
     }
 
-    fn set_isometry(&mut self, helix: usize, segment_idx: usize, isometry: Isometry2) {
-        if segment_idx == 0 {
-            self.keep_proceed.push_back(Action::SilentDesignOperation(
-                DesignOperation::SetIsometry { helix, isometry },
-            ))
-        } else {
-            log::error!("Cannot yet move segment > 0 of helices")
-        }
+    fn set_isometry(&mut self, helix: usize, segment: usize, isometry: Isometry2) {
+        self.keep_proceed.push_back(Action::SilentDesignOperation(
+                DesignOperation::SetIsometry { helix, isometry, segment },
+        ))
     }
 
     fn set_visibility_helix(&mut self, helix: usize, visibility: bool) {

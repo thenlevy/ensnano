@@ -136,8 +136,8 @@ impl Controller {
                 pivots,
                 translation,
             } => Ok(self.ok_apply(|c, d| c.snap_helices(d, pivots, translation), design)),
-            DesignOperation::SetIsometry { helix, isometry } => {
-                Ok(self.ok_apply(|c, d| c.set_isometry(d, helix, isometry), design))
+            DesignOperation::SetIsometry { helix, segment, isometry } => {
+                Ok(self.ok_apply(|c, d| c.set_isometry(d, helix, segment, isometry), design))
             }
             DesignOperation::RotateHelices {
                 helices,
@@ -1889,10 +1889,17 @@ impl Controller {
         design
     }
 
-    fn set_isometry(&mut self, mut design: Design, h_id: usize, isometry: Isometry2) -> Design {
+    fn set_isometry(&mut self, mut design: Design, h_id: usize, segment: usize, isometry: Isometry2) -> Design {
+        println!("setting isometry {h_id} {segment}");
         let mut new_helices = design.helices.make_mut();
-        if let Some(h) = new_helices.get_mut(&h_id) {
-            h.isometry2d = Some(isometry);
+        if segment == 0 {
+            if let Some(h) = new_helices.get_mut(&h_id) {
+                h.isometry2d = Some(isometry);
+            }
+        } else {
+            if let Some(i) = new_helices.get_mut(&h_id).and_then(|h| h.additonal_isometries.get_mut(segment -1)) {
+                i.additional_isometry = Some(isometry);
+            }
         }
         drop(new_helices);
         design

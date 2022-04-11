@@ -231,6 +231,10 @@ impl<R: DesignReader> Design2d<R> {
             iso
         } else if let Some(mut iso) = self.design.get_isometry(h_id, 0) {
             iso.prepend_translation(10. * segment_idx as f32 * Vec2::unit_y());
+            self.requests
+                .lock()
+                .unwrap()
+                .set_isometry(h_id, segment_idx, iso);
             iso
         } else {
             let iso = Isometry2::new(
