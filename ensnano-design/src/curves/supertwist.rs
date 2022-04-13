@@ -37,10 +37,11 @@ impl super::Curved for SuperTwist {
     }
 
     fn position(&self, t: f64) -> ultraviolet::DVec3 {
+        let t = t * 100.;
         let ct = (t * self.omega).cos();
         let st = (t * self.omega).sin();
 
-        let m = DVec3 {
+        let M = DVec3 {
             x: self.r * ct,
             y: self.r * st,
             z: self.delta * t,
@@ -54,7 +55,7 @@ impl super::Curved for SuperTwist {
 
         let ds = DVec2::new(self.r * self.omega, self.delta).mag();
 
-        let tengent = dm_dt / ds;
+        let Z = dm_dt / ds;
 
         let _ddm_ddt = DVec3 {
             x: -self.r * self.omega * self.omega * ct,
@@ -62,22 +63,22 @@ impl super::Curved for SuperTwist {
             z: 0.0,
         };
 
-        let normal = DVec3 {
+        let X = DVec3 {
             x: -ct,
             y: -st,
             z: 0.0,
         };
 
-        let third_vec = tengent.cross(normal);
+        let Y = Z.cross(X);
 
         let omega_ = TAU * ds / (self.nb_helices as f64 * INTER_HELIX_GAP);
 
-        let angle_per_helix = PI / self.nb_helices as f64;
+        let angle_per_helix = TAU / self.nb_helices as f64;
         let r = INTER_HELIX_GAP / 2. / (PI / self.nb_helices as f64).sin();
         let angle = omega_ * t + self.helix_idx as f64 * angle_per_helix;
         let ct = r * angle.cos();
         let st = r * angle.sin();
 
-        m + ct * tengent + st * third_vec
+        M + ct * X + st * Y
     }
 }
