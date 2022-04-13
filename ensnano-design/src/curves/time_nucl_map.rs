@@ -190,10 +190,14 @@ impl RevolutionCurveTimeMaps {
             .filter(|(_, h)| h.get_revolution_curve_desc() == Some(&curve))
         {
             if let Some(curve) = h.instanciated_curve.as_ref() {
+                let mut nucl_time = Vec::clone(curve.curve.t_nucl.as_ref());
+                nucl_time.push(*nucl_time.last().unwrap_or(&1.));
+                nucl_time.push(*nucl_time.last().unwrap_or(&1.));
+                nucl_time.push(*nucl_time.last().unwrap_or(&1.));
                 time_maps.insert(
                     *h_id,
                     HelixTimeMap {
-                        nucl_time: curve.curve.t_nucl.clone(),
+                        nucl_time: Arc::new(nucl_time),
                         nb_negative_nucl: curve.curve.nucl_t0,
                         length_normalisation,
                     },
