@@ -363,7 +363,7 @@ impl<S: AppState> Scene<S> {
                 self.notify(SceneNotification::CameraMoved);
             }
             Consequence::ToggleWidget => {
-                self.export_png("the_lol.png");
+                self.export_png("export_3d.png");
                 self.requests.lock().unwrap().toggle_widget_basis();
             }
             Consequence::BuildEnded => self.requests.lock().unwrap().suspend_op(),
