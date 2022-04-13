@@ -30,6 +30,7 @@ use super::{Helix, Parameters};
 use std::{ops::Deref, sync::Arc};
 mod bezier;
 mod sphere_like_spiral;
+mod supertwist;
 mod time_nucl_map;
 mod torus;
 mod twist;
@@ -40,6 +41,7 @@ pub use bezier::{BezierControlPoint, BezierEnd, CubicBezierConstructor, CubicBez
 pub(crate) use bezier::{InstanciatedBeizerEnd, InstanciatedPiecewiseBeizer};
 pub use sphere_like_spiral::SphereLikeSpiral;
 use std::collections::HashMap;
+pub use supertwist::SuperTwist;
 pub use time_nucl_map::AbscissaConverter;
 pub(crate) use time_nucl_map::{PathTimeMaps, RevolutionCurveTimeMaps};
 pub use torus::Torus;
@@ -631,6 +633,7 @@ pub enum CurveDescriptor {
         path_id: BezierPathId,
         translation: Vec3,
     },
+    SuperTwist(SuperTwist),
 }
 
 const NO_BEZIER: &[BezierEnd] = &[];
@@ -767,6 +770,7 @@ impl InstanciatedCurveDescriptor {
             }
             CurveDescriptor::Twist(t) => InstanciatedCurveDescriptor_::Twist(t.clone()),
             CurveDescriptor::Torus(t) => InstanciatedCurveDescriptor_::Torus(t.clone()),
+            CurveDescriptor::SuperTwist(t) => InstanciatedCurveDescriptor_::SuperTwist(t.clone()),
             CurveDescriptor::TwistedTorus(t) => {
                 InstanciatedCurveDescriptor_::TwistedTorus(t.clone())
             }
@@ -832,6 +836,9 @@ impl InstanciatedCurveDescriptor {
             }
             CurveDescriptor::Twist(t) => Some(InstanciatedCurveDescriptor_::Twist(t.clone())),
             CurveDescriptor::Torus(t) => Some(InstanciatedCurveDescriptor_::Torus(t.clone())),
+            CurveDescriptor::SuperTwist(t) => {
+                Some(InstanciatedCurveDescriptor_::SuperTwist(t.clone()))
+            }
             CurveDescriptor::TwistedTorus(t) => {
                 Some(InstanciatedCurveDescriptor_::TwistedTorus(t.clone()))
             }
@@ -922,6 +929,7 @@ enum InstanciatedCurveDescriptor_ {
     SphereLikeSpiral(SphereLikeSpiral),
     Twist(Twist),
     Torus(Torus),
+    SuperTwist(SuperTwist),
     TwistedTorus(TwistedTorusDescriptor),
     PiecewiseBezier(InstanciatedPiecewiseBezierDescriptor),
     TranslatedBezierPath {
@@ -1032,6 +1040,7 @@ impl InstanciatedCurveDescriptor_ {
             Self::SphereLikeSpiral(spiral) => Arc::new(Curve::new(spiral, parameters)),
             Self::Twist(twist) => Arc::new(Curve::new(twist, parameters)),
             Self::Torus(torus) => Arc::new(Curve::new(torus, parameters)),
+            Self::SuperTwist(twist) => Arc::new(Curve::new(twist, parameters)),
             Self::TwistedTorus(ref desc) => {
                 if let Some(curve) = cache.0.get(desc) {
                     curve.clone()
@@ -1072,6 +1081,7 @@ impl InstanciatedCurveDescriptor_ {
             }
             Self::Twist(twist) => Some(Arc::new(Curve::new(twist.clone(), parameters))),
             Self::Torus(torus) => Some(Arc::new(Curve::new(torus.clone(), parameters))),
+            Self::SuperTwist(twist) => Some(Arc::new(Curve::new(twist.clone(), parameters))),
             Self::TwistedTorus(_) => None,
             Self::PiecewiseBezier(_) => None,
             Self::TranslatedBezierPath {
