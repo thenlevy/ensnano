@@ -27,9 +27,11 @@ use ensnano_design::{grid::GridId, Axis};
 use ensnano_interactor::consts::*;
 use ensnano_utils::wgpu;
 use ensnano_utils::{bindgroup_manager, text, texture};
+use image::png;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::usize;
 use texture::Texture;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 use wgpu::{Device, Queue};
@@ -485,7 +487,7 @@ impl View {
                 r: 0.,
                 g: 0.,
                 b: 0.,
-                a: 1.,
+                a: 0.,
             }
         };
 
@@ -498,24 +500,51 @@ impl View {
         let viewer_bind_group = viewer.get_bindgroup();
         let viewer_bind_group_layout = viewer.get_layout();
 
-        let attachment = if !fake_color {
+        let mut png_msaa = None;
+        let attachment = if !fake_color && draw_type == DrawType::Scene {
             if let Some(ref msaa) = self.msaa_texture {
                 msaa
             } else {
                 target
             }
+        } else if let DrawType::Png { width, height } = draw_type {
+            png_msaa = if SAMPLE_COUNT > 1 {
+                let size = PhySize::new(width, height);
+                Some(ensnano_utils::texture::Texture::create_msaa_texture(
+                    self.device.clone().as_ref(),
+                    &size,
+                    SAMPLE_COUNT,
+                    wgpu::TextureFormat::Bgra8UnormSrgb,
+                ))
+            } else {
+                None
+            };
+            png_msaa.as_ref().unwrap_or(&target)
         } else {
             target
         };
 
-        let resolve_target = if !fake_color && self.msaa_texture.is_some() {
-            Some(target)
-        } else {
-            None
-        };
+        let resolve_target =
+            if !fake_color && self.msaa_texture.is_some() && draw_type == DrawType::Scene {
+                Some(target)
+            } else if let DrawType::Png { .. } = draw_type {
+                png_msaa.as_ref().and(Some(target))
+            } else {
+                None
+            };
 
-        let depth_attachement = if !fake_color {
+        let png_depth;
+
+        let depth_attachement = if !fake_color && draw_type == DrawType::Scene {
             &self.depth_texture
+        } else if let DrawType::Png { width, height } = draw_type {
+            let size = PhySize::new(width, height);
+            png_depth = Some(Texture::create_depth_texture(
+                self.device.as_ref(),
+                &size,
+                SAMPLE_COUNT,
+            ));
+            png_depth.as_ref().unwrap()
         } else {
             &self.fake_depth_texture
         };
@@ -543,7 +572,7 @@ impl View {
                     }),
                 }),
             });
-            if fake_color {
+            if draw_type != DrawType::Scene {
                 render_pass.set_viewport(
                     area.position.x as f32,
                     area.position.y as f32,
@@ -576,6 +605,14 @@ impl View {
                         self.models.get_bindgroup(),
                     );
                 }
+                for drawer in self.dna_drawers.reals(&draw_options) {
+                    drawer.draw(
+                        &mut render_pass,
+                        viewer.get_bindgroup(),
+                        self.models.get_bindgroup(),
+                    )
+                }
+            } else if matches!(draw_type, DrawType::Png { .. }) {
                 for drawer in self.dna_drawers.reals(&draw_options) {
                     drawer.draw(
                         &mut render_pass,
@@ -670,7 +707,7 @@ impl View {
                 self.need_redraw_fake = true;
             }
         }
-        if !fake_color {
+        if !fake_color && draw_type == DrawType::Scene {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
                 color_attachments: &[wgpu::RenderPassColorAttachment {
@@ -1448,11 +1485,19 @@ pub enum DrawType {
     Widget,
     Phantom,
     Grid,
+    Png { width: u32, height: u32 },
 }
 
 impl DrawType {
     fn is_fake(&self) -> bool {
-        *self != DrawType::Scene
+        match self {
+            DrawType::Scene => false,
+            DrawType::Png { .. } => false,
+            DrawType::Design => true,
+            DrawType::Widget => true,
+            DrawType::Phantom => true,
+            DrawType::Grid => true,
+        }
     }
 
     fn wants_widget(&self) -> bool {
@@ -1462,6 +1507,7 @@ impl DrawType {
             DrawType::Widget => true,
             DrawType::Phantom => false,
             DrawType::Grid => false,
+            DrawType::Png { .. } => false,
         }
     }
 }

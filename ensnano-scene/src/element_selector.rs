@@ -30,8 +30,8 @@ use utils::winit::dpi::{PhysicalPosition, PhysicalSize};
 use utils::BufferDimensions;
 
 pub struct ElementSelector {
-    device: Rc<Device>,
-    queue: Rc<Queue>,
+    pub device: Rc<Device>,
+    pub queue: Rc<Queue>,
     readers: Vec<SceneReader>,
     window_size: PhysicalSize<u32>,
     view: ViewPtr,
@@ -424,6 +424,7 @@ impl SceneReader {
                     Some(SceneElement::WidgetElement(color).transform_into_bezier())
                 }
                 DrawType::Scene => unreachable!(),
+                DrawType::Png { .. } => unreachable!(),
             }
         }
     }
