@@ -29,6 +29,8 @@ pub struct SuperTwist {
     omega: f64,
     nb_helices: usize,
     helix_idx: usize,
+    t_max: Option<f64>,
+    t_min: Option<f64>,
 }
 
 impl super::Curved for SuperTwist {
@@ -36,8 +38,23 @@ impl super::Curved for SuperTwist {
         super::CurveBounds::BiInfinite
     }
 
+    fn t_max(&self) -> f64 {
+        if let Some(tmax) = self.t_max {
+            tmax.max(1.0)
+        } else {
+            1.0
+        }
+    }
+
+    fn t_min(&self) -> f64 {
+        if let Some(tmin) = self.t_min {
+            tmin.min(0.0)
+        } else {
+            0.0
+        }
+    }
+
     fn position(&self, t: f64) -> ultraviolet::DVec3 {
-        let t = t * 100.;
         let ct = (t * self.omega).cos();
         let st = (t * self.omega).sin();
 
