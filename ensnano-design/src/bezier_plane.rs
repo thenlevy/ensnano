@@ -350,10 +350,24 @@ fn path_to_curve_descriptor(
                 let second_point = bezier_points.get(0)?;
                 let pos = position(&source_path.vertices[0])?;
                 let control = second_point.position - second_point.vector_in;
+                let vector_out = if let Some(position_out) = source_path.vertices[0].position_out {
+                    let plane = source_planes.get(&source_path.vertices[0].plane_id)?;
+                    plane.position(position_out) - pos
+                } else {
+                    (control - pos) / 2.
+                };
+
+                let vector_in = if let Some(position_in) = source_path.vertices[0].position_in {
+                    let plane = source_planes.get(&source_path.vertices[0].plane_id)?;
+                    pos - plane.position(position_in)
+                } else {
+                    (control - pos) / 2.
+                };
+
                 InstanciatedBeizerEnd {
                     position: pos,
-                    vector_out: (control - pos) / 2.,
-                    vector_in: (control - pos) / 2.,
+                    vector_out,
+                    vector_in,
                 }
             };
             bezier_points.insert(0, first_point);
@@ -362,10 +376,23 @@ fn path_to_curve_descriptor(
                 // Ok to unwrap because vertices has length > 2
                 let pos = position(source_path.vertices.last().unwrap())?;
                 let control = second_to_last_point.position + second_to_last_point.vector_out;
+                let vector_out = if let Some(position_out) = source_path.vertices.last().unwrap().position_out {
+                    let plane = source_planes.get(&source_path.vertices.last().unwrap().plane_id)?;
+                    plane.position(position_out) - pos
+                } else {
+                    (control - pos) / 2.
+                };
+
+                let vector_in = if let Some(position_in) = source_path.vertices.last().unwrap().position_in {
+                    let plane = source_planes.get(&source_path.vertices.last().unwrap().plane_id)?;
+                    pos - plane.position(position_in)
+                } else {
+                    (control - pos) / 2.
+                };
                 InstanciatedBeizerEnd {
                     position: pos,
-                    vector_out: (pos - control) / 2.,
-                    vector_in: (pos - control) / 2.,
+                    vector_out,
+                    vector_in,
                 }
             };
             bezier_points.push(last_point);
