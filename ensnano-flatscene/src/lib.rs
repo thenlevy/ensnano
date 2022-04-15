@@ -466,7 +466,7 @@ impl<S: AppState> FlatScene<S> {
                 let now = Utc::now();
                 let hour = now.hour();
                 let name = format!(
-                    "export_3d_{:02}_{:02}_{:02}",
+                    "export_2d_{:02}_{:02}_{:02}.png",
                     hour,
                     now.minute(),
                     now.second()
