@@ -35,6 +35,7 @@ use ensnano_interactor::{
 };
 use ensnano_utils::instance::Instance;
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 use ultraviolet::{Mat4, Rotor3, Vec2, Vec3};
@@ -225,6 +226,10 @@ impl<R: DesignReader> Design3D<R> {
 
     pub fn get_model_matrix(&self) -> Mat4 {
         self.design.get_model_matrix()
+    }
+
+    pub fn get_bezier_grid_used_by_helix(&self, h_id: usize) -> Vec<GridId> {
+        self.design.get_bezier_grid_used_by_helix(h_id)
     }
 
     /// Convert return an instance representing the object with identifier `id` and custom
@@ -1437,4 +1442,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_bezier_vertex(&self, path_id: BezierPathId, vertex_id: usize) -> Option<BezierVertex>;
     fn get_corners_of_plane(&self, plane_id: BezierPlaneId) -> [Vec2; 4];
     fn get_optimal_xover_arround(&self, source: Nucl, target: Nucl) -> Option<(Nucl, Nucl)>;
+    fn get_bezier_grid_used_by_helix(&self, h_id: usize) -> Vec<GridId>;
 }
