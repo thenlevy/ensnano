@@ -966,9 +966,20 @@ impl<S: AppState> Scene<S> {
         use ensnano_utils::BufferDimensions;
         use std::io::Write;
 
+        let ratio = self.view.borrow().get_projection().borrow().get_ratio();
+        let width = if ratio < 1. {
+            (ratio * PNG_SIZE as f32).floor() as u32
+        } else {
+            PNG_SIZE
+        };
+        let height = if ratio < 1. {
+            PNG_SIZE
+        } else {
+            (PNG_SIZE as f32 / ratio).floor() as u32
+        };
         let size = wgpu::Extent3d {
-            width: PNG_SIZE,
-            height: PNG_SIZE,
+            width,
+            height,
             depth_or_array_layers: 1,
         };
 
@@ -980,19 +991,14 @@ impl<S: AppState> Scene<S> {
 
         let mut draw_options: DrawOptions = Default::default();
         draw_options.rendering_mode = RenderingMode::Cartoon;
+
         self.view.borrow_mut().draw(
             &mut encoder,
             &texture_view,
-            DrawType::Png {
-                width: PNG_SIZE,
-                height: PNG_SIZE,
-            },
+            DrawType::Png { width, height },
             DrawArea {
                 position: PhysicalPosition { x: 0, y: 0 },
-                size: PhySize {
-                    width: PNG_SIZE,
-                    height: PNG_SIZE,
-                },
+                size: PhySize { width, height },
             },
             self.is_stereographic(),
             draw_options,
@@ -1059,8 +1065,11 @@ impl<S: AppState> Scene<S> {
             }
         };
         let pixels = futures::executor::block_on(pixels);
-        let mut png_encoder =
-            png::Encoder::new(std::fs::File::create(png_name).unwrap(), PNG_SIZE, PNG_SIZE);
+        let mut png_encoder = png::Encoder::new(
+            std::fs::File::create(png_name).unwrap(),
+            buffer_dimensions.width as u32,
+            buffer_dimensions.height as u32,
+        );
         png_encoder.set_depth(png::BitDepth::Eight);
         png_encoder.set_color(png::ColorType::Rgba);
 
@@ -1070,7 +1079,11 @@ impl<S: AppState> Scene<S> {
             .into_stream_writer_with_size(buffer_dimensions.unpadded_bytes_per_row)
             .unwrap();
 
-        png_writer.write_all(pixels.as_slice()).unwrap();
+        for chunk in pixels.chunks(buffer_dimensions.padded_bytes_per_row) {
+            png_writer
+                .write_all(&chunk[..buffer_dimensions.unpadded_bytes_per_row])
+                .unwrap();
+        }
         png_writer.finish().unwrap();
     }
 }
