@@ -68,7 +68,6 @@ impl<R: DesignReader> Data<R> {
             requests,
             last_click: Default::default(),
         }
-
     }
 
     pub fn perform_update<S: AppState<Reader = R>>(&mut self, new_state: &S, old_state: &S) {

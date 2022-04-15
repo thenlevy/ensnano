@@ -326,14 +326,13 @@ impl Globals {
         let resolution = [width, height];
         let zoom_x = resolution[0] / (top_left.x - bottom_right.x).abs();
         let zoom_y = resolution[1] / (top_left.y - bottom_right.y).abs();
-        let zoom = if zoom_x < zoom_y {
-            zoom_x
-        } else {
-            zoom_y
-        };
+        let zoom = if zoom_x < zoom_y { zoom_x } else { zoom_y };
         Self {
             resolution,
-            scroll_offset: [(top_left.x + bottom_right.x) / 2., (top_left.y + bottom_right.y)/ 2.],
+            scroll_offset: [
+                (top_left.x + bottom_right.x) / 2.,
+                (top_left.y + bottom_right.y) / 2.,
+            ],
             zoom,
             tilt: 0.0,
             symetry: [1., 1.].into(),

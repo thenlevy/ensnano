@@ -2618,12 +2618,15 @@ impl<S: AppState> ControllerState<S> for DraggingSelection {
                     .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                    Transition {
-                        new_state: Some(Box::new(NormalState {
-                            mouse_position: self.mouse_position,
-                        })),
-                        consequences: Consequence::PngExport(corner1_world.into(), corner2_world.into()),
-                    }
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences: Consequence::PngExport(
+                        corner1_world.into(),
+                        corner2_world.into(),
+                    ),
+                }
             }
             WindowEvent::MouseInput {
                 button: MouseButton::Left,

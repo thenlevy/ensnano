@@ -20,7 +20,7 @@ use super::*;
 use crate::scene::GridInstance;
 use ensnano_design::{
     grid::{GridId, GridObject, GridPosition, HelixGridPosition},
-    BezierPlaneDescriptor, BezierPlaneId, Collection, CurveDescriptor, Nucl, BezierVertexId,
+    BezierPlaneDescriptor, BezierPlaneId, BezierVertexId, Collection, CurveDescriptor, Nucl,
 };
 use ensnano_interactor::{
     graphics::{LoopoutBond, LoopoutNucl},
@@ -523,12 +523,18 @@ impl Reader3D for DesignReader {
 
     fn get_bezier_grid_used_by_helix(&self, h_id: usize) -> Vec<GridId> {
         let helix = self.presenter.current_design.helices.get(&h_id);
-        if let Some(CurveDescriptor::TranslatedPath { path_id, .. }) = helix.and_then(|h| h.curve.as_ref().map(Arc::as_ref)) {
+        if let Some(CurveDescriptor::TranslatedPath { path_id, .. }) =
+            helix.and_then(|h| h.curve.as_ref().map(Arc::as_ref))
+        {
             if let Some(path) = self.presenter.current_design.bezier_paths.get(path_id) {
-                (0..(path.vertices().len())).map(|i| GridId::BezierPathGrid(BezierVertexId {
-                    path_id: *path_id,
-                    vertex_id: i
-                })).collect() 
+                (0..(path.vertices().len()))
+                    .map(|i| {
+                        GridId::BezierPathGrid(BezierVertexId {
+                            path_id: *path_id,
+                            vertex_id: i,
+                        })
+                    })
+                    .collect()
             } else {
                 vec![]
             }

@@ -53,7 +53,10 @@ type ViewPtr = Rc<RefCell<View>>;
 type DataPtr<R> = Rc<RefCell<Data<R>>>;
 type CameraPtr = Rc<RefCell<Camera>>;
 
-const PNG_SIZE: PhySize = PhySize { width: 256 * 32, height: 256 * 10 };
+const PNG_SIZE: PhySize = PhySize {
+    width: 256 * 32,
+    height: 256 * 10,
+};
 
 /// A Flatscene handles one design at a time
 pub struct FlatScene<S: AppState> {
@@ -459,7 +462,16 @@ impl<S: AppState> FlatScene<S> {
                 }]),
             Consequence::PngExport(corner1, corner2) => {
                 let glob_png = Globals::from_selection_rectangle(corner1, corner2);
-                self.export_png("2d_export.png", glob_png);
+                use chrono::{Timelike, Utc};
+                let now = Utc::now();
+                let hour = now.hour();
+                let name = format!(
+                    "export_3d_{:02}_{:02}_{:02}",
+                    hour,
+                    now.minute(),
+                    now.second()
+                );
+                self.export_png(&name, glob_png);
             }
             _ => (),
         }
@@ -553,7 +565,7 @@ impl<S: AppState> FlatScene<S> {
         (texture, view)
     }
 
-    fn export_png(&self, png_name: &str, glob:  Globals) {
+    fn export_png(&self, png_name: &str, glob: Globals) {
         let device = self.device.as_ref();
         let queue = self.queue.as_ref();
         println!("export to {png_name}");
@@ -572,12 +584,9 @@ impl<S: AppState> FlatScene<S> {
             label: Some("3D Png export"),
         });
 
-        self.view[0].borrow_mut().draw(
-            &mut encoder,
-            &texture_view,
-            Some(PNG_SIZE),
-            Some(glob),
-        );
+        self.view[0]
+            .borrow_mut()
+            .draw(&mut encoder, &texture_view, Some(PNG_SIZE), Some(glob));
 
         // create a buffer and fill it with the texture
         let extent = wgpu::Extent3d {
@@ -640,8 +649,11 @@ impl<S: AppState> FlatScene<S> {
             }
         };
         let pixels = futures::executor::block_on(pixels);
-        let mut png_encoder =
-            png::Encoder::new(std::fs::File::create(png_name).unwrap(), PNG_SIZE.width, PNG_SIZE.height);
+        let mut png_encoder = png::Encoder::new(
+            std::fs::File::create(png_name).unwrap(),
+            PNG_SIZE.width,
+            PNG_SIZE.height,
+        );
         png_encoder.set_depth(png::BitDepth::Eight);
         png_encoder.set_color(png::ColorType::Rgba);
 

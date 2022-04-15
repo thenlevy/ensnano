@@ -363,7 +363,16 @@ impl<S: AppState> Scene<S> {
                 self.notify(SceneNotification::CameraMoved);
             }
             Consequence::ToggleWidget => {
-                self.export_png("export_3d.png");
+                use chrono::{Timelike, Utc};
+                let now = Utc::now();
+                let hour = now.hour();
+                let name = format!(
+                    "export_3d_{:02}_{:02}_{:02}",
+                    hour,
+                    now.minute(),
+                    now.second()
+                );
+                self.export_png(&name);
                 self.requests.lock().unwrap().toggle_widget_basis();
             }
             Consequence::BuildEnded => self.requests.lock().unwrap().suspend_op(),
@@ -985,7 +994,7 @@ impl<S: AppState> Scene<S> {
                     height: PNG_SIZE,
                 },
             },
-            false,
+            self.is_stereographic(),
             draw_options,
         );
 

@@ -128,8 +128,11 @@ impl View {
         camera_bottom: CameraPtr,
         splited: bool,
     ) -> Self {
-        let depth_texture =
-            Arc::new(Texture::create_depth_texture(device.as_ref(), &area.size, SAMPLE_COUNT));
+        let depth_texture = Arc::new(Texture::create_depth_texture(
+            device.as_ref(),
+            &area.size,
+            SAMPLE_COUNT,
+        ));
         let models = DynamicBindGroup::new(device.clone(), queue.clone());
         let globals_top = UniformBindGroup::new(
             device.clone(),
@@ -294,8 +297,11 @@ impl View {
     }
 
     pub fn resize(&mut self, area: DrawArea) {
-        self.depth_texture =
-            Arc::new(Texture::create_depth_texture(self.device.clone().as_ref(), &area.size, SAMPLE_COUNT));
+        self.depth_texture = Arc::new(Texture::create_depth_texture(
+            self.device.clone().as_ref(),
+            &area.size,
+            SAMPLE_COUNT,
+        ));
         self.area_size = area.size;
         self.was_updated = true;
     }
@@ -582,20 +588,24 @@ impl View {
         png_size: Option<PhySize>,
         png_globals: Option<Globals>,
     ) {
-        let exporting_png = png_size.is_some(); 
+        let exporting_png = png_size.is_some();
         let texture;
         let globls_png = if let Some(globals) = png_globals {
             Some(UniformBindGroup::new(
                 self.device.clone(),
                 self.queue.clone(),
-                &globals
+                &globals,
             ))
         } else {
             None
         };
         let png_glob_bg = globls_png.as_ref().map(|g| g.get_bindgroup());
         let depth_texture_view = if let Some(size) = png_size {
-            texture = Arc::new(Texture::create_depth_texture(self.device.clone().as_ref(), &size, SAMPLE_COUNT));
+            texture = Arc::new(Texture::create_depth_texture(
+                self.device.clone().as_ref(),
+                &size,
+                SAMPLE_COUNT,
+            ));
             &texture.view
         } else {
             texture = self.depth_texture.clone();
@@ -693,7 +703,11 @@ impl View {
             );
             render_pass.set_scissor_rect(0, 0, target_size.width, target_size.height / 2);
         }
-        render_pass.set_bind_group(0, png_glob_bg.unwrap_or_else(||self.globals_top.get_bindgroup()), &[]);
+        render_pass.set_bind_group(
+            0,
+            png_glob_bg.unwrap_or_else(|| self.globals_top.get_bindgroup()),
+            &[],
+        );
         render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
         if !exporting_png {
             self.background.draw(&mut render_pass);
@@ -744,7 +758,11 @@ impl View {
             );
             render_pass.set_scissor_rect(0, 0, target_size.width, target_size.height / 2);
         }
-        render_pass.set_bind_group(0, png_glob_bg.unwrap_or_else(|| self.globals_top.get_bindgroup()), &[]);
+        render_pass.set_bind_group(
+            0,
+            png_glob_bg.unwrap_or_else(|| self.globals_top.get_bindgroup()),
+            &[],
+        );
         render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
         self.circle_drawer_top.draw(&mut render_pass);
         self.text_drawer_top.draw(&mut render_pass);
@@ -801,7 +819,11 @@ impl View {
             );
             render_pass.set_scissor_rect(0, 0, target_size.width, target_size.height / 2);
         }
-        render_pass.set_bind_group(0, png_glob_bg.unwrap_or_else(|| self.globals_top.get_bindgroup()), &[]);
+        render_pass.set_bind_group(
+            0,
+            png_glob_bg.unwrap_or_else(|| self.globals_top.get_bindgroup()),
+            &[],
+        );
         render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
         if !exporting_png {
             self.background.draw_border(&mut render_pass);
@@ -1056,25 +1078,25 @@ impl View {
         }
         for h_id in self
             .selected_helices
-                .iter()
-                .filter(|h| !self.candidate_helices.contains(h))
-                {
-                    if let Some(mut circle) = self
-                        .helices
-                            .get(h_id.0)
-                            .and_then(|h| h.get_circle(camera, self.groups.as_ref()))
-                    {
-                        circle.set_radius(circle.radius * 1.4);
-                        circle.set_color(0xFF_FF0000);
-                        circles.push(circle);
-                    }
-                }
+            .iter()
+            .filter(|h| !self.candidate_helices.contains(h))
+        {
+            if let Some(mut circle) = self
+                .helices
+                .get(h_id.0)
+                .and_then(|h| h.get_circle(camera, self.groups.as_ref()))
+            {
+                circle.set_radius(circle.radius * 1.4);
+                circle.set_color(0xFF_FF0000);
+                circles.push(circle);
+            }
+        }
 
         for h_id in self.candidate_helices.iter() {
             if let Some(mut circle) = self
                 .helices
-                    .get(h_id.0)
-                    .and_then(|h| h.get_circle(camera, self.groups.as_ref()))
+                .get(h_id.0)
+                .and_then(|h| h.get_circle(camera, self.groups.as_ref()))
             {
                 circle.set_radius(circle.radius * 1.4);
                 circle.set_color(0xFF_00FF00);

@@ -1457,13 +1457,9 @@ impl<R: DesignReader> Data<R> {
                     );
                 }
                 for ((x, y), h_id) in design.get_helices_grid_key_coord(grid.id) {
-                    for g_id in design.get_bezier_grid_used_by_helix(h_id)  {
+                    for g_id in design.get_bezier_grid_used_by_helix(h_id) {
                         add_discs(
-                            GridPosition {
-                                grid: g_id,
-                                x,
-                                y,
-                            },
+                            GridPosition { grid: g_id, x, y },
                             discs!(),
                             DiscLevel::Scene,
                         );
