@@ -320,8 +320,10 @@ impl CameraController {
         self.y_scroll = y_cursor;
         self.scroll = match delta {
             // I'm assuming a line is about 100 pixels
-            MouseScrollDelta::LineDelta(_, scroll) => scroll.min(1.).max(-1.) * 10.,
-            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => *scroll as f32,
+            MouseScrollDelta::LineDelta(_, scroll) => scroll.min(1.).max(-1.),
+            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => {
+                scroll.signum() as f32
+            }
         };
     }
 
@@ -477,18 +479,17 @@ impl CameraController {
                 .dot(self.camera.borrow().direction().normalized());
             if score < 0. {
                 self.camera.borrow().direction()
-            } else if (pivot - self.camera.borrow().position).mag() > 0.1 {
-                to_pivot
+            } else if (pivot - self.camera.borrow().position).mag() < 0.1 {
+                1.1 * to_pivot
             } else {
-                self.camera.borrow().direction()
+                to_pivot.normalized()
             }
         } else {
-            10. * self.camera.borrow().direction()
+            self.camera.borrow().direction()
         };
         {
             let mut camera = self.camera.borrow_mut();
-            camera.position +=
-                scrollward * self.scroll * self.speed * app_state.get_scroll_sensitivity() * 33e-3;
+            camera.position += scrollward * self.scroll * self.speed * 3.0;
         }
         self.cam0 = self.camera.borrow().clone();
         self.scroll = 0.;
@@ -577,8 +578,8 @@ impl CameraController {
     /// Swing the camera arrond `self.pivot_point`. Assumes that the pivot_point is where the
     /// camera points at.
     pub fn swing(&mut self, x: f64, y: f64) {
-        let angle_yz = -(y.min(1.).max(-1.)) as f32 * PI;
-        let angle_xz = x.min(1.).max(-1.) as f32 * PI;
+        let angle_yz = -((y + 1.).rem_euclid(2.) - 1.) as f32 * PI;
+        let angle_xz = ((x + 1.).rem_euclid(2.) - 1.) as f32 * PI;
         if let Some(pivot) = self.pivot_point {
             self.rotate_camera_around(angle_xz, angle_yz, pivot);
         } else {
@@ -682,6 +683,16 @@ impl CameraController {
         let new_position = center - 5. * self.camera.borrow().direction();
         let orientation = self.camera.borrow().rotor;
         self.teleport_camera(new_position, orientation);
+    }
+
+    pub fn ray(&self, x_ndc: f32, y_ndc: f32) -> (Vec3, Vec3) {
+        maths_3d::cast_ray(
+            x_ndc,
+            y_ndc,
+            self.camera.clone(),
+            self.projection.clone(),
+            None, // we don't play we grids in stereographic view
+        )
     }
 }
 

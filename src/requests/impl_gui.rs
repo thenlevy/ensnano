@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::gui::{Requests as GuiRequests, RigidBodyParametersRequest};
+use ensnano_design::grid::GridId;
 use ensnano_interactor::{InsertionPoint, RigidBodyConstants, RollRequest};
 use std::collections::BTreeSet;
 
@@ -175,6 +176,10 @@ impl GuiRequests for Requests {
 
     fn create_grid(&mut self, grid_type_descriptor: GridTypeDescr) {
         self.new_grid = Some(grid_type_descriptor);
+    }
+
+    fn create_bezier_plane(&mut self) {
+        self.new_bezier_plane = Some(())
     }
 
     fn set_candidates_keys(&mut self, candidates: Vec<DnaElementKey>) {
@@ -340,7 +345,7 @@ impl GuiRequests for Requests {
         self.new_suggestion_parameters = Some(param);
     }
 
-    fn set_grid_position(&mut self, grid_id: usize, position: Vec3) {
+    fn set_grid_position(&mut self, grid_id: GridId, position: Vec3) {
         self.keep_proceed
             .push_back(Action::DesignOperation(DesignOperation::SetGridPosition {
                 grid_id,
@@ -348,7 +353,7 @@ impl GuiRequests for Requests {
             }))
     }
 
-    fn set_grid_orientation(&mut self, grid_id: usize, orientation: Rotor3) {
+    fn set_grid_orientation(&mut self, grid_id: GridId, orientation: Rotor3) {
         self.keep_proceed.push_back(Action::DesignOperation(
             DesignOperation::SetGridOrientation {
                 grid_id,
@@ -361,7 +366,7 @@ impl GuiRequests for Requests {
         self.keep_proceed.push_back(Action::Toggle2D)
     }
 
-    fn set_nb_turn(&mut self, grid_id: usize, nb_turn: f32) {
+    fn set_nb_turn(&mut self, grid_id: GridId, nb_turn: f32) {
         self.keep_proceed
             .push_back(Action::DesignOperation(DesignOperation::SetGridNbTurn {
                 grid_id,
@@ -395,11 +400,15 @@ impl GuiRequests for Requests {
         self.set_show_h_bonds = Some(show);
     }
 
+    fn set_show_bezier_paths(&mut self, show: bool) {
+        self.set_show_bezier_paths = Some(show);
+    }
+
     fn set_thick_helices(&mut self, thick: bool) {
         self.set_thick_helices = Some(thick)
     }
 
-    fn start_twist_simulation(&mut self, grid_id: usize) {
+    fn start_twist_simulation(&mut self, grid_id: GridId) {
         self.twist_simulation = Some(grid_id);
     }
 
@@ -426,6 +435,22 @@ impl GuiRequests for Requests {
                 length,
                 insertion_point,
             },
+        ))
+    }
+
+    fn turn_path_into_grid(
+        &mut self,
+        path_id: ensnano_design::BezierPathId,
+        grid_type: GridTypeDescr,
+    ) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::TurnPathVerticesIntoGrid { path_id, grid_type },
+        ))
+    }
+
+    fn make_bezier_path_cyclic(&mut self, path_id: ensnano_design::BezierPathId, cyclic: bool) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::MakeBezierPathCyclic { path_id, cyclic },
         ))
     }
 }

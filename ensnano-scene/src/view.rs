@@ -23,12 +23,15 @@ use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
 use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::ultraviolet;
-use ensnano_design::Axis;
+use ensnano_design::{grid::GridId, Axis};
 use ensnano_interactor::consts::*;
 use ensnano_utils::wgpu;
 use ensnano_utils::{bindgroup_manager, text, texture};
+use image::png;
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::usize;
 use texture::Texture;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 use wgpu::{Device, Queue};
@@ -49,6 +52,7 @@ mod instances_drawer;
 mod letter;
 /// A RotationWidget draws the widget for rotating objects
 mod rotation_widget;
+mod sheet_2d;
 
 use super::maths_3d::{self, distance_to_cursor_with_penalty};
 use bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
@@ -69,6 +73,7 @@ pub use letter::LetterInstance;
 use maths_3d::unproject_point_on_line;
 use rotation_widget::RotationWidget;
 pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidgetOrientation};
+pub use sheet_2d::Sheet2D;
 use text::Letter;
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
@@ -125,6 +130,7 @@ pub struct View {
     skybox_cube: InstanceDrawer<SkyBox>,
     fog_parameters: FogParameters,
     stereography: Stereography,
+    sheets_drawer: InstanceDrawer<Sheet2D>,
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -134,6 +140,7 @@ pub struct DrawOptions {
     pub show_stereographic_camera: bool,
     pub thick_helices: bool,
     pub h_bonds: bool,
+    pub show_bezier_planes: bool,
 }
 
 impl View {
@@ -291,6 +298,16 @@ impl View {
         );
         skybox_cube.new_instances(vec![SkyBox::new(500.)]);
 
+        let sheets_drawer = InstanceDrawer::new(
+            device.clone(),
+            queue.clone(),
+            &viewer.get_layout_desc(),
+            &model_bg_desc,
+            (),
+            false,
+            "2d sheets",
+        );
+
         Self {
             camera,
             projection,
@@ -317,6 +334,7 @@ impl View {
             skybox_cube,
             fog_parameters: FogParameters::new(),
             stereography,
+            sheets_drawer,
         }
     }
 
@@ -414,6 +432,9 @@ impl View {
                 self.fog_parameters.alt_fog_center = center;
                 self.update_viewers();
             }
+            ViewUpdate::BezierSheets(sheets) => {
+                self.sheets_drawer.new_instances(sheets);
+            }
         }
     }
 
@@ -466,7 +487,7 @@ impl View {
                 r: 0.,
                 g: 0.,
                 b: 0.,
-                a: 1.,
+                a: 0.,
             }
         };
 
@@ -479,24 +500,51 @@ impl View {
         let viewer_bind_group = viewer.get_bindgroup();
         let viewer_bind_group_layout = viewer.get_layout();
 
-        let attachment = if !fake_color {
+        let mut png_msaa = None;
+        let attachment = if !fake_color && draw_type == DrawType::Scene {
             if let Some(ref msaa) = self.msaa_texture {
                 msaa
             } else {
                 target
             }
+        } else if let DrawType::Png { width, height } = draw_type {
+            png_msaa = if SAMPLE_COUNT > 1 {
+                let size = PhySize::new(width, height);
+                Some(ensnano_utils::texture::Texture::create_msaa_texture(
+                    self.device.clone().as_ref(),
+                    &size,
+                    SAMPLE_COUNT,
+                    wgpu::TextureFormat::Bgra8UnormSrgb,
+                ))
+            } else {
+                None
+            };
+            png_msaa.as_ref().unwrap_or(&target)
         } else {
             target
         };
 
-        let resolve_target = if !fake_color && self.msaa_texture.is_some() {
-            Some(target)
-        } else {
-            None
-        };
+        let resolve_target =
+            if !fake_color && self.msaa_texture.is_some() && draw_type == DrawType::Scene {
+                Some(target)
+            } else if let DrawType::Png { .. } = draw_type {
+                png_msaa.as_ref().and(Some(target))
+            } else {
+                None
+            };
 
-        let depth_attachement = if !fake_color {
+        let png_depth;
+
+        let depth_attachement = if !fake_color && draw_type == DrawType::Scene {
             &self.depth_texture
+        } else if let DrawType::Png { width, height } = draw_type {
+            let size = PhySize::new(width, height);
+            png_depth = Some(Texture::create_depth_texture(
+                self.device.as_ref(),
+                &size,
+                SAMPLE_COUNT,
+            ));
+            png_depth.as_ref().unwrap()
         } else {
             &self.fake_depth_texture
         };
@@ -524,7 +572,7 @@ impl View {
                     }),
                 }),
             });
-            if fake_color {
+            if draw_type != DrawType::Scene {
                 render_pass.set_viewport(
                     area.position.x as f32,
                     area.position.y as f32,
@@ -557,6 +605,14 @@ impl View {
                         self.models.get_bindgroup(),
                     );
                 }
+                for drawer in self.dna_drawers.reals(&draw_options) {
+                    drawer.draw(
+                        &mut render_pass,
+                        viewer.get_bindgroup(),
+                        self.models.get_bindgroup(),
+                    )
+                }
+            } else if matches!(draw_type, DrawType::Png { .. }) {
                 for drawer in self.dna_drawers.reals(&draw_options) {
                     drawer.draw(
                         &mut render_pass,
@@ -618,6 +674,11 @@ impl View {
                         self.models.get_bindgroup(),
                     )
                 }
+                self.sheets_drawer.draw(
+                    &mut render_pass,
+                    viewer_bind_group,
+                    self.models.get_bindgroup(),
+                )
             }
 
             if draw_type.wants_widget() && !stereographic {
@@ -646,7 +707,7 @@ impl View {
                 self.need_redraw_fake = true;
             }
         }
-        if !fake_color {
+        if !fake_color && draw_type == DrawType::Scene {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
                 color_attachments: &[wgpu::RenderPassColorAttachment {
@@ -891,7 +952,7 @@ impl View {
         &self,
         x_ndc: f32,
         y_ndc: f32,
-        g_id: usize,
+        g_id: GridId,
     ) -> Option<GridIntersection> {
         let ray = maths_3d::cast_ray(
             x_ndc,
@@ -903,11 +964,11 @@ impl View {
         self.grid_manager.specific_intersect(ray.0, ray.1, g_id)
     }
 
-    pub fn set_candidate_grid(&mut self, grids: Vec<(usize, usize)>) {
+    pub fn set_candidate_grid(&mut self, grids: Vec<(usize, GridId)>) {
         self.grid_manager.set_candidate_grid(grids)
     }
 
-    pub fn set_selected_grid(&mut self, grids: Vec<(usize, usize)>) {
+    pub fn set_selected_grid(&mut self, grids: Vec<(usize, GridId)>) {
         self.grid_manager.set_selected_grid(grids)
     }
 
@@ -932,11 +993,12 @@ pub enum ViewUpdate {
     RotationWidget(Option<RotationWidgetDescriptor>),
     Letter(Vec<Vec<LetterInstance>>),
     GridLetter(Vec<Vec<LetterInstance>>),
-    Grids(Rc<Vec<GridInstance>>),
+    Grids(BTreeMap<GridId, GridInstance>),
     GridDiscs(Vec<GridDisc>),
     RawDna(Mesh, Rc<Vec<RawDnaInstance>>),
     Fog(FogParameters),
     FogCenter(Option<Vec3>),
+    BezierSheets(Vec<Sheet2D>),
 }
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone, Hash)]
@@ -1423,11 +1485,19 @@ pub enum DrawType {
     Widget,
     Phantom,
     Grid,
+    Png { width: u32, height: u32 },
 }
 
 impl DrawType {
     fn is_fake(&self) -> bool {
-        *self != DrawType::Scene
+        match self {
+            DrawType::Scene => false,
+            DrawType::Png { .. } => false,
+            DrawType::Design => true,
+            DrawType::Widget => true,
+            DrawType::Phantom => true,
+            DrawType::Grid => true,
+        }
     }
 
     fn wants_widget(&self) -> bool {
@@ -1437,6 +1507,7 @@ impl DrawType {
             DrawType::Widget => true,
             DrawType::Phantom => false,
             DrawType::Grid => false,
+            DrawType::Png { .. } => false,
         }
     }
 }

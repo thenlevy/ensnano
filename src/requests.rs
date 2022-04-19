@@ -30,7 +30,7 @@ use ultraviolet::Vec3;
 
 use super::gui::OrganizerTree;
 use super::scene::FogParameters;
-use ensnano_design::grid::{GridPosition, GridTypeDescr};
+use ensnano_design::grid::{GridId, GridPosition, GridTypeDescr};
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     Nucl,
@@ -65,6 +65,7 @@ pub struct Requests {
     pub operation_update: Option<Arc<dyn Operation>>,
     pub toggle_persistent_helices: Option<bool>,
     pub new_grid: Option<GridTypeDescr>,
+    pub new_bezier_plane: Option<()>,
     pub camera_rotation: Option<(f32, f32, f32)>,
     pub camera_target: Option<(Vec3, Vec3)>,
     pub small_spheres: Option<bool>,
@@ -123,8 +124,9 @@ pub struct Requests {
     pub follow_stereographic_camera: Option<bool>,
     pub set_show_stereographic_camera: Option<bool>,
     pub set_show_h_bonds: Option<bool>,
+    pub set_show_bezier_paths: Option<bool>,
     pub set_invert_y_scroll: Option<bool>,
     pub set_thick_helices: Option<bool>,
-    pub twist_simulation: Option<usize>,
+    pub twist_simulation: Option<GridId>,
     pub horizon_targeted: Option<()>,
 }

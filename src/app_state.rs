@@ -303,11 +303,15 @@ impl AppState {
         log::trace!("handle operation result");
         match result {
             Ok(InteractorResult::Push {
-                interactor: design,
+                interactor: mut design,
                 label,
             }) => {
+                let new_action_mode = design.get_new_action_mode();
                 let ret = Some(self.clone());
-                let new_state = self.clone().with_interactor(design);
+                let mut new_state = self.clone().with_interactor(design);
+                if let Some(action_mode) = new_action_mode {
+                    new_state = new_state.with_action_mode(action_mode);
+                }
                 *self = new_state;
                 if let Some(state) = ret {
                     Ok(OkOperation::Undoable {
@@ -318,8 +322,12 @@ impl AppState {
                     Ok(OkOperation::NotUndoable)
                 }
             }
-            Ok(InteractorResult::Replace(design)) => {
-                let new_state = self.clone().with_interactor(design);
+            Ok(InteractorResult::Replace(mut design)) => {
+                let new_action_mode = design.get_new_action_mode();
+                let mut new_state = self.clone().with_interactor(design);
+                if let Some(action_mode) = new_action_mode {
+                    new_state = new_state.with_action_mode(action_mode);
+                }
                 *self = new_state;
                 Ok(OkOperation::NotUndoable)
             }
@@ -389,6 +397,10 @@ impl AppState {
 
     pub fn with_show_h_bonds(&self, show: bool) -> Self {
         self.with_updated_parameters(|p| p.show_h_bonds = show)
+    }
+
+    pub fn with_show_bezier_paths(&self, show: bool) -> Self {
+        self.with_updated_parameters(|p| p.show_bezier_paths = show)
     }
 
     pub fn with_thick_helices(&self, thick: bool) -> Self {
@@ -571,6 +583,7 @@ struct AppStateParameters {
     scroll_sensitivity: f32,
     inverted_y_scroll: bool,
     show_h_bonds: bool,
+    show_bezier_paths: bool,
 }
 
 #[derive(Clone, Default)]

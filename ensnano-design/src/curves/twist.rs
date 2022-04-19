@@ -214,7 +214,7 @@ mod tests {
         let omega = nb_turn_per_100_nt_to_omega(nb_turn, &p).unwrap();
         let mut twist = Twist::with_omega(omega);
         twist.t_max = Some(Z);
-        let descriptor = super::super::InsanciatedCurveDescriptor_::Twist(twist);
+        let descriptor = super::super::InstanciatedCurveDescriptor_::Twist(twist);
         let curve = descriptor.try_into_curve(&p).unwrap();
         let flat_helix = Helix::new(Vec3::zero(), Rotor3::identity());
         let theta = flat_helix.theta(99, true, &p);
@@ -235,7 +235,7 @@ mod tests {
         let omega = nb_turn_per_100_nt_to_omega(nb_turn, &p).unwrap();
         let mut twist = Twist::with_omega(omega);
         twist.t_max = Some(Z);
-        let descriptor = super::super::InsanciatedCurveDescriptor_::Twist(twist.clone());
+        let descriptor = super::super::InstanciatedCurveDescriptor_::Twist(twist.clone());
         let curve = descriptor.try_into_curve(&p).unwrap();
         println!("abscissa {:?}", twist.curvilinear_abscissa(Z));
         println!("z ratio {:?}", twist.z_step_ratio());

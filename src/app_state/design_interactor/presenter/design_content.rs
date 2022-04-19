@@ -115,11 +115,11 @@ pub(super) struct DesignContent {
 }
 
 impl DesignContent {
-    pub(super) fn get_grid_instances(&self) -> Vec<GridInstance> {
+    pub(super) fn get_grid_instances(&self) -> BTreeMap<GridId, GridInstance> {
         self.grid_manager.grid_instances(0)
     }
 
-    pub(super) fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
+    pub(super) fn get_helices_on_grid(&self, g_id: GridId) -> Option<HashSet<usize>> {
         self.grid_manager.get_helices_on_grid(g_id)
     }
     /// Return the position of an element.
@@ -146,16 +146,16 @@ impl DesignContent {
     }
 
     pub(super) fn get_grid_latice_position(&self, position: GridPosition) -> Option<Vec3> {
-        let grid = self.grid_manager.grids.get(position.grid)?;
+        let grid = self.grid_manager.grids.get(&position.grid)?;
         Some(grid.position_helix(position.x, position.y))
     }
 
     /// Return a list of pairs ((x, y), h_id) of all the used helices on the grid g_id
-    pub(super) fn get_helices_grid_key_coord(&self, g_id: usize) -> Vec<((isize, isize), usize)> {
+    pub(super) fn get_helices_grid_key_coord(&self, g_id: GridId) -> Vec<((isize, isize), usize)> {
         self.grid_manager.get_helices_grid_key_coord(g_id)
     }
 
-    pub(super) fn get_used_coordinates_on_grid(&self, g_id: usize) -> Vec<(isize, isize)> {
+    pub(super) fn get_used_coordinates_on_grid(&self, g_id: GridId) -> Vec<(isize, isize)> {
         self.grid_manager.get_used_coordinates_on_grid(g_id)
     }
 
@@ -169,25 +169,25 @@ impl DesignContent {
         self.grid_manager.get_persistent_phantom_helices_id()
     }
 
-    pub(super) fn grid_has_small_spheres(&self, g_id: usize) -> bool {
+    pub(super) fn grid_has_small_spheres(&self, g_id: GridId) -> bool {
         self.grid_manager.small_spheres.contains(&g_id)
     }
 
-    pub(super) fn grid_has_persistent_phantom(&self, g_id: usize) -> bool {
+    pub(super) fn grid_has_persistent_phantom(&self, g_id: GridId) -> bool {
         !self.grid_manager.no_phantoms.contains(&g_id)
     }
 
-    pub(super) fn get_grid_nb_turn(&self, g_id: usize) -> Option<f32> {
+    pub(super) fn get_grid_nb_turn(&self, g_id: GridId) -> Option<f32> {
         self.grid_manager
             .grids
-            .get(g_id)
+            .get(&g_id)
             .and_then(|g| g.grid_type.get_nb_turn().map(|x| x as f32))
     }
 
-    pub(super) fn get_grid_shift(&self, g_id: usize) -> Option<f32> {
+    pub(super) fn get_grid_shift(&self, g_id: GridId) -> Option<f32> {
         self.grid_manager
             .grids
-            .get(g_id)
+            .get(&g_id)
             .and_then(|g| g.grid_type.get_shift())
     }
 
@@ -218,7 +218,8 @@ impl DesignContent {
 
     pub(super) fn get_staples(&self, design: &Design, presenter: &Presenter) -> Vec<Staple> {
         let mut ret = Vec::new();
-        let mut sequences: BTreeMap<(usize, isize, usize, isize), StapleInfo> = Default::default();
+        let mut sequences: BTreeMap<(Vec<String>, usize, isize, usize, isize), StapleInfo> =
+            Default::default();
         let basis_map = self.basis_map.as_ref();
         for (s_id, strand) in design.strands.iter() {
             if strand.length() == 0 || design.scaffold_id == Some(*s_id) {
@@ -290,16 +291,25 @@ impl DesignContent {
                             log::error!("Could not map to virtual nucl");
                         }
                     }
+                } else if let Domain::Insertion { .. } = domain {
+                    sequence.push_str(" **INSERTION**")
                 }
                 if let Some(d) = staple_domain {
                     intervals.intervals.push(d.finish())
                 }
             }
+            let group_names = presenter.get_name_of_group_having_strand(*s_id);
             let key = if let Some((prim5, prim3)) = strand.get_5prime().zip(strand.get_3prime()) {
-                (prim5.helix, prim5.position, prim3.helix, prim3.position)
+                (
+                    group_names,
+                    prim5.helix,
+                    prim5.position,
+                    prim3.helix,
+                    prim3.position,
+                )
             } else {
                 log::warn!("WARNING, STAPPLE WITH NO KEY !!!");
-                (0, 0, 0, 0)
+                (vec![], 0, 0, 0, 0)
             };
             sequences.insert(
                 key,
@@ -315,7 +325,7 @@ impl DesignContent {
                 },
             );
         }
-        for (n, ((h5, nt5, h3, nt3), staple_info)) in sequences.iter().enumerate() {
+        for (n, ((_, h5, nt5, h3, nt3), staple_info)) in sequences.iter().enumerate() {
             let plate = n / 96 + 1;
             let row = (n % 96) / 8 + 1;
             let column = match (n % 96) % 8 {
@@ -705,11 +715,13 @@ impl DesignContent {
             old_nucl = None;
             old_nucl_id = None;
         }
-        for g_id in 0..grid_manager.grids.len() {
-            elements.push(DnaElement::Grid {
-                id: g_id,
-                visible: grid_manager.get_visibility(g_id),
-            })
+        for g_id in grid_manager.grids.keys() {
+            if let GridId::FreeGrid(id) = g_id {
+                elements.push(DnaElement::Grid {
+                    id: *id,
+                    visible: grid_manager.get_visibility(*g_id),
+                })
+            }
         }
         for (h_id, h) in design.helices.iter() {
             elements.push(DnaElement::Helix {
@@ -742,6 +754,29 @@ impl DesignContent {
         ret.suggestions = suggestions;
 
         drop(groups);
+
+        if log::log_enabled!(log::Level::Warn) {
+            if let Some(s) = design
+                .scaffold_id
+                .as_ref()
+                .and_then(|s_id| design.strands.get(s_id))
+            {
+                for d in s.domains.iter() {
+                    if let Domain::HelixDomain(interval) = d {
+                        for n in interval.iter() {
+                            let nucl = Nucl {
+                                helix: interval.helix,
+                                position: n,
+                                forward: !interval.forward,
+                            };
+                            if !ret.nucl_collection.contains_nucl(&nucl) {
+                                log::warn!("Missing {nucl}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         #[cfg(test)]
         {
@@ -778,10 +813,10 @@ impl DesignContent {
     }
 
     #[allow(dead_code)]
-    pub fn get_shift(&self, g_id: usize) -> Option<f32> {
+    pub fn get_shift(&self, g_id: GridId) -> Option<f32> {
         self.grid_manager
             .grids
-            .get(g_id)
+            .get(&g_id)
             .and_then(|g| g.grid_type.get_shift())
     }
 
@@ -878,13 +913,13 @@ mod tests {
 }
 
 trait GridInstancesMaker {
-    fn grid_instances(&self, design_id: usize) -> Vec<GridInstance>;
+    fn grid_instances(&self, design_id: usize) -> BTreeMap<GridId, GridInstance>;
 }
 
 impl GridInstancesMaker for GridData {
-    fn grid_instances(&self, design_id: usize) -> Vec<GridInstance> {
-        let mut ret = Vec::new();
-        for (n, g) in self.grids.iter().enumerate() {
+    fn grid_instances(&self, design_id: usize) -> BTreeMap<GridId, GridInstance> {
+        let mut ret = BTreeMap::new();
+        for (g_id, g) in self.grids.iter() {
             let grid = GridInstance {
                 grid: g.clone(),
                 min_x: -2,
@@ -893,18 +928,19 @@ impl GridInstancesMaker for GridData {
                 max_y: 2,
                 color: 0x00_00_FF,
                 design: design_id,
-                id: n,
+                id: *g_id,
                 fake: false,
                 visible: !g.invisible,
             };
-            ret.push(grid);
+            ret.insert(*g_id, grid);
         }
         for grid_position in self.get_all_used_grid_positions() {
-            let grid = grid_position.grid;
-            ret[grid].min_x = ret[grid].min_x.min(grid_position.x as i32 - 2);
-            ret[grid].max_x = ret[grid].max_x.max(grid_position.x as i32 + 2);
-            ret[grid].min_y = ret[grid].min_y.min(grid_position.y as i32 - 2);
-            ret[grid].max_y = ret[grid].max_y.max(grid_position.y as i32 + 2);
+            if let Some(grid) = ret.get_mut(&grid_position.grid) {
+                grid.min_x = grid.min_x.min(grid_position.x as i32 - 2);
+                grid.max_x = grid.max_x.max(grid_position.x as i32 + 2);
+                grid.min_y = grid.min_y.min(grid_position.y as i32 - 2);
+                grid.max_y = grid.max_y.max(grid_position.y as i32 + 2);
+            }
         }
         ret
     }

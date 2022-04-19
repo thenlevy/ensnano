@@ -33,7 +33,7 @@ pub mod status_bar;
 mod ui_size;
 pub use ui_size::*;
 mod material_icons_light;
-pub use ensnano_design::{Camera, CameraId};
+pub use ensnano_design::{grid::GridId, Camera, CameraId};
 pub use status_bar::{CurentOpState, StrandBuildingStatus};
 mod consts;
 
@@ -46,7 +46,7 @@ use status_bar::StatusBar;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElement, DnaElementKey},
     grid::GridTypeDescr,
-    ultraviolet, Nucl, Parameters,
+    ultraviolet, BezierPathId, Nucl, Parameters,
 };
 use ensnano_interactor::graphics::FogParameters;
 use ensnano_interactor::{
@@ -117,7 +117,7 @@ pub trait Requests: 'static + Send {
     fn update_rigid_helices_simulation(&mut self, parameters: RigidBodyParametersRequest);
     /// Start of Update the rigid grids simulation
     fn update_rigid_grids_simulation(&mut self, parameters: RigidBodyParametersRequest);
-    fn start_twist_simulation(&mut self, grid_id: usize);
+    fn start_twist_simulation(&mut self, grid_id: GridId);
     /// Update the parameters of the current simulation (rigid grids or helices)
     fn update_rigid_body_simulation_parameters(&mut self, parameters: RigidBodyParametersRequest);
     fn create_new_hyperboloid(&mut self, parameters: HyperboloidRequest);
@@ -187,10 +187,10 @@ pub trait Requests: 'static + Send {
     fn update_camera(&mut self, cam_id: CameraId);
     fn set_camera_name(&mut self, cam_id: CameraId, name: String);
     fn set_suggestion_parameters(&mut self, param: SuggestionParameters);
-    fn set_grid_position(&mut self, grid_id: usize, position: Vec3);
-    fn set_grid_orientation(&mut self, grid_id: usize, orientation: Rotor3);
+    fn set_grid_position(&mut self, grid_id: GridId, position: Vec3);
+    fn set_grid_orientation(&mut self, grid_id: GridId, orientation: Rotor3);
     fn toggle_2d(&mut self);
-    fn set_nb_turn(&mut self, grid_id: usize, nb_turn: f32);
+    fn set_nb_turn(&mut self, grid_id: GridId, nb_turn: f32);
     fn set_check_xover_parameters(&mut self, paramters: CheckXoversParameter);
     fn follow_stereographic_camera(&mut self, follow: bool);
     fn set_show_stereographic_camera(&mut self, show: bool);
@@ -203,6 +203,10 @@ pub trait Requests: 'static + Send {
     fn set_dna_parameters(&mut self, param: Parameters);
     fn set_expand_insertions(&mut self, expand: bool);
     fn set_insertion_length(&mut self, insertion_point: InsertionPoint, length: usize);
+    fn create_bezier_plane(&mut self);
+    fn turn_path_into_grid(&mut self, path_id: BezierPathId, grid_type: GridTypeDescr);
+    fn set_show_bezier_paths(&mut self, show: bool);
+    fn make_bezier_path_cyclic(&mut self, path_id: BezierPathId, cyclic: bool);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -995,12 +999,14 @@ pub trait AppState:
     fn get_invert_y_scroll(&self) -> bool;
     fn want_thick_helices(&self) -> bool;
     fn expand_insertions(&self) -> bool;
+    fn get_show_bezier_paths(&self) -> bool;
+    fn get_selected_bezier_path(&self) -> Option<BezierPathId>;
 }
 
 pub trait DesignReader: 'static {
-    fn grid_has_persistent_phantom(&self, g_id: usize) -> bool;
-    fn grid_has_small_spheres(&self, g_id: usize) -> bool;
-    fn get_grid_shift(&self, g_id: usize) -> Option<f32>;
+    fn grid_has_persistent_phantom(&self, g_id: GridId) -> bool;
+    fn grid_has_small_spheres(&self, g_id: GridId) -> bool;
+    fn get_grid_shift(&self, g_id: GridId) -> Option<f32>;
     fn get_strand_length(&self, s_id: usize) -> Option<usize>;
     fn is_id_of_scaffold(&self, s_id: usize) -> bool;
     fn length_decomposition(&self, s_id: usize) -> String;
@@ -1010,13 +1016,14 @@ pub trait DesignReader: 'static {
     fn strand_name(&self, s_id: usize) -> String;
     fn get_all_cameras(&self) -> Vec<(CameraId, &str)>;
     fn get_favourite_camera(&self) -> Option<CameraId>;
-    fn get_grid_position_and_orientation(&self, g_id: usize) -> Option<(Vec3, Rotor3)>;
-    fn get_grid_nb_turn(&self, g_id: usize) -> Option<f32>;
+    fn get_grid_position_and_orientation(&self, g_id: GridId) -> Option<(Vec3, Rotor3)>;
+    fn get_grid_nb_turn(&self, g_id: GridId) -> Option<f32>;
     fn xover_length(&self, xover_id: usize) -> Option<(f32, Option<f32>)>;
     fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize>;
     fn rainbow_scaffold(&self) -> bool;
     fn get_insertion_length(&self, selection: &Selection) -> Option<usize>;
     fn get_insertion_point(&self, selection: &Selection) -> Option<InsertionPoint>;
+    fn is_bezier_path_cyclic(&self, path_id: BezierPathId) -> Option<bool>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

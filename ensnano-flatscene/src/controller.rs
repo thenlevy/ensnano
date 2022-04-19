@@ -27,7 +27,7 @@ use super::{
     Selection, ViewPtr, WindowEvent,
 };
 
-use ensnano_design::ultraviolet;
+use ensnano_design::{ultraviolet, VirtualNucl};
 use ensnano_utils::winit::event::*;
 use std::cell::RefCell;
 use ultraviolet::Vec2;
@@ -94,6 +94,7 @@ pub enum Consequence {
         centers: Vec<Vec2>,
         symmetry: Vec2,
     },
+    PngExport(Vec2, Vec2),
 }
 
 impl<S: AppState> Controller<S> {

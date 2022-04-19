@@ -19,15 +19,15 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 use crate::scene::GridInstance;
 use ensnano_design::{
-    grid::{GridObject, GridPosition, HelixGridPosition},
-    CurveDescriptor, Nucl,
+    grid::{GridId, GridObject, GridPosition, HelixGridPosition},
+    BezierPlaneDescriptor, BezierPlaneId, BezierVertexId, Collection, CurveDescriptor, Nucl,
 };
 use ensnano_interactor::{
     graphics::{LoopoutBond, LoopoutNucl},
     BezierControlPoint, ObjectType, Referential,
 };
 use std::collections::HashSet;
-use ultraviolet::{Mat4, Rotor3, Vec3};
+use ultraviolet::{Mat4, Rotor3, Vec2, Vec3};
 
 use crate::scene::DesignReader as Reader3D;
 
@@ -49,12 +49,19 @@ impl Reader3D for DesignReader {
             .cloned()
     }
 
-    fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3> {
-        self.presenter
-            .current_design
-            .grids
-            .get(g_id)
-            .map(|g| g.orientation)
+    fn get_grid_basis(&self, g_id: GridId) -> Option<Rotor3> {
+        match g_id {
+            GridId::FreeGrid(_) => self
+                .presenter
+                .current_design
+                .free_grids
+                .get_from_g_id(&g_id)
+                .map(|g| g.orientation),
+            GridId::BezierPathGrid(vertex_id) => {
+                let design_data = self.presenter.current_design.try_get_up_to_date()?;
+                design_data.paths_data.orientation_vertex(vertex_id)
+            }
+        }
     }
 
     fn get_suggestions(&self) -> Vec<(Nucl, Nucl)> {
@@ -95,15 +102,15 @@ impl Reader3D for DesignReader {
             .collect()
     }
 
-    fn get_grid_position(&self, g_id: usize) -> Option<Vec3> {
+    fn get_grid_position(&self, g_id: GridId) -> Option<Vec3> {
         self.presenter
             .current_design
-            .grids
-            .get(g_id)
+            .free_grids
+            .get_from_g_id(&g_id)
             .map(|g| g.position)
     }
 
-    fn get_grid_instances(&self) -> Vec<GridInstance> {
+    fn get_grid_instances(&self) -> BTreeMap<GridId, GridInstance> {
         self.presenter.content.get_grid_instances()
     }
 
@@ -140,7 +147,7 @@ impl Reader3D for DesignReader {
         Some(self.presenter.in_referential(position, referential))
     }
 
-    fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
+    fn get_helices_on_grid(&self, g_id: GridId) -> Option<HashSet<usize>> {
         self.presenter.content.get_helices_on_grid(g_id)
     }
 
@@ -237,7 +244,7 @@ impl Reader3D for DesignReader {
         }
     }
 
-    fn get_helices_grid_key_coord(&self, g_id: usize) -> Option<Vec<((isize, isize), usize)>> {
+    fn get_helices_grid_key_coord(&self, g_id: GridId) -> Option<Vec<((isize, isize), usize)>> {
         Some(self.presenter.content.get_helices_grid_key_coord(g_id))
     }
 
@@ -252,7 +259,7 @@ impl Reader3D for DesignReader {
         self.presenter.content.strand_map.get(&e_id).cloned()
     }
 
-    fn get_used_coordinates_on_grid(&self, g_id: usize) -> Option<Vec<(isize, isize)>> {
+    fn get_used_coordinates_on_grid(&self, g_id: GridId) -> Option<Vec<(isize, isize)>> {
         Some(self.presenter.content.get_used_coordinates_on_grid(g_id))
     }
 
@@ -413,6 +420,127 @@ impl Reader3D for DesignReader {
     fn get_curve_descriptor(&self, helix: usize) -> Option<&CurveDescriptor> {
         let helix = self.presenter.current_design.helices.get(&helix)?;
         helix.curve.as_ref().map(Arc::as_ref)
+    }
+
+    fn get_bezier_planes(
+        &self,
+    ) -> &dyn Collection<Key = BezierPlaneId, Item = BezierPlaneDescriptor> {
+        &self.presenter.current_design.bezier_planes
+    }
+
+    fn get_bezier_paths(
+        &self,
+    ) -> Option<&BTreeMap<ensnano_design::BezierPathId, Arc<ensnano_design::InstanciatedPath>>>
+    {
+        self.presenter
+            .current_design
+            .try_get_up_to_date()
+            .map(|data| data.paths_data.instanciated_paths.as_ref())
+    }
+
+    fn get_parameters(&self) -> Parameters {
+        self.presenter.current_design.parameters.unwrap_or_default()
+    }
+
+    fn get_bezier_vertex(
+        &self,
+        path_id: ensnano_design::BezierPathId,
+        vertex_id: usize,
+    ) -> Option<ensnano_design::BezierVertex> {
+        self.presenter
+            .current_design
+            .bezier_paths
+            .get(&path_id)
+            .and_then(|p| p.vertices().get(vertex_id))
+            .cloned()
+    }
+
+    fn get_corners_of_plane(&self, plane_id: BezierPlaneId) -> [Vec2; 4] {
+        let mut top = f32::INFINITY;
+        let mut bottom = f32::NEG_INFINITY;
+        let mut left = f32::INFINITY;
+        let mut right = f32::NEG_INFINITY;
+
+        for path in self.presenter.current_design.bezier_paths.values() {
+            for v in path.vertices() {
+                if v.plane_id == plane_id {
+                    top = top.min(v.position.y);
+                    bottom = bottom.max(v.position.y);
+                    left = left.min(v.position.x);
+                    right = right.max(v.position.x);
+                }
+            }
+        }
+        [
+            Vec2::new(left, top),
+            Vec2::new(right, top),
+            Vec2::new(left, bottom),
+            Vec2::new(right, bottom),
+        ]
+    }
+
+    fn get_optimal_xover_arround(&self, source: Nucl, target: Nucl) -> Option<(Nucl, Nucl)> {
+        let source_id = self.get_id_of_strand_containing_nucl(&source)?;
+        let target_id = self.get_id_of_strand_containing_nucl(&target)?;
+        let mut opt_pair = (source, target);
+        let helix_source = self.presenter.current_design.helices.get(&source.helix)?;
+        let helix_target = self.presenter.current_design.helices.get(&target.helix)?;
+        let parameters = self.presenter.current_design.parameters.unwrap_or_default();
+        let mut opt_dist = std::f32::INFINITY;
+        for i in -2..2 {
+            let source_candidate = Nucl {
+                position: source.position + i,
+                ..source
+            };
+            if self.get_id_of_strand_containing_nucl(&source_candidate) == Some(source_id) {
+                for j in -2..2 {
+                    let target_candidate = Nucl {
+                        position: target.position + j,
+                        ..target
+                    };
+                    if self.get_id_of_strand_containing_nucl(&target_candidate) == Some(target_id) {
+                        let source_pos = helix_source.space_pos(
+                            &parameters,
+                            source_candidate.position,
+                            source_candidate.forward,
+                        );
+                        let target_pos = helix_target.space_pos(
+                            &parameters,
+                            target_candidate.position,
+                            target_candidate.forward,
+                        );
+                        let dist = (source_pos - target_pos).mag();
+                        if dist < opt_dist {
+                            opt_dist = dist;
+                            opt_pair = (source_candidate, target_candidate);
+                        }
+                    }
+                }
+            }
+        }
+        Some(opt_pair)
+    }
+
+    fn get_bezier_grid_used_by_helix(&self, h_id: usize) -> Vec<GridId> {
+        let helix = self.presenter.current_design.helices.get(&h_id);
+        if let Some(CurveDescriptor::TranslatedPath { path_id, .. }) =
+            helix.and_then(|h| h.curve.as_ref().map(Arc::as_ref))
+        {
+            if let Some(path) = self.presenter.current_design.bezier_paths.get(path_id) {
+                (0..(path.vertices().len()))
+                    .map(|i| {
+                        GridId::BezierPathGrid(BezierVertexId {
+                            path_id: *path_id,
+                            vertex_id: i,
+                        })
+                    })
+                    .collect()
+            } else {
+                vec![]
+            }
+        } else {
+            vec![]
+        }
     }
 }
 

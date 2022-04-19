@@ -22,6 +22,7 @@ use super::{CameraPtr, FlatIdx, FlatNucl, NuclCollection};
 use crate::{DrawArea, PhySize};
 use ensnano_design::Nucl;
 use ensnano_utils::bindgroup_manager::{DynamicBindGroup, UniformBindGroup};
+use ensnano_utils::camera2d::Globals;
 use ensnano_utils::texture::Texture;
 use ensnano_utils::wgpu;
 use ensnano_utils::Ndc;
@@ -55,7 +56,7 @@ const SHOW_SUGGESTION: bool = false;
 pub struct View {
     device: Rc<Device>,
     queue: Rc<Queue>,
-    depth_texture: Texture,
+    depth_texture: Arc<Texture>,
     helices: Vec<Helix>,
     helices_view: Vec<HelixView>,
     helices_background: Vec<HelixView>,
@@ -127,8 +128,11 @@ impl View {
         camera_bottom: CameraPtr,
         splited: bool,
     ) -> Self {
-        let depth_texture =
-            Texture::create_depth_texture(device.as_ref(), &area.size, SAMPLE_COUNT);
+        let depth_texture = Arc::new(Texture::create_depth_texture(
+            device.as_ref(),
+            &area.size,
+            SAMPLE_COUNT,
+        ));
         let models = DynamicBindGroup::new(device.clone(), queue.clone());
         let globals_top = UniformBindGroup::new(
             device.clone(),
@@ -293,8 +297,11 @@ impl View {
     }
 
     pub fn resize(&mut self, area: DrawArea) {
-        self.depth_texture =
-            Texture::create_depth_texture(self.device.clone().as_ref(), &area.size, SAMPLE_COUNT);
+        self.depth_texture = Arc::new(Texture::create_depth_texture(
+            self.device.clone().as_ref(),
+            &area.size,
+            SAMPLE_COUNT,
+        ));
         self.area_size = area.size;
         self.was_updated = true;
     }
@@ -490,7 +497,7 @@ impl View {
         self.was_updated = true;
         match selection {
             FlatSelection::Bound(_, n1, n2) => {
-                self.helices[n1.helix].make_visible(n1.position, self.camera_top.clone());
+                self.helices[n1.helix].make_visible(n1.flat_position, self.camera_top.clone());
                 let world_pos_1 = self.helices[n1.helix].get_nucl_position(&n1, Shift::No);
                 let world_pos_2 = self.helices[n2.helix].get_nucl_position(&n2, Shift::No);
                 let screen_pos_1 = self
@@ -518,7 +525,9 @@ impl View {
             FlatSelection::Nucleotide(
                 _,
                 FlatNucl {
-                    helix, position, ..
+                    helix,
+                    flat_position: position,
+                    ..
                 },
             ) => {
                 self.helices[helix].make_visible(position, self.camera_top.clone());
@@ -531,14 +540,14 @@ impl View {
     pub fn center_split(&mut self, n1: FlatNucl, n2: FlatNucl) {
         let zoom = self.camera_top.borrow().get_globals().zoom;
         self.camera_bottom.borrow_mut().set_zoom(zoom);
-        self.helices[n1.helix].make_visible(n1.position, self.camera_top.clone());
-        self.helices[n2.helix].make_visible(n2.position, self.camera_bottom.clone());
+        self.helices[n1.helix].make_visible(n1.flat_position, self.camera_top.clone());
+        self.helices[n2.helix].make_visible(n2.flat_position, self.camera_bottom.clone());
     }
 
     /// Center the top camera on a nucleotide
     pub fn center_nucl(&mut self, nucl: FlatNucl, bottom: bool) {
         let helix = nucl.helix;
-        let position = self.helices[helix].get_pivot(nucl.position);
+        let position = self.helices[helix].get_pivot(nucl.flat_position);
         if bottom {
             self.camera_bottom.borrow_mut().set_center(position);
         } else {
@@ -576,8 +585,33 @@ impl View {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
-        _area: DrawArea,
+        png_size: Option<PhySize>,
+        png_globals: Option<Globals>,
     ) {
+        let exporting_png = png_size.is_some();
+        let texture;
+        let globls_png = if let Some(globals) = png_globals {
+            Some(UniformBindGroup::new(
+                self.device.clone(),
+                self.queue.clone(),
+                &globals,
+            ))
+        } else {
+            None
+        };
+        let png_glob_bg = globls_png.as_ref().map(|g| g.get_bindgroup());
+        let depth_texture_view = if let Some(size) = png_size {
+            texture = Arc::new(Texture::create_depth_texture(
+                self.device.clone().as_ref(),
+                &size,
+                SAMPLE_COUNT,
+            ));
+            &texture.view
+        } else {
+            texture = self.depth_texture.clone();
+            &texture.view
+        };
+        let target_size = png_size.unwrap_or(self.area_size);
         let mut need_new_circles = false;
         if let Some(globals) = self.camera_top.borrow_mut().update() {
             log::debug!("new camera globals: {:?}", globals);
@@ -615,7 +649,7 @@ impl View {
         let msaa_texture = if SAMPLE_COUNT > 1 {
             Some(ensnano_utils::texture::Texture::create_msaa_texture(
                 self.device.clone().as_ref(),
-                &self.area_size,
+                &target_size,
                 SAMPLE_COUNT,
                 wgpu::TextureFormat::Bgra8UnormSrgb,
             ))
@@ -647,7 +681,7 @@ impl View {
                 },
             }],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &self.depth_texture.view,
+                view: depth_texture_view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.),
                     store: true,
@@ -658,20 +692,26 @@ impl View {
                 }),
             }),
         });
-        if self.splited {
+        if self.splited && !exporting_png {
             render_pass.set_viewport(
                 0.,
                 0.,
-                self.area_size.width as f32,
-                self.area_size.height as f32 / 2.,
+                target_size.width as f32,
+                target_size.height as f32 / 2.,
                 0.,
                 1.,
             );
-            render_pass.set_scissor_rect(0, 0, self.area_size.width, self.area_size.height / 2);
+            render_pass.set_scissor_rect(0, 0, target_size.width, target_size.height / 2);
         }
-        render_pass.set_bind_group(0, self.globals_top.get_bindgroup(), &[]);
+        render_pass.set_bind_group(
+            0,
+            png_glob_bg.unwrap_or_else(|| self.globals_top.get_bindgroup()),
+            &[],
+        );
         render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
-        self.background.draw(&mut render_pass);
+        if !exporting_png {
+            self.background.draw(&mut render_pass);
+        }
 
         render_pass.set_pipeline(&self.helices_pipeline);
 
@@ -681,7 +721,9 @@ impl View {
         for helix in self.helices_view.iter() {
             helix.draw(&mut render_pass);
         }
-        self.rotation_widget.draw(&mut render_pass);
+        if !exporting_png {
+            self.rotation_widget.draw(&mut render_pass);
+        }
         drop(render_pass);
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
@@ -694,7 +736,7 @@ impl View {
                 },
             }],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &self.depth_texture.view,
+                view: depth_texture_view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.),
                     store: true,
@@ -705,18 +747,22 @@ impl View {
                 }),
             }),
         });
-        if self.splited {
+        if self.splited && !exporting_png {
             render_pass.set_viewport(
                 0.,
                 0.,
-                self.area_size.width as f32,
-                self.area_size.height as f32 / 2.,
+                target_size.width as f32,
+                target_size.height as f32 / 2.,
                 0.,
                 1.,
             );
-            render_pass.set_scissor_rect(0, 0, self.area_size.width, self.area_size.height / 2);
+            render_pass.set_scissor_rect(0, 0, target_size.width, target_size.height / 2);
         }
-        render_pass.set_bind_group(0, self.globals_top.get_bindgroup(), &[]);
+        render_pass.set_bind_group(
+            0,
+            png_glob_bg.unwrap_or_else(|| self.globals_top.get_bindgroup()),
+            &[],
+        );
         render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
         self.circle_drawer_top.draw(&mut render_pass);
         self.text_drawer_top.draw(&mut render_pass);
@@ -751,7 +797,7 @@ impl View {
                 },
             }],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &self.depth_texture.view,
+                view: depth_texture_view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.),
                     store: true,
@@ -766,16 +812,22 @@ impl View {
             render_pass.set_viewport(
                 0.,
                 0.,
-                self.area_size.width as f32,
-                self.area_size.height as f32 / 2.,
+                target_size.width as f32,
+                target_size.height as f32 / 2.,
                 0.,
                 1.,
             );
-            render_pass.set_scissor_rect(0, 0, self.area_size.width, self.area_size.height / 2);
+            render_pass.set_scissor_rect(0, 0, target_size.width, target_size.height / 2);
         }
-        render_pass.set_bind_group(0, self.globals_top.get_bindgroup(), &[]);
+        render_pass.set_bind_group(
+            0,
+            png_glob_bg.unwrap_or_else(|| self.globals_top.get_bindgroup()),
+            &[],
+        );
         render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
-        self.background.draw_border(&mut render_pass);
+        if !exporting_png {
+            self.background.draw_border(&mut render_pass);
+        }
 
         render_pass.set_pipeline(&self.strand_pipeline);
         for strand in self.strands.iter() {
@@ -808,7 +860,7 @@ impl View {
                     },
                 }],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_texture.view,
+                    view: depth_texture_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.),
                         store: true,
@@ -821,17 +873,17 @@ impl View {
             });
             render_pass.set_viewport(
                 0.,
-                self.area_size.height as f32 / 2.,
-                self.area_size.width as f32,
-                self.area_size.height as f32 / 2.,
+                target_size.height as f32 / 2.,
+                target_size.width as f32,
+                target_size.height as f32 / 2.,
                 0.,
                 1.,
             );
             render_pass.set_scissor_rect(
                 0,
-                self.area_size.height / 2,
-                self.area_size.width,
-                self.area_size.height / 2,
+                target_size.height / 2,
+                target_size.width,
+                target_size.height / 2,
             );
             render_pass.set_bind_group(0, self.globals_bottom.get_bindgroup(), &[]);
             render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
@@ -858,7 +910,7 @@ impl View {
                     },
                 }],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_texture.view,
+                    view: depth_texture_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.),
                         store: true,
@@ -871,17 +923,17 @@ impl View {
             });
             render_pass.set_viewport(
                 0.,
-                self.area_size.height as f32 / 2.,
-                self.area_size.width as f32,
-                self.area_size.height as f32 / 2.,
+                target_size.height as f32 / 2.,
+                target_size.width as f32,
+                target_size.height as f32 / 2.,
                 0.,
                 1.,
             );
             render_pass.set_scissor_rect(
                 0,
-                self.area_size.height / 2,
-                self.area_size.width,
-                self.area_size.height / 2,
+                target_size.height / 2,
+                target_size.width,
+                target_size.height / 2,
             );
             render_pass.set_bind_group(0, self.globals_bottom.get_bindgroup(), &[]);
             render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
@@ -918,7 +970,7 @@ impl View {
                     },
                 }],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_texture.view,
+                    view: depth_texture_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.),
                         store: true,
@@ -931,17 +983,17 @@ impl View {
             });
             render_pass.set_viewport(
                 0.,
-                self.area_size.height as f32 / 2.,
-                self.area_size.width as f32,
-                self.area_size.height as f32 / 2.,
+                target_size.height as f32 / 2.,
+                target_size.width as f32,
+                target_size.height as f32 / 2.,
                 0.,
                 1.,
             );
             render_pass.set_scissor_rect(
                 0,
-                self.area_size.height / 2,
-                self.area_size.width,
-                self.area_size.height / 2,
+                target_size.height / 2,
+                target_size.width,
+                target_size.height / 2,
             );
             render_pass.set_bind_group(0, self.globals_bottom.get_bindgroup(), &[]);
             render_pass.set_bind_group(1, self.models.get_bindgroup(), &[]);
@@ -964,29 +1016,31 @@ impl View {
                 highlight.draw_split(&mut render_pass, bottom);
             }
         }
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: None,
-            color_attachments: &[wgpu::RenderPassColorAttachment {
-                view: attachment,
-                resolve_target,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: true,
-                },
-            }],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &self.depth_texture.view,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.),
-                    store: true,
+        if !exporting_png {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: attachment,
+                    resolve_target,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: depth_texture_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.),
+                        store: true,
+                    }),
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(0),
+                        store: true,
+                    }),
                 }),
-                stencil_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(0),
-                    store: true,
-                }),
-            }),
-        });
-        self.rectangle.draw(&mut render_pass);
+            });
+            self.rectangle.draw(&mut render_pass);
+        }
         self.was_updated = false;
     }
 
@@ -1072,8 +1126,8 @@ impl View {
             };
             let h1 = &self.helices[n1.helix];
             let h2 = &self.helices[n2.helix];
-            circles.push(h1.get_circle_nucl(n1.position, n1.forward, color));
-            circles.push(h2.get_circle_nucl(n2.position, n2.forward, color));
+            circles.push(h1.get_circle_nucl(n1.flat_position, n1.forward, color));
+            circles.push(h2.get_circle_nucl(n2.flat_position, n2.forward, color));
         }
     }
 
@@ -1082,7 +1136,7 @@ impl View {
         for n in self.candidate_nucl.iter() {
             let candidate_color = ensnano_interactor::consts::CANDIDATE_COLOR;
             if let Some(h1) = self.helices.get(n.helix.flat.0) {
-                let mut c = h1.get_circle_nucl(n.position, n.forward, candidate_color);
+                let mut c = h1.get_circle_nucl(n.flat_position, n.forward, candidate_color);
                 c.set_radius(1. / 2.);
                 circles.push(c)
             } else {
@@ -1093,7 +1147,7 @@ impl View {
         for n in self.selected_nucl.iter() {
             let selected_color = ensnano_interactor::consts::SELECTED_COLOR;
             if let Some(h1) = self.helices.get(n.helix.flat.0) {
-                let mut c = h1.get_circle_nucl(n.position, n.forward, selected_color);
+                let mut c = h1.get_circle_nucl(n.flat_position, n.forward, selected_color);
                 c.set_radius(std::f32::consts::FRAC_1_SQRT_2);
                 circles.push(c)
             } else {
@@ -1111,20 +1165,20 @@ impl View {
                 .min(1.);
             let color = torsion_color(torsion.strength_prime5 - torsion.strength_prime3);
             let h0 = &self.helices[n0.helix];
-            let mut circle = h0.get_circle_nucl(n0.position, n0.forward, color);
+            let mut circle = h0.get_circle_nucl(n0.flat_position, n0.forward, color);
             circle.radius *= multiplier;
             if let Some(friend) = torsion.friend {
                 // The circle center should be placed between the two friend cross-overs
-                let circle2 = h0.get_circle_nucl(friend.0.position, n0.forward, color);
+                let circle2 = h0.get_circle_nucl(friend.0.flat_position, n0.forward, color);
                 circle.center = (circle.center + circle2.center) / 2.;
             }
             circles.push(circle);
             let h1 = &self.helices[n1.helix];
-            let mut circle = h1.get_circle_nucl(n1.position, n1.forward, color);
+            let mut circle = h1.get_circle_nucl(n1.flat_position, n1.forward, color);
             circle.radius *= multiplier;
             if let Some(friend) = torsion.friend {
                 // The circle center should be placed between the two friend cross-overs
-                let circle2 = h1.get_circle_nucl(friend.1.position, n1.forward, color);
+                let circle2 = h1.get_circle_nucl(friend.1.flat_position, n1.forward, color);
                 circle.center = (circle.center + circle2.center) / 2.;
             }
             circles.push(circle);

@@ -19,11 +19,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use crate::BezierControlPoint;
 
 use super::{DesignOperation, DesignRotation, DesignTranslation, GroupId, IsometryTarget};
-use ensnano_design::{
-    grid::{GridDescriptor, GridTypeDescr},
-    Nucl,
-};
-use ultraviolet::{Bivec3, Rotor3, Vec3};
+use ensnano_design::{grid::*, BezierPathId, BezierPlaneId, Nucl};
+use ultraviolet::{Bivec3, Rotor3, Vec2, Vec3};
 
 pub enum ParameterField {
     Choice(Vec<String>),
@@ -67,7 +64,7 @@ pub trait Operation: std::fmt::Debug + Sync + Send {
 pub struct GridRotation {
     pub origin: Vec3,
     pub design_id: usize,
-    pub grid_ids: Vec<usize>,
+    pub grid_ids: Vec<GridId>,
     pub angle: f32,
     pub plane: Bivec3,
     pub group_id: Option<GroupId>,
@@ -369,6 +366,54 @@ impl Operation for BezierControlPointTranslation {
 }
 
 #[derive(Debug, Clone)]
+pub struct TranslateBezierPathVertex {
+    pub design_id: usize,
+    pub path_id: BezierPathId,
+    pub vertex_id: usize,
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Operation for TranslateBezierPathVertex {
+    fn description(&self) -> String {
+        String::from("Positioning BezierPath Vertex")
+    }
+
+    fn effect(&self) -> DesignOperation {
+        DesignOperation::MoveBezierVertex {
+            path_id: self.path_id,
+            vertex_id: self.vertex_id,
+            position: Vec2::new(self.x, self.y),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TranslateBezierSheetCorner {
+    pub plane_id: BezierPlaneId,
+    pub fixed_corner: Vec2,
+    pub origin_moving_corner: Vec2,
+    pub moving_corner: Vec2,
+}
+
+impl Operation for TranslateBezierSheetCorner {
+    fn description(&self) -> String {
+        String::from("Translating BezierSheet Corner")
+    }
+
+    fn effect(&self) -> DesignOperation {
+        DesignOperation::ApplyHomothethyOnBezierPlane {
+            homothethy: crate::BezierPlaneHomothethy {
+                plane_id: self.plane_id,
+                fixed_corner: self.fixed_corner,
+                origin_moving_corner: self.origin_moving_corner,
+                moving_corner: self.moving_corner,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct HelixTranslation {
     pub design_id: usize,
     pub helices: Vec<usize>,
@@ -459,7 +504,7 @@ impl Operation for HelixTranslation {
 #[derive(Debug, Clone)]
 pub struct GridTranslation {
     pub design_id: usize,
-    pub grid_ids: Vec<usize>,
+    pub grid_ids: Vec<GridId>,
     pub right: Vec3,
     pub top: Vec3,
     pub dir: Vec3,
@@ -546,7 +591,7 @@ impl Operation for GridTranslation {
 #[derive(Debug, Clone)]
 pub struct GridHelixCreation {
     pub design_id: usize,
-    pub grid_id: usize,
+    pub grid_id: GridId,
     pub x: isize,
     pub y: isize,
     pub position: isize,
@@ -574,7 +619,7 @@ impl Operation for GridHelixCreation {
 
     fn description(&self) -> String {
         format!(
-            "Create helix on grid {} of design {}",
+            "Create helix on grid {:?} of design {}",
             self.grid_id, self.design_id
         )
     }
@@ -752,6 +797,7 @@ impl Operation for CreateGrid {
             orientation: self.orientation,
             grid_type: self.grid_type,
             invisible: false,
+            bezier_vertex: None,
         })
     }
 

@@ -34,7 +34,7 @@ use ultraviolet::Vec3;
 
 use ensnano_design::{
     elements::{DnaElement, DnaElementKey},
-    CameraId,
+    BezierPathId, CameraId,
 };
 use ensnano_interactor::{
     graphics::{Background3D, RenderingMode},
@@ -65,7 +65,8 @@ use contextual_panel::{ContextualPanel, InstanciatedValue, ValueKind};
 
 use ensnano_interactor::{CheckXoversParameter, HyperboloidRequest, Selection};
 use tabs::{
-    CameraShortcut, CameraTab, EditionTab, GridTab, ParametersTab, SequenceTab, SimulationTab,
+    CameraShortcut, CameraTab, EditionTab, GridTab, ParametersTab, PenTab, SequenceTab,
+    SimulationTab,
 };
 
 pub(super) const ENSNANO_FONT: iced::Font = iced::Font::External {
@@ -94,6 +95,7 @@ pub struct LeftPanel<R: Requests, S: AppState> {
     simulation_tab: SimulationTab<S>,
     sequence_tab: SequenceTab,
     parameters_tab: ParametersTab,
+    pen_tab: PenTab,
     contextual_panel: ContextualPanel<S>,
     camera_shortcut: CameraShortcut,
     application_state: S,
@@ -187,6 +189,17 @@ pub enum Message<S> {
     SetExpandInsertions(bool),
     InsertionLengthInput(String),
     InsertionLengthSubmitted,
+    NewBezierPlane,
+    StartBezierPath,
+    TurnPathIntoGrid {
+        path_id: BezierPathId,
+        grid_type: GridTypeDescr,
+    },
+    SetShowBezierPaths(bool),
+    MakeBezierPathCyclic {
+        path_id: BezierPathId,
+        cyclic: bool,
+    },
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -226,6 +239,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
             simulation_tab: SimulationTab::new(),
             sequence_tab: SequenceTab::new(),
             parameters_tab: ParametersTab::new(state),
+            pen_tab: Default::default(),
             contextual_panel: ContextualPanel::new(logical_size.width as u32),
             camera_shortcut: CameraShortcut::new(),
             application_state: state.clone(),
@@ -796,6 +810,34 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     }
                 }
             }
+            Message::NewBezierPlane => {
+                self.requests.lock().unwrap().create_bezier_plane();
+            }
+            Message::StartBezierPath => {
+                let path_id = self.application_state.get_selected_bezier_path();
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .change_action_mode(ActionMode::EditBezierPath {
+                        path_id,
+                        vertex_id: None,
+                    })
+            }
+            Message::TurnPathIntoGrid { path_id, grid_type } => {
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .turn_path_into_grid(path_id, grid_type);
+            }
+            Message::SetShowBezierPaths(b) => {
+                self.requests.lock().unwrap().set_show_bezier_paths(b)
+            }
+            Message::MakeBezierPathCyclic { path_id, cyclic } => {
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .make_bezier_path_cyclic(path_id, cyclic);
+            }
         };
         Command::none()
     }
@@ -832,6 +874,10 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Settings))),
                 self.parameters_tab
                     .view(self.ui_size.clone(), &self.application_state),
+            )
+            .push(
+                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Draw))),
+                self.pen_tab.view(self.ui_size, &self.application_state),
             )
             .text_size(self.ui_size.icon())
             .text_font(ICONFONT)

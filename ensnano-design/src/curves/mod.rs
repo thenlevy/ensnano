@@ -20,21 +20,30 @@ use ultraviolet::{DMat3, DVec3, Rotor3, Vec3};
 const EPSILON: f64 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
 const DELTA_MAX: f64 = 256.0;
-use crate::grid::{Edge, GridPosition};
-
-use self::bezier::InstanciatedPiecewiseBeizer;
+use crate::{
+    grid::{Edge, GridPosition},
+    utils::vec_to_dvec,
+    BezierPathData, BezierPathId,
+};
 
 use super::{Helix, Parameters};
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 mod bezier;
 mod sphere_like_spiral;
+mod supertwist;
+mod time_nucl_map;
 mod torus;
 mod twist;
-use super::GridDescriptor;
-use bezier::InstanciatedBeizerEnd;
+use super::GridId;
+use crate::grid::*;
+use bezier::TranslatedPiecewiseBezier;
 pub use bezier::{BezierControlPoint, BezierEnd, CubicBezierConstructor, CubicBezierControlPoint};
+pub(crate) use bezier::{InstanciatedBeizerEnd, InstanciatedPiecewiseBeizer};
 pub use sphere_like_spiral::SphereLikeSpiral;
 use std::collections::HashMap;
+pub use supertwist::SuperTwist;
+pub use time_nucl_map::AbscissaConverter;
+pub(crate) use time_nucl_map::{PathTimeMaps, RevolutionCurveTimeMaps};
 pub use torus::Torus;
 use torus::TwistedTorus;
 pub use torus::{CurveDescriptor2D, TwistedTorusDescriptor};
@@ -127,6 +136,29 @@ pub(super) trait Curved {
             None
         }
     }
+
+    /// This method can be overriden to express the fact that a translation should be applied to
+    /// every point of the curve. For each point of the curve, the translation is expressed in the
+    /// coordinate of the frame associated to the point.
+    fn translation(&self) -> Option<DVec3> {
+        None
+    }
+
+    fn initial_frame(&self) -> Option<DMat3> {
+        None
+    }
+
+    fn full_turn_at_t(&self) -> Option<f64> {
+        None
+    }
+
+    /// This method can be overriden to express the fact that a curve needs to be represented by
+    /// several helices segments in 2D.
+    /// If that is the case, return the index of the corresponding segment for t. This methods must
+    /// be increasing.
+    fn subdivision_for_t(&self, _t: f64) -> Option<usize> {
+        None
+    }
 }
 
 /// The bounds of the curve. This describe the interval in which t can be taken
@@ -146,27 +178,45 @@ pub(super) enum CurveBounds {
 pub(super) struct Curve {
     /// The object describing the curve.
     geometry: Arc<dyn Curved + Sync + Send>,
-    /// The precomputed points along the curve
-    positions: Vec<DVec3>,
-    /// The precomputed orthgonal frames moving along the curve
-    axis: Vec<DMat3>,
+    /// The precomputed points along the curve for the forward strand
+    pub(crate) positions_forward: Vec<DVec3>,
+    /// The procomputed points along the curve for the backward strand
+    pub(crate) positions_backward: Vec<DVec3>,
+    /// The precomputed orthgonal frames moving along the curve for the forward strand
+    axis_forward: Vec<DMat3>,
+    /// The precomputed orthgonal frames moving along the curve for the backward strand
+    axis_backward: Vec<DMat3>,
     /// The precomputed values of the curve's curvature
     curvature: Vec<f64>,
     /// The index in positions that was reached when t became non-negative
     nucl_t0: usize,
+    /// The time point at which nucleotides where positioned
+    t_nucl: Arc<Vec<f64>>,
+    nucl_pos_full_turn: Option<isize>,
+    /// The first nucleotide of each additional helix segment needed to represent the curve.
+    additional_segment_left: Vec<usize>,
 }
 
 impl Curve {
     pub fn new<T: Curved + 'static + Sync + Send>(geometry: T, parameters: &Parameters) -> Self {
         let mut ret = Self {
             geometry: Arc::new(geometry),
-            positions: Vec::new(),
-            axis: Vec::new(),
+            positions_forward: Vec::new(),
+            positions_backward: Vec::new(),
+            axis_forward: Vec::new(),
+            axis_backward: Vec::new(),
             curvature: Vec::new(),
             nucl_t0: 0,
+            t_nucl: Arc::new(Vec::new()),
+            nucl_pos_full_turn: None,
+            additional_segment_left: Vec::new(),
         };
         let len_segment = ret.geometry.z_step_ratio().unwrap_or(1.0) * parameters.z_step as f64;
-        ret.discretize(len_segment, DISCRETISATION_STEP);
+        ret.discretize(
+            len_segment,
+            DISCRETISATION_STEP,
+            parameters.inclination as f64,
+        );
         ret
     }
 
@@ -197,54 +247,137 @@ impl Curve {
         len
     }
 
-    fn discretize(&mut self, len_segment: f64, nb_step: usize) {
+    fn discretize(&mut self, len_segment: f64, nb_step: usize, inclination: f64) {
         let len = self.length_by_descretisation(0., 1., nb_step);
         let nb_points = (len / len_segment) as usize;
         let small_step = 1. / (nb_step as f64 * nb_points as f64);
 
-        let mut points = Vec::with_capacity(nb_points + 1);
-        let mut axis = Vec::with_capacity(nb_points + 1);
+        let mut points_forward = Vec::with_capacity(nb_points + 1);
+        let mut points_backward = Vec::with_capacity(nb_points + 1);
+        let mut axis_forward = Vec::with_capacity(nb_points + 1);
+        let mut axis_backward = Vec::with_capacity(nb_points + 1);
         let mut curvature = Vec::with_capacity(nb_points + 1);
         let mut t = self.geometry.t_min();
-        points.push(self.geometry.position(t));
         let mut current_axis = self.itterative_axis(t, None);
-        axis.push(current_axis);
-        curvature.push(self.geometry.curvature(t));
+        let mut translation_axis = current_axis;
+
+        let mut current_segment = 0;
+
+        if let Some(frame) = self.geometry.initial_frame() {
+            let up = frame[1];
+            translation_axis[0] = up.cross(translation_axis[2]).normalized();
+            translation_axis[1] = translation_axis[2].cross(translation_axis[0]).normalized();
+        }
+        let point = self.geometry.position(t)
+            + translation_axis * self.geometry.translation().unwrap_or_else(DVec3::zero);
+
+        let mut t_nucl = Vec::new();
+        let mut abscissa_forward;
+        let mut abscissa_backward;
+        if inclination >= 0. {
+            points_forward.push(point);
+            axis_forward.push(current_axis);
+            curvature.push(self.geometry.curvature(t));
+            t_nucl.push(t);
+            abscissa_forward = len_segment;
+            abscissa_backward = inclination;
+        } else {
+            points_backward.push(point);
+            axis_backward.push(current_axis);
+            abscissa_backward = len_segment;
+            abscissa_forward = -inclination;
+        }
+
+        let mut current_abcissa = 0.0;
         let mut first_non_negative = t < 0.0;
 
         while t < self.geometry.t_max() {
             if first_non_negative && t >= 0.0 {
                 first_non_negative = false;
-                self.nucl_t0 = points.len();
+                self.nucl_t0 = points_forward.len();
             }
-            let mut s = 0f64;
-            let mut p = self.geometry.position(t);
+            let (objective, forward) = (
+                abscissa_forward.min(abscissa_backward),
+                abscissa_forward <= abscissa_backward,
+            );
+            let mut translation_axis = current_axis;
+            if let Some(frame) = self.geometry.initial_frame() {
+                let up = frame[1];
+                translation_axis[0] = up.cross(translation_axis[2]).normalized();
+                translation_axis[1] = translation_axis[2].cross(translation_axis[0]).normalized();
+            }
+            let mut p = self.geometry.position(t)
+                + translation_axis * self.geometry.translation().unwrap_or_else(DVec3::zero);
 
-            if let Some(t_x) = self
-                .geometry
-                .curvilinear_abscissa(t)
-                .and_then(|s| self.geometry.inverse_curvilinear_abscissa(s + len_segment))
-            {
+            if let Some(t_x) = self.geometry.inverse_curvilinear_abscissa(objective) {
                 t = t_x;
+                current_abcissa = objective;
                 p = self.geometry.position(t);
                 current_axis = self.itterative_axis(t, Some(&current_axis));
+                if let Some(t) = self.geometry.translation() {
+                    p += current_axis * t;
+                }
             } else {
-                while s < len_segment {
+                while current_abcissa < objective {
                     t += small_step;
-                    let q = self.geometry.position(t);
+                    let mut q = self.geometry.position(t);
                     current_axis = self.itterative_axis(t, Some(&current_axis));
-                    s += (q - p).mag();
+                    let mut translation_axis = current_axis;
+                    if let Some(frame) = self.geometry.initial_frame() {
+                        let up = frame[1];
+                        translation_axis[0] = up.cross(translation_axis[2]).normalized();
+                        translation_axis[1] =
+                            translation_axis[2].cross(translation_axis[0]).normalized();
+                    }
+
+                    if let Some(t) = self.geometry.translation() {
+                        q += translation_axis * t;
+                    }
+                    current_abcissa += (q - p).mag();
                     p = q;
                 }
             }
-            points.push(p);
-            axis.push(current_axis);
-            curvature.push(self.geometry.curvature(t));
+            if t < self.geometry.t_max() {
+                if forward {
+                    t_nucl.push(t);
+                    let segment_idx = self.geometry.subdivision_for_t(t).unwrap_or(0);
+                    if segment_idx != current_segment {
+                        current_segment = segment_idx;
+                        self.additional_segment_left.push(points_forward.len())
+                    }
+                    points_forward.push(p);
+                    if self.nucl_pos_full_turn.is_none()
+                        && self
+                            .geometry
+                            .full_turn_at_t()
+                            .map(|t_obj| t > t_obj)
+                            .unwrap_or(false)
+                    {
+                        self.nucl_pos_full_turn =
+                            Some(points_forward.len() as isize - self.nucl_t0 as isize);
+                    }
+                    axis_forward.push(current_axis);
+                    curvature.push(self.geometry.curvature(t));
+                    abscissa_forward = current_abcissa + len_segment;
+                } else {
+                    points_backward.push(p);
+                    axis_backward.push(current_axis);
+                    abscissa_backward = current_abcissa + len_segment;
+                }
+            }
+        }
+        if self.nucl_pos_full_turn.is_none() && self.geometry.full_turn_at_t().is_some() {
+            // We want to make a full turn just after the last nucl
+            self.nucl_pos_full_turn =
+                Some(points_forward.len() as isize - self.nucl_t0 as isize + 1);
         }
 
-        self.axis = axis;
-        self.positions = points;
+        self.axis_backward = axis_backward;
+        self.positions_backward = points_backward;
+        self.axis_forward = axis_forward;
+        self.positions_forward = points_forward;
         self.curvature = curvature;
+        self.t_nucl = Arc::new(t_nucl);
     }
 
     fn itterative_axis(&self, t: f64, previous: Option<&DMat3>) -> DMat3 {
@@ -267,12 +400,19 @@ impl Curve {
     }
 
     pub fn nb_points(&self) -> usize {
-        self.positions.len()
+        self.positions_forward
+            .len()
+            .min(self.positions_backward.len())
     }
 
     pub fn axis_pos(&self, n: isize) -> Option<DVec3> {
         let idx = self.idx_convertsion(n)?;
-        self.positions.get(idx).cloned()
+        self.positions_forward.get(idx).cloned()
+    }
+
+    pub fn nucl_time(&self, n: isize) -> Option<f64> {
+        let idx = self.idx_convertsion(n)?;
+        self.t_nucl.get(idx).cloned()
     }
 
     #[allow(dead_code)]
@@ -280,7 +420,7 @@ impl Curve {
         self.curvature.get(n).cloned()
     }
 
-    fn idx_convertsion(&self, n: isize) -> Option<usize> {
+    pub fn idx_convertsion(&self, n: isize) -> Option<usize> {
         if n >= 0 {
             Some(n as usize + self.nucl_t0)
         } else {
@@ -293,22 +433,54 @@ impl Curve {
         }
     }
 
-    pub fn nucl_pos(&self, n: isize, theta: f64, parameters: &Parameters) -> Option<DVec3> {
+    pub fn nucl_pos(
+        &self,
+        n: isize,
+        forward: bool,
+        theta: f64,
+        parameters: &Parameters,
+    ) -> Option<DVec3> {
+        use std::f64::consts::{FRAC_PI_2, PI, TAU};
         let idx = self.idx_convertsion(n)?;
         let theta = if let Some(real_theta) = self.geometry.theta_shift(parameters) {
-            let base_theta = std::f64::consts::TAU / parameters.bases_per_turn as f64;
+            let base_theta = TAU / parameters.bases_per_turn as f64;
             (base_theta - real_theta) * n as f64 + theta
+        } else if let Some(pos_full_turn) = self.nucl_pos_full_turn {
+            let final_angle = -pos_full_turn as f64 * TAU / parameters.bases_per_turn as f64;
+            let rem = final_angle.rem_euclid(TAU);
+            /*
+            let mut full_delta = if rem > PI { TAU - rem } else { -rem } + FRAC_PI_2;
+            if full_delta > PI {
+                full_delta -= TAU;
+            }*/
+            let mut full_delta = -rem - FRAC_PI_2;
+            full_delta = full_delta.rem_euclid(TAU);
+            if full_delta > PI {
+                full_delta -= TAU;
+            }
+
+            theta + full_delta / pos_full_turn as f64 * n as f64
         } else {
             theta
         };
-        if let Some(matrix) = self.axis.get(idx).cloned() {
+        let axis = if forward {
+            &self.axis_forward
+        } else {
+            &self.axis_backward
+        };
+        let positions = if forward {
+            &self.positions_forward
+        } else {
+            &self.positions_backward
+        };
+        if let Some(matrix) = axis.get(idx).cloned() {
             let mut ret = matrix
                 * DVec3::new(
                     -theta.cos() * parameters.helix_radius as f64,
                     theta.sin() * parameters.helix_radius as f64,
-                    0.,
+                    0.0,
                 );
-            ret += self.positions[idx];
+            ret += positions[idx];
             Some(ret)
         } else {
             None
@@ -316,7 +488,7 @@ impl Curve {
     }
 
     pub fn points(&self) -> &[DVec3] {
-        &self.positions
+        &self.positions_forward
     }
 
     pub fn range(&self) -> std::ops::RangeInclusive<isize> {
@@ -369,12 +541,13 @@ impl Curve {
         parameters: &Parameters,
     ) -> Option<f64> {
         let nucl_max = (self.nb_points() - self.nucl_t0) as isize;
-        if nucl >= nucl_max {
+        if nucl >= nucl_max - 1 {
             match self.geometry.bounds() {
                 CurveBounds::BiInfinite | CurveBounds::PositiveInfinite => {
                     let objective = nucl as f64
                         * parameters.z_step as f64
-                        * self.geometry.z_step_ratio().unwrap_or(1.);
+                        * self.geometry.z_step_ratio().unwrap_or(1.)
+                        + parameters.inclination as f64;
                     if let Some(t_max) = self.geometry.inverse_curvilinear_abscissa(objective) {
                         return Some(t_max);
                     }
@@ -398,6 +571,28 @@ impl Curve {
         } else {
             Some(self.geometry.t_max())
         }
+    }
+
+    pub fn update_additional_segments(
+        &self,
+        segments: &mut Vec<crate::helices::AdditionalHelix2D>,
+    ) {
+        segments.truncate(self.additional_segment_left.len());
+        let mut iter =
+            self.additional_segment_left
+                .iter()
+                .map(|s| crate::helices::AdditionalHelix2D {
+                    left: *s as isize - self.nucl_t0 as isize,
+                    additional_isometry: None,
+                    additional_symmetry: None,
+                });
+
+        for s in segments.iter_mut() {
+            if let Some(i) = iter.next() {
+                s.left = i.left;
+            }
+        }
+        segments.extend(iter);
     }
 }
 
@@ -434,16 +629,21 @@ pub enum CurveDescriptor {
         t_max: Option<f64>,
         points: Vec<BezierEnd>,
     },
+    TranslatedPath {
+        path_id: BezierPathId,
+        translation: Vec3,
+    },
+    SuperTwist(SuperTwist),
 }
 
-const NO_BEZIER: &'static [BezierEnd] = &[];
+const NO_BEZIER: &[BezierEnd] = &[];
 
 impl CurveDescriptor {
     pub fn grid_positions_involved(&self) -> impl Iterator<Item = &GridPosition> {
         let points = if let Self::PiecewiseBezier { points, .. } = self {
             points.as_slice()
         } else {
-            &NO_BEZIER
+            NO_BEZIER
         };
         points.iter().map(|p| &p.position)
     }
@@ -530,8 +730,8 @@ impl CurveDescriptor {
                     .collect();
                 Some(Self::PiecewiseBezier {
                     points: translated_points?,
-                    t_max: t_max.clone(),
-                    t_min: t_min.clone(),
+                    t_max: *t_max,
+                    t_min: *t_min,
                 })
             }
             _ => None,
@@ -544,13 +744,14 @@ impl CurveDescriptor {
 /// For example, GridPosition are replaced by their actual position in space.
 pub(super) struct InstanciatedCurveDescriptor {
     pub source: Arc<CurveDescriptor>,
-    instance: InsanciatedCurveDescriptor_,
+    instance: InstanciatedCurveDescriptor_,
 }
 
 pub(super) trait GridPositionProvider {
     fn position(&self, position: GridPosition) -> Vec3;
-    fn orientation(&self, grid: usize) -> Rotor3;
-    fn source(&self) -> Arc<Vec<GridDescriptor>>;
+    fn orientation(&self, grid: GridId) -> Rotor3;
+    fn source(&self) -> FreeGrids;
+    fn source_paths(&self) -> Option<BezierPathData>;
     fn get_tengents_between_two_points(
         &self,
         p0: GridPosition,
@@ -563,14 +764,15 @@ impl InstanciatedCurveDescriptor {
     /// Reads the design data to resolve the reference to elements of the design
     pub fn instanciate(desc: Arc<CurveDescriptor>, grid_reader: &dyn GridPositionProvider) -> Self {
         let instance = match desc.as_ref() {
-            CurveDescriptor::Bezier(b) => InsanciatedCurveDescriptor_::Bezier(b.clone()),
+            CurveDescriptor::Bezier(b) => InstanciatedCurveDescriptor_::Bezier(b.clone()),
             CurveDescriptor::SphereLikeSpiral(s) => {
-                InsanciatedCurveDescriptor_::SphereLikeSpiral(s.clone())
+                InstanciatedCurveDescriptor_::SphereLikeSpiral(s.clone())
             }
-            CurveDescriptor::Twist(t) => InsanciatedCurveDescriptor_::Twist(t.clone()),
-            CurveDescriptor::Torus(t) => InsanciatedCurveDescriptor_::Torus(t.clone()),
+            CurveDescriptor::Twist(t) => InstanciatedCurveDescriptor_::Twist(t.clone()),
+            CurveDescriptor::Torus(t) => InstanciatedCurveDescriptor_::Torus(t.clone()),
+            CurveDescriptor::SuperTwist(t) => InstanciatedCurveDescriptor_::SuperTwist(t.clone()),
             CurveDescriptor::TwistedTorus(t) => {
-                InsanciatedCurveDescriptor_::TwistedTorus(t.clone())
+                InstanciatedCurveDescriptor_::TwistedTorus(t.clone())
             }
             CurveDescriptor::PiecewiseBezier {
                 points,
@@ -578,32 +780,70 @@ impl InstanciatedCurveDescriptor {
                 t_max,
             } => {
                 let instanciated = InstanciatedPiecewiseBezierDescriptor::instanciate(
-                    &points,
+                    points,
                     grid_reader,
                     *t_min,
                     *t_max,
                 );
-                InsanciatedCurveDescriptor_::PiecewiseBezier(instanciated)
+                InstanciatedCurveDescriptor_::PiecewiseBezier(instanciated)
             }
+            CurveDescriptor::TranslatedPath {
+                path_id,
+                translation,
+            } => grid_reader
+                .source_paths()
+                .and_then(|paths| Self::instanciate_translated_path(*path_id, *translation, paths))
+                .unwrap_or_else(|| {
+                    let instanciated = InstanciatedPiecewiseBezierDescriptor::instanciate(
+                        &[],
+                        grid_reader,
+                        None,
+                        None,
+                    );
+                    InstanciatedCurveDescriptor_::PiecewiseBezier(instanciated)
+                }),
         };
         Self {
-            source: desc.clone(),
+            source: desc,
             instance,
         }
     }
 
+    fn instanciate_translated_path(
+        path_id: BezierPathId,
+        translation: Vec3,
+        source_path: BezierPathData,
+    ) -> Option<InstanciatedCurveDescriptor_> {
+        source_path
+            .instanciated_paths
+            .get(&path_id)
+            .and_then(|path| path.curve_descriptor.as_ref().zip(path.initial_frame()))
+            .map(
+                |(desc, frame)| InstanciatedCurveDescriptor_::TranslatedBezierPath {
+                    path_curve: desc.clone(),
+                    initial_frame: frame,
+                    translation: vec_to_dvec(translation),
+                    paths_data: source_path.clone(),
+                },
+            )
+    }
+
     fn try_instanciate(desc: Arc<CurveDescriptor>) -> Option<Self> {
         let instance = match desc.as_ref() {
-            CurveDescriptor::Bezier(b) => Some(InsanciatedCurveDescriptor_::Bezier(b.clone())),
+            CurveDescriptor::Bezier(b) => Some(InstanciatedCurveDescriptor_::Bezier(b.clone())),
             CurveDescriptor::SphereLikeSpiral(s) => {
-                Some(InsanciatedCurveDescriptor_::SphereLikeSpiral(s.clone()))
+                Some(InstanciatedCurveDescriptor_::SphereLikeSpiral(s.clone()))
             }
-            CurveDescriptor::Twist(t) => Some(InsanciatedCurveDescriptor_::Twist(t.clone())),
-            CurveDescriptor::Torus(t) => Some(InsanciatedCurveDescriptor_::Torus(t.clone())),
+            CurveDescriptor::Twist(t) => Some(InstanciatedCurveDescriptor_::Twist(t.clone())),
+            CurveDescriptor::Torus(t) => Some(InstanciatedCurveDescriptor_::Torus(t.clone())),
+            CurveDescriptor::SuperTwist(t) => {
+                Some(InstanciatedCurveDescriptor_::SuperTwist(t.clone()))
+            }
             CurveDescriptor::TwistedTorus(t) => {
-                Some(InsanciatedCurveDescriptor_::TwistedTorus(t.clone()))
+                Some(InstanciatedCurveDescriptor_::TwistedTorus(t.clone()))
             }
             CurveDescriptor::PiecewiseBezier { .. } => None,
+            CurveDescriptor::TranslatedPath { .. } => None,
         };
         instance.map(|instance| Self {
             source: desc.clone(),
@@ -613,14 +853,27 @@ impl InstanciatedCurveDescriptor {
 
     /// Return true if the instanciated curve descriptor was built using these curve descriptor and
     /// grid data
-    fn is_up_to_date(&self, desc: &Arc<CurveDescriptor>, grids: &Arc<Vec<GridDescriptor>>) -> bool {
+    fn is_up_to_date(
+        &self,
+        desc: &Arc<CurveDescriptor>,
+        grids: &FreeGrids,
+        paths_data: &BezierPathData,
+    ) -> bool {
         if Arc::ptr_eq(&self.source, desc) {
-            if let InsanciatedCurveDescriptor_::PiecewiseBezier(instanciated_descriptor) =
-                &self.instance
-            {
-                Arc::ptr_eq(&instanciated_descriptor.grids, grids)
-            } else {
-                true
+            match &self.instance {
+                InstanciatedCurveDescriptor_::PiecewiseBezier(instanciated_descriptor) => {
+                    FreeGrids::ptr_eq(&instanciated_descriptor.grids, grids)
+                        && instanciated_descriptor
+                            .paths_data
+                            .as_ref()
+                            .map(|data| BezierPathData::ptr_eq(paths_data, data))
+                            .unwrap_or(false)
+                }
+                InstanciatedCurveDescriptor_::TranslatedBezierPath {
+                    paths_data: source_paths,
+                    ..
+                } => BezierPathData::ptr_eq(paths_data, source_paths),
+                _ => true,
             }
         } else {
             false
@@ -628,7 +881,7 @@ impl InstanciatedCurveDescriptor {
     }
 
     pub fn make_curve(&self, parameters: &Parameters, cached_curve: &mut CurveCache) -> Arc<Curve> {
-        InsanciatedCurveDescriptor_::clone(&self.instance).into_curve(parameters, cached_curve)
+        InstanciatedCurveDescriptor_::clone(&self.instance).into_curve(parameters, cached_curve)
     }
 
     pub fn get_bezier_controls(&self) -> Option<CubicBezierConstructor> {
@@ -637,7 +890,7 @@ impl InstanciatedCurveDescriptor {
 
     pub fn bezier_points(&self) -> Vec<Vec3> {
         match &self.instance {
-            InsanciatedCurveDescriptor_::Bezier(constructor) => {
+            InstanciatedCurveDescriptor_::Bezier(constructor) => {
                 vec![
                     constructor.start,
                     constructor.control1,
@@ -645,13 +898,13 @@ impl InstanciatedCurveDescriptor {
                     constructor.end,
                 ]
             }
-            InsanciatedCurveDescriptor_::PiecewiseBezier(desc) => {
+            InstanciatedCurveDescriptor_::PiecewiseBezier(desc) => {
                 let desc = &desc.desc;
                 let mut ret: Vec<_> = desc
                     .ends
                     .iter()
                     .zip(desc.ends.iter().skip(1))
-                    .map(|(p1, p2)| {
+                    .flat_map(|(p1, p2)| {
                         vec![
                             p1.position,
                             p1.position + p1.vector_out,
@@ -659,7 +912,6 @@ impl InstanciatedCurveDescriptor {
                         ]
                         .into_iter()
                     })
-                    .flatten()
                     .collect();
                 if let Some(last_point) = desc.ends.iter().last() {
                     ret.push(last_point.position);
@@ -672,13 +924,20 @@ impl InstanciatedCurveDescriptor {
 }
 
 #[derive(Clone, Debug)]
-enum InsanciatedCurveDescriptor_ {
+enum InstanciatedCurveDescriptor_ {
     Bezier(CubicBezierConstructor),
     SphereLikeSpiral(SphereLikeSpiral),
     Twist(Twist),
     Torus(Torus),
+    SuperTwist(SuperTwist),
     TwistedTorus(TwistedTorusDescriptor),
     PiecewiseBezier(InstanciatedPiecewiseBezierDescriptor),
+    TranslatedBezierPath {
+        path_curve: Arc<InstanciatedPiecewiseBeizer>,
+        translation: DVec3,
+        initial_frame: DMat3,
+        paths_data: BezierPathData,
+    },
 }
 
 /// An instanciation of a PiecewiseBezier descriptor where reference to grid positions in the
@@ -688,7 +947,9 @@ pub struct InstanciatedPiecewiseBezierDescriptor {
     /// The instanciated descriptor
     desc: InstanciatedPiecewiseBeizer,
     /// The data that was used to map grid positions to space position
-    grids: Arc<Vec<GridDescriptor>>,
+    grids: FreeGrids,
+    /// The data that was used to map BezierVertex to grids
+    paths_data: Option<BezierPathData>,
 }
 
 impl InstanciatedPiecewiseBezierDescriptor {
@@ -699,59 +960,78 @@ impl InstanciatedPiecewiseBezierDescriptor {
         t_max: Option<f64>,
     ) -> Self {
         log::debug!("Instanciating {:?}", points);
-        let mut tengents = Vec::with_capacity(2 * (points.len()));
-
-        // Add fake vector in for first point
-        tengents.push(Vec3::zero());
-
-        // Add vectors in and out
-        for (p0, p1) in points.iter().zip(points.iter().skip(1)) {
-            let grid_pos_start = p0.position;
-            let grid_pos_end = p1.position;
-            if let Some((mut vec_start, mut vec_end)) =
-                grid_reader.get_tengents_between_two_points(grid_pos_start, grid_pos_end)
-            {
-                vec_start *= p0.outward_coeff;
-                vec_end *= p1.inward_coeff;
-                tengents.push(vec_start);
-                tengents.push(vec_end);
-            } else {
-                tengents.push(Vec3::unit_x());
-                tengents.push(-Vec3::unit_x());
-                log::error!("Could not get tengent");
-            }
-        }
-
-        // Add fake vector out for last point
-        tengents.push(Vec3::zero());
-        let bezier_ends = points
-            .iter()
-            .enumerate()
-            .map(|(i, p)| {
-                let position = grid_reader.position(p.position);
-                let tengent_in = tengents[2 * i];
-                let tengent_out = tengents[2 * i + 1];
+        let ends = if points.len() > 2 {
+            let mut bezier_points: Vec<_> = points
+                .iter()
+                .zip(points.iter().skip(1))
+                .zip(points.iter().skip(2))
+                .map(|((v_from, v), v_to)| {
+                    let pos_from = grid_reader.position(v_from.position);
+                    let pos = grid_reader.position(v.position);
+                    let pos_to = grid_reader.position(v_to.position);
+                    InstanciatedBeizerEnd {
+                        position: pos,
+                        vector_in: (pos_to - pos_from) / 6.,
+                        vector_out: (pos_to - pos_from) / 6.,
+                    }
+                })
+                .collect();
+            let first_point = {
+                let second_point = &bezier_points[0];
+                let pos = grid_reader.position(points[0].position);
+                let control = second_point.position - second_point.vector_in;
                 InstanciatedBeizerEnd {
-                    position,
-                    // recall that the tengents are expressed in the grid's coordinates
-                    vector_in: tengent_in.rotated_by(grid_reader.orientation(p.position.grid)),
-                    vector_out: tengent_out.rotated_by(grid_reader.orientation(p.position.grid)),
+                    position: pos,
+                    vector_out: (control - pos) / 2.,
+                    vector_in: (control - pos) / 2.,
                 }
-            })
-            .collect();
-        let desc = InstanciatedPiecewiseBeizer {
-            ends: bezier_ends,
-            t_min,
-            t_max,
+            };
+            bezier_points.insert(0, first_point);
+            let last_point = {
+                // Ok to unwrap because bezier points has length > 2
+                let second_to_last_point = bezier_points.last().unwrap();
+
+                // Ok to unwrap because vertices has length > 2
+                let pos = grid_reader.position(points.last().unwrap().position);
+
+                let control = second_to_last_point.position + second_to_last_point.vector_out;
+                InstanciatedBeizerEnd {
+                    position: pos,
+                    vector_out: (pos - control) / 2.,
+                    vector_in: (pos - control) / 2.,
+                }
+            };
+            bezier_points.push(last_point);
+            bezier_points
+        } else if points.len() == 2 {
+            let pos_first = grid_reader.position(points[0].position);
+            let pos_last = grid_reader.position(points[1].position);
+            let vec = (pos_last - pos_first) / 3.;
+            vec![
+                InstanciatedBeizerEnd {
+                    position: pos_first,
+                    vector_in: vec,
+                    vector_out: vec,
+                },
+                InstanciatedBeizerEnd {
+                    position: pos_last,
+                    vector_in: vec,
+                    vector_out: vec,
+                },
+            ]
+        } else {
+            vec![]
         };
+        let desc = InstanciatedPiecewiseBeizer { ends, t_min, t_max };
         Self {
             desc,
             grids: grid_reader.source(),
+            paths_data: grid_reader.source_paths(),
         }
     }
 }
 
-impl InsanciatedCurveDescriptor_ {
+impl InstanciatedCurveDescriptor_ {
     pub fn into_curve(self, parameters: &Parameters, cache: &mut CurveCache) -> Arc<Curve> {
         match self {
             Self::Bezier(constructor) => {
@@ -760,6 +1040,7 @@ impl InsanciatedCurveDescriptor_ {
             Self::SphereLikeSpiral(spiral) => Arc::new(Curve::new(spiral, parameters)),
             Self::Twist(twist) => Arc::new(Curve::new(twist, parameters)),
             Self::Torus(torus) => Arc::new(Curve::new(torus, parameters)),
+            Self::SuperTwist(twist) => Arc::new(Curve::new(twist, parameters)),
             Self::TwistedTorus(ref desc) => {
                 if let Some(curve) = cache.0.get(desc) {
                     curve.clone()
@@ -771,8 +1052,21 @@ impl InsanciatedCurveDescriptor_ {
                 }
             }
             Self::PiecewiseBezier(instanciated_descriptor) => {
-                Arc::new(Curve::new(instanciated_descriptor.desc.clone(), parameters))
+                Arc::new(Curve::new(instanciated_descriptor.desc, parameters))
             }
+            Self::TranslatedBezierPath {
+                path_curve,
+                translation,
+                initial_frame,
+                ..
+            } => Arc::new(Curve::new(
+                TranslatedPiecewiseBezier {
+                    original_curve: path_curve.clone(),
+                    translation,
+                    initial_frame,
+                },
+                parameters,
+            )),
         }
     }
 
@@ -787,8 +1081,22 @@ impl InsanciatedCurveDescriptor_ {
             }
             Self::Twist(twist) => Some(Arc::new(Curve::new(twist.clone(), parameters))),
             Self::Torus(torus) => Some(Arc::new(Curve::new(torus.clone(), parameters))),
+            Self::SuperTwist(twist) => Some(Arc::new(Curve::new(twist.clone(), parameters))),
             Self::TwistedTorus(_) => None,
             Self::PiecewiseBezier(_) => None,
+            Self::TranslatedBezierPath {
+                path_curve,
+                translation,
+                initial_frame,
+                ..
+            } => Some(Arc::new(Curve::new(
+                TranslatedPiecewiseBezier {
+                    original_curve: path_curve.clone(),
+                    translation: *translation,
+                    initial_frame: *initial_frame,
+                },
+                parameters,
+            ))),
         }
     }
 
@@ -803,7 +1111,7 @@ impl InsanciatedCurveDescriptor_ {
 
 #[derive(Default, Clone)]
 /// A map from curve descriptor to instanciated curves to avoid duplication of computations
-pub struct CurveCache(HashMap<TwistedTorusDescriptor, Arc<Curve>>);
+pub struct CurveCache(pub(crate) HashMap<TwistedTorusDescriptor, Arc<Curve>>);
 
 #[derive(Clone)]
 /// An instanciated curve with pre-computed nucleotides positions and orientations
@@ -830,12 +1138,13 @@ impl AsRef<Curve> for InstanciatedCurve {
 impl Helix {
     pub(super) fn need_curve_descriptor_update(
         &self,
-        grid_data: &Arc<Vec<GridDescriptor>>,
+        grid_data: &FreeGrids,
+        paths_data: &BezierPathData,
     ) -> bool {
         if let Some(current_desc) = self.curve.as_ref() {
             self.instanciated_descriptor
                 .as_ref()
-                .filter(|desc| desc.is_up_to_date(current_desc, grid_data))
+                .filter(|desc| desc.is_up_to_date(current_desc, grid_data, paths_data))
                 .is_none()
         } else {
             // If helix should not be a curved, the descriptor is up-to-date iff there is no
@@ -844,16 +1153,25 @@ impl Helix {
         }
     }
 
-    pub(super) fn need_curve_update(&self, grid_data: &Arc<Vec<GridDescriptor>>) -> bool {
-        self.need_curve_descriptor_update(grid_data) || { self.need_curve_update_only() }
+    pub(super) fn need_curve_update(
+        &self,
+        grid_data: &FreeGrids,
+        paths_data: &BezierPathData,
+    ) -> bool {
+        self.need_curve_descriptor_update(grid_data, paths_data) || {
+            self.need_curve_update_only()
+        }
     }
 
     fn need_curve_update_only(&self) -> bool {
-        let up_to_date = self.curve.as_ref().map(|source| Arc::as_ptr(source))
+        let up_to_date = self
+            .instanciated_curve
+            .as_ref()
+            .map(|c| Arc::as_ptr(&c.source))
             == self
                 .instanciated_descriptor
                 .as_ref()
-                .map(|target| Arc::as_ptr(&target.source));
+                .map(|target| Arc::as_ptr(&target));
         !up_to_date
     }
 

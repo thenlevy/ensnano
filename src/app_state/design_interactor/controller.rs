@@ -21,19 +21,21 @@ use crate::app_state::AddressPointer;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{
-        Edge, GridDescriptor, GridObject, GridPosition, GridTypeDescr, HelixGridPosition,
-        Hyperboloid,
+        Edge, FreeGridId, GridDescriptor, GridId, GridObject, GridPosition, GridTypeDescr,
+        HelixGridPosition, Hyperboloid,
     },
     group_attributes::GroupPivot,
-    mutate_in_arc, BezierEnd, CameraId, CurveDescriptor, Design, Domain, DomainJunction, Helices,
-    Helix, HelixCollection, Nucl, Strand, Strands, UpToDateDesign,
+    mutate_in_arc, BezierEnd, BezierPathId, BezierPlaneDescriptor, BezierVertex, BezierVertexId,
+    CameraId, Collection, CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix,
+    HelixCollection, Nucl, Strand, Strands, UpToDateDesign,
 };
 use ensnano_interactor::{
-    operation::Operation, BezierControlPoint, HyperboloidOperation, SimulationState,
+    operation::{Operation, TranslateBezierPathVertex},
+    ActionMode, BezierControlPoint, HyperboloidOperation, NewBezierTengentVector, SimulationState,
 };
 use ensnano_interactor::{
-    DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
-    NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
+    BezierPlaneHomothethy, DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier,
+    IsometryTarget, NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
 };
 use ensnano_organizer::GroupId;
 use std::borrow::Cow;
@@ -69,6 +71,7 @@ pub(super) struct Controller {
     color_idx: usize,
     state: ControllerState,
     clipboard: AddressPointer<Clipboard>,
+    pub(super) next_action_mode: Option<ActionMode>,
 }
 
 impl Controller {
@@ -133,9 +136,11 @@ impl Controller {
                 pivots,
                 translation,
             } => Ok(self.ok_apply(|c, d| c.snap_helices(d, pivots, translation), design)),
-            DesignOperation::SetIsometry { helix, isometry } => {
-                Ok(self.ok_apply(|c, d| c.set_isometry(d, helix, isometry), design))
-            }
+            DesignOperation::SetIsometry {
+                helix,
+                segment,
+                isometry,
+            } => Ok(self.ok_apply(|c, d| c.set_isometry(d, helix, segment, isometry), design)),
             DesignOperation::RotateHelices {
                 helices,
                 center,
@@ -307,6 +312,38 @@ impl Controller {
                 |c, d| c.update_insertion_length(d, insertion_point, length),
                 design,
             ),
+            DesignOperation::AddBezierPlane { desc } => {
+                Ok(self.ok_apply(|c, d| c.add_bezier_plane(d, desc), design))
+            }
+            DesignOperation::CreateBezierPath { first_vertex } => {
+                Ok(self.ok_apply(|c, d| c.create_bezier_path(d, first_vertex), design))
+            }
+            DesignOperation::AppendVertexToPath { path_id, vertex } => self.apply(
+                |c, d| c.append_vertex_to_bezier_path(d, path_id, vertex),
+                design,
+            ),
+            DesignOperation::MoveBezierVertex {
+                path_id,
+                vertex_id,
+                position,
+            } => self.apply(
+                |c, d| c.move_bezier_vertex(d, path_id, vertex_id, position),
+                design,
+            ),
+            DesignOperation::TurnPathVerticesIntoGrid { path_id, grid_type } => self.apply(
+                |c, d| c.turn_bezier_path_into_grids(d, path_id, grid_type),
+                design,
+            ),
+            DesignOperation::ApplyHomothethyOnBezierPlane { homothethy } => Ok(self.ok_apply(
+                |c, d| c.apply_homothethy_on_bezier_plane(d, homothethy),
+                design,
+            )),
+            DesignOperation::SetVectorOfBezierTengent(requested_vector) => {
+                self.apply(|c, d| c.set_bezier_tengent(d, requested_vector), design)
+            }
+            DesignOperation::MakeBezierPathCyclic { path_id, cyclic } => {
+                self.apply(|c, d| c.make_bezier_path_cyclic(d, path_id, cyclic), design)
+            }
         };
 
         if let Ok(ret) = &mut ret {
@@ -451,7 +488,7 @@ impl Controller {
                 let interface = GridsSystemThread::start_new(presenter, parameters, reader)?;
                 ret.state = ControllerState::SimulatingGrids {
                     interface,
-                    initial_design: AddressPointer::new(design.clone()),
+                    _initial_design: AddressPointer::new(design.clone()),
                 }
             }
             SimulationOperation::StartRoll {
@@ -464,8 +501,8 @@ impl Controller {
                 }
                 let interface = PhysicalSystem::start_new(presenter, target_helices, reader);
                 ret.state = ControllerState::Rolling {
-                    interface,
-                    initial_design: AddressPointer::new(design.clone()),
+                    _interface: interface,
+                    _initial_design: AddressPointer::new(design.clone()),
                 };
             }
             SimulationOperation::StartTwist {
@@ -479,8 +516,8 @@ impl Controller {
                 let interface = simulations::Twister::start_new(presenter, grid_id, reader)
                     .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
                 ret.state = ControllerState::Twisting {
-                    interface,
-                    initial_design: AddressPointer::new(design.clone()),
+                    _interface: interface,
+                    _initial_design: AddressPointer::new(design.clone()),
                     grid_id,
                 };
             }
@@ -551,10 +588,14 @@ impl Controller {
         hyperboloid: &Hyperboloid,
         position: Vec3,
         orientation: Rotor3,
-    ) {
+    ) -> Result<(), ErrOperation> {
         use ensnano_design::grid::GridDivision;
         // the hyperboloid grid is always the last one that was added to the design
-        let grid_id = design.grids.len() - 1;
+        let grid_id = design
+            .free_grids
+            .keys()
+            .max()
+            .ok_or(ErrOperation::GridDoesNotExist(GridId::FreeGrid(0)))?;
         let parameters = design.parameters.unwrap_or_default();
         let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
         let nb_nucl = nb_nucl.min(5000);
@@ -575,7 +616,7 @@ impl Controller {
                 })
             }
             h.grid_position = Some(HelixGridPosition {
-                grid: grid_id,
+                grid: grid_id.to_grid_id(),
                 x: i as isize,
                 y: 0,
                 axis_pos: 0,
@@ -596,6 +637,7 @@ impl Controller {
                 }
             }
         }
+        Ok(())
     }
 
     fn set_roll_helices(
@@ -710,8 +752,13 @@ impl Controller {
                     .ok_or(ErrOperation::HelixDoesNotExists(*helix))?;
             }
             DnaElementKey::Grid(g_id) => {
-                ensnano_design::mutate_one_grid(design, *g_id, |g| g.invisible = !visible)
-                    .ok_or(ErrOperation::GridDoesNotExist(*g_id))?;
+                let mut grids_mut = design.free_grids.make_mut();
+                let g_id = ensnano_design::grid::FreeGridId(*g_id);
+                let grid = grids_mut
+                    .get_mut(&g_id)
+                    .ok_or(ErrOperation::GridDoesNotExist(g_id.to_grid_id()))?;
+                grid.invisible = !grid.invisible;
+                drop(grids_mut);
             }
             _ => (),
         }
@@ -774,7 +821,7 @@ impl Controller {
                 let grid_descriptor =
                     GridDescriptor::hyperboloid(position, orientation, hyperboloid.clone());
                 design = self.add_grid(design, grid_descriptor);
-                self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation);
+                self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation)?;
                 Ok(design)
             }
             HyperboloidOperation::Update(request) => {
@@ -791,7 +838,7 @@ impl Controller {
                     let grid_descriptor =
                         GridDescriptor::hyperboloid(position, orientation, hyperboloid.clone());
                     design = self.add_grid(design, grid_descriptor);
-                    self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation);
+                    self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation)?;
                     Ok(design)
                 } else {
                     Err(ErrOperation::IncompatibleState)
@@ -984,6 +1031,17 @@ impl Controller {
         }
     }
 
+    fn update_state_not_design(&mut self, design: &Design) {
+        if let ControllerState::ApplyingOperation { .. } = &self.state {
+            return;
+        } else {
+            self.state = ControllerState::ApplyingOperation {
+                design: AddressPointer::new(design.clone()),
+                operation: None,
+            };
+        }
+    }
+
     fn return_design(&self, design: Design, label: std::borrow::Cow<'static, str>) -> OkOperation {
         if self.is_in_persistant_state().is_persistant() {
             OkOperation::Push { design, label }
@@ -1112,9 +1170,218 @@ impl Controller {
     }
 
     fn add_grid(&mut self, mut design: Design, descriptor: GridDescriptor) -> Design {
-        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let mut new_grids = design.free_grids.make_mut();
         new_grids.push(descriptor);
-        design.grids = Arc::new(new_grids);
+        drop(new_grids);
+        design
+    }
+
+    fn add_bezier_plane(
+        &mut self,
+        mut design: Design,
+        descriptor: BezierPlaneDescriptor,
+    ) -> Design {
+        let mut new_planes = design.bezier_planes.make_mut();
+        new_planes.push(descriptor);
+        drop(new_planes);
+        design
+    }
+
+    fn create_bezier_path(&mut self, mut design: Design, first_vertex: BezierVertex) -> Design {
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path_id = new_paths.create_path(first_vertex);
+        drop(new_paths);
+        self.state = ControllerState::ApplyingOperation {
+            design: AddressPointer::new(design.clone()),
+            operation: Some(Arc::new(TranslateBezierPathVertex {
+                design_id: 0,
+                path_id,
+                vertex_id: 0,
+                x: first_vertex.position.x,
+                y: first_vertex.position.y,
+            })),
+        };
+        self.next_action_mode = Some(ActionMode::EditBezierPath {
+            path_id: Some(path_id),
+            vertex_id: Some(0),
+        });
+        design
+    }
+
+    fn append_vertex_to_bezier_path(
+        &mut self,
+        mut design: Design,
+        path_id: BezierPathId,
+        vertex: BezierVertex,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        let vertex_id = path.add_vertex(vertex);
+        drop(new_paths);
+        self.state = ControllerState::ApplyingOperation {
+            design: AddressPointer::new(design.clone()),
+            operation: Some(Arc::new(TranslateBezierPathVertex {
+                design_id: 0,
+                path_id,
+                vertex_id,
+                x: vertex.position.x,
+                y: vertex.position.y,
+            })),
+        };
+        self.next_action_mode = Some(ActionMode::EditBezierPath {
+            path_id: Some(path_id),
+            vertex_id: Some(vertex_id),
+        });
+        Ok(design)
+    }
+
+    fn move_bezier_vertex(
+        &mut self,
+        mut design: Design,
+        path_id: BezierPathId,
+        vertex_id: usize,
+        position: Vec2,
+    ) -> Result<Design, ErrOperation> {
+        self.update_state_and_design(&mut design);
+
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        let vertex = path
+            .get_vertex_mut(vertex_id)
+            .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
+        let old_tengent_in = vertex.position_in.map(|p| p - vertex.position);
+        let old_tengent_out = vertex.position_out.map(|p| p - vertex.position);
+        vertex.position = position;
+        vertex.position_out = old_tengent_out.map(|t| vertex.position + t);
+        vertex.position_in = old_tengent_in.map(|t| vertex.position + t);
+        drop(new_paths);
+        Ok(design)
+    }
+
+    fn make_bezier_path_cyclic(
+        &mut self,
+        mut design: Design,
+        path_id: BezierPathId,
+        cyclic: bool,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        path.cyclic = cyclic;
+        drop(new_paths);
+        Ok(design)
+    }
+
+    fn set_bezier_tengent(
+        &mut self,
+        mut design: Design,
+        request: NewBezierTengentVector,
+    ) -> Result<Design, ErrOperation> {
+        self.update_state_not_design(&design);
+
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path_id = request.vertex_id.path_id;
+        let vertex_id = request.vertex_id.vertex_id;
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        let vertex = path
+            .get_vertex_mut(vertex_id)
+            .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
+        if request.tengent_in {
+            vertex.position_in = Some(vertex.position + request.new_vector);
+            if request.full_symetry_other_tengent {
+                vertex.position_out = Some(vertex.position - request.new_vector);
+            } else {
+                let norm = vertex
+                    .position_out
+                    .map(|p| (vertex.position - p).mag())
+                    .unwrap_or(request.new_vector.mag());
+                let out_vec = request.new_vector.normalized() * -norm;
+                log::info!("norm {:?}", norm);
+                log::info!("new vec {:?}", request.new_vector);
+                log::info!("out vec {:?}", out_vec);
+                vertex.position_out = Some(vertex.position + out_vec);
+            }
+        } else {
+            vertex.position_out = Some(vertex.position + request.new_vector);
+            if request.full_symetry_other_tengent {
+                vertex.position_in = Some(vertex.position - request.new_vector);
+            } else {
+                let norm = vertex
+                    .position_in
+                    .map(|p| (vertex.position - p).mag())
+                    .unwrap_or(request.new_vector.mag());
+                let in_vec = request.new_vector.normalized() * -norm;
+                vertex.position_in = Some(vertex.position + in_vec);
+            }
+        }
+        drop(new_paths);
+        Ok(design)
+    }
+
+    fn turn_bezier_path_into_grids(
+        &mut self,
+        mut design: Design,
+        path_id: BezierPathId,
+        desc: GridTypeDescr,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        path.grid_type = Some(desc);
+        drop(new_paths);
+        Ok(design)
+    }
+
+    fn apply_homothethy_on_bezier_plane(
+        &mut self,
+        mut design: Design,
+        homothethy: BezierPlaneHomothethy,
+    ) -> Design {
+        self.update_state_and_design(&mut design);
+        log::info!("Applying homothethy {:?}", homothethy);
+        let mut paths_mut = design.bezier_paths.make_mut();
+        let angle_origin = {
+            let ab = homothethy.origin_moving_corner - homothethy.fixed_corner;
+            ab.y.atan2(ab.x)
+        };
+        let angle_now = {
+            let ab = homothethy.moving_corner - homothethy.fixed_corner;
+            ab.y.atan2(ab.x)
+        };
+        let angle = angle_now - angle_origin;
+        let scale = (homothethy.moving_corner - homothethy.fixed_corner).mag()
+            / (homothethy.origin_moving_corner - homothethy.fixed_corner).mag();
+        for path in paths_mut.values_mut() {
+            for v in path.vertices_mut() {
+                if v.plane_id == homothethy.plane_id {
+                    let transform = |v: &mut Vec2| {
+                        let vec = *v - homothethy.fixed_corner;
+                        let new_norm = vec.mag() * scale;
+                        *v = vec
+                            .normalized()
+                            .rotated_by(ensnano_design::Rotor2::from_angle(angle))
+                            * new_norm
+                            + homothethy.fixed_corner;
+                    };
+                    transform(&mut v.position);
+                    if let Some(vec) = v.position_out.as_mut() {
+                        transform(vec);
+                    }
+                    if let Some(vec) = v.position_in.as_mut() {
+                        transform(vec);
+                    }
+                }
+            }
+        }
+        drop(paths_mut);
         design
     }
 
@@ -1206,7 +1473,7 @@ impl Controller {
                 Ok(self.translate_helices(design, snap, helices, translation.translation))
             }
             IsometryTarget::Grids(grid_ids) => {
-                Ok(self.translate_grids(design, grid_ids, translation.translation))
+                self.translate_grids(design, grid_ids, translation.translation)
             }
             IsometryTarget::GroupPivot(group_id) => {
                 self.translate_group_pivot(design, translation.translation, group_id)
@@ -1263,7 +1530,7 @@ impl Controller {
         &mut self,
         mut design: Design,
         object: GridObject,
-        grid: usize,
+        grid: GridId,
         x: isize,
         y: isize,
     ) -> Result<Design, ErrOperation> {
@@ -1380,38 +1647,53 @@ impl Controller {
     fn translate_grids(
         &mut self,
         mut design: Design,
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         translation: Vec3,
-    ) -> Design {
+    ) -> Result<Design, ErrOperation> {
         self.update_state_and_design(&mut design);
-        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let mut new_paths = design.bezier_paths.make_mut();
+        for g_id in grid_ids.iter() {
+            if let GridId::BezierPathGrid(vertex_id) = g_id {
+                let path = new_paths
+                    .get_mut(&vertex_id.path_id)
+                    .ok_or(ErrOperation::PathDoesNotExist(vertex_id.path_id))?;
+                let vertex = path.get_vertex_mut(vertex_id.vertex_id).ok_or(
+                    ErrOperation::VertexDoesNotExist(vertex_id.path_id, vertex_id.vertex_id),
+                )?;
+                vertex.add_translation(translation);
+            }
+        }
+        drop(new_paths);
+        let mut new_grids = design.free_grids.make_mut();
         for g_id in grid_ids.into_iter() {
-            if let Some(desc) = new_grids.get_mut(g_id) {
+            if let Some(desc) =
+                FreeGridId::try_from_grid_id(g_id).and_then(|g_id| new_grids.get_mut(&g_id))
+            {
                 desc.position += translation;
             }
         }
-        design.grids = Arc::new(new_grids);
-        design
+        drop(new_grids);
+        Ok(design)
     }
 
     fn rotate_grids(
         &mut self,
         mut design: Design,
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         rotation: Rotor3,
         origin: Vec3,
     ) -> Design {
         self.update_state_and_design(&mut design);
-        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let mut new_grids = design.free_grids.make_mut();
         for g_id in grid_ids.into_iter() {
-            if let Some(desc) = new_grids.get_mut(g_id) {
+            if let Some(desc) = new_grids.get_mut_g_id(&g_id) {
                 desc.position -= origin;
                 desc.orientation = rotation * desc.orientation;
                 desc.position = rotation * desc.position;
                 desc.position += origin;
             }
         }
-        design.grids = Arc::new(new_grids);
+        drop(new_grids);
         design
     }
 }
@@ -1465,7 +1747,7 @@ pub enum ErrOperation {
     IncompatibleState,
     CannotBuildOn(Nucl),
     CutInexistingStrand,
-    GridDoesNotExist(usize),
+    GridDoesNotExist(GridId),
     GridPositionAlreadyUsed,
     StrandDoesNotExist(usize),
     HelixDoesNotExists(usize),
@@ -1487,11 +1769,13 @@ pub enum ErrOperation {
     NoGrids,
     FinishFirst,
     CameraDoesNotExist(CameraId),
-    GridIsNotHyperboloid(usize),
+    GridIsNotHyperboloid(GridId),
     DesignOperationError(ensnano_design::design_operations::ErrOperation),
     NotPiecewiseBezier(usize),
     GridCopyError(ensnano_design::grid::GridCopyError),
     CouldNotGetPrime3of(usize),
+    PathDoesNotExist(BezierPathId),
+    VertexDoesNotExist(BezierPathId, usize),
 }
 
 impl From<ensnano_design::design_operations::ErrOperation> for ErrOperation {
@@ -1548,7 +1832,7 @@ impl Controller {
     fn set_helices_persisance(
         &mut self,
         mut design: Design,
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         persistant: bool,
     ) -> Design {
         for g_id in grid_ids.into_iter() {
@@ -1564,7 +1848,7 @@ impl Controller {
     fn set_small_spheres(
         &mut self,
         mut design: Design,
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         small: bool,
     ) -> Design {
         for g_id in grid_ids.into_iter() {
@@ -1577,15 +1861,27 @@ impl Controller {
         design
     }
 
-    fn snap_helices(&mut self, mut design: Design, pivots: Vec<Nucl>, translation: Vec2) -> Design {
+    fn snap_helices(
+        &mut self,
+        mut design: Design,
+        pivots: Vec<(Nucl, usize)>,
+        translation: Vec2,
+    ) -> Design {
         self.update_state_and_design(&mut design);
         let mut new_helices = design.helices.make_mut();
-        for p in pivots.iter() {
-            if let Some(old_pos) = nucl_pos_2d(new_helices.as_ref(), p) {
+        for (p, segment_idx) in pivots.iter() {
+            if let Some(old_pos) = nucl_pos_2d(new_helices.as_ref(), p, *segment_idx) {
                 if let Some(h) = new_helices.get_mut(&p.helix) {
                     let position = old_pos + translation;
                     let position = Vec2::new(position.x.round(), position.y.round());
-                    if let Some(isometry) = h.isometry2d.as_mut() {
+                    let isometry = if *segment_idx > 0 {
+                        h.additonal_isometries
+                            .get_mut(segment_idx - 1)
+                            .and_then(|i| i.additional_isometry.as_mut())
+                    } else {
+                        h.isometry2d.as_mut()
+                    };
+                    if let Some(isometry) = isometry {
                         isometry.append_translation(position - old_pos)
                     }
                 }
@@ -1595,10 +1891,26 @@ impl Controller {
         design
     }
 
-    fn set_isometry(&mut self, mut design: Design, h_id: usize, isometry: Isometry2) -> Design {
+    fn set_isometry(
+        &mut self,
+        mut design: Design,
+        h_id: usize,
+        segment: usize,
+        isometry: Isometry2,
+    ) -> Design {
+        println!("setting isometry {h_id} {segment}");
         let mut new_helices = design.helices.make_mut();
-        if let Some(h) = new_helices.get_mut(&h_id) {
-            h.isometry2d = Some(isometry);
+        if segment == 0 {
+            if let Some(h) = new_helices.get_mut(&h_id) {
+                h.isometry2d = Some(isometry);
+            }
+        } else {
+            if let Some(i) = new_helices
+                .get_mut(&h_id)
+                .and_then(|h| h.additonal_isometries.get_mut(segment - 1))
+            {
+                i.additional_isometry = Some(isometry);
+            }
         }
         drop(new_helices);
         design
@@ -2122,11 +2434,20 @@ impl Controller {
         if grid_manager.pos_to_object(position.light()).is_some() {
             return Err(ErrOperation::GridPositionAlreadyUsed);
         }
-        let grid = grid_manager
-            .grids
-            .get(position.grid)
-            .ok_or(ErrOperation::GridDoesNotExist(position.grid))?;
-        let helix = Helix::new_on_grid(grid, position.x, position.y, position.grid);
+        let helix = if let GridId::BezierPathGrid(BezierVertexId { path_id, .. }) = position.grid {
+            Helix::new_on_bezier_path(grid_manager, position, path_id)
+        } else {
+            let grid = grid_manager
+                .grids
+                .get(&position.grid)
+                .ok_or(ErrOperation::GridDoesNotExist(position.grid))?;
+            Ok(Helix::new_on_grid(
+                grid,
+                position.x,
+                position.y,
+                position.grid,
+            ))
+        }?;
         let mut new_helices = design.helices.make_mut();
         let helix_id = new_helices.push_helix(helix);
         drop(new_helices);
@@ -2190,7 +2511,7 @@ impl Controller {
         mut design: Design,
         object: GridObject,
         point: GridPosition,
-        tengent: Vec3,
+        _tengent: Vec3,
         append: bool,
     ) -> Result<Design, ErrOperation> {
         match object {
@@ -2255,7 +2576,13 @@ impl Controller {
                 .iter()
                 .next()
                 .and_then(|d| d.half_helix());
-            if last_helix == next_helix && last_helix.is_some() {
+            if last_helix == next_helix
+                && last_helix.is_some()
+                && domains
+                    .last()
+                    .unwrap()
+                    .can_merge(strand3prime.domains.first().unwrap())
+            {
                 skip = 1;
                 domains
                     .last_mut()
@@ -2562,9 +2889,6 @@ impl Controller {
         source_nucl: Nucl,
         target_nucl: Nucl,
     ) -> Result<(), ErrOperation> {
-        if source_nucl.helix == target_nucl.helix && source_nucl.forward == target_nucl.forward {
-            return Err(ErrOperation::XoverOnSameHelix);
-        }
         log::info!("cross over between {:?} and {:?}", source_nucl, target_nucl);
         let source_id = strands
             .get_strand_nucl(&source_nucl)
@@ -2691,64 +3015,87 @@ impl Controller {
     fn set_grid_position(
         &mut self,
         mut design: Design,
-        grid_id: usize,
+        grid_id: GridId,
         position: Vec3,
     ) -> Result<Design, ErrOperation> {
-        let mut new_grids = Vec::clone(design.grids.as_ref());
-        let grid = new_grids
-            .get_mut(grid_id)
-            .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
-        grid.position = position;
-        design.grids = Arc::new(new_grids);
-        Ok(design)
+        if let GridId::FreeGrid(id) = grid_id {
+            let mut new_grids = design.free_grids.make_mut();
+            let grid = new_grids
+                .get_mut(&ensnano_design::grid::FreeGridId(id))
+                .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+            grid.position = position;
+            drop(new_grids);
+            Ok(design)
+        } else {
+            log::error!("Setting position of bezier path grids is not yet implemented");
+            Err(ErrOperation::NotImplemented)
+        }
     }
 
     fn set_grid_orientation(
         &mut self,
         mut design: Design,
-        grid_id: usize,
+        grid_id: GridId,
         orientation: Rotor3,
     ) -> Result<Design, ErrOperation> {
-        let mut new_grids = Vec::clone(design.grids.as_ref());
-        let grid = new_grids
-            .get_mut(grid_id)
-            .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
-        grid.orientation = orientation;
-        design.grids = Arc::new(new_grids);
-        Ok(design)
+        if let GridId::FreeGrid(id) = grid_id {
+            let mut new_grids = design.free_grids.make_mut();
+            let grid = new_grids
+                .get_mut(&ensnano_design::grid::FreeGridId(id))
+                .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+            grid.orientation = orientation;
+            drop(new_grids);
+            Ok(design)
+        } else {
+            log::error!("Setting orientation of bezier path grids is not yet implemented");
+            Err(ErrOperation::NotImplemented)
+        }
     }
 
     fn set_grid_nb_turn(
         &mut self,
         mut design: Design,
-        grid_id: usize,
+        grid_id: GridId,
         x: f64,
     ) -> Result<Design, ErrOperation> {
-        let mut new_grids = Vec::clone(design.grids.as_ref());
-        let grid = new_grids
-            .get_mut(grid_id)
-            .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
-        if let GridTypeDescr::Hyperboloid {
-            nb_turn_per_100_nt, ..
-        } = &mut grid.grid_type
-        {
-            *nb_turn_per_100_nt = x;
+        if let GridId::FreeGrid(id) = grid_id {
+            let mut new_grids = design.free_grids.make_mut();
+            let grid = new_grids
+                .get_mut(&ensnano_design::grid::FreeGridId(id))
+                .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+            if let GridTypeDescr::Hyperboloid {
+                nb_turn_per_100_nt, ..
+            } = &mut grid.grid_type
+            {
+                *nb_turn_per_100_nt = x;
+            } else {
+                return Err(ErrOperation::GridIsNotHyperboloid(grid_id));
+            }
+            drop(new_grids);
+            Ok(design)
         } else {
-            return Err(ErrOperation::GridIsNotHyperboloid(grid_id));
+            log::error!("Setting nb turn of bezier path grids is not yet implemented");
+            Err(ErrOperation::NotImplemented)
         }
-        design.grids = Arc::new(new_grids);
-        Ok(design)
     }
 }
 
-fn nucl_pos_2d(helices: &Helices, nucl: &Nucl) -> Option<Vec2> {
+fn nucl_pos_2d(helices: &Helices, nucl: &Nucl, segment: usize) -> Option<Vec2> {
+    let isometry = helices.get(&nucl.helix).and_then(|h| {
+        if segment > 0 {
+            h.additonal_isometries
+                .get(segment - 1)
+                .and_then(|i| (i.additional_isometry.or(h.isometry2d)))
+        } else {
+            h.isometry2d
+        }
+    });
     let local_position = nucl.position as f32 * Vec2::unit_x()
         + if nucl.forward {
             Vec2::zero()
         } else {
             Vec2::unit_y()
         };
-    let isometry = helices.get(&nucl.helix).and_then(|h| h.isometry2d);
 
     isometry.map(|i| i.into_homogeneous_matrix().transform_point2(local_position))
 }
@@ -2829,19 +3176,19 @@ enum ControllerState {
     },
     SimulatingGrids {
         interface: Arc<Mutex<GridSystemInterface>>,
-        initial_design: AddressPointer<Design>,
+        _initial_design: AddressPointer<Design>,
     },
     WithPausedSimulation {
         initial_design: AddressPointer<Design>,
     },
     Rolling {
-        interface: Arc<Mutex<RollInterface>>,
-        initial_design: AddressPointer<Design>,
+        _interface: Arc<Mutex<RollInterface>>,
+        _initial_design: AddressPointer<Design>,
     },
     Twisting {
-        interface: Arc<Mutex<TwistInterface>>,
-        initial_design: AddressPointer<Design>,
-        grid_id: usize,
+        _interface: Arc<Mutex<TwistInterface>>,
+        _initial_design: AddressPointer<Design>,
+        grid_id: GridId,
     },
     ChangingStrandName {
         strand_id: usize,

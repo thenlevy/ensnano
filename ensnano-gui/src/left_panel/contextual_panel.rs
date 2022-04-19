@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::super::DesignReader;
 use super::*;
+use ensnano_design::grid::GridId;
 use ensnano_interactor::{Selection, SimulationState};
 use iced::{scrollable, Scrollable};
 
@@ -26,9 +27,18 @@ pub use value_constructor::{BuilderMessage, InstanciatedValue, ValueKind};
 
 use ultraviolet::{Rotor3, Vec3};
 pub enum ValueRequest {
-    HelixGridPosition { grid_id: usize, position: Vec3 },
-    GridOrientation { grid_id: usize, orientation: Rotor3 },
-    GridNbTurn { grid_id: usize, nb_turn: f32 },
+    HelixGridPosition {
+        grid_id: GridId,
+        position: Vec3,
+    },
+    GridOrientation {
+        grid_id: GridId,
+        orientation: Rotor3,
+    },
+    GridNbTurn {
+        grid_id: GridId,
+        nb_turn: f32,
+    },
 }
 
 impl ValueRequest {

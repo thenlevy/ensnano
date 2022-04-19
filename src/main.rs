@@ -82,7 +82,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
-use ensnano_design::{Camera, Nucl};
+use ensnano_design::{grid::GridId, Camera, Nucl};
 use ensnano_interactor::application::{Application, Notification};
 use ensnano_interactor::{
     CenterOfSelection, CursorIcon, DesignOperation, DesignReader, RigidBodyConstants,
@@ -1127,7 +1127,7 @@ impl MainState {
         self.apply_operation_result(result)
     }
 
-    fn start_twist(&mut self, grid_id: usize) {
+    fn start_twist(&mut self, grid_id: GridId) {
         let result = self.app_state.start_simulation(
             Default::default(),
             &mut self.chanel_reader,
@@ -1435,6 +1435,10 @@ impl MainState {
 
     fn set_show_h_bonds(&mut self, show: bool) {
         self.modify_state(|s| s.with_show_h_bonds(show), None)
+    }
+
+    fn set_show_bezier_paths(&mut self, show: bool) {
+        self.modify_state(|s| s.with_show_bezier_paths(show), None)
     }
 
     fn set_thick_helices(&mut self, thick: bool) {
@@ -1900,7 +1904,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.notify_apps(Notification::FlipSplitViews)
     }
 
-    fn start_twist(&mut self, g_id: usize) {
+    fn start_twist(&mut self, g_id: GridId) {
         self.main_state.start_twist(g_id);
     }
 

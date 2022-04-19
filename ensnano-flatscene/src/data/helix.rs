@@ -16,9 +16,11 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::super::view::{CircleInstance, InsertionInstance};
-use super::super::{CameraPtr, Flat, FlatHelix, FlatIdx};
+use super::super::{CameraPtr, Flat, FlatHelix};
 use super::{FlatNucl, Helix2d, NuclCollection};
+use crate::flattypes::FlatHelixMaps;
 use crate::view::EditionInfo;
+use abcissa_converter::{AbscissaConverter, AbscissaConverter_};
 use ahash::RandomState;
 use ensnano_design::ultraviolet;
 use ensnano_design::Nucl;
@@ -37,7 +39,7 @@ use lyon::tessellation::{
 };
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
-use ultraviolet::{Isometry2, Mat2, Rotor2, Vec2, Vec4};
+use ultraviolet::{Mat2, Rotor2, Vec2, Vec4};
 
 type Vertices = lyon::tessellation::VertexBuffers<GpuVertex, u16>;
 
@@ -59,6 +61,7 @@ pub struct Helix {
     pub flat_id: FlatHelix,
     pub real_id: usize,
     pub visible: bool,
+    abscissa_converter: Arc<AbscissaConverter>,
 }
 
 impl Flat for Helix {}
@@ -81,8 +84,7 @@ impl Helix {
         flat_id: FlatHelix,
         real_id: usize,
         visible: bool,
-        _basis_map: Arc<HashMap<Nucl, char, RandomState>>,
-        _groups: Arc<BTreeMap<usize, bool>>,
+        abscissa_converter_: Arc<AbscissaConverter_>,
     ) -> Self {
         Self {
             left,
@@ -95,26 +97,39 @@ impl Helix {
             flat_id,
             real_id,
             visible,
+            abscissa_converter: Arc::new(AbscissaConverter {
+                converter: abscissa_converter_,
+                left: flat_id.segment_left,
+            }),
         }
     }
 
-    pub fn update(&mut self, helix2d: &Helix2d, id_map: &HashMap<usize, FlatIdx>) {
+    pub fn update(&mut self, helix2d: &Helix2d, id_map: &FlatHelixMaps) {
         self.left = self.left.min(helix2d.left);
         self.right = self.right.max(helix2d.right);
         self.visible = helix2d.visible;
         self.real_id = helix2d.id;
-        if let Some(flat_id) = FlatHelix::from_real(self.real_id, id_map) {
+        let left;
+        if let Some(flat_id) = FlatHelix::from_real(self.real_id, helix2d.segment_idx, id_map) {
+            left = flat_id.segment_left;
             self.flat_id = flat_id
         } else {
             log::error!("real id does not exist {}", self.real_id);
+            left = None;
         }
         self.isometry = helix2d.isometry;
+        self.abscissa_converter = Arc::new(AbscissaConverter {
+            converter: helix2d.abscissa_converter.clone(),
+            left,
+        })
     }
 
     pub fn background_vertices(&self) -> Vertices {
         let mut vertices = Vertices::new();
-        let left = self.left as f32;
-        let right = self.right.max(self.left + 1) as f32 + 1.;
+        let left = self.abscissa_converter.nucl_to_x_convertion(self.left) as f32;
+        let right = self
+            .abscissa_converter
+            .nucl_to_x_convertion(self.right.max(self.left + 1) + 1) as f32;
         let top = 0.;
         let bottom = 2.;
         let mut fill_tess = lyon::tessellation::FillTessellator::new();
@@ -144,8 +159,10 @@ impl Helix {
 
     pub fn to_vertices(&self) -> Vertices {
         let mut vertices = Vertices::new();
-        let left = self.left as f32;
-        let right = self.right.max(self.left + 1) as f32 + 1.;
+        let left = self.abscissa_converter.nucl_to_x_convertion(self.left) as f32;
+        let right = self
+            .abscissa_converter
+            .nucl_to_x_convertion(self.right.max(self.left + 1) + 1) as f32;
         let top = 0.;
         let bottom = 2.;
 
@@ -159,8 +176,9 @@ impl Helix {
             lyon::tessellation::path::Winding::Positive,
         );
         for i in (self.left + 1)..=self.right {
-            builder.begin(Point::new(i as f32, 0.));
-            builder.line_to(Point::new(i as f32, 2.));
+            let x = self.abscissa_converter.nucl_to_x_convertion(i);
+            builder.begin(Point::new(x as f32, 0.));
+            builder.line_to(Point::new(x as f32, 2.));
             builder.end(false);
         }
         builder.begin(Point::new(left, 1.));
@@ -198,7 +216,7 @@ impl Helix {
 
     /// Return the position of the nucleotide in the 2d drawing
     pub fn get_nucl_position(&self, nucl: &FlatNucl, shift: Shift) -> Vec2 {
-        let local_position = nucl.position as f32 * Vec2::unit_x()
+        let mut local_position = nucl.flat_position as f32 * Vec2::unit_x()
             + match shift {
                 Shift::Prime3 => {
                     if nucl.forward {
@@ -244,6 +262,10 @@ impl Helix {
                     }
                 }
             };
+        let new_x = self
+            .abscissa_converter
+            .x_conversion(local_position.x as f64);
+        local_position.x = new_x as f32;
         self.isometry
             .into_homogeneous_matrix()
             .transform_point2(self.scale * local_position)
@@ -251,12 +273,16 @@ impl Helix {
 
     /// Return the position at which the 3' tick should end
     pub fn get_arrow_end(&self, nucl: &FlatNucl) -> Vec2 {
-        let local_position = nucl.position as f32 * Vec2::unit_x()
+        let mut local_position = nucl.flat_position as f32 * Vec2::unit_x()
             + if nucl.forward {
                 Vec2::new(0.2, 0.3)
             } else {
                 Vec2::new(0.8, 1.7)
             };
+        let new_x = self
+            .abscissa_converter
+            .x_conversion(local_position.x as f64);
+        local_position.x = new_x as f32;
 
         self.isometry
             .into_homogeneous_matrix()
@@ -345,7 +371,10 @@ impl Helix {
             iso.transform_point2(ret)
         };
         let forward = click.y <= 1.;
-        let position = click.x.floor() as isize;
+        let position = self
+            .abscissa_converter
+            .x_to_nucl_conversion(click.x as f64)
+            .floor() as isize;
         (position, forward)
     }
 
@@ -361,7 +390,7 @@ impl Helix {
     pub fn get_pivot(&self, position: isize) -> Vec2 {
         self.isometry
             .into_homogeneous_matrix()
-            .transform_point2(self.scale * Vec2::new(position as f32, 1.))
+            .transform_point2(self.scale * Vec2::new(self.x_conversion(position as f32), 1.))
     }
 
     pub fn set_color(&mut self, color: u32) {
@@ -388,29 +417,33 @@ impl Helix {
             .transform_point2(self.scale * local_position)
     }
 
+    fn x_conversion(&self, x: f32) -> f32 {
+        self.abscissa_converter.x_conversion(x as f64) as f32
+    }
+
     fn info_position(&self, x: isize) -> Vec2 {
         self.isometry
             .into_homogeneous_matrix()
-            .transform_point2((x as f32 + 0.5) * Vec2::unit_x() - Vec2::unit_y())
+            .transform_point2(self.x_conversion(x as f32 + 0.5) * Vec2::unit_x() - Vec2::unit_y())
     }
 
     fn char_position_top(&self, x: isize) -> Vec2 {
         self.isometry
             .into_homogeneous_matrix()
-            .transform_point2((x as f32 + 0.5) * Vec2::unit_x())
+            .transform_point2(self.x_conversion(x as f32 + 0.5) * Vec2::unit_x())
     }
 
     fn char_position_bottom(&self, x: isize) -> Vec2 {
-        self.isometry
-            .into_homogeneous_matrix()
-            .transform_point2((x as f32 + 0.5) * Vec2::unit_x() + 2. * Vec2::unit_y())
+        self.isometry.into_homogeneous_matrix().transform_point2(
+            self.x_conversion(x as f32 + 0.5) * Vec2::unit_x() + 2. * Vec2::unit_y(),
+        )
     }
 
     pub fn handle_circles(&self) -> Vec<CircleInstance> {
         let top_left_pos = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
-                position: self.left - 1,
+                flat_position: self.left - 1,
                 forward: true,
             },
             Shift::No,
@@ -418,7 +451,7 @@ impl Helix {
         let bottom_left_pos = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
-                position: self.left - 1,
+                flat_position: self.left - 1,
                 forward: false,
             },
             Shift::No,
@@ -426,7 +459,7 @@ impl Helix {
         let top_right_pos = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
-                position: self.right + 1,
+                flat_position: self.right + 1,
                 forward: true,
             },
             Shift::No,
@@ -434,7 +467,7 @@ impl Helix {
         let bottom_right_pos = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
-                position: self.right + 1,
+                flat_position: self.right + 1,
                 forward: false,
             },
             Shift::No,
@@ -462,6 +495,14 @@ impl Helix {
         ]
     }
 
+    fn leftmost_x(&self) -> f32 {
+        self.x_conversion(self.left as f32)
+    }
+
+    fn rightmost_x(&self) -> f32 {
+        self.x_conversion(self.right as f32 + 1.)
+    }
+
     /// Return the center of the helix's circle widget.
     ///
     /// If the helix is invisible return None.
@@ -476,19 +517,19 @@ impl Helix {
         groups: &BTreeMap<usize, bool>,
     ) -> Option<CircleInstance> {
         let (left, right) = self.screen_intersection(camera)?;
-        let center = if self.left as f32 > right || (self.right as f32) < left {
+        let center = if self.leftmost_x() as f32 > right || (self.rightmost_x() as f32) < left {
             // the helix is invisible
             None
-        } else if self.left as f32 - 1. - 2. * CIRCLE_WIDGET_RADIUS > left {
+        } else if self.leftmost_x() as f32 - 1. - 2. * CIRCLE_WIDGET_RADIUS > left {
             // There is room on the left of the helix
             Some(self.x_position(
-                self.left as f32 - 1. - CIRCLE_WIDGET_RADIUS,
+                self.leftmost_x() as f32 - 1. - CIRCLE_WIDGET_RADIUS,
                 HelixLine::Middle,
             ))
-        } else if self.right as f32 + 2. + 2. * CIRCLE_WIDGET_RADIUS < right {
+        } else if self.rightmost_x() as f32 + 1. + 2. * CIRCLE_WIDGET_RADIUS < right {
             // There is room on the right of the helix
             Some(self.x_position(
-                self.right as f32 + 2. + CIRCLE_WIDGET_RADIUS,
+                self.rightmost_x() as f32 + 1. + CIRCLE_WIDGET_RADIUS,
                 HelixLine::Middle,
             ))
         } else {
@@ -515,7 +556,7 @@ impl Helix {
         let center = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
-                position,
+                flat_position: position,
                 forward,
             },
             Shift::No,
@@ -527,25 +568,25 @@ impl Helix {
     /// See [get_circle](get_circle).
     pub fn get_circle_pivot(&self, camera: &CameraPtr) -> Option<FlatNucl> {
         let (left, right) = self.screen_intersection(camera)?;
-        if self.left as f32 > right || (self.right as f32) < left {
+        if self.leftmost_x() > right || (self.rightmost_x() as f32) < left {
             // the helix is invisible
             None
-        } else if self.left as f32 - 1. - 2. * CIRCLE_WIDGET_RADIUS > left {
+        } else if self.leftmost_x() - 1. - 2. * CIRCLE_WIDGET_RADIUS > left {
             // There is room on the left of the helix
             Some(FlatNucl {
-                position: self.left - 3,
+                flat_position: self.left - 3,
                 helix: self.flat_id,
                 forward: true,
             })
-        } else if self.right as f32 + 2. + 2. * CIRCLE_WIDGET_RADIUS < right {
+        } else if self.rightmost_x() + 2. + 2. * CIRCLE_WIDGET_RADIUS < right {
             Some(FlatNucl {
-                position: self.left - 3,
+                flat_position: self.left - 3,
                 helix: self.flat_id,
                 forward: true,
             })
         } else {
             Some(FlatNucl {
-                position: self.left,
+                flat_position: self.left,
                 helix: self.flat_id,
                 forward: true,
             })
@@ -555,7 +596,7 @@ impl Helix {
     /// A default nucleotide position for when the helix cannot be seen by the camera
     pub fn default_pivot(&self) -> FlatNucl {
         FlatNucl {
-            position: self.left - 3,
+            flat_position: self.left - 3,
             helix: self.flat_id,
             forward: true,
         }
@@ -661,7 +702,7 @@ impl Helix {
     ) {
         let candidate_pos: Option<isize> = hovered_nucl
             .filter(|n| n.helix == self.flat_id)
-            .map(|n| n.position);
+            .map(|n| n.flat_position);
         let show_seq = show_seq && camera.borrow().get_globals().zoom >= ZOOM_THRESHOLD;
         let size_id = 3.;
         let zoom_font = if camera.borrow().get_globals().zoom < 7.0 {
@@ -693,7 +734,7 @@ impl Helix {
         let moving_pos = edition_info
             .as_ref()
             .filter(|info| info.nucl.helix == self.flat_id)
-            .map(|info| info.nucl.position);
+            .map(|info| info.nucl.flat_position);
         let mut print_pos = |pos: isize| {
             let color = if Some(pos) == moving_pos || candidate_pos == Some(pos) {
                 [1., 0., 0., 1.].into()
@@ -745,7 +786,7 @@ impl Helix {
 
         if let Some(building) = edition_info {
             if building.nucl.helix == self.flat_id {
-                print_info(building.nucl.position, &building.to_string());
+                print_info(building.nucl.flat_position, &building.to_string());
             }
         }
 
@@ -805,7 +846,9 @@ impl Helix {
         if let Some((x0, x1)) =
             self.screen_rectangle_intersection(camera, left, top, right, bottom, HelixLine::Middle)
         {
-            if nucl.position >= x0.floor() as isize && nucl.position < x1.ceil() as isize {
+            if self.x_conversion(nucl.flat_position as f32) >= x0.floor()
+                && self.x_conversion(nucl.flat_position as f32) < x1.ceil()
+            {
                 return true;
             }
         }
@@ -813,7 +856,9 @@ impl Helix {
             if let Some((x0, x1)) =
                 self.screen_rectangle_intersection(camera, left, top, right, bottom, HelixLine::Top)
             {
-                if nucl.position >= x0.floor() as isize && nucl.position < x1.ceil() as isize {
+                if self.x_conversion(nucl.flat_position as f32) >= x0.floor()
+                    && self.x_conversion(nucl.flat_position as f32) < x1.ceil()
+                {
                     return true;
                 }
             }
@@ -826,7 +871,9 @@ impl Helix {
                 bottom,
                 HelixLine::Bottom,
             ) {
-                if nucl.position >= x0.floor() as isize && nucl.position < x1.ceil() as isize {
+                if self.x_conversion(nucl.flat_position as f32) >= x0.floor()
+                    && self.x_conversion(nucl.flat_position as f32) < x1.ceil()
+                {
                     return true;
                 }
             }
@@ -1022,4 +1069,46 @@ impl HelixLine {
 pub enum HelixHandle {
     Left,
     Right,
+}
+
+mod abcissa_converter {
+    use super::*;
+    pub(super) use ensnano_design::AbscissaConverter as AbscissaConverter_;
+
+    #[derive(Debug)]
+    pub(super) struct AbscissaConverter {
+        pub left: Option<isize>,
+        pub converter: Arc<AbscissaConverter_>,
+    }
+
+    impl AbscissaConverter {
+        pub fn nucl_to_x_convertion(&self, n: isize) -> f64 {
+            let adjust = if let Some(n) = self.left {
+                self.converter.nucl_to_x_convertion(n)
+            } else {
+                0.0
+            };
+            self.converter
+                .nucl_to_x_convertion(n + self.left.unwrap_or(0))
+                - adjust
+        }
+
+        pub fn x_conversion(&self, x: f64) -> f64 {
+            if let Some(n) = self.left {
+                let adjust = self.converter.nucl_to_x_convertion(n);
+                self.converter.x_conversion(x + n as f64) - adjust
+            } else {
+                self.converter.x_conversion(x)
+            }
+        }
+
+        pub fn x_to_nucl_conversion(&self, x: f64) -> f64 {
+            if let Some(n) = self.left {
+                let shift = self.converter.nucl_to_x_convertion(n);
+                self.converter.x_to_nucl_conversion(x + shift) - n as f64
+            } else {
+                self.converter.x_to_nucl_conversion(x)
+            }
+        }
+    }
 }

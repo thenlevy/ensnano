@@ -21,9 +21,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
-    grid::{GridDescriptor, GridObject, HelixGridPosition, Hyperboloid},
+    grid::{GridDescriptor, GridId, GridObject, GridTypeDescr, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
-    Nucl, Parameters,
+    BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, BezierVertexId, Nucl,
+    Parameters,
 };
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 pub mod graphics;
@@ -163,7 +164,7 @@ pub enum DesignOperation {
     CleanDesign,
     HelicesToGrid(Vec<Selection>),
     SetHelicesPersistance {
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         persistant: bool,
     },
     UpdateAttribute {
@@ -171,12 +172,12 @@ pub enum DesignOperation {
         elements: Vec<DnaElementKey>,
     },
     SetSmallSpheres {
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         small: bool,
     },
     /// Apply a translation to the 2d representation of helices holding each pivot
     SnapHelices {
-        pivots: Vec<Nucl>,
+        pivots: Vec<(Nucl, usize)>,
         translation: Vec2,
     },
     RotateHelices {
@@ -191,6 +192,7 @@ pub enum DesignOperation {
     },
     SetIsometry {
         helix: usize,
+        segment: usize,
         isometry: Isometry2,
     },
     RequestStrandBuilders {
@@ -213,7 +215,7 @@ pub enum DesignOperation {
     },
     AttachObject {
         object: GridObject,
-        grid: usize,
+        grid: GridId,
         x: isize,
         y: isize,
     },
@@ -243,15 +245,15 @@ pub enum DesignOperation {
         name: String,
     },
     SetGridPosition {
-        grid_id: usize,
+        grid_id: GridId,
         position: Vec3,
     },
     SetGridOrientation {
-        grid_id: usize,
+        grid_id: GridId,
         orientation: Rotor3,
     },
     SetGridNbTurn {
-        grid_id: usize,
+        grid_id: GridId,
         nb_turn: f32,
     },
     MakeSeveralXovers {
@@ -269,6 +271,42 @@ pub enum DesignOperation {
         length: usize,
         insertion_point: InsertionPoint,
     },
+    AddBezierPlane {
+        desc: BezierPlaneDescriptor,
+    },
+    CreateBezierPath {
+        first_vertex: BezierVertex,
+    },
+    AppendVertexToPath {
+        path_id: BezierPathId,
+        vertex: BezierVertex,
+    },
+    MoveBezierVertex {
+        path_id: BezierPathId,
+        vertex_id: usize,
+        position: Vec2,
+    },
+    TurnPathVerticesIntoGrid {
+        path_id: BezierPathId,
+        grid_type: GridTypeDescr,
+    },
+    ApplyHomothethyOnBezierPlane {
+        homothethy: BezierPlaneHomothethy,
+    },
+    SetVectorOfBezierTengent(NewBezierTengentVector),
+    MakeBezierPathCyclic {
+        path_id: BezierPathId,
+        cyclic: bool,
+    },
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct NewBezierTengentVector {
+    pub vertex_id: BezierVertexId,
+    /// Wether `new_vector` is the vector of the inward or outward tengent
+    pub tengent_in: bool,
+    pub full_symetry_other_tengent: bool,
+    pub new_vector: Vec2,
 }
 
 #[derive(Clone, Debug, Copy)]
@@ -321,7 +359,7 @@ pub enum IsometryTarget {
     /// An helix of the design
     Helices(Vec<usize>, bool),
     /// A grid of the desgin
-    Grids(Vec<usize>),
+    Grids(Vec<GridId>),
     /// The pivot of a group
     GroupPivot(GroupId),
     /// The control points of bezier curves
@@ -343,7 +381,7 @@ impl ToString for IsometryTarget {
 /// A stucture that defines an helix on a grid
 #[derive(Clone, Debug)]
 pub struct GridHelixDescriptor {
-    pub grid_id: usize,
+    pub grid_id: GridId,
     pub x: isize,
     pub y: isize,
 }
@@ -417,7 +455,7 @@ pub enum SimulationState {
     RigidGrid,
     RigidHelices,
     Paused,
-    Twisting { grid_id: usize },
+    Twisting { grid_id: GridId },
 }
 
 impl SimulationState {
@@ -601,4 +639,12 @@ impl CheckXoversParameter {
             Self::None | Self::Checked => false,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct BezierPlaneHomothethy {
+    pub plane_id: BezierPlaneId,
+    pub fixed_corner: Vec2,
+    pub origin_moving_corner: Vec2,
+    pub moving_corner: Vec2,
 }

@@ -45,7 +45,7 @@ const float LOW_CRIT = 1. / 0.7;
 const float HIGH_CRIT = 2. / 0.7;
 
 void main() {
-    int model_idx = int(instances[gl_InstanceIndex].id >> 24);
+    int model_idx = 0;
 
     //mat4 model_matrix = model_matrix2[model_idx] * instances[gl_InstanceIndex].model;
     mat4 model_matrix = model_matrix2[model_idx] * instances[gl_InstanceIndex].model;

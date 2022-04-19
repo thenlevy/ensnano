@@ -352,7 +352,7 @@ impl Presenter {
                     }
                     Selection::Grid(_, _) => false,
                     Selection::Nucleotide(_, n) => nucl == *n,
-                    Selection::Helix(_, h_id) => nucl.helix == *h_id as usize,
+                    Selection::Helix { helix_id, .. } => nucl.helix == *helix_id,
                     Selection::Nothing => false,
                     Selection::Xover(_, xover_id) => {
                         if let Some((n1, n2)) = self.junctions_ids.get_element(*xover_id) {
@@ -364,6 +364,8 @@ impl Presenter {
                     Selection::Bound(_, n1, n2) => *n1 == nucl || *n2 == nucl,
                     Selection::Phantom(e) => e.to_nucl() == nucl,
                     Selection::BezierControlPoint { .. } => false,
+                    Selection::BezierTengent { .. } => false,
+                    Selection::BezierVertex(_) => false,
                 };
         }
         ret
@@ -726,14 +728,14 @@ impl GridPresenter for Presenter {
         self.current_design.strands.get_xovers()
     }
 
-    fn get_helices_attached_to_grid(&self, g_id: usize) -> Option<Vec<usize>> {
+    fn get_helices_attached_to_grid(&self, g_id: GridId) -> Option<Vec<usize>> {
         self.content
             .get_helices_on_grid(g_id)
             .map(|set| set.into_iter().collect())
     }
 
-    fn get_grid(&self, g_id: usize) -> Option<&ensnano_design::grid::Grid> {
-        self.content.grid_manager.grids.get(g_id)
+    fn get_grid(&self, g_id: GridId) -> Option<&ensnano_design::grid::Grid> {
+        self.content.grid_manager.grids.get(&g_id)
     }
 }
 

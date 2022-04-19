@@ -17,13 +17,16 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::super::maths_3d::{Basis3D, UnalignedBoundaries};
 use super::super::view::{
-    ConeInstance, Ellipsoid, Instanciable, RawDnaInstance, SphereInstance, TubeInstance,
+    ConeInstance, Ellipsoid, Instanciable, RawDnaInstance, Sheet2D, SphereInstance, TubeInstance,
 };
 use super::super::GridInstance;
 use super::{ultraviolet, LetterInstance, SceneElement};
-use ensnano_design::grid::{GridObject, GridPosition};
+use ensnano_design::grid::{GridId, GridObject, GridPosition};
 use ensnano_design::{grid::HelixGridPosition, Nucl};
-use ensnano_design::{CubicBezierConstructor, CurveDescriptor};
+use ensnano_design::{
+    BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, Collection,
+    CubicBezierConstructor, CurveDescriptor, InstanciatedPath, Parameters,
+};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::{
     graphics::{LoopoutBond, LoopoutNucl},
@@ -31,9 +34,11 @@ use ensnano_interactor::{
     PhantomElement, Referential, PHANTOM_RANGE,
 };
 use ensnano_utils::instance::Instance;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::ops::Deref;
 use std::rc::Rc;
-use ultraviolet::{Mat4, Rotor3, Vec3};
+use std::sync::Arc;
+use ultraviolet::{Mat4, Rotor3, Vec2, Vec3};
 
 /// An object that handles the 3d graphcial representation of a `Design`
 pub struct Design3D<R: DesignReader> {
@@ -221,6 +226,10 @@ impl<R: DesignReader> Design3D<R> {
 
     pub fn get_model_matrix(&self) -> Mat4 {
         self.design.get_model_matrix()
+    }
+
+    pub fn get_bezier_grid_used_by_helix(&self, h_id: usize) -> Vec<GridId> {
+        self.design.get_bezier_grid_used_by_helix(h_id)
     }
 
     /// Convert return an instance representing the object with identifier `id` and custom
@@ -648,6 +657,9 @@ impl<R: DesignReader> Design3D<R> {
             SceneElement::GridCircle(_, position) => {
                 self.design.get_grid_latice_position(*position)
             }
+            SceneElement::BezierVertex { path_id, vertex_id } => {
+                self.get_bezier_vertex_position(*path_id, *vertex_id)
+            }
             _ => None,
         }
     }
@@ -675,7 +687,10 @@ impl<R: DesignReader> Design3D<R> {
             SceneElement::WidgetElement(_)
             | SceneElement::Grid(_, _)
             | SceneElement::BezierControl { .. }
-            | SceneElement::GridCircle(_, _) => None,
+            | SceneElement::BezierVertex { .. }
+            | SceneElement::GridCircle(_, _)
+            | SceneElement::PlaneCorner { .. }
+            | SceneElement::BezierTengent { .. } => None,
         }
     }
 
@@ -740,7 +755,7 @@ impl<R: DesignReader> Design3D<R> {
                 max_z = coord[2];
             }
         }
-        for grid in self.get_grid().iter() {
+        for grid in self.get_grid().values() {
             let coords: [[f32; 3]; 2] = [
                 grid.grid
                     .position_helix(grid.min_x as isize, grid.min_y as isize)
@@ -776,10 +791,10 @@ impl<R: DesignReader> Design3D<R> {
     /// Return the list of corners of grid with no helices on them
     fn get_all_naked_grids_corners(&self) -> Vec<Vec3> {
         let mut ret = Vec::new();
-        for grid in self.get_grid().iter() {
+        for (grid_id, grid) in self.get_grid().iter() {
             if self
                 .design
-                .get_helices_on_grid(grid.id)
+                .get_helices_on_grid(*grid_id)
                 .map(|s| s.is_empty())
                 .unwrap_or(false)
             {
@@ -927,21 +942,21 @@ impl<R: DesignReader> Design3D<R> {
         }
     }
 
-    pub fn get_grid(&self) -> Vec<GridInstance> {
+    pub fn get_grid(&self) -> BTreeMap<GridId, GridInstance> {
         self.design.get_grid_instances()
     }
 
-    pub fn get_helices_grid(&self, g_id: usize) -> Option<HashSet<usize>> {
+    pub fn get_helices_grid(&self, g_id: GridId) -> Option<HashSet<usize>> {
         self.design.get_helices_on_grid(g_id)
     }
 
-    pub fn get_helices_grid_coord(&self, g_id: usize) -> Vec<(isize, isize)> {
+    pub fn get_helices_grid_coord(&self, g_id: GridId) -> Vec<(isize, isize)> {
         self.design
             .get_used_coordinates_on_grid(g_id)
             .unwrap_or(Vec::new())
     }
 
-    pub fn get_helices_grid_key_coord(&self, g_id: usize) -> Vec<((isize, isize), usize)> {
+    pub fn get_helices_grid_key_coord(&self, g_id: GridId) -> Vec<((isize, isize), usize)> {
         self.design
             .get_helices_grid_key_coord(g_id)
             .unwrap_or(Vec::new())
@@ -959,7 +974,7 @@ impl<R: DesignReader> Design3D<R> {
         self.design.get_persistent_phantom_helices_id()
     }
 
-    pub fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3> {
+    pub fn get_grid_basis(&self, g_id: GridId) -> Option<Rotor3> {
         self.design.get_grid_basis(g_id)
     }
 
@@ -1032,6 +1047,80 @@ impl<R: DesignReader> Design3D<R> {
         ret
     }
 
+    pub fn get_bezier_paths_elements(&self) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
+        let mut spheres = Vec::new();
+        let mut tubes = Vec::new();
+        if let Some(paths) = self.design.get_bezier_paths() {
+            for (path_id, path) in paths.iter() {
+                for (vertex_id, bezier_end) in path.bezier_controls().iter().enumerate() {
+                    spheres.push(
+                        SphereInstance {
+                            position: bezier_end.position,
+                            color: [1., 0., 0., 1.].into(),
+                            id: crate::element_selector::bezier_vertex_id(*path_id, vertex_id),
+                            radius: 10.0,
+                        }
+                        .to_raw_instance(),
+                    );
+                    spheres.push(
+                        SphereInstance {
+                            position: bezier_end.position + bezier_end.vector_out,
+                            color: Instance::color_from_u32(BEZIER_CONTROL1_COLOR),
+                            id: crate::element_selector::bezier_tengent_id(
+                                *path_id, vertex_id, false,
+                            ),
+                            radius: 5.0,
+                        }
+                        .to_raw_instance(),
+                    );
+                    spheres.push(
+                        SphereInstance {
+                            position: bezier_end.position - bezier_end.vector_in,
+                            color: Instance::color_from_u32(BEZIER_CONTROL1_COLOR),
+                            id: crate::element_selector::bezier_tengent_id(
+                                *path_id, vertex_id, true,
+                            ),
+                            radius: 5.0,
+                        }
+                        .to_raw_instance(),
+                    );
+                    tubes.push(
+                        create_dna_bound(
+                            bezier_end.position,
+                            bezier_end.position + bezier_end.vector_out,
+                            0,
+                            0,
+                            false,
+                        )
+                        .to_raw_instance(),
+                    );
+                    tubes.push(
+                        create_dna_bound(
+                            bezier_end.position,
+                            bezier_end.position - bezier_end.vector_in,
+                            0,
+                            0,
+                            false,
+                        )
+                        .to_raw_instance(),
+                    );
+                }
+                for point in path.get_curve_points().iter() {
+                    spheres.push(
+                        SphereInstance {
+                            position: Vec3::new(point.x as f32, point.y as f32, point.z as f32),
+                            color: [1., 0., 0., 1.].into(),
+                            id: 0,
+                            radius: 2.0,
+                        }
+                        .to_raw_instance(),
+                    );
+                }
+            }
+        }
+        (spheres, tubes)
+    }
+
     pub fn get_bezier_elements(&self, h_id: usize) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
         let mut spheres = Vec::new();
         let mut tubes = Vec::new();
@@ -1071,7 +1160,7 @@ impl<R: DesignReader> Design3D<R> {
             }
             (spheres, tubes)
         } else {
-            (vec![], vec![])
+            (spheres, tubes)
         }
     }
 
@@ -1104,6 +1193,62 @@ impl<R: DesignReader> Design3D<R> {
                 }
             }
         }
+    }
+
+    pub fn get_bezier_sheets(&self) -> (Vec<Sheet2D>, Vec<RawDnaInstance>) {
+        let parameters = self.design.get_parameters();
+        let grad_step = 48.0 * parameters.z_step;
+        let delta_corners = grad_step / 5.;
+        let mut sheets = Vec::new();
+        let mut spheres = Vec::new();
+        for (plane_id, desc) in self.design.get_bezier_planes().iter() {
+            let corners = self.design.get_corners_of_plane(*plane_id);
+            sheets.push(Sheet2D {
+                position: desc.position,
+                orientation: desc.orientation,
+                min_x: ((-3. * grad_step).min(corners[0].x - delta_corners) / grad_step).floor()
+                    * grad_step,
+                max_x: ((3. * grad_step).max(corners[3].x + delta_corners) / grad_step).ceil()
+                    * grad_step,
+                min_y: ((-3. * grad_step).min(corners[0].y - delta_corners) / grad_step).floor()
+                    * grad_step,
+                max_y: ((3. * grad_step).max(corners[3].y + delta_corners) / grad_step).ceil()
+                    * grad_step,
+                graduation_unit: 48.0 * parameters.z_step,
+            });
+            for (c_id, c) in sheets.last().unwrap().corners().iter().enumerate() {
+                let position = desc.position
+                    + c.x * Vec3::unit_z().rotated_by(desc.orientation)
+                    + c.y * Vec3::unit_y().rotated_by(desc.orientation);
+                spheres.push(
+                    SphereInstance {
+                        color: Instance::color_from_u32(BEZIER_SHEET_CORNER_COLOR),
+                        id: u32::from_be_bytes([
+                            0xFD,
+                            c_id as u8,
+                            plane_id.0.to_be_bytes()[2],
+                            plane_id.0.to_be_bytes()[3],
+                        ]),
+                        position,
+                        radius: BEZIER_SHEET_CORNER_RADIUS,
+                    }
+                    .to_raw_instance(),
+                )
+            }
+        }
+        (sheets, spheres)
+    }
+
+    pub fn get_bezier_vertex_position(
+        &self,
+        path_id: BezierPathId,
+        vertex_id: usize,
+    ) -> Option<Vec3> {
+        self.design
+            .get_bezier_paths()
+            .and_then(|m| m.get(&path_id))
+            .and_then(|p| p.bezier_controls().get(vertex_id))
+            .map(|v| v.position)
     }
 }
 
@@ -1244,7 +1389,7 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
         on_axis: bool,
     ) -> Option<Vec3>;
     fn get_object_type(&self, id: u32) -> Option<ObjectType>;
-    fn get_grid_position(&self, g_id: usize) -> Option<Vec3>;
+    fn get_grid_position(&self, g_id: GridId) -> Option<Vec3>;
     fn get_grid_latice_position(&self, position: GridPosition) -> Option<Vec3>;
     fn get_element_position(&self, e_id: u32, referential: Referential) -> Option<Vec3>;
     fn get_element_axis_position(&self, id: u32, referential: Referential) -> Option<Vec3>;
@@ -1261,13 +1406,13 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     /// Return the nucleotide with id e_id or the 5' end of the bound with id e_id
     fn get_nucl_with_id_relaxed(&self, e_id: u32) -> Option<Nucl>;
     fn can_start_builder_at(&self, nucl: &Nucl) -> bool;
-    fn get_grid_instances(&self) -> Vec<GridInstance>;
-    fn get_helices_on_grid(&self, g_id: usize) -> Option<HashSet<usize>>;
-    fn get_used_coordinates_on_grid(&self, g_id: usize) -> Option<Vec<(isize, isize)>>;
-    fn get_helices_grid_key_coord(&self, g_id: usize) -> Option<Vec<((isize, isize), usize)>>;
+    fn get_grid_instances(&self) -> BTreeMap<GridId, GridInstance>;
+    fn get_helices_on_grid(&self, g_id: GridId) -> Option<HashSet<usize>>;
+    fn get_used_coordinates_on_grid(&self, g_id: GridId) -> Option<Vec<(isize, isize)>>;
+    fn get_helices_grid_key_coord(&self, g_id: GridId) -> Option<Vec<((isize, isize), usize)>>;
     fn get_helix_id_at_grid_coord(&self, position: GridPosition) -> Option<u32>;
     fn get_persistent_phantom_helices_id(&self) -> HashSet<u32>;
-    fn get_grid_basis(&self, g_id: usize) -> Option<Rotor3>;
+    fn get_grid_basis(&self, g_id: GridId) -> Option<Rotor3>;
     fn get_helix_grid_position(&self, h_id: u32) -> Option<HelixGridPosition>;
     fn prime5_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
     fn prime3_of_which_strand(&self, nucl: Nucl) -> Option<usize>;
@@ -1289,4 +1434,13 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_all_loopout_bonds(&self) -> &[LoopoutBond];
     fn get_insertion_length(&self, bond_id: u32) -> usize;
     fn get_expected_bond_length(&self) -> f32;
+    fn get_bezier_planes(
+        &self,
+    ) -> &dyn Collection<Item = BezierPlaneDescriptor, Key = BezierPlaneId>;
+    fn get_parameters(&self) -> Parameters;
+    fn get_bezier_paths(&self) -> Option<&BTreeMap<BezierPathId, Arc<InstanciatedPath>>>;
+    fn get_bezier_vertex(&self, path_id: BezierPathId, vertex_id: usize) -> Option<BezierVertex>;
+    fn get_corners_of_plane(&self, plane_id: BezierPlaneId) -> [Vec2; 4];
+    fn get_optimal_xover_arround(&self, source: Nucl, target: Nucl) -> Option<(Nucl, Nucl)>;
+    fn get_bezier_grid_used_by_helix(&self, h_id: usize) -> Vec<GridId>;
 }

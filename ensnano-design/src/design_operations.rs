@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! The functions that apply thes operations take a mutable reference to the design that they are
 //! modifying and may return an `ErrOperation` if the opperation could not be applied.
 
-use super::{grid::*, CurveDescriptor, Design};
+use super::{bezier_plane::*, grid::*, CurveDescriptor, Design};
 use std::sync::Arc;
 use ultraviolet::{Rotor3, Vec3};
 
@@ -29,10 +29,12 @@ pub enum ErrOperation {
     NotEnoughHelices { actual: usize, needed: usize },
     GridPositionAlreadyUsed,
     HelixDoesNotExists(usize),
-    GridDoesNotExist(usize),
+    GridDoesNotExist(GridId),
     HelixCollisionDuringTranslation,
     NotEnoughBezierPoints,
     HelixIsNotPiecewiseBezier,
+    CouldNotGetPath(BezierPathId),
+    CouldNotGetVertex(BezierVertexId),
 }
 
 /// The minimum number of helices requiered to infer a grid
@@ -48,7 +50,7 @@ pub fn make_grid_from_helices(design: &mut Design, helices: &[usize]) -> Result<
 pub fn attach_object_to_grid(
     design: &mut Design,
     object: GridObject,
-    grid: usize,
+    grid: GridId,
     x: isize,
     y: isize,
 ) -> Result<(), ErrOperation> {

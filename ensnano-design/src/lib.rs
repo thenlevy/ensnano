@@ -24,12 +24,13 @@ use std::sync::Arc;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
+pub use bezier_plane::*;
 pub use ultraviolet;
 use ultraviolet::{Rotor3, Vec3};
 
 pub mod codenano;
 pub mod grid;
-use grid::{GridData, GridDescriptor};
+use grid::{FreeGridId, FreeGrids, GridData, GridDescriptor, GridId};
 pub mod scadnano;
 pub use ensnano_organizer::{GroupId, OrganizerTree};
 use scadnano::*;
@@ -46,11 +47,13 @@ pub use helices::*;
 
 mod curves;
 pub use curves::{
-    nb_turn_per_100_nt_to_omega, twist_to_omega, BezierControlPoint, BezierEnd,
+    nb_turn_per_100_nt_to_omega, twist_to_omega, AbscissaConverter, BezierControlPoint, BezierEnd,
     CubicBezierConstructor, CubicBezierControlPoint, CurveCache, CurveDescriptor, Twist,
 };
+mod collection;
 pub mod design_operations;
 pub mod utils;
+pub use collection::{Collection, HasMap};
 
 mod parameters;
 pub use parameters::*;
@@ -58,6 +61,7 @@ pub use parameters::*;
 /// Re-export ultraviolet for linear algebra
 pub use ultraviolet::*;
 
+mod bezier_plane;
 mod insertions;
 #[cfg(test)]
 mod tests;
@@ -95,7 +99,10 @@ pub struct Design {
     pub scaffold_shift: Option<usize>,
 
     #[serde(default)]
-    pub grids: Arc<Vec<GridDescriptor>>,
+    pub free_grids: FreeGrids,
+
+    #[serde(default, skip_serializing, alias = "grids")]
+    old_grids: Vec<GridDescriptor>,
 
     /// The cross-over suggestion groups
     #[serde(skip_serializing_if = "groups_is_empty", default)]
@@ -104,7 +111,7 @@ pub struct Design {
     /// The set of identifiers of grids whose helices must not always display their phantom
     /// helices.
     #[serde(skip_serializing_if = "HashSet::is_empty", default)]
-    pub no_phantoms: Arc<HashSet<usize>>,
+    pub no_phantoms: Arc<HashSet<GridId>>,
 
     /// The set of identifiers of grids whose helices are displayed with smaller spheres for the
     /// nucleotides.
@@ -115,7 +122,7 @@ pub struct Design {
         skip_serializing_if = "HashSet::is_empty",
         default
     )]
-    pub small_spheres: Arc<HashSet<usize>>,
+    pub small_spheres: Arc<HashSet<GridId>>,
 
     /// The set of nucleotides that must not move during physical simulations
     #[serde(skip_serializing_if = "HashSet::is_empty", default)]
@@ -151,13 +158,23 @@ pub struct Design {
 
     #[serde(skip, default)]
     cached_curve: Arc<CurveCache>,
+
+    #[serde(default)]
+    pub bezier_planes: BezierPlanes,
+
+    #[serde(default)]
+    pub bezier_paths: BezierPaths,
+
+    #[serde(skip)]
+    instanciated_paths: Option<BezierPathData>,
 }
 
-/// An immuatable reference to a design whose helices and grid data are guaranteed to be up-to
+/// An immuatable reference to a design whose helices pahts and grid data are guaranteed to be up-to
 /// date.
 pub struct UpToDateDesign<'a> {
     pub design: &'a Design,
     pub grid_data: &'a GridData,
+    pub paths_data: &'a BezierPathData,
 }
 
 impl Design {
@@ -168,11 +185,16 @@ impl Design {
     /// Having an option to not mutate the design is meant to prevent unecessary run-time cloning
     /// of the design
     pub fn try_get_up_to_date<'a>(&'a self) -> Option<UpToDateDesign<'a>> {
+        let paths_data = self
+            .instanciated_paths
+            .as_ref()
+            .filter(|data| !data.need_update(&self.bezier_planes, &self.bezier_paths))?;
         if let Some(data) = self.instanciated_grid_data.as_ref() {
             if data.is_up_to_date(&self) {
                 Some(UpToDateDesign {
                     design: self,
                     grid_data: data,
+                    paths_data,
                 })
             } else {
                 None
@@ -184,6 +206,22 @@ impl Design {
 
     /// Update self if necessary and returns an up-to-date reference to self.
     pub fn get_up_to_date<'a>(&'a mut self) -> UpToDateDesign<'a> {
+        let parameters = self.parameters.as_ref().unwrap_or(&Parameters::DEFAULT);
+        if let Some(paths_data) = self.instanciated_paths.as_ref() {
+            if let Some(new_data) = paths_data.updated(
+                self.bezier_planes.clone(),
+                self.bezier_paths.clone(),
+                parameters,
+            ) {
+                self.instanciated_paths = Some(new_data);
+            }
+        } else {
+            self.instanciated_paths = Some(BezierPathData::new(
+                self.bezier_planes.clone(),
+                self.bezier_paths.clone(),
+                parameters,
+            ));
+        }
         if self.needs_update() {
             let grid_data = GridData::new_by_updating_design(self);
             self.instanciated_grid_data = Some(grid_data);
@@ -191,7 +229,28 @@ impl Design {
         UpToDateDesign {
             design: self,
             grid_data: self.instanciated_grid_data.as_ref().unwrap(),
+            paths_data: self.instanciated_paths.as_ref().unwrap(),
         }
+    }
+
+    pub fn get_up_to_date_paths<'a>(&'a mut self) -> &'a BezierPathData {
+        let parameters = self.parameters.as_ref().unwrap_or(&Parameters::DEFAULT);
+        if let Some(paths_data) = self.instanciated_paths.as_ref() {
+            if let Some(new_data) = paths_data.updated(
+                self.bezier_planes.clone(),
+                self.bezier_paths.clone(),
+                parameters,
+            ) {
+                self.instanciated_paths = Some(new_data);
+            }
+        } else {
+            self.instanciated_paths = Some(BezierPathData::new(
+                self.bezier_planes.clone(),
+                self.bezier_paths.clone(),
+                parameters,
+            ));
+        }
+        self.instanciated_paths.as_ref().unwrap()
     }
 
     fn needs_update(&self) -> bool {
@@ -264,7 +323,7 @@ impl Design {
             helices: Default::default(),
             strands: Default::default(),
             parameters: Some(Parameters::DEFAULT),
-            grids: Default::default(),
+            free_grids: Default::default(),
             scaffold_id: None,
             scaffold_sequence: None,
             scaffold_shift: None,
@@ -282,6 +341,10 @@ impl Design {
             rainbow_scaffold: false,
             instanciated_grid_data: None,
             cached_curve: Default::default(),
+            bezier_planes: Default::default(),
+            bezier_paths: Default::default(),
+            old_grids: Vec::new(),
+            instanciated_paths: None,
         }
     }
 
@@ -298,6 +361,12 @@ impl Design {
             }
             mutate_all_helices(self, |h| h.roll *= -1.);
             self.ensnano_version = ensnano_version();
+        }
+
+        let grids = std::mem::take(&mut self.old_grids);
+        let mut grids_mut = self.free_grids.make_mut();
+        for g in grids.into_iter() {
+            grids_mut.push(g);
         }
     }
 
@@ -437,9 +506,7 @@ impl Design {
                 break;
             }
         }
-        // unwrap ok: If need_update is true, then instanciated_grid_data has just been given a
-        // value, otherwise it was already some up-to-date data
-        self.instanciated_grid_data.as_ref().unwrap()
+        self.get_up_to_date().grid_data
     }
 
     fn update_curve_bounds(&mut self) -> bool {
@@ -551,7 +618,7 @@ impl Design {
         println!("grids {:?}", grids);
         println!("helices {:?}", helices);
         Ok(Self {
-            grids: Arc::new(grids),
+            free_grids: FreeGrids::from_vec(grids),
             helices: Helices(Arc::new(helices)),
             strands: Strands(strands),
             small_spheres: Default::default(),
@@ -607,16 +674,6 @@ where
         .get_mut(&h_id)
         .map(|h| mutate_in_arc(h, mutation))?;
     design.helices = Helices(Arc::new(new_helices_map));
-    Some(())
-}
-
-pub fn mutate_one_grid<F>(design: &mut Design, g_id: usize, mut mutation: F) -> Option<()>
-where
-    F: FnMut(&mut GridDescriptor) + Clone,
-{
-    let mut new_grids_map = Vec::clone(&design.grids);
-    new_grids_map.get_mut(g_id).map(|g| mutation(g))?;
-    design.grids = Arc::new(new_grids_map);
     Some(())
 }
 

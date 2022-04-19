@@ -82,6 +82,8 @@ mod parameters_tab;
 pub use parameters_tab::ParametersTab;
 mod sequence_tab;
 pub use sequence_tab::SequenceTab;
+mod pen_tab;
+pub use pen_tab::PenTab;
 
 struct GoStop<S: AppState> {
     go_stop_button: button::State,

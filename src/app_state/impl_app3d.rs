@@ -116,6 +116,7 @@ impl App3D for AppState {
             show_stereographic_camera: self.0.parameters.show_stereography,
             thick_helices: self.0.parameters.thick_helices,
             h_bonds: self.0.parameters.show_h_bonds,
+            show_bezier_planes: self.0.parameters.show_bezier_paths,
         }
     }
 
@@ -134,6 +135,10 @@ impl App3D for AppState {
 
     fn show_insertion_representents(&self) -> bool {
         self.0.show_insertion_representents
+    }
+
+    fn show_bezier_paths(&self) -> bool {
+        self.0.parameters.show_bezier_paths
     }
 }
 

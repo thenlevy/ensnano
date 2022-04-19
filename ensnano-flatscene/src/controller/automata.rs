@@ -1540,10 +1540,10 @@ impl<S: AppState> ControllerState<S> for InitBuilding {
                     match click_result {
                         ClickResult::Nucl(FlatNucl {
                             helix,
-                            position,
+                            flat_position: position,
                             forward,
                         }) if helix == self.nucl.helix && forward == self.nucl.forward => {
-                            if position != self.nucl.position {
+                            if position != self.nucl.flat_position {
                                 //self.builder.move_to(position);
                                 controller.data.borrow_mut().notify_update();
                                 Transition {
@@ -1847,7 +1847,9 @@ impl<S: AppState> ControllerState<S> for Building {
                 }
                 match nucl {
                     FlatNucl {
-                        helix, position, ..
+                        helix,
+                        flat_position: position,
+                        ..
                     } if helix == self.nucl.helix => {
                         controller.data.borrow_mut().notify_update();
                         Transition::consequence(Consequence::MoveBuilders(position))
@@ -2603,6 +2605,29 @@ impl<S: AppState> ControllerState<S> for DraggingSelection {
         app_state: &S,
     ) -> Transition<S> {
         match event {
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state: ElementState::Released,
+                ..
+            } if controller.modifiers.alt() => {
+                let corner1_world = controller
+                    .get_camera(position.y)
+                    .borrow()
+                    .screen_to_world(self.fixed_corner.x as f32, self.fixed_corner.y as f32);
+                let corner2_world = controller
+                    .get_camera(position.y)
+                    .borrow()
+                    .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
+                Transition {
+                    new_state: Some(Box::new(NormalState {
+                        mouse_position: self.mouse_position,
+                    })),
+                    consequences: Consequence::PngExport(
+                        corner1_world.into(),
+                        corner2_world.into(),
+                    ),
+                }
+            }
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state: ElementState::Released,

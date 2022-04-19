@@ -26,15 +26,19 @@ use super::{
     RotationWidgetDescriptor, RotationWidgetOrientation, SceneElement, View, ViewUpdate,
 };
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
 use ensnano_design::grid::GridObject;
+use ensnano_design::BezierVertexId;
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
-use ensnano_design::{grid::GridPosition, Nucl};
+use ensnano_design::{
+    grid::{GridId, GridPosition},
+    Nucl,
+};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::{
     ActionMode, CenterOfSelection, ObjectType, PhantomElement, Referential, Selection,
@@ -603,7 +607,10 @@ impl<R: DesignReader> Data<R> {
                     .map(|x| x as u32)
             }
             Some(SceneElement::PhantomElement(phantom_element)) => Some(phantom_element.helix_id),
-            Some(SceneElement::Grid(_, g_id)) => Some(g_id as u32),
+            Some(SceneElement::Grid(_, GridId::FreeGrid(g_id))) => Some(g_id as u32),
+            Some(SceneElement::Grid(_, GridId::BezierPathGrid(vertex))) => Some(
+                crate::element_selector::bezier_vertex_id(vertex.path_id, vertex.vertex_id),
+            ),
             _ => None,
         }
     }
@@ -624,7 +631,6 @@ impl<R: DesignReader> Data<R> {
             SelectionMode::Helix => self.designs[design_id as usize]
                 .get_helix(element_id)
                 .map(|x| x as u32),
-            SelectionMode::Grid => Some(element_id),
         }
     }
 
@@ -653,7 +659,6 @@ impl<R: DesignReader> Data<R> {
                     .map(|x| x as u32)
             }),
             SelectionMode::Helix => Some(phantom_element.helix_id),
-            SelectionMode::Grid => None,
         }
     }
 
@@ -681,13 +686,19 @@ impl<R: DesignReader> Data<R> {
                 .iter()
                 .cloned()
                 .collect(),
-            Selection::Helix(d_id, h_id) => self.designs[*d_id as usize].get_helix_elements(*h_id),
+            Selection::Helix {
+                design_id,
+                helix_id,
+                ..
+            } => self.designs[*design_id as usize].get_helix_elements(*helix_id as u32),
             Selection::BezierControlPoint { .. } => HashSet::new(),
             Selection::Strand(d_id, s_id) => {
                 self.designs[*d_id as usize].get_strand_elements(*s_id)
             }
             Selection::Grid(_, _) => HashSet::new(), // A grid is not made of atomic elements
             Selection::Phantom(_) => HashSet::new(),
+            Selection::BezierTengent { .. } => HashSet::new(),
+            Selection::BezierVertex(_) => HashSet::new(),
             Selection::Nothing => HashSet::new(),
             Selection::Design(d_id) => self.designs[*d_id as usize].get_all_elements(),
         }
@@ -715,10 +726,9 @@ impl<R: DesignReader> Data<R> {
                 SelectionMode::Helix => design
                     .get_element_axis_position(element, referential)
                     .or(design.get_element_position(element, referential)),
-                SelectionMode::Nucleotide
-                | SelectionMode::Strand
-                | SelectionMode::Design
-                | SelectionMode::Grid => design.get_element_position(element, referential),
+                SelectionMode::Nucleotide | SelectionMode::Strand | SelectionMode::Design => {
+                    design.get_element_position(element, referential)
+                }
             }
         }
     }
@@ -1014,6 +1024,9 @@ impl<R: DesignReader> Data<R> {
                         let set = ret.entry(0).or_insert_with(HashMap::new);
                         set.insert(helix_id as u32, false);
                     }
+                    SceneElement::BezierVertex { .. } => (),
+                    SceneElement::BezierTengent { .. } => (),
+                    SceneElement::PlaneCorner { .. } => (),
                 }
             }
         }
@@ -1063,8 +1076,11 @@ impl<R: DesignReader> Data<R> {
                                 Selection::Nothing
                             }
                         }
-                        SelectionMode::Helix => Selection::Helix(*design_id, group_id),
-                        SelectionMode::Grid => Selection::Grid(*design_id, group_id as usize),
+                        SelectionMode::Helix => Selection::Helix {
+                            design_id: *design_id,
+                            helix_id: group_id as usize,
+                            segment_id: 0,
+                        },
                     }
                 } else {
                     Selection::Nothing
@@ -1076,7 +1092,11 @@ impl<R: DesignReader> Data<R> {
                     .designs
                     .get(*d_id as usize)
                     .and_then(|d| d.get_helix_grid(*position))
-                    .map(|h_id| Selection::Helix(*d_id, h_id));
+                    .map(|h_id| Selection::Helix {
+                        design_id: *d_id,
+                        helix_id: h_id as usize,
+                        segment_id: 0,
+                    });
                 helix.unwrap_or(Selection::Grid(*d_id, position.grid))
             }
             SceneElement::PhantomElement(phantom) if phantom.bound => Selection::Bound(
@@ -1086,7 +1106,11 @@ impl<R: DesignReader> Data<R> {
             ),
             SceneElement::PhantomElement(phantom) => {
                 if selection_mode == SelectionMode::Helix {
-                    Selection::Helix(phantom.design_id, phantom.to_nucl().helix as u32)
+                    Selection::Helix {
+                        design_id: phantom.design_id,
+                        helix_id: phantom.to_nucl().helix,
+                        segment_id: 0,
+                    }
                 } else {
                     Selection::Nucleotide(phantom.design_id, phantom.to_nucl())
                 }
@@ -1098,7 +1122,20 @@ impl<R: DesignReader> Data<R> {
                 bezier_control: *bezier_control,
                 helix_id: *helix_id,
             },
-            _ => Selection::Nothing,
+            SceneElement::PlaneCorner { .. } => Selection::Nothing,
+            SceneElement::BezierVertex { path_id, vertex_id } => {
+                Selection::BezierVertex(BezierVertexId {
+                    path_id: *path_id,
+                    vertex_id: *vertex_id,
+                })
+            }
+            SceneElement::WidgetElement(_) => Selection::Nothing,
+            SceneElement::BezierTengent {
+                path_id, vertex_id, ..
+            } => Selection::BezierVertex(BezierVertexId {
+                path_id: *path_id,
+                vertex_id: *vertex_id,
+            }),
         }
     }
 
@@ -1278,7 +1315,7 @@ impl<R: DesignReader> Data<R> {
         let mut pasted_tubes = Vec::with_capacity(1000);
 
         let mut letters = Vec::new();
-        let mut grids = Vec::new();
+        let mut grids = BTreeMap::new();
         let mut cones = Vec::new();
         for design in self.designs.iter() {
             for sphere in design
@@ -1293,9 +1330,14 @@ impl<R: DesignReader> Data<R> {
             {
                 tubes.push(*tube);
             }
+            if app_state.show_bezier_paths() {
+                let (bezier_spheres, bezier_tubes) = design.get_bezier_paths_elements();
+                spheres.extend(bezier_spheres);
+                tubes.extend(bezier_tubes);
+            }
             letters = design.get_letter_instances(app_state.show_insertion_representents());
-            for grid in design.get_grid().iter().filter(|g| g.visible) {
-                grids.push(grid.clone());
+            for (grid_id, grid) in design.get_grid().iter().filter(|g| g.1.visible) {
+                grids.insert(*grid_id, grid.clone());
             }
             for sphere in design.get_suggested_spheres() {
                 suggested_spheres.push(sphere)
@@ -1315,6 +1357,15 @@ impl<R: DesignReader> Data<R> {
             }
         }
         self.update_free_xover(app_state.get_candidates());
+        let (sheet_instances, corner_spheres) = if app_state.show_bezier_paths() {
+            self.designs[0].get_bezier_sheets()
+        } else {
+            (Default::default(), Default::default())
+        };
+        spheres.extend(corner_spheres);
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::BezierSheets(sheet_instances));
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::Tube, Rc::new(tubes)));
@@ -1337,9 +1388,7 @@ impl<R: DesignReader> Data<R> {
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::PastedTube, Rc::new(pasted_tubes)));
         self.view.borrow_mut().update(ViewUpdate::Letter(letters));
-        self.view
-            .borrow_mut()
-            .update(ViewUpdate::Grids(Rc::new(grids)));
+        self.view.borrow_mut().update(ViewUpdate::Grids(grids));
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::Prime3Cone, Rc::new(cones)));
@@ -1380,22 +1429,22 @@ impl<R: DesignReader> Data<R> {
         }
 
         for c in app_state.get_candidates() {
-            if let Selection::Helix(0, h_id) = c {
-                if let Some(pos) = design.get_helix_grid_position(*h_id) {
+            if let Selection::Helix { helix_id, .. } = c {
+                if let Some(pos) = design.get_helix_grid_position(*helix_id as u32) {
                     add_discs(pos.light(), discs!(), DiscLevel::Candidate)
                 };
             }
         }
 
         for s in app_state.get_selection() {
-            if let Selection::Helix(0, h_id) = s {
-                if let Some(pos) = design.get_helix_grid_position(*h_id) {
+            if let Selection::Helix { helix_id, .. } = s {
+                if let Some(pos) = design.get_helix_grid_position(*helix_id as u32) {
                     add_discs(pos.light(), discs!(), DiscLevel::Selection)
                 }
             }
         }
         for design in self.designs.iter() {
-            for grid in design.get_grid().iter().filter(|g| g.visible) {
+            for grid in design.get_grid().values().filter(|g| g.visible) {
                 for (x, y) in design.get_helices_grid_coord(grid.id) {
                     add_discs(
                         GridPosition {
@@ -1408,6 +1457,16 @@ impl<R: DesignReader> Data<R> {
                     );
                 }
                 for ((x, y), h_id) in design.get_helices_grid_key_coord(grid.id) {
+                    for g_id in design.get_bezier_grid_used_by_helix(h_id) {
+                        add_discs(
+                            GridPosition { grid: g_id, x, y },
+                            discs!(),
+                            DiscLevel::Scene,
+                        );
+                        if let Some(bezier_grid) = design.get_grid().get(&g_id) {
+                            bezier_grid.letter_instance(x, y, h_id, &mut letters, right, up);
+                        }
+                    }
                     grid.letter_instance(x, y, h_id, &mut letters, right, up);
                 }
             }
@@ -1471,7 +1530,6 @@ impl<R: DesignReader> Data<R> {
                 .get_sub_selection_mode(app_state)
             {
                 SelectionMode::Nucleotide | SelectionMode::Design | SelectionMode::Strand => None,
-                SelectionMode::Grid => Some(self.designs[d_id as usize].get_basis()),
                 SelectionMode::Helix => {
                     let h_id = self.get_selected_group(app_state)?;
                     if let Some(grid_position) =
@@ -1489,7 +1547,6 @@ impl<R: DesignReader> Data<R> {
                     SelectionMode::Nucleotide | SelectionMode::Design | SelectionMode::Strand => {
                         None
                     }
-                    SelectionMode::Grid => Some(self.designs[d_id as usize].get_basis()),
                     SelectionMode::Helix => {
                         let h_id = phantom_element.helix_id;
                         self.designs[d_id as usize].get_helix_basis(h_id)
@@ -1513,13 +1570,17 @@ impl<R: DesignReader> Data<R> {
                 .designs
                 .get(*d_id as usize)
                 .and_then(|d| d.get_grid_basis(*g_id)),
-            Some(Selection::Helix(d_id, h_id)) => {
+            Some(Selection::Helix {
+                design_id,
+                helix_id,
+                ..
+            }) => {
                 if let Some(grid_position) =
-                    self.designs[*d_id as usize].get_helix_grid_position(*h_id)
+                    self.designs[*design_id as usize].get_helix_grid_position(*helix_id as u32)
                 {
-                    self.designs[*d_id as usize].get_grid_basis(grid_position.grid)
+                    self.designs[*design_id as usize].get_grid_basis(grid_position.grid)
                 } else {
-                    self.designs[*d_id as usize].get_helix_basis(*h_id)
+                    self.designs[*design_id as usize].get_helix_basis(*helix_id as u32)
                 }
             }
             Some(_) => Some(Rotor3::identity()),
@@ -1599,8 +1660,7 @@ impl<R: DesignReader> Data<R> {
             free_xover.target = FreeXoverEnd::Free(position);
             if let FreeXoverEnd::Nucl(origin_nucl) = free_xover.source {
                 if let Some((nucl, _)) = nucl.filter(|n| n.1 == free_xover.design_id) {
-                    if (nucl.helix != origin_nucl.helix || nucl.forward != origin_nucl.forward)
-                        && !self.designs[free_xover.design_id].both_prime3(origin_nucl, nucl)
+                    if !self.designs[free_xover.design_id].both_prime3(origin_nucl, nucl)
                         && !self.designs[free_xover.design_id].both_prime5(origin_nucl, nucl)
                     {
                         free_xover.target = FreeXoverEnd::Nucl(nucl);
@@ -1676,6 +1736,9 @@ impl<R: DesignReader> Data<R> {
                 helix_id,
                 bezier_control,
             }),
+            CenterOfSelection::BezierVertex { path_id, vertex_id } => {
+                Some(SceneElement::BezierVertex { path_id, vertex_id })
+            }
         }
     }
 
@@ -1687,13 +1750,17 @@ impl<R: DesignReader> Data<R> {
             .get_design()
             .and_then(|d_id| self.designs.get(d_id as usize))?;
         match selected_object {
-            Selection::Helix(d_id, h_id) => {
-                if let Some(pos) = design.get_helix_grid_position(*h_id) {
-                    Some(SceneElement::GridCircle(*d_id, pos.light()))
+            Selection::Helix {
+                design_id,
+                helix_id,
+                ..
+            } => {
+                if let Some(pos) = design.get_helix_grid_position(*helix_id as u32) {
+                    Some(SceneElement::GridCircle(*design_id, pos.light()))
                 } else {
                     Some(SceneElement::PhantomElement(PhantomElement {
-                        design_id: *d_id,
-                        helix_id: *h_id,
+                        design_id: *design_id,
+                        helix_id: *helix_id as u32,
                         forward: true,
                         bound: false,
                         position: 0,
@@ -1770,6 +1837,11 @@ impl<R: DesignReader> Data<R> {
                 helix_id,
                 bezier_control,
             }),
+            SceneElement::BezierVertex { vertex_id, path_id } => {
+                Some(CenterOfSelection::BezierVertex { path_id, vertex_id })
+            }
+            SceneElement::BezierTengent { .. } => None,
+            SceneElement::PlaneCorner { .. } => None,
         }
     }
 
@@ -1884,6 +1956,10 @@ impl<R: DesignReader> ControllerData for Data<R> {
             .map(|elt| self.element_to_selection(&elt, SelectionMode::Nucleotide))
             .unwrap_or(Selection::Nothing)
     }
+
+    fn init_free_xover(&mut self, nucl: Nucl, position: Vec3, design_id: usize) {
+        self.init_free_xover(nucl, position, design_id)
+    }
 }
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
@@ -1911,7 +1987,7 @@ struct Discs<'a, R: DesignReader> {
 }
 
 fn add_discs<R: DesignReader>(pos: GridPosition, discs: Discs<R>, level: DiscLevel) {
-    if let Some(grid) = discs.design.get_grid().get(pos.grid) {
+    if let Some(grid) = discs.design.get_grid().get(&pos.grid) {
         let new_disc_instances = match level {
             DiscLevel::Candidate => {
                 discs.candidates.push(pos);

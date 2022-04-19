@@ -21,14 +21,14 @@ use super::{
     WidgetRotationMode as RotationMode,
 };
 use crate::{PhySize, PhysicalPosition, WindowEvent};
-use ensnano_design::grid::{GridObject, GridPosition, HelixGridPosition};
-use ensnano_design::Nucl;
+use ensnano_design::grid::{GridId, GridObject, GridPosition, HelixGridPosition};
+use ensnano_design::{BezierPathId, BezierPlaneId, BezierVertex, BezierVertexId, Nucl};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::DesignReader;
 use ensnano_interactor::Selection;
 use ensnano_utils::winit::event::*;
 use std::cell::RefCell;
-use ultraviolet::{Rotor3, Vec3};
+use ultraviolet::{Rotor3, Vec2, Vec3};
 
 use super::AppState;
 
@@ -36,7 +36,7 @@ use camera::{CameraController, FiniteVec3};
 
 mod automata;
 pub use automata::WidgetTarget;
-use automata::{NormalState, State, Transition};
+use automata::{EventContext, NormalState, State, Transition};
 
 /// The effect that draging the mouse have
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -71,10 +71,11 @@ pub struct Controller<S: AppState> {
     bezier_curve_origin: Option<HelixGridPosition>,
 }
 
+#[derive(Clone, Debug)]
 pub enum Consequence {
     CameraMoved,
     CameraTranslated(f64, f64),
-    XoverAtempt(Nucl, Nucl, usize),
+    XoverAtempt(Nucl, Nucl, usize, bool),
     QuickXoverAttempt {
         nucl: Nucl,
         doubled: bool,
@@ -95,12 +96,11 @@ pub enum Consequence {
     Candidate(Option<super::SceneElement>),
     PivotElement(Option<super::SceneElement>),
     ElementSelected(Option<super::SceneElement>, bool),
-    InitFreeXover(Nucl, usize, Vec3),
     MoveFreeXover(Option<super::SceneElement>, Vec3),
     EndFreeXover,
     BuildHelix {
         design_id: u32,
-        grid_id: usize,
+        grid_id: GridId,
         position: isize,
         length: usize,
         x: isize,
@@ -112,7 +112,7 @@ pub enum Consequence {
     InitBuild(Vec<Nucl>),
     ObjectTranslated {
         object: GridObject,
-        grid: usize,
+        grid: GridId,
         x: isize,
         y: isize,
     },
@@ -120,12 +120,40 @@ pub enum Consequence {
     PivotCenter,
     CheckXovers,
     AlignWithStereo,
+    CreateBezierVertex {
+        vertex: BezierVertex,
+        path: Option<BezierPathId>,
+    },
+    MoveBezierVertex {
+        x: f32,
+        y: f32,
+        path_id: BezierPathId,
+        vertex_id: usize,
+    },
+    ReleaseBezierVertex,
+    MoveBezierCorner {
+        plane_id: BezierPlaneId,
+        moving_corner: Vec2,
+        original_corner_position: Vec2,
+        fixed_corner_position: Vec2,
+    },
+    ReleaseBezierCorner,
+    ReleaseBezierTengent,
+    MoveBezierTengent {
+        vertex_id: BezierVertexId,
+        tengent_in: bool,
+        full_symetry_other: bool,
+        new_vector: Vec2,
+    },
 }
 
 enum TransistionConsequence {
     Nothing,
-    InitMovement,
-    EndMovement,
+    InitCameraMovement,
+    EndCameraMovement,
+    InitFreeXover(Nucl, usize, Vec3),
+    StopRotatingPivot,
+    StartRotatingPivot,
 }
 
 impl<S: AppState> Controller<S> {
@@ -230,46 +258,50 @@ impl<S: AppState> Controller<S> {
             if ctrl(&self.current_modifiers) {
                 self.camera_controller.update_stereographic_zoom(delta);
                 Transition::consequence(Consequence::CameraMoved)
-            } else if self.current_modifiers.shift() {
-                self.state.borrow_mut().notify_scroll();
-                let element = pixel_reader.set_selected_id(position);
-                if let Some(builder) = app_state.get_strand_builders().get(0) {
-                    let init_position = builder.get_moving_end_nucl().position;
-                    let delta = match delta {
-                        MouseScrollDelta::LineDelta(_, y) => y.signum() as isize,
-                        MouseScrollDelta::PixelDelta(pos) => pos.y.signum() as isize,
-                    };
-                    Transition::consequence(Consequence::Building(init_position + delta))
-                } else if let Some(nucl) = self
-                    .data
-                    .borrow()
-                    .can_start_builder(self.state.borrow().element_being_selected())
+            /*} else if self.current_modifiers.shift() {
+            self.state.borrow_mut().notify_scroll();
+            let element = pixel_reader.set_selected_id(position);
+            if let Some(builder) = app_state.get_strand_builders().get(0) {
+                let init_position = builder.get_moving_end_nucl().position;
+                let delta = match delta {
+                    MouseScrollDelta::LineDelta(_, y) => y.signum() as isize,
+                    MouseScrollDelta::PixelDelta(pos) => pos.y.signum() as isize,
+                };
+                Transition::consequence(Consequence::Building(init_position + delta))
+            } else if let Some(nucl) = self
+                .data
+                .borrow()
+                .can_start_builder(self.state.borrow().element_being_selected())
+            {
+                Transition::init_building(vec![nucl], false)
+            } else if let Selection::Nucleotide(_, nucl) =
+                self.data.borrow().element_to_selection(&element)
+            {
+                Transition::init_building(vec![nucl], false)
+            } else if let Selection::Xover(_, xover_id) =
+                self.data.borrow().element_to_selection(&element)
+            {
+                if let Some((n1, n2)) =
+                    app_state.get_design_reader().get_xover_with_id(xover_id)
                 {
-                    Transition::init_building(vec![nucl], false)
-                } else if let Selection::Nucleotide(_, nucl) =
-                    self.data.borrow().element_to_selection(&element)
-                {
-                    Transition::init_building(vec![nucl], false)
-                } else if let Selection::Xover(_, xover_id) =
-                    self.data.borrow().element_to_selection(&element)
-                {
-                    if let Some((n1, n2)) =
-                        app_state.get_design_reader().get_xover_with_id(xover_id)
-                    {
-                        Transition::init_building(vec![n1, n2], false)
-                    } else {
-                        self.camera_controller.process_scroll(
-                            delta,
-                            mouse_x as f32,
-                            mouse_y as f32,
-                        );
-                        Transition::consequence(Consequence::CameraMoved)
-                    }
+                    Transition::init_building(vec![n1, n2], false)
                 } else {
-                    self.camera_controller
-                        .process_scroll(delta, mouse_x as f32, mouse_y as f32);
+                    self.camera_controller.process_scroll(
+                        delta,
+                        mouse_x as f32,
+                        mouse_y as f32,
+                    );
                     Transition::consequence(Consequence::CameraMoved)
                 }
+            } else {
+                self.camera_controller
+                    .process_scroll(delta, mouse_x as f32, mouse_y as f32);
+                Transition::consequence(Consequence::CameraMoved)
+            }
+
+                * The above code was used to move the current strand builder with the mouse
+                * wheel
+                */
             } else {
                 self.camera_controller
                     .process_scroll(delta, mouse_x as f32, mouse_y as f32);
@@ -314,9 +346,10 @@ impl<S: AppState> Controller<S> {
             };
             Transition::consequence(csq)
         } else {
-            self.state
-                .borrow_mut()
-                .input(event, position, &self, pixel_reader, app_state)
+            self.state.borrow_mut().input(
+                event,
+                EventContext::new(self, app_state, pixel_reader, position),
+            )
         };
 
         if let Some(state) = transition.new_state {
@@ -333,8 +366,17 @@ impl<S: AppState> Controller<S> {
     fn transition_consequence(&mut self, csq: TransistionConsequence) {
         match csq {
             TransistionConsequence::Nothing => (),
-            TransistionConsequence::InitMovement => self.init_movement(),
-            TransistionConsequence::EndMovement => self.end_movement(),
+            TransistionConsequence::InitCameraMovement => self.init_movement(),
+            TransistionConsequence::EndCameraMovement => self.end_movement(),
+            TransistionConsequence::InitFreeXover(nucl, d_id, position) => {
+                self.data.borrow_mut().init_free_xover(nucl, position, d_id)
+            }
+            TransistionConsequence::StartRotatingPivot => {
+                self.data.borrow_mut().notify_rotating_pivot()
+            }
+            TransistionConsequence::StopRotatingPivot => {
+                self.data.borrow_mut().stop_rotating_pivot()
+            }
         }
     }
 
@@ -476,4 +518,5 @@ pub(super) trait Data {
     fn stop_rotating_pivot(&mut self);
     fn update_handle_colors(&mut self, colors: HandleColors);
     fn element_to_selection(&self, element: &Option<SceneElement>) -> Selection;
+    fn init_free_xover(&mut self, nucl: Nucl, position: Vec3, design_id: usize);
 }

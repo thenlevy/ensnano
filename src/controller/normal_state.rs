@@ -22,7 +22,7 @@ use super::download_intervals::DownloadIntervals;
 use super::messages::CHANGING_DNA_PARAMETERS_WARNING;
 use super::*;
 use ensnano_design::group_attributes::GroupPivot;
-use ensnano_design::{Nucl, Parameters};
+use ensnano_design::{grid::GridId, Parameters};
 use ensnano_interactor::{graphics::FogParameters, HyperboloidOperation};
 
 /// User is interacting with graphical components.
@@ -144,6 +144,17 @@ impl State for NormalState {
                                 orientation,
                             },
                         ));
+                    }
+                    self
+                }
+                Action::AddBezierPlane => {
+                    if let Some((position, orientation)) = main_state.get_grid_creation_position() {
+                        main_state.apply_operation(DesignOperation::AddBezierPlane {
+                            desc: ensnano_design::BezierPlaneDescriptor {
+                                position,
+                                orientation,
+                            },
+                        })
                     }
                     self
                 }
@@ -302,6 +313,7 @@ impl NormalState {
                 position,
                 orientation,
                 invisible: false,
+                bezier_vertex: None,
             }))
         } else {
             println!("Could not get position and orientation for new grid");
@@ -464,7 +476,8 @@ pub enum Action {
         doubled: bool,
     },
     FlipSplitViews,
-    Twist(usize),
+    Twist(GridId),
     SetDnaParameters(Parameters),
     SetExpandInsertions(bool),
+    AddBezierPlane,
 }

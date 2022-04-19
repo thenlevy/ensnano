@@ -53,6 +53,11 @@ type ViewPtr = Rc<RefCell<View>>;
 type DataPtr<R> = Rc<RefCell<Data<R>>>;
 type CameraPtr = Rc<RefCell<Camera>>;
 
+const PNG_SIZE: PhySize = PhySize {
+    width: 256 * 32,
+    height: 256 * 10,
+};
+
 /// A Flatscene handles one design at a time
 pub struct FlatScene<S: AppState> {
     /// Handle the data to send to the GPU
@@ -154,7 +159,7 @@ impl<S: AppState> FlatScene<S> {
     /// Draw the view of the currently selected design
     fn draw_view(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
         if let Some(view) = self.view.get(self.selected_design) {
-            view.borrow_mut().draw(encoder, target, self.area);
+            view.borrow_mut().draw(encoder, target, None, None);
         }
     }
 
@@ -278,7 +283,7 @@ impl<S: AppState> FlatScene<S> {
                 .set_paste_candidate(candidate.map(|n| n.to_real())),
             Consequence::NewCandidate(candidate) => {
                 let phantom = candidate.map(|n| PhantomElement {
-                    position: n.position as i32,
+                    position: n.flat_position as i32 + n.helix.segment_left.unwrap_or(0) as i32,
                     helix_id: n.helix.real as u32,
                     forward: n.forward,
                     bound: false,
@@ -381,7 +386,10 @@ impl<S: AppState> FlatScene<S> {
                 pivots,
                 translation,
             } => {
-                let pivots = pivots.into_iter().map(|n| n.to_real()).collect();
+                let pivots = pivots
+                    .into_iter()
+                    .map(|n| (n.to_real(), n.helix.segment_idx))
+                    .collect();
                 self.requests.lock().unwrap().apply_design_operation(
                     DesignOperation::SnapHelices {
                         pivots,
@@ -447,10 +455,24 @@ impl<S: AppState> FlatScene<S> {
                 .requests
                 .lock()
                 .unwrap()
-                .new_candidates(vec![Selection::Helix(
-                    self.selected_design as u32,
-                    flat_helix.real as u32,
-                )]),
+                .new_candidates(vec![Selection::Helix {
+                    design_id: self.selected_design as u32,
+                    helix_id: flat_helix.real,
+                    segment_id: flat_helix.segment_idx,
+                }]),
+            Consequence::PngExport(corner1, corner2) => {
+                let glob_png = Globals::from_selection_rectangle(corner1, corner2);
+                use chrono::{Timelike, Utc};
+                let now = Utc::now();
+                let hour = now.hour();
+                let name = format!(
+                    "export_2d_{:02}_{:02}_{:02}.png",
+                    hour,
+                    now.minute(),
+                    now.second()
+                );
+                self.export_png(&name, glob_png);
+            }
             _ => (),
         }
     }
@@ -509,6 +531,140 @@ impl<S: AppState> FlatScene<S> {
         self.view[self.selected_design]
             .borrow_mut()
             .center_split(n1, n2);
+    }
+
+    fn create_png_export_texture(
+        &self,
+        device: &Device,
+        size: wgpu::Extent3d,
+    ) -> (wgpu::Texture, wgpu::TextureView) {
+        let desc = wgpu::TextureDescriptor {
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_SRC,
+            label: Some("desc"),
+        };
+        let texture_view_descriptor = wgpu::TextureViewDescriptor {
+            label: Some("texture_view_descriptor"),
+            format: Some(wgpu::TextureFormat::Bgra8UnormSrgb),
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            aspect: wgpu::TextureAspect::All,
+            base_mip_level: 0,
+            mip_level_count: None,
+            base_array_layer: 0,
+            array_layer_count: None,
+        };
+
+        let texture = device.create_texture(&desc);
+        let view = texture.create_view(&texture_view_descriptor);
+        (texture, view)
+    }
+
+    fn export_png(&self, png_name: &str, glob: Globals) {
+        let device = self.device.as_ref();
+        let queue = self.queue.as_ref();
+        println!("export to {png_name}");
+        use ensnano_utils::BufferDimensions;
+        use std::io::Write;
+
+        let size = wgpu::Extent3d {
+            width: PNG_SIZE.width,
+            height: PNG_SIZE.height,
+            depth_or_array_layers: 1,
+        };
+
+        let (texture, texture_view) = self.create_png_export_texture(device, size);
+
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("3D Png export"),
+        });
+
+        self.view[0]
+            .borrow_mut()
+            .draw(&mut encoder, &texture_view, Some(PNG_SIZE), Some(glob));
+
+        // create a buffer and fill it with the texture
+        let extent = wgpu::Extent3d {
+            width: size.width,
+            height: size.height,
+            depth_or_array_layers: 1,
+        };
+        let buffer_dimensions =
+            BufferDimensions::new(extent.width as usize, extent.height as usize);
+        let buf_size = buffer_dimensions.padded_bytes_per_row * buffer_dimensions.height;
+        let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            size: buf_size as u64,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+            label: Some("staging_buffer"),
+        });
+        let buffer_copy_view = wgpu::ImageCopyBuffer {
+            buffer: &staging_buffer,
+            layout: wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: (buffer_dimensions.padded_bytes_per_row as u32)
+                    .try_into()
+                    .ok(),
+                rows_per_image: None,
+            },
+        };
+        let origin = wgpu::Origin3d { x: 0, y: 0, z: 0 };
+        let texture_copy_view = wgpu::ImageCopyTexture {
+            texture: &texture,
+            mip_level: 0,
+            origin,
+            aspect: Default::default(),
+        };
+
+        encoder.copy_texture_to_buffer(texture_copy_view, buffer_copy_view, extent);
+        queue.submit(Some(encoder.finish()));
+
+        let buffer_slice = staging_buffer.slice(..);
+        let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
+        device.poll(wgpu::Maintain::Wait);
+
+        let pixels = async {
+            if let Ok(()) = buffer_future.await {
+                let pixels_slice = buffer_slice.get_mapped_range();
+                let mut pixels = Vec::with_capacity((size.height * size.width) as usize);
+                for chunck in pixels_slice.chunks(buffer_dimensions.padded_bytes_per_row) {
+                    for chunk in chunck.chunks(4) {
+                        // convert Bgra to Rgba
+                        pixels.push(chunk[2]);
+                        pixels.push(chunk[1]);
+                        pixels.push(chunk[0]);
+                        pixels.push(chunk[3]);
+                    }
+                }
+                drop(pixels_slice);
+                staging_buffer.unmap();
+                pixels
+            } else {
+                panic!("could not read fake texture");
+            }
+        };
+        let pixels = futures::executor::block_on(pixels);
+        let mut png_encoder = png::Encoder::new(
+            std::fs::File::create(png_name).unwrap(),
+            PNG_SIZE.width,
+            PNG_SIZE.height,
+        );
+        png_encoder.set_depth(png::BitDepth::Eight);
+        png_encoder.set_color(png::ColorType::Rgba);
+
+        let mut png_writer = png_encoder
+            .write_header()
+            .unwrap()
+            .into_stream_writer_with_size(buffer_dimensions.unpadded_bytes_per_row)
+            .unwrap();
+
+        png_writer.write_all(pixels.as_slice()).unwrap();
+        png_writer.finish().unwrap();
     }
 }
 
@@ -633,7 +789,7 @@ pub trait Requests {
     fn attempt_paste(&mut self, nucl: Option<Nucl>);
     fn request_centering_on_nucl(&mut self, nucl: Nucl, design_id: usize);
     fn update_opperation(&mut self, operation: Arc<dyn Operation>);
-    fn set_isometry(&mut self, helix: usize, isometry: Isometry2);
+    fn set_isometry(&mut self, helix: usize, segment_idx: usize, isometry: Isometry2);
     fn set_visibility_helix(&mut self, helix: usize, visibility: bool);
     fn flip_group(&mut self, helix: usize);
     fn suspend_op(&mut self);

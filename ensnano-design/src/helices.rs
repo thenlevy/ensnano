@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::design_operations::ErrOperation;
-use crate::grid::GridAwareTranslation;
+use crate::grid::*;
 
 use super::curves::*;
 use super::{
@@ -25,7 +25,7 @@ use super::{
     grid::{Grid, GridData, HelixGridPosition},
     scadnano::*,
     utils::*,
-    Nucl, Parameters,
+    BezierPathId, Nucl, Parameters,
 };
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -157,7 +157,7 @@ impl<'a> HelicesMut<'a> {
 
 impl<'a> AsRef<Helices> for HelicesMut<'a> {
     fn as_ref(&self) -> &Helices {
-        &self.source
+        self.source
     }
 }
 
@@ -197,6 +197,10 @@ pub struct Helix {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub isometry2d: Option<Isometry2>,
 
+    /// Additional segments for representing the helix in 2d
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub additonal_isometries: Vec<AdditionalHelix2D>,
+
     #[serde(default = "Vec2::one")]
     /// Symmetry applied inside the representation of the helix in 2d
     pub symmetry: Vec2,
@@ -225,6 +229,9 @@ pub struct Helix {
     /// to its roll
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub support_helix: Option<usize>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) path_id: Option<BezierPathId>,
 }
 
 impl Helix {
@@ -257,6 +264,7 @@ impl Helix {
             orientation,
             grid_position: None,
             isometry2d: None,
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             visible: true,
             roll: 0f32,
@@ -267,6 +275,7 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         }
     }
 
@@ -328,7 +337,7 @@ impl Helix {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
             grid_position: Some(HelixGridPosition {
-                grid: *grid_id,
+                grid: GridId::FreeGrid(*grid_id),
                 x,
                 y,
                 axis_pos: 0,
@@ -337,6 +346,7 @@ impl Helix {
             visible: true,
             roll: 0f32,
             isometry2d: Some(isometry2d),
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             locked_for_simulations: false,
             curve: None,
@@ -345,6 +355,7 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         })
     }
 
@@ -380,6 +391,7 @@ impl Helix {
             position: origin,
             orientation,
             isometry2d: None,
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             grid_position: None,
             visible: true,
@@ -391,15 +403,17 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         }
     }
 
-    pub fn new_on_grid(grid: &Grid, x: isize, y: isize, g_id: usize) -> Self {
+    pub fn new_on_grid(grid: &Grid, x: isize, y: isize, g_id: GridId) -> Self {
         let position = grid.position_helix(x, y);
         Self {
             position,
             orientation: grid.orientation,
             isometry2d: None,
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             grid_position: Some(HelixGridPosition {
                 grid: g_id,
@@ -417,6 +431,7 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         }
     }
 
@@ -426,6 +441,7 @@ impl Helix {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
             isometry2d: None,
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             grid_position: None,
             visible: true,
@@ -437,6 +453,7 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         }
     }
 
@@ -459,8 +476,8 @@ impl Helix {
 
     pub fn translate_bezier_point(
         &mut self,
-        bezier_point: BezierControlPoint,
-        translation: GridAwareTranslation,
+        _bezier_point: BezierControlPoint,
+        _translation: GridAwareTranslation,
     ) -> Result<(), ErrOperation> {
         /*
         let point = match bezier_point {
@@ -520,6 +537,7 @@ impl Helix {
             position,
             orientation: Rotor3::identity(),
             isometry2d: None,
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             grid_position: Some(grid_pos_start),
             visible: true,
@@ -531,8 +549,50 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         };
         // we can use a fake cache because we don't need it for bezier curves.
+        let mut fake_cache = Default::default();
+        grid_manager.update_curve(&mut ret, &mut fake_cache);
+        Ok(ret)
+    }
+
+    pub fn new_on_bezier_path(
+        grid_manager: &GridData,
+        grid_pos: HelixGridPosition,
+        path_id: BezierPathId,
+    ) -> Result<Self, ErrOperation> {
+        let translation = (|| {
+            let grid = grid_manager.grids.get(&grid_pos.grid)?;
+            let position = grid.position_helix_in_grid_coordinates(grid_pos.x, grid_pos.y);
+            Some(position)
+        })();
+
+        let curve = translation
+            .map(|translation| CurveDescriptor::TranslatedPath {
+                path_id,
+                translation,
+            })
+            .map(Arc::new);
+
+        let mut ret = Self {
+            position: Vec3::zero(),
+            orientation: Rotor3::identity(),
+            isometry2d: None,
+            additonal_isometries: Vec::new(),
+            symmetry: Vec2::one(),
+            grid_position: Some(grid_pos),
+            visible: true,
+            roll: 0f32,
+            locked_for_simulations: false,
+            curve,
+            instanciated_curve: None,
+            instanciated_descriptor: None,
+            delta_bbpt: 0.,
+            initial_nt_index: 0,
+            support_helix: None,
+            path_id: Some(path_id),
+        };
         let mut fake_cache = Default::default();
         grid_manager.update_curve(&mut ret, &mut fake_cache);
         Ok(ret)
@@ -573,15 +633,11 @@ impl Helix {
 
     fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32, forward: bool) -> Vec3 {
         if let Some(curve) = self.instanciated_curve.as_ref() {
-            if let Some(point) = curve.as_ref().nucl_pos(n, theta as f64, p) {
+            if let Some(point) = curve.as_ref().nucl_pos(n, forward, theta as f64, p) {
                 return dvec_to_vec(point);
             }
         }
-        let delta_inclination = if forward {
-            p.inclination / 2.
-        } else {
-            -p.inclination / 2.
-        };
+        let delta_inclination = if forward { 0.0 } else { -p.inclination };
         let mut ret = Vec3::new(
             n as f32 * p.z_step - delta_inclination,
             theta.sin() * p.helix_radius,
@@ -615,6 +671,7 @@ impl Helix {
             roll: 0.,
             visible: true,
             isometry2d: None,
+            additonal_isometries: Vec::new(),
             symmetry: Vec2::one(),
             locked_for_simulations: false,
             curve: None,
@@ -623,6 +680,7 @@ impl Helix {
             delta_bbpt: 0.,
             initial_nt_index: 0,
             support_helix: None,
+            path_id: None,
         }
     }
 
@@ -839,4 +897,16 @@ impl<'a> Axis<'a> {
             None
         }
     }
+}
+
+/// An additional 2d helix used to represent an helix in the 2d view
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdditionalHelix2D {
+    /// The minimum nucleotide index of the helix.
+    /// Nucleotides with smalle indices are represented by the previous helix
+    pub left: isize,
+    /// The Isomettry to be applied after applying the isometry of the main helix 2d representation
+    /// to obtain this segment
+    pub additional_isometry: Option<Isometry2>,
+    pub additional_symmetry: Option<Vec2>,
 }
