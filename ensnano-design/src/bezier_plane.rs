@@ -387,6 +387,13 @@ fn path_to_curve_descriptor(
                 vector_out: vec,
             },
         ])
+    } else if source_path.vertices.len() == 1 {
+        let pos_first = position(&source_path.vertices[0])?;
+        Some(vec![BezierEndCoordinates {
+            position: pos_first,
+            vector_in: f32::NAN * Vec3::one(),
+            vector_out: f32::NAN * Vec3::one(),
+        }])
     } else {
         None
     }?;
@@ -436,6 +443,7 @@ impl InstanciatedPath {
         });
         let curve_2d = descriptor_2d
             .clone()
+            .filter(|d| d.ends.len() >= 2) // Do not try to create a curve if there is only one vertex
             .map(|desc| Curve::new(desc, parameters));
         Self {
             source_planes,
