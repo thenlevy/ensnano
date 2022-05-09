@@ -46,10 +46,7 @@ mod helices;
 pub use helices::*;
 
 mod curves;
-pub use curves::{
-    nb_turn_per_100_nt_to_omega, twist_to_omega, AbscissaConverter, BezierControlPoint, BezierEnd,
-    CubicBezierConstructor, CubicBezierControlPoint, CurveCache, CurveDescriptor, Twist,
-};
+pub use curves::*;
 mod collection;
 pub mod design_operations;
 pub mod utils;

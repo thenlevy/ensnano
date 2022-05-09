@@ -219,13 +219,13 @@ impl super::Curved for CubicBezier {
 /// The process to derive a curve from `ends` is decribed in [BezierEnd](The documentation on `BezierEnd`).
 #[derive(Clone, Debug)]
 pub(crate) struct InstanciatedPiecewiseBeizer {
-    pub ends: Vec<InstanciatedBeizerEnd>,
+    pub ends: Vec<BezierEndCoordinates>,
     pub t_min: Option<f64>,
     pub t_max: Option<f64>,
 }
 
 #[derive(Clone, Debug)]
-pub struct InstanciatedBeizerEnd {
+pub struct BezierEndCoordinates {
     pub position: Vec3,
     pub vector_in: Vec3,
     pub vector_out: Vec3,

@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::collection::HasMap;
-use super::curves::{Curve, InstanciatedBeizerEnd, InstanciatedPiecewiseBeizer};
+use super::curves::{BezierEndCoordinates, Curve, InstanciatedPiecewiseBeizer};
 use super::Collection;
 use super::Parameters;
 use crate::grid::*;
@@ -81,7 +81,7 @@ impl BezierPlaneDescriptor {
         Some(BezierPlaneIntersection { x, y, depth })
     }
 
-    fn position(&self, vec: Vec2) -> Vec3 {
+    pub fn space_position_of_point2d(&self, vec: Vec2) -> Vec3 {
         self.position
             + Vec3::unit_z().rotated_by(self.orientation) * vec.x
             + Vec3::unit_y().rotated_by(self.orientation) * vec.y
@@ -327,18 +327,18 @@ fn path_to_curve_descriptor(
                 let pos_to = position(v_to)?;
                 let vector_in = if let Some(position_in) = v.position_in {
                     let plane = source_planes.get(&v.plane_id)?;
-                    pos - plane.position(position_in)
+                    pos - plane.space_position_of_point2d(position_in)
                 } else {
                     (pos_to - pos_from) * DEFAULT_BEZIER_TENGENT_NORM
                 };
                 let vector_out = if let Some(position_out) = v.position_out {
                     let plane = source_planes.get(&v.plane_id)?;
-                    plane.position(position_out) - pos
+                    plane.space_position_of_point2d(position_out) - pos
                 } else {
                     (pos_to - pos_from) * DEFAULT_BEZIER_TENGENT_NORM
                 };
 
-                Some(InstanciatedBeizerEnd {
+                Some(BezierEndCoordinates {
                     position: pos,
                     vector_in,
                     vector_out,
@@ -350,7 +350,7 @@ fn path_to_curve_descriptor(
                 let second_point = bezier_points.get(0)?;
                 let pos = position(&source_path.vertices[0])?;
                 let control = second_point.position - second_point.vector_in;
-                InstanciatedBeizerEnd {
+                BezierEndCoordinates {
                     position: pos,
                     vector_out: (control - pos) / 2.,
                     vector_in: (control - pos) / 2.,
@@ -362,7 +362,7 @@ fn path_to_curve_descriptor(
                 // Ok to unwrap because vertices has length > 2
                 let pos = position(source_path.vertices.last().unwrap())?;
                 let control = second_to_last_point.position + second_to_last_point.vector_out;
-                InstanciatedBeizerEnd {
+                BezierEndCoordinates {
                     position: pos,
                     vector_out: (pos - control) / 2.,
                     vector_in: (pos - control) / 2.,
@@ -376,12 +376,12 @@ fn path_to_curve_descriptor(
         let pos_last = position(&source_path.vertices[1])?;
         let vec = (pos_last - pos_first) / 3.;
         Some(vec![
-            InstanciatedBeizerEnd {
+            BezierEndCoordinates {
                 position: pos_first,
                 vector_in: vec,
                 vector_out: vec,
             },
-            InstanciatedBeizerEnd {
+            BezierEndCoordinates {
                 position: pos_last,
                 vector_in: vec,
                 vector_out: vec,
@@ -465,7 +465,7 @@ impl InstanciatedPath {
             || !Arc::ptr_eq(&self.source_path, source_path)
     }
 
-    pub fn bezier_controls(&self) -> &[InstanciatedBeizerEnd] {
+    pub fn bezier_controls(&self) -> &[BezierEndCoordinates] {
         self.curve_descriptor_2d
             .as_ref()
             .map(|c| c.ends.as_slice())

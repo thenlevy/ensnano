@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::instances_drawer::*;
-use ensnano_design::ultraviolet;
+use ensnano_design::{ultraviolet, BezierPlaneId};
 use ensnano_utils::wgpu;
 use ultraviolet::{Mat4, Rotor3, Vec2, Vec3};
 use wgpu::{include_spirv, Device};
@@ -31,6 +31,7 @@ pub struct Sheet2D {
     pub max_x: f32,
     pub max_y: f32,
     pub graduation_unit: f32,
+    pub plane_id: BezierPlaneId,
 }
 
 #[repr(C)]
@@ -75,6 +76,12 @@ impl Sheet2D {
             Vec2::new(self.min_x, self.max_y),
             Vec2::new(self.max_x, self.max_y),
         ]
+    }
+
+    pub fn space_position_of_point2d(&self, vec: Vec2) -> Vec3 {
+        self.position
+            + Vec3::unit_z().rotated_by(self.orientation) * vec.x
+            + Vec3::unit_y().rotated_by(self.orientation) * vec.y
     }
 }
 

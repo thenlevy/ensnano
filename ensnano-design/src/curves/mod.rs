@@ -36,9 +36,12 @@ mod torus;
 mod twist;
 use super::GridId;
 use crate::grid::*;
+pub(crate) use bezier::InstanciatedPiecewiseBeizer;
 use bezier::TranslatedPiecewiseBezier;
-pub use bezier::{BezierControlPoint, BezierEnd, CubicBezierConstructor, CubicBezierControlPoint};
-pub(crate) use bezier::{InstanciatedBeizerEnd, InstanciatedPiecewiseBeizer};
+pub use bezier::{
+    BezierControlPoint, BezierEnd, BezierEndCoordinates, CubicBezierConstructor,
+    CubicBezierControlPoint,
+};
 pub use sphere_like_spiral::SphereLikeSpiral;
 use std::collections::HashMap;
 pub use supertwist::SuperTwist;
@@ -969,7 +972,7 @@ impl InstanciatedPiecewiseBezierDescriptor {
                     let pos_from = grid_reader.position(v_from.position);
                     let pos = grid_reader.position(v.position);
                     let pos_to = grid_reader.position(v_to.position);
-                    InstanciatedBeizerEnd {
+                    BezierEndCoordinates {
                         position: pos,
                         vector_in: (pos_to - pos_from) / 6.,
                         vector_out: (pos_to - pos_from) / 6.,
@@ -980,7 +983,7 @@ impl InstanciatedPiecewiseBezierDescriptor {
                 let second_point = &bezier_points[0];
                 let pos = grid_reader.position(points[0].position);
                 let control = second_point.position - second_point.vector_in;
-                InstanciatedBeizerEnd {
+                BezierEndCoordinates {
                     position: pos,
                     vector_out: (control - pos) / 2.,
                     vector_in: (control - pos) / 2.,
@@ -995,7 +998,7 @@ impl InstanciatedPiecewiseBezierDescriptor {
                 let pos = grid_reader.position(points.last().unwrap().position);
 
                 let control = second_to_last_point.position + second_to_last_point.vector_out;
-                InstanciatedBeizerEnd {
+                BezierEndCoordinates {
                     position: pos,
                     vector_out: (pos - control) / 2.,
                     vector_in: (pos - control) / 2.,
@@ -1008,12 +1011,12 @@ impl InstanciatedPiecewiseBezierDescriptor {
             let pos_last = grid_reader.position(points[1].position);
             let vec = (pos_last - pos_first) / 3.;
             vec![
-                InstanciatedBeizerEnd {
+                BezierEndCoordinates {
                     position: pos_first,
                     vector_in: vec,
                     vector_out: vec,
                 },
-                InstanciatedBeizerEnd {
+                BezierEndCoordinates {
                     position: pos_last,
                     vector_in: vec,
                     vector_out: vec,
