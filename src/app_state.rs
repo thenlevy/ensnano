@@ -40,6 +40,7 @@ use crate::apply_update;
 use crate::controller::SimulationRequest;
 use address_pointer::AddressPointer;
 use ensnano_design::Design;
+use ensnano_interactor::consts::APP_NAME;
 use ensnano_interactor::{DesignOperation, RigidBodyConstants, SuggestionParameters};
 use ensnano_organizer::GroupId;
 
@@ -93,10 +94,7 @@ impl Default for AppState {
 impl AppState {
     pub fn with_preffered_parameters() -> Result<Self, confy::ConfyError> {
         let mut state: AppState_ = Default::default();
-        state.parameters = confy::load(
-            ensnano_interactor::consts::APP_NAME,
-            ensnano_interactor::consts::APP_NAME,
-        )?;
+        state.parameters = confy::load(APP_NAME, APP_NAME)?;
         let mut ret = AppState(AddressPointer::new(state));
         log::trace!("call from default");
         // Synchronize all the pointers.
@@ -223,6 +221,7 @@ impl AppState {
         let design_interactor = DesignInteractor::new_with_path(path)?;
         Ok(Self(AddressPointer::new(AppState_ {
             design: AddressPointer::new(design_interactor),
+            parameters: confy::load(APP_NAME, APP_NAME).unwrap_or_default(),
             ..Default::default()
         }))
         .updated())
@@ -446,11 +445,7 @@ impl AppState {
     {
         let mut new_state = (*self.0).clone();
         update(&mut new_state.parameters);
-        if let Err(e) = confy::store(
-            ensnano_interactor::consts::APP_NAME,
-            ensnano_interactor::consts::APP_NAME,
-            new_state.parameters.clone(),
-        ) {
+        if let Err(e) = confy::store(APP_NAME, APP_NAME, new_state.parameters.clone()) {
             log::error!("Could not save preferences {:?}", e);
         };
         Self(AddressPointer::new(new_state))
