@@ -39,7 +39,6 @@ mod transitions;
 use crate::apply_update;
 use crate::controller::SimulationRequest;
 use address_pointer::AddressPointer;
-use derivative::Derivative;
 use ensnano_design::Design;
 use ensnano_interactor::{DesignOperation, RigidBodyConstants, SuggestionParameters};
 use ensnano_organizer::GroupId;
@@ -88,6 +87,24 @@ impl Default for AppState {
         let mut with_forgot_update = ret.0.clone_inner();
         with_forgot_update.updated_once = false;
         AppState(AddressPointer::new(with_forgot_update))
+    }
+}
+
+impl AppState {
+    pub fn with_preffered_parameters() -> Result<Self, confy::ConfyError> {
+        let mut state: AppState_ = Default::default();
+        state.parameters = confy::load(
+            ensnano_interactor::consts::APP_NAME,
+            ensnano_interactor::consts::APP_NAME,
+        )?;
+        let mut ret = AppState(AddressPointer::new(state));
+        log::trace!("call from default");
+        // Synchronize all the pointers.
+        // This truns updated_once to true so we must set it back to false afterwards
+        ret = ret.updated();
+        let mut with_forgot_update = ret.0.clone_inner();
+        with_forgot_update.updated_once = false;
+        Ok(AppState(AddressPointer::new(with_forgot_update)))
     }
 }
 
@@ -429,6 +446,13 @@ impl AppState {
     {
         let mut new_state = (*self.0).clone();
         update(&mut new_state.parameters);
+        if let Err(e) = confy::store(
+            ensnano_interactor::consts::APP_NAME,
+            ensnano_interactor::consts::APP_NAME,
+            new_state.parameters.clone(),
+        ) {
+            log::error!("Could not save preferences {:?}", e);
+        };
         Self(AddressPointer::new(new_state))
     }
 
@@ -569,8 +593,9 @@ impl AppState {
     }
 }
 
-#[derive(Derivative)]
-#[derivative(Clone, Default)]
+use serde::{Deserialize, Serialize};
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default)] // workarround for https://github.com/rust-cli/confy/issues/34
 struct AppStateParameters {
     suggestion_parameters: SuggestionParameters,
     check_xover_paramters: CheckXoversParameter,
@@ -578,12 +603,29 @@ struct AppStateParameters {
     show_stereography: bool,
     rendering_mode: RenderingMode,
     background3d: Background3D,
-    #[derivative(Default(value = "true"))]
     thick_helices: bool,
     scroll_sensitivity: f32,
     inverted_y_scroll: bool,
     show_h_bonds: bool,
     show_bezier_paths: bool,
+}
+
+impl Default for AppStateParameters {
+    fn default() -> Self {
+        Self {
+            suggestion_parameters: Default::default(),
+            check_xover_paramters: Default::default(),
+            follow_stereography: Default::default(),
+            show_stereography: Default::default(),
+            rendering_mode: Default::default(),
+            background3d: Default::default(),
+            thick_helices: true,
+            scroll_sensitivity: 0.0,
+            inverted_y_scroll: false,
+            show_h_bonds: false,
+            show_bezier_paths: false,
+        }
+    }
 }
 
 #[derive(Clone, Default)]

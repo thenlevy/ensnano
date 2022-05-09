@@ -17,9 +17,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use iced_winit::winit;
+use serde::{Deserialize, Serialize};
 use ultraviolet::Vec3;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
-#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+#[derive(Clone, Debug, PartialEq, Eq, Copy, Serialize, Deserialize)]
 pub enum RenderingMode {
     Normal,
     Cartoon,
@@ -33,7 +34,7 @@ impl Default for RenderingMode {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+#[derive(Clone, Debug, PartialEq, Eq, Copy, Serialize, Deserialize)]
 pub enum Background3D {
     Sky,
     White,

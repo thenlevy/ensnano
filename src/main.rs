@@ -963,7 +963,13 @@ struct MainStateConstructor {
 use controller::SaveDesignError;
 impl MainState {
     fn new(constructor: MainStateConstructor) -> Self {
-        let app_state = AppState::default();
+        let app_state = match AppState::with_preffered_parameters() {
+            Ok(state) => state,
+            Err(e) => {
+                log::error!("Could not load preferences {e}");
+                Default::default()
+            }
+        };
         Self {
             app_state: app_state.clone(),
             pending_actions: VecDeque::new(),

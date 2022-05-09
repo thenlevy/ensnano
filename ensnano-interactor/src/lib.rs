@@ -26,6 +26,7 @@ use ensnano_design::{
     BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, BezierVertexId, Nucl,
     Parameters,
 };
+use serde::{Deserialize, Serialize};
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 pub mod graphics;
 mod selection;
@@ -553,7 +554,7 @@ pub struct StrandBuildingStatus {
 }
 
 /// Parameters of strand suggestions
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct SuggestionParameters {
     pub include_scaffold: bool,
     pub include_intra_strand: bool,
@@ -598,7 +599,7 @@ impl SuggestionParameters {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CheckXoversParameter {
     None,
     Checked,

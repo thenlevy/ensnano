@@ -252,3 +252,5 @@ pub const SELECTION_2D_CYCLE_TIME_LIMIT_MS: u64 = 2_000;
 // steel blue
 pub const BEZIER_SHEET_CORNER_COLOR: u32 = 0x46_82_B4;
 pub const BEZIER_SHEET_CORNER_RADIUS: f32 = 15.0;
+
+pub const APP_NAME: &str = "ENSnano";
