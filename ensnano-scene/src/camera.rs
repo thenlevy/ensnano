@@ -319,7 +319,13 @@ impl CameraController {
         self.processed_move = true;
     }
 
-    pub fn process_scroll(&mut self, delta: &MouseScrollDelta, x_cursor: f32, y_cursor: f32) {
+    pub fn process_scroll(
+        &mut self,
+        delta: &MouseScrollDelta,
+        x_cursor: f32,
+        y_cursor: f32,
+        sensitivity: f32,
+    ) {
         self.x_scroll = x_cursor;
         self.y_scroll = y_cursor;
         self.scroll = match delta {
@@ -328,7 +334,7 @@ impl CameraController {
             MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => {
                 scroll.signum() as f32
             }
-        };
+        } * sensitivity;
     }
 
     pub fn update_stereographic_zoom(&mut self, delta: &MouseScrollDelta) {

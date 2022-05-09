@@ -303,8 +303,12 @@ impl<S: AppState> Controller<S> {
                 * wheel
                 */
             } else {
-                self.camera_controller
-                    .process_scroll(delta, mouse_x as f32, mouse_y as f32);
+                self.camera_controller.process_scroll(
+                    delta,
+                    mouse_x as f32,
+                    mouse_y as f32,
+                    app_state.get_scroll_sensitivity(),
+                );
                 Transition::consequence(Consequence::CameraMoved)
             }
         } else if let WindowEvent::KeyboardInput {
