@@ -126,6 +126,78 @@ impl Projection {
     }
 }
 
+struct ConstrainedRotation {
+    phi: f32,
+    theta: f32,
+    upside_down: f32,
+}
+
+impl ConstrainedRotation {
+    fn init(current_rotor: Rotor3) -> Self {
+        let current_pos_on_sphere = current_rotor.reversed() * Vec3::from([0., 0., 1.]);
+        let theta = if current_pos_on_sphere.cross(Vec3::unit_y()).mag() > 1e-3 {
+            // if the current position is not on a pole, use it to compute theta
+
+            // We project on the zx plane (z to the right, x up) so the z coordinate is the `x` argument of atan2 and the
+            // x coordinate is the `y` arugment of atan2
+            current_pos_on_sphere
+                .dot(Vec3::unit_x())
+                .atan2(current_pos_on_sphere.dot(Vec3::unit_z()))
+        } else {
+            // The current right vector is in the xz plane so we can use it to dertermine theta
+
+            let current_right = current_rotor.reversed() * Vec3::from([1., 0., 0.]);
+            current_right
+                .dot(Vec3::unit_x())
+                .atan2(current_right.dot(Vec3::unit_z()))
+                + std::f32::consts::FRAC_PI_2
+        };
+
+        let phi = current_pos_on_sphere.dot(Vec3::unit_y()).acos();
+
+        let current_up = current_rotor.reversed() * Vec3::from([0., 1., 0.]);
+        let upside_down = if current_up.dot(Vec3::unit_y()) >= 0. {
+            1.
+        } else {
+            // We are looking upside down
+            -1.
+        };
+        Self {
+            phi,
+            theta,
+            upside_down,
+        }
+    }
+
+    fn add_angle_xz(&mut self, delta_xz: f32) {
+        self.theta += delta_xz * self.upside_down;
+    }
+
+    fn add_angle_yz(&mut self, delta_yz: f32) {
+        self.phi -= delta_yz * self.upside_down;
+    }
+
+    fn compute_rotor(&self) -> Rotor3 {
+        let position_on_sphere = Vec3 {
+            x: (self.theta).sin() * self.phi.sin(),
+            y: self.phi.cos(),
+            z: (self.theta).cos() * self.phi.sin(),
+        }
+        .normalized();
+
+        let right = Vec3::unit_x()
+            .rotated_by(Rotor3::from_rotation_xz(-self.theta))
+            .normalized()
+            * self.upside_down;
+
+        let up = position_on_sphere.cross(right).normalized();
+
+        Mat3::new(right, up, position_on_sphere)
+            .into_rotor3()
+            .reversed()
+    }
+}
+
 pub struct CameraController {
     speed: f32,
     amount_up: f32,
@@ -145,8 +217,11 @@ pub struct CameraController {
     zoom_plane: Option<Plane>,
     x_scroll: f32,
     y_scroll: f32,
-    xz_angle: f32,
-    yz_angle: f32,
+    /// The xz angle accumulated during a free camera rotation
+    free_xz_angle: f32,
+    /// The yz angle accumulated during a free camera rotation
+    free_yz_angle: f32,
+    current_constrained_rotation: Option<ConstrainedRotation>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -196,8 +271,9 @@ impl CameraController {
             zoom_plane: None,
             x_scroll: 0.,
             y_scroll: 0.,
-            xz_angle: 0.,
-            yz_angle: 0.,
+            free_xz_angle: 0.,
+            free_yz_angle: 0.,
+            current_constrained_rotation: None,
         }
     }
 
@@ -539,8 +615,9 @@ impl CameraController {
                 normal: (self.camera.borrow().position - origin),
             });
         }
-        self.yz_angle = 0.;
-        self.xz_angle = 0.;
+        self.free_yz_angle = 0.;
+        self.free_xz_angle = 0.;
+        self.current_constrained_rotation = None;
     }
 
     pub fn teleport_camera(&mut self, position: Vec3, rotation: Rotor3) {
@@ -592,29 +669,46 @@ impl CameraController {
     pub fn swing(&mut self, x: f64, y: f64) {
         let new_angle_yz = -((y + 1.).rem_euclid(2.) - 1.) as f32 * PI;
         let new_angle_xz = ((x + 1.).rem_euclid(2.) - 1.) as f32 * PI;
-        let delta_angle_yz = new_angle_yz - self.yz_angle;
-        let delta_angle_xz = new_angle_xz - self.xz_angle;
+        let delta_angle_yz = new_angle_yz - self.free_yz_angle;
+        let delta_angle_xz = new_angle_xz - self.free_xz_angle;
         if let Some(pivot) = self.pivot_point {
             self.rotate_camera_around(delta_angle_xz, delta_angle_yz, pivot);
         } else {
             self.small_rotate_camera(new_angle_xz, new_angle_yz, None);
         }
-        self.xz_angle = new_angle_xz;
-        self.yz_angle = new_angle_yz;
+        self.free_xz_angle = new_angle_xz;
+        self.free_yz_angle = new_angle_yz;
     }
 
     /// Rotate the camera arround a point.
     /// `point` is given in the world's coordiantes.
-    pub fn rotate_camera_around(&mut self, xz_angle: f32, yz_angle: f32, point: FiniteVec3) {
+    pub fn rotate_camera_around(
+        &mut self,
+        delta_xz_angle: f32,
+        delta_yz_angle: f32,
+        point: FiniteVec3,
+    ) {
+        if self.current_constrained_rotation.is_none() {
+            self.current_constrained_rotation =
+                Some(ConstrainedRotation::init(self.camera.borrow().rotor))
+        }
+        let current_rotation = self.current_constrained_rotation.as_mut().unwrap();
+
         let point: Vec3 = point.into();
         // We first modify the camera orientation and then position it at the correct position
         let to_point = point - self.camera.borrow().position;
         let up = to_point.dot(self.camera.borrow().up_vec());
         let right = to_point.dot(self.camera.borrow().right_vec());
         let dir = to_point.dot(self.camera.borrow().direction());
+
+        current_rotation.add_angle_xz(delta_xz_angle);
+        current_rotation.add_angle_yz(delta_yz_angle);
+        /*
         let new_rotor = Rotor3::from_rotation_xz(xz_angle)
             * Rotor3::from_rotation_yz(yz_angle)
             * self.camera.borrow().rotor;
+        */
+        let new_rotor = current_rotation.compute_rotor();
         self.camera.borrow_mut().rotor = new_rotor;
         let new_direction = self.camera.borrow().direction();
         let new_up = self.camera.borrow().up_vec();
