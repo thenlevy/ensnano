@@ -1,5 +1,7 @@
 # Changelog
 
+## 0.5.0
+- Modify the behaviour of 3D camera rotations.
 
 <!-- next-header -->
 
