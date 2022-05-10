@@ -603,6 +603,15 @@ impl CameraController {
         self.processed_move = false;
     }
 
+    pub fn init_constrained_rotation(&mut self) {
+        self.current_constrained_rotation =
+            Some(ConstrainedRotation::init(self.camera.borrow().rotor));
+    }
+
+    pub fn end_constrained_rotation(&mut self) {
+        self.current_constrained_rotation = None;
+    }
+
     pub fn end_movement(&mut self) {
         self.last_rotor = self.camera.borrow().rotor;
         self.cam0 = self.camera.borrow().clone();
@@ -617,7 +626,7 @@ impl CameraController {
         }
         self.free_yz_angle = 0.;
         self.free_xz_angle = 0.;
-        self.current_constrained_rotation = None;
+        self.end_constrained_rotation();
     }
 
     pub fn teleport_camera(&mut self, position: Vec3, rotation: Rotor3) {
@@ -688,12 +697,6 @@ impl CameraController {
         delta_yz_angle: f32,
         point: FiniteVec3,
     ) {
-        if self.current_constrained_rotation.is_none() {
-            self.current_constrained_rotation =
-                Some(ConstrainedRotation::init(self.camera.borrow().rotor))
-        }
-        let current_rotation = self.current_constrained_rotation.as_mut().unwrap();
-
         let point: Vec3 = point.into();
         // We first modify the camera orientation and then position it at the correct position
         let to_point = point - self.camera.borrow().position;
@@ -701,14 +704,17 @@ impl CameraController {
         let right = to_point.dot(self.camera.borrow().right_vec());
         let dir = to_point.dot(self.camera.borrow().direction());
 
-        current_rotation.add_angle_xz(delta_xz_angle);
-        current_rotation.add_angle_yz(delta_yz_angle);
-        /*
-        let new_rotor = Rotor3::from_rotation_xz(xz_angle)
-            * Rotor3::from_rotation_yz(yz_angle)
-            * self.camera.borrow().rotor;
-        */
-        let new_rotor = current_rotation.compute_rotor();
+        let new_rotor =
+            if let Some(constrained_rotation) = self.current_constrained_rotation.as_mut() {
+                constrained_rotation.add_angle_xz(delta_xz_angle);
+                constrained_rotation.add_angle_yz(delta_yz_angle);
+                constrained_rotation.compute_rotor()
+            } else {
+                Rotor3::from_rotation_xz(delta_xz_angle)
+                    * Rotor3::from_rotation_yz(delta_yz_angle)
+                    * self.camera.borrow().rotor
+            };
+
         self.camera.borrow_mut().rotor = new_rotor;
         let new_direction = self.camera.borrow().direction();
         let new_up = self.camera.borrow().up_vec();
