@@ -344,6 +344,9 @@ impl Controller {
             DesignOperation::MakeBezierPathCyclic { path_id, cyclic } => {
                 self.apply(|c, d| c.make_bezier_path_cyclic(d, path_id, cyclic), design)
             }
+            DesignOperation::RmFreeGrids { grid_ids } => {
+                self.apply(|c, d| c.delete_free_grids(d, grid_ids), design)
+            }
         };
 
         if let Ok(ret) = &mut ret {
@@ -1776,6 +1779,7 @@ pub enum ErrOperation {
     CouldNotGetPrime3of(usize),
     PathDoesNotExist(BezierPathId),
     VertexDoesNotExist(BezierPathId, usize),
+    GridIsNotEmpty(GridId),
 }
 
 impl From<ensnano_design::design_operations::ErrOperation> for ErrOperation {
@@ -3009,6 +3013,30 @@ impl Controller {
                 design.helices.make_mut().remove(h_id);
             }
         }
+        Ok(design)
+    }
+
+    fn delete_free_grids(
+        &mut self,
+        mut design: Design,
+        grid_ids: Vec<usize>,
+    ) -> Result<Design, ErrOperation> {
+        let data = design.get_updated_grid_data();
+        let empty_grids = data.get_empty_grids_id();
+
+        let mut free_grids_mut = design.free_grids.make_mut();
+        for id in grid_ids.into_iter() {
+            let g_id = GridId::FreeGrid(id);
+            if !empty_grids.contains(&g_id) {
+                return Err(ErrOperation::GridIsNotEmpty(g_id));
+            } else {
+                free_grids_mut
+                    .remove(&g_id)
+                    .ok_or(ErrOperation::GridDoesNotExist(g_id))?;
+            }
+        }
+
+        drop(free_grids_mut);
         Ok(design)
     }
 

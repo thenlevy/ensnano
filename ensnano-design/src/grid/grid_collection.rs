@@ -102,6 +102,11 @@ impl<'a> FreeGridsMut<'a> {
         let free_id = FreeGridId::try_from_grid_id(*g_id)?;
         self.get_mut(&free_id)
     }
+
+    pub fn remove(&mut self, g_id: &GridId) -> Option<Arc<GridDescriptor>> {
+        let free_id = FreeGridId::try_from_grid_id(*g_id)?;
+        self.new_map.remove(&free_id)
+    }
 }
 
 impl<'a> Drop for FreeGridsMut<'a> {

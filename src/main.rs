@@ -1721,6 +1721,12 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             self.main_state.update_selection(vec![], None);
             self.main_state
                 .apply_operation(DesignOperation::RmHelices { h_ids })
+        } else if let Some(grid_ids) =
+            ensnano_interactor::list_of_free_grids(selection.as_ref().as_ref())
+        {
+            self.main_state.update_selection(vec![], None);
+            self.main_state
+                .apply_operation(DesignOperation::RmFreeGrids { grid_ids })
         }
     }
 

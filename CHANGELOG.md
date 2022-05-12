@@ -16,6 +16,7 @@
 - Make it possible to add single stranded insertions (a.k.a. loopouts) in strands
 - Modify the behaviour of 3D camera rotations.
 - Improve the error message that appears when failing to open a design
+- Make it possible to delete grids
 
 ## 0.4.0
 - Remaps mouse buttons in the 2D view.

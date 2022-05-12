@@ -299,6 +299,9 @@ pub enum DesignOperation {
         path_id: BezierPathId,
         cyclic: bool,
     },
+    RmFreeGrids {
+        grid_ids: Vec<usize>,
+    },
 }
 
 #[derive(Clone, Debug, Copy)]

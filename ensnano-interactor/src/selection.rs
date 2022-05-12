@@ -354,6 +354,17 @@ pub fn list_of_helices(selection: &[Selection]) -> Option<(usize, Vec<usize>)> {
     Some((design_id as usize, helices.into_iter().collect()))
 }
 
+pub fn list_of_free_grids(selection: &[Selection]) -> Option<Vec<usize>> {
+    let mut ret = Vec::new();
+    for s in selection.iter() {
+        match s {
+            Selection::Grid(_, GridId::FreeGrid(g_id)) => ret.push(*g_id),
+            _ => return None,
+        }
+    }
+    Some(ret)
+}
+
 pub fn extract_helices(selection: &[Selection]) -> Vec<usize> {
     let mut ret = Vec::new();
     for s in selection.iter() {
