@@ -1,10 +1,5 @@
 # Changelog
 
-## 0.5.0
-- Modify the behaviour of 3D camera rotations.
-
-<!-- next-header -->
-
 ## 0.4.1
 - Introduce the possibility to copy and paste whole grids with their content
 - Make the strand color picker appear when the current selection contains a strand
@@ -16,6 +11,7 @@
 - Make it possible to apply a symetry transformation to the 2d view by pressing ctrl/⌘ + Left/Up/Right/Down
 - Introduce a new DNA parameter: inclination
 - Make it possible to add single stranded insertions (a.k.a. loopouts) in strands
+- Modify the behaviour of 3D camera rotations.
 
 ## 0.4.0
 - Remaps mouse buttons in the 2D view.
