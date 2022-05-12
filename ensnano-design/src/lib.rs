@@ -347,7 +347,7 @@ impl Design {
 
     pub fn update_version(&mut self) {
         // The conversion from the old grid data structure to the new one can be made regardless of
-        // the version. 
+        // the version.
         let grids = std::mem::take(&mut self.old_grids);
         let mut grids_mut = self.free_grids.make_mut();
         for g in grids.into_iter() {
@@ -355,7 +355,8 @@ impl Design {
         }
         drop(grids_mut);
 
-        if version_compare::compare(&self.ensnano_version, "0.5.0") == Ok(version_compare::Cmp::Lt) {
+        if version_compare::compare(&self.ensnano_version, "0.5.0") == Ok(version_compare::Cmp::Lt)
+        {
             // For legacy reason, the version of curved design must be set to a value >= 0.5.0
             for h in self.helices.values() {
                 if h.curve.is_some() {

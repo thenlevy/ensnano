@@ -237,10 +237,7 @@ impl<R: DesignReader> Design2d<R> {
                 .set_isometry(h_id, segment_idx, iso);
             iso
         } else {
-            let iso = Isometry2::new(
-                (5. * (10. * h_id as f32 + segment_idx as f32) - 1.) * Vec2::unit_y(),
-                Rotor2::identity(),
-            );
+            let iso = Isometry2::new((5. * h_id as f32 - 1.) * Vec2::unit_y(), Rotor2::identity());
             self.requests
                 .lock()
                 .unwrap()
