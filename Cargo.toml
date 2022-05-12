@@ -47,6 +47,8 @@ dirs = "4.0"
 ahash = "0.6.2"
 color_space = "0.5.2"
 confy = {git = "https://github.com/rust-cli/confy", rev = "64282241313", default-features=false, features=["yaml_conf"]}
+version-compare = "0.1.0"
+
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = "0.3.2"

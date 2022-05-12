@@ -42,7 +42,6 @@ use controller::{GridPresenter, HelixPresenter, OkOperation, RollPresenter, Twis
 
 use std::sync::Arc;
 mod file_parsing;
-pub use file_parsing::ParseDesignError;
 
 /// The `DesignInteractor` handles all read/write operations on the design. It is a stateful struct
 /// so it is meant to be unexpansive to clone.

@@ -1559,39 +1559,32 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn load_design(&mut self, mut path: PathBuf) -> Result<(), LoadDesignError> {
-        match AppState::import_design(&path) {
-            Ok(state) => {
-                self.main_state.clear_app_state(state);
-                if path.extension().map(|s| s.to_string_lossy())
-                    == Some(crate::consts::ENS_BACKUP_EXTENSION.into())
-                {
-                    path.set_extension(crate::consts::ENS_EXTENSION);
-                }
-                self.main_state.path_to_current_design = Some(path.clone());
-                if let Some((position, orientation)) = self
-                    .main_state
-                    .app_state
-                    .get_design_reader()
-                    .get_favourite_camera()
-                {
-                    self.notify_apps(Notification::TeleportCamera(
-                        ensnano_interactor::application::Camera3D {
-                            position,
-                            orientation,
-                            pivot_position: None,
-                        },
-                    ));
-                } else {
-                    self.main_state.wants_fit = true;
-                }
-                self.main_state.update_current_file_name();
-                Ok(())
-            }
-            Err(app_state::ParseDesignError::JsonError(e)) => Err(LoadDesignError::JsonError(e)),
-            Err(app_state::ParseDesignError::ScadnanoError(e)) => {
-                Err(LoadDesignError::ScadnanoImportError(e))
-            }
+        let state = AppState::import_design(&path)?;
+        self.main_state.clear_app_state(state);
+        if path.extension().map(|s| s.to_string_lossy())
+            == Some(crate::consts::ENS_BACKUP_EXTENSION.into())
+        {
+            path.set_extension(crate::consts::ENS_EXTENSION);
         }
+        self.main_state.path_to_current_design = Some(path.clone());
+        if let Some((position, orientation)) = self
+            .main_state
+            .app_state
+            .get_design_reader()
+            .get_favourite_camera()
+        {
+            self.notify_apps(Notification::TeleportCamera(
+                ensnano_interactor::application::Camera3D {
+                    position,
+                    orientation,
+                    pivot_position: None,
+                },
+            ));
+        } else {
+            self.main_state.wants_fit = true;
+        }
+        self.main_state.update_current_file_name();
+        Ok(())
     }
 
     fn get_chanel_reader(&mut self) -> &mut ChanelReader {

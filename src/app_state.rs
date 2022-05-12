@@ -37,7 +37,7 @@ mod address_pointer;
 mod design_interactor;
 mod transitions;
 use crate::apply_update;
-use crate::controller::SimulationRequest;
+use crate::controller::{LoadDesignError, SimulationRequest};
 use address_pointer::AddressPointer;
 use ensnano_design::Design;
 use ensnano_interactor::consts::APP_NAME;
@@ -46,9 +46,9 @@ use ensnano_organizer::GroupId;
 
 pub use design_interactor::controller::ErrOperation;
 pub use design_interactor::{
-    CopyOperation, DesignReader, InteractorNotification, ParseDesignError, PastePosition,
-    PastingStatus, ShiftOptimizationResult, ShiftOptimizerReader, SimulationInterface,
-    SimulationReader, SimulationTarget, SimulationUpdate,
+    CopyOperation, DesignReader, InteractorNotification, PastePosition, PastingStatus,
+    ShiftOptimizationResult, ShiftOptimizerReader, SimulationInterface, SimulationReader,
+    SimulationTarget, SimulationUpdate,
 };
 use design_interactor::{DesignInteractor, InteractorResult};
 
@@ -217,7 +217,7 @@ impl AppState {
         Self(AddressPointer::new(new_state))
     }
 
-    pub fn import_design(path: &PathBuf) -> Result<Self, design_interactor::ParseDesignError> {
+    pub fn import_design(path: &PathBuf) -> Result<Self, LoadDesignError> {
         let design_interactor = DesignInteractor::new_with_path(path)?;
         Ok(Self(AddressPointer::new(AppState_ {
             design: AddressPointer::new(design_interactor),

@@ -276,7 +276,7 @@ pub struct Camera {
     pub pivot_position: Option<Vec3>,
 }
 
-fn ensnano_version() -> String {
+pub fn ensnano_version() -> String {
     std::env!("CARGO_PKG_VERSION").to_owned()
 }
 
