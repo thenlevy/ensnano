@@ -3,7 +3,7 @@ members = [ "ensnano-design", "ensnano-interactor", "ensnano-organizer", "ensnan
 
 [package]
 name = "ensnano"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["thenlevy <nicolaspierrelevy@gmail.com>"]
 edition = "2021"
 license = "GPL-3.0-or-later"

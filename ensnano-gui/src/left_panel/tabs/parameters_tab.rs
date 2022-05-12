@@ -91,7 +91,7 @@ impl ParametersTab {
         ret = ret.push(Text::new("About").size(ui_size.head_text()));
         ret = ret.push(Text::new(format!(
             "Version {}",
-            std::env!("CARGO_PKG_VERSION")
+            ensnano_design::ensnano_version()
         )));
 
         subsection!(ret, ui_size, "Development:");

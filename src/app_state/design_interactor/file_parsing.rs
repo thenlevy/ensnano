@@ -33,7 +33,6 @@ impl DesignInteractor {
     pub fn new_with_path(json_path: &PathBuf) -> Result<Self, LoadDesignError> {
         let mut xover_ids: IdGenerator<(Nucl, Nucl)> = Default::default();
         let mut design = read_file(json_path)?;
-        design.update_version();
         design.strands.remove_empty_domains();
         for s in design.strands.values_mut() {
             s.read_junctions(&mut xover_ids, true);
@@ -63,7 +62,8 @@ fn read_file<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Design, LoadDe
     let design: Result<Design, _> = serde_json::from_str(&json_str);
     // First try to read icednano format
     match design {
-        Ok(design) => {
+        Ok(mut design) => {
+            design.update_version();
             use version_compare::Cmp;
             log::info!("ok icednano");
             let required_version = design.ensnano_version.clone();
