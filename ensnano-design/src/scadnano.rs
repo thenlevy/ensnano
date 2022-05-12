@@ -192,6 +192,7 @@ pub struct ScadnanoModification {
     pub location: String,
 }
 
+#[derive(Debug)]
 pub enum ScadnanoImportError {
     UnsuportedGridType(String),
     InvalidColor(String),

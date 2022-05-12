@@ -232,15 +232,38 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn set_expand_insertions(&mut self, expand: bool);
 }
 
-pub struct LoadDesignError(String);
-#[derive(Debug)]
-pub struct SaveDesignError(String);
+pub enum LoadDesignError {
+    JsonError(serde_json::Error),
+    ScadnanoImportError(ensnano_design::scadnano::ScadnanoImportError),
+    IncompatibleVersion { current: String, required: String },
+}
 
-impl From<String> for LoadDesignError {
-    fn from(s: String) -> Self {
-        Self(s)
+impl std::fmt::Display for LoadDesignError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::JsonError(e) => write!(f, "Json error: {e}"),
+            Self::ScadnanoImportError(e) => {
+                write!(
+                    f,
+                    "Scadnanofile detected but the following error was encountered:
+                {:?}",
+                    e
+                )
+            }
+            Self::IncompatibleVersion { current, required } => {
+                write!(
+                    f,
+                    "Your ENSnano version is too old to load this design.
+                Your version: {current},
+                Requiered version: {required}"
+                )
+            }
+        }
     }
 }
+
+#[derive(Debug)]
+pub struct SaveDesignError(String);
 
 impl<E: std::error::Error> From<E> for SaveDesignError {
     fn from(e: E) -> Self {

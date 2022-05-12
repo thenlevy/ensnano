@@ -61,37 +61,41 @@ fn read_file<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Design, ParseD
 
     let design: Result<Design, _> = serde_json::from_str(&json_str);
     // First try to read icednano format
-    if let Ok(design) = design {
-        log::info!("ok icednano");
-        Ok(design)
-    } else {
-        // If the file is not in icednano format, try the other supported format
-        let cdn_design: Result<codenano::Design<(), ()>, _> = serde_json::from_str(&json_str);
+    match design {
+        Ok(design) => {
+            log::info!("ok icednano");
+            Ok(design)
+        }
+        Err(e) => {
+            // If the file is not in icednano format, try the other supported format
+            let cdn_design: Result<codenano::Design<(), ()>, _> = serde_json::from_str(&json_str);
 
-        let scadnano_design: Result<scadnano::ScadnanoDesign, _> = serde_json::from_str(&json_str);
+            let scadnano_design: Result<scadnano::ScadnanoDesign, _> =
+                serde_json::from_str(&json_str);
 
-        // Try codenano format
-        if let Ok(scadnano) = scadnano_design {
-            Design::from_scadnano(&scadnano).map_err(|e| ParseDesignError::ScadnanoError(e))
-        } else if let Ok(design) = cdn_design {
-            log::error!("{:?}", scadnano_design.err());
-            log::info!("ok codenano");
-            Ok(Design::from_codenano(&design))
-        } else if let Ok(cadnano) = Cadnano::from_file(path) {
-            log::info!("ok cadnano");
-            Ok(Design::from_cadnano(cadnano))
-        } else {
-            log::error!("{:?}", design.err().unwrap());
-            // The file is not in any supported format
-            //message("Unrecognized file format".into(), rfd::MessageLevel::Error);
-            Err(ParseDesignError::UnrecognizedFileFormat)
+            // Try codenano format
+            if let Ok(scadnano) = scadnano_design {
+                Design::from_scadnano(&scadnano).map_err(|e| ParseDesignError::ScadnanoError(e))
+            } else if let Ok(design) = cdn_design {
+                log::error!("{:?}", scadnano_design.err());
+                log::info!("ok codenano");
+                Ok(Design::from_codenano(&design))
+            } else if let Ok(cadnano) = Cadnano::from_file(path) {
+                log::info!("ok cadnano");
+                Ok(Design::from_cadnano(cadnano))
+            } else {
+                log::error!("{:?}", e);
+                // The file is not in any supported format
+                //message("Unrecognized file format".into(), rfd::MessageLevel::Error);
+                Err(ParseDesignError::JsonError(e))
+            }
         }
     }
 }
 
 use scadnano::ScadnanoImportError;
 pub enum ParseDesignError {
-    UnrecognizedFileFormat,
+    JsonError(serde_json::Error),
     ScadnanoError(ScadnanoImportError),
 }
 

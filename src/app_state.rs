@@ -46,9 +46,9 @@ use ensnano_organizer::GroupId;
 
 pub use design_interactor::controller::ErrOperation;
 pub use design_interactor::{
-    CopyOperation, DesignReader, InteractorNotification, PastePosition, PastingStatus,
-    ShiftOptimizationResult, ShiftOptimizerReader, SimulationInterface, SimulationReader,
-    SimulationTarget, SimulationUpdate,
+    CopyOperation, DesignReader, InteractorNotification, ParseDesignError, PastePosition,
+    PastingStatus, ShiftOptimizationResult, ShiftOptimizerReader, SimulationInterface,
+    SimulationReader, SimulationTarget, SimulationUpdate,
 };
 use design_interactor::{DesignInteractor, InteractorResult};
 

@@ -191,7 +191,7 @@ fn ask_path<P: AsRef<Path>>(
 fn load(path: PathBuf, state: &mut dyn MainState) -> Box<dyn State> {
     if let Err(err) = state.load_design(path) {
         TransitionMessage::new(
-            format!("Error when loading design: {}", err.0),
+            format!("Error when loading design:\n{err}"),
             rfd::MessageLevel::Error,
             Box::new(super::NormalState),
         )
