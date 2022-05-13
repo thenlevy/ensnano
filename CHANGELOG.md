@@ -14,7 +14,12 @@
 - Make it possible to tilt the 3D view with shift + RClick, and the 2D view with alt + Left/Right
 - Make it possible to apply a symetry transformation to the 2d view by pressing ctrl/⌘ + Left/Up/Right/Down
 - Make it possible to add single stranded insertions (a.k.a. loopouts) in strands
-- Modify the behaviour of 3D camera rotations.
+- Modify the behaviour of 3D camera rotations. RClick + drag has now the following effect depending of the
+   active modifiers (in order of priority)
+   * shift: tilt the camera
+   * ctrl/⌘: Make a free rotation
+   * alt: Make a rotation that preserver the current xz plane of the camera
+   * nothing: Make a rotation that forces the xz plane of the camera to be the plane with equation y=0
 - Improve the error message that appears when failing to open a design
 - Make it possible to delete grids
 

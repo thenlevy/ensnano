@@ -426,8 +426,9 @@ impl<S: AppState> Controller<S> {
 
     fn init_movement(&mut self) {
         self.camera_controller.init_movement();
-        if ctrl(&self.current_modifiers) {
-            self.camera_controller.init_constrained_rotation()
+        if !ctrl(&self.current_modifiers) {
+            self.camera_controller
+                .init_constrained_rotation(!self.current_modifiers.alt())
         }
     }
 

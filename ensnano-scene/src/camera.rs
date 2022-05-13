@@ -129,66 +129,101 @@ impl Projection {
 struct ConstrainedRotation {
     phi: f32,
     theta: f32,
-    upside_down: f32,
+    horizon_x: Vec3,
+    horizon_z: Vec3,
 }
 
 impl ConstrainedRotation {
-    fn init(current_rotor: Rotor3) -> Self {
-        let current_pos_on_sphere = current_rotor.reversed() * Vec3::from([0., 0., 1.]);
-        let theta = if current_pos_on_sphere.cross(Vec3::unit_y()).mag() > 1e-3 {
-            // if the current position is not on a pole, use it to compute theta
+    fn init(current_rotor: Rotor3, force_horizon: bool) -> Self {
+        let current_pos_on_sphere = (current_rotor.reversed() * Vec3::unit_z()).normalized();
 
-            // We project on the zx plane (z to the right, x up) so the z coordinate is the `x` argument of atan2 and the
-            // x coordinate is the `y` arugment of atan2
-            current_pos_on_sphere
-                .dot(Vec3::unit_x())
-                .atan2(current_pos_on_sphere.dot(Vec3::unit_z()))
+        if force_horizon {
+            let horizon_x = Vec3::unit_x();
+            let horizon_z = Vec3::unit_z();
+
+            let theta = if current_pos_on_sphere.cross(Vec3::unit_y()).mag() > 1e-3 {
+                // if the current position is not on a pole, use it to compute theta
+
+                // We project on the zx plane (z to the right, x up) so the z coordinate is the `x` argument of atan2 and the
+                // x coordinate is the `y` arugment of atan2
+                current_pos_on_sphere
+                    .dot(horizon_x)
+                    .atan2(current_pos_on_sphere.dot(horizon_z))
+            } else {
+                // The current right vector is in the xz plane so we can use it to dertermine theta
+
+                // We project the right vector in the x(-z) plane
+                let current_right = current_rotor.reversed() * Vec3::from([1., 0., 0.]);
+                current_right
+                    .dot(Vec3::unit_x())
+                    .atan2(current_right.dot(-Vec3::unit_z()))
+            };
+
+            let phi = current_pos_on_sphere.dot(Vec3::unit_y()).asin();
+
+            let current_up = current_rotor.reversed() * Vec3::from([0., 1., 0.]);
+            let upside_down = if current_up.dot(Vec3::unit_y()) >= 0. {
+                1.
+            } else {
+                // We are looking upside down
+                -1.
+            };
+
+            Self {
+                phi: phi * upside_down,
+                theta: theta * upside_down,
+                horizon_x: upside_down * horizon_x,
+                horizon_z,
+            }
         } else {
-            // The current right vector is in the xz plane so we can use it to dertermine theta
+            let horizon_x = current_rotor.reversed() * Vec3::unit_x();
 
-            let current_right = current_rotor.reversed() * Vec3::from([1., 0., 0.]);
-            current_right
-                .dot(Vec3::unit_x())
-                .atan2(current_right.dot(Vec3::unit_z()))
-                + std::f32::consts::FRAC_PI_2
-        };
-
-        let phi = current_pos_on_sphere.dot(Vec3::unit_y()).acos();
-
-        let current_up = current_rotor.reversed() * Vec3::from([0., 1., 0.]);
-        let upside_down = if current_up.dot(Vec3::unit_y()) >= 0. {
-            1.
-        } else {
-            // We are looking upside down
-            -1.
-        };
-        Self {
-            phi,
-            theta,
-            upside_down,
+            /*
+            let horizon_z = if horizon_x.cross(Vec3::unit_y()).mag() > 1e-3 {
+                let current_up = current_rotor.reversed() * Vec3::from([0., 1., 0.]);
+                let upside_down = if current_up.dot(Vec3::unit_y()) >= 0. {
+                    1.
+                } else {
+                    // We are looking upside down
+                    -1.
+                };
+               upside_down * horizon_x.cross(Vec3::unit_y()).normalized()
+            } else {
+                current_rotor.reversed() * Vec3::unit_z()
+            };*/
+            let horizon_z = current_rotor.reversed() * Vec3::unit_z();
+            let theta = current_pos_on_sphere
+                .dot(horizon_x)
+                .atan2(current_pos_on_sphere.dot(horizon_z));
+            let up = horizon_z.cross(horizon_x);
+            let phi = current_pos_on_sphere.dot(up).asin();
+            Self {
+                phi,
+                theta,
+                horizon_x,
+                horizon_z,
+            }
         }
     }
 
     fn add_angle_xz(&mut self, delta_xz: f32) {
-        self.theta += delta_xz * self.upside_down;
+        self.theta += delta_xz;
     }
 
     fn add_angle_yz(&mut self, delta_yz: f32) {
-        self.phi -= delta_yz * self.upside_down;
+        self.phi += delta_yz;
     }
 
     fn compute_rotor(&self) -> Rotor3 {
-        let position_on_sphere = Vec3 {
-            x: (self.theta).sin() * self.phi.sin(),
-            y: self.phi.cos(),
-            z: (self.theta).cos() * self.phi.sin(),
-        }
+        let horizon_y = self.horizon_z.cross(self.horizon_x);
+
+        let position_on_sphere = (horizon_y * self.phi.sin()
+            + self.phi.cos()
+                * (self.horizon_z * self.theta.cos() + self.horizon_x * self.theta.sin()))
         .normalized();
 
-        let right = Vec3::unit_x()
-            .rotated_by(Rotor3::from_rotation_xz(-self.theta))
-            .normalized()
-            * self.upside_down;
+        let right =
+            (self.theta.cos() * self.horizon_x - self.theta.sin() * self.horizon_z).normalized();
 
         let up = position_on_sphere.cross(right).normalized();
 
@@ -603,9 +638,11 @@ impl CameraController {
         self.processed_move = false;
     }
 
-    pub fn init_constrained_rotation(&mut self) {
-        self.current_constrained_rotation =
-            Some(ConstrainedRotation::init(self.camera.borrow().rotor));
+    pub fn init_constrained_rotation(&mut self, force_horizon: bool) {
+        self.current_constrained_rotation = Some(ConstrainedRotation::init(
+            self.camera.borrow().rotor,
+            force_horizon,
+        ));
     }
 
     pub fn end_constrained_rotation(&mut self) {

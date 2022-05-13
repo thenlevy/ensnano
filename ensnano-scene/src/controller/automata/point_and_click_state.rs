@@ -242,9 +242,15 @@ impl<S: AppState> PointAndClicking<S> {
     pub(super) fn setting_pivot(
         clicked_position: PhysicalPosition<f64>,
         pivot_elment: Option<SceneElement>,
+        tilt: bool,
     ) -> Self {
+        let away_state = if tilt {
+            OptionalTransitionPtr::Borrowed(&tilt_camera)
+        } else {
+            OptionalTransitionPtr::Borrowed(&rotating_camera)
+        };
         Self {
-            away_state: OptionalTransitionPtr::Borrowed(&rotating_camera),
+            away_state,
             away_state_maker: None,
             release_transition: Default::default(),
             clicked_position,
@@ -260,6 +266,10 @@ impl<S: AppState> PointAndClicking<S> {
 
 fn rotating_camera<S: AppState>(click: ClickInfo) -> Option<Box<dyn ControllerState<S>>> {
     Some(Box::new(dragging_state::rotating_camera(click)))
+}
+
+fn tilt_camera<S: AppState>(click: ClickInfo) -> Option<Box<dyn ControllerState<S>>> {
+    Some(Box::new(dragging_state::tilting_camera(click)))
 }
 
 fn back_to_normal_state<S: AppState>(_: ClickInfo) -> Option<Box<dyn ControllerState<S>>> {

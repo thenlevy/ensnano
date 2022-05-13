@@ -473,6 +473,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                     new_state: Some(Box::new(PointAndClicking::setting_pivot(
                         context.cursor_position,
                         element,
+                        context.get_modifiers().shift(),
                     ))),
                     consequences: Consequence::Nothing,
                 }
