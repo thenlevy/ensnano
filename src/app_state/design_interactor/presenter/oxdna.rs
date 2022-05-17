@@ -16,8 +16,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
+use ahash::RandomState;
 use ensnano_design::{Domain, Helix, HelixCollection, Nucl, Parameters};
 use std::io::Write;
+use std::mem::ManuallyDrop;
 use std::path::Path;
 use ultraviolet::Vec3;
 
@@ -130,19 +132,161 @@ impl OxDnaHelix for Helix {
     }
 }
 
+fn free_oxdna_nucl(
+    pos: Vec3,
+    previous_position: Option<Vec3>,
+    free_idx: usize,
+    parameters: &Parameters,
+) -> OxDnaNucl {
+    let backbone_position = pos;
+    let normal = (pos - previous_position.unwrap_or_else(Vec3::zero)).normalized();
+    let a1 = {
+        let tangent = normal.cross(Vec3::new(-normal.z, normal.x, normal.y));
+        let bitangent = normal.cross(tangent);
+        let angle = std::f32::consts::TAU / parameters.bases_per_turn * -(free_idx as f32);
+        tangent * angle.sin() + bitangent * angle.cos()
+    };
+    let cm_position = backbone_position + a1 * BACKBONE_TO_CM;
+    OxDnaNucl {
+        position: cm_position,
+        backbone_base: a1,
+        normal,
+        velocity: Vec3::zero(),
+        angular_velocity: Vec3::zero(),
+    }
+}
+
+struct OxDnaMaker {
+    nucl_id: isize,
+    boundaries: [f32; 3],
+    bounds: Vec<OxDnaBound>,
+    nucls: Vec<OxDnaNucl>,
+    basis_map: HashMap<Nucl, char, RandomState>,
+    nb_strand: usize,
+    parameters: Parameters,
+}
+
+impl OxDnaMaker {
+    fn new(basis_map: HashMap<Nucl, char, RandomState>, parameters: Parameters) -> Self {
+        Self {
+            nucl_id: 0,
+            boundaries: Default::default(),
+            bounds: Vec::new(),
+            nucls: Vec::new(),
+            basis_map,
+            parameters,
+            nb_strand: 0,
+        }
+    }
+
+    fn new_strand<'a>(&'a mut self, strand_id: usize) -> ManuallyDrop<StrandMaker<'a>> {
+        self.nb_strand += 1;
+        let first_strand_nucl = self.nucl_id;
+        ManuallyDrop::new(StrandMaker {
+            context: self,
+            strand_id,
+            prev_nucl: None,
+            first_strand_nucl,
+            previous_position: None,
+        })
+    }
+
+    fn end(self) -> (OxDnaConfig, OxDnaTopology) {
+        let topo = OxDnaTopology {
+            bounds: self.bounds,
+            nb_strand: self.nb_strand,
+            nb_nucl: self.nucl_id as usize,
+        };
+        let config = OxDnaConfig {
+            time: 0f32,
+            kinetic_energies: [0f32, 0f32, 0f32],
+            boundaries: self.boundaries,
+            nucls: self.nucls,
+        };
+        (config, topo)
+    }
+}
+
+struct StrandMaker<'a> {
+    context: &'a mut OxDnaMaker,
+    strand_id: usize,
+    prev_nucl: Option<isize>,
+    first_strand_nucl: isize,
+    previous_position: Option<Vec3>,
+}
+
+impl StrandMaker<'_> {
+    fn add_ox_nucl(&mut self, ox_nucl: OxDnaNucl, nucl: Option<Nucl>) {
+        self.context.boundaries[0] = self.context.boundaries[0].max(2. * ox_nucl.position.x.abs());
+        self.context.boundaries[1] = self.context.boundaries[1].max(2. * ox_nucl.position.y.abs());
+        self.context.boundaries[2] = self.context.boundaries[2].max(2. * ox_nucl.position.z.abs());
+
+        self.previous_position = Some(ox_nucl.position);
+        self.context.nucls.push(ox_nucl);
+
+        let base = nucl
+            .as_ref()
+            .and_then(|nucl| {
+                self.context
+                    .basis_map
+                    .get(&nucl)
+                    .cloned()
+                    .or_else(|| self.context.basis_map.get(&nucl.compl()).cloned())
+            })
+            .unwrap_or_else(rand_base);
+
+        if let Some(nucl) = nucl {
+            self.context.basis_map.insert(nucl.compl(), compl(base));
+        }
+
+        let bound = OxDnaBound {
+            base,
+            strand_id: self.strand_id,
+            prime3: -1,
+            prime5: self.prev_nucl.unwrap_or(-1),
+        };
+        self.context.bounds.push(bound);
+
+        if let Some(prev) = self.prev_nucl {
+            self.context.bounds.get_mut(prev as usize).unwrap().prime3 = self.context.nucl_id;
+        }
+
+        self.prev_nucl = Some(self.context.nucl_id);
+        self.context.nucl_id += 1;
+    }
+
+    fn add_free_nucl(&mut self, position: Vec3, free_idx: usize) {
+        let ox_nucl = free_oxdna_nucl(
+            position,
+            self.previous_position,
+            free_idx,
+            &self.context.parameters,
+        );
+        self.add_ox_nucl(ox_nucl, None)
+    }
+
+    // TODO move the strand maker in a wrapper to force the call to end when droping
+    fn end(self, cyclic: bool) {
+        if cyclic {
+            self.context.bounds.iter_mut().last().unwrap().prime3 = self.first_strand_nucl;
+            self.context
+                .bounds
+                .get_mut(self.first_strand_nucl as usize)
+                .unwrap()
+                .prime5 = self.context.nucl_id - 1;
+        }
+    }
+}
+
 impl Presenter {
     fn to_oxdna(&self) -> (OxDnaConfig, OxDnaTopology) {
-        let mut nucl_id = 0isize;
-        let mut boundaries = [0f32, 0f32, 0f32];
-        let mut bounds = Vec::new();
-        let mut nucls = Vec::new();
-        let mut basis_map = (*self.content.basis_map.clone()).clone();
-        let mut nb_strand = 0;
+        let basis_map = (*self.content.basis_map.clone()).clone();
         let parameters = self.current_design.parameters.unwrap_or_default();
+        let mut maker = OxDnaMaker::new(basis_map, parameters);
+
         for (strand_id, s) in self.current_design.strands.values().enumerate() {
-            nb_strand = strand_id + 1;
-            let mut prev_nucl: Option<isize> = None;
-            let first_strand_nucl = nucl_id;
+            let mut strand_maker = maker.new_strand(strand_id);
+
             for d in s.domains.iter() {
                 if let Domain::HelixDomain(dom) = d {
                     for position in dom.iter() {
@@ -152,54 +296,28 @@ impl Presenter {
                             .get(&dom.helix)
                             .unwrap()
                             .ox_dna_nucl(position, dom.forward, &parameters);
-                        boundaries[0] = boundaries[0].max(2. * ox_nucl.position.x.abs());
-                        boundaries[1] = boundaries[1].max(2. * ox_nucl.position.y.abs());
-                        boundaries[2] = boundaries[2].max(2. * ox_nucl.position.z.abs());
-                        nucls.push(ox_nucl);
                         let nucl = Nucl {
                             position,
                             helix: dom.helix,
                             forward: dom.forward,
                         };
-                        let base = basis_map.get(&nucl).cloned().unwrap_or_else(|| {
-                            basis_map
-                                .get(&nucl.compl())
-                                .cloned()
-                                .unwrap_or_else(rand_base)
-                        });
-                        basis_map.insert(nucl.compl(), compl(base));
-                        let bound = OxDnaBound {
-                            base,
-                            strand_id,
-                            prime3: -1,
-                            prime5: prev_nucl.unwrap_or(-1),
-                        };
-                        bounds.push(bound);
-                        if let Some(prev) = prev_nucl {
-                            bounds.get_mut(prev as usize).unwrap().prime3 = nucl_id;
-                        }
-                        prev_nucl = Some(nucl_id);
-                        nucl_id += 1;
+                        strand_maker.add_ox_nucl(ox_nucl, Some(nucl));
+                    }
+                } else if let Domain::Insertion {
+                    instanciation: Some(instanciation),
+                    ..
+                } = d
+                {
+                    for (dom_position, space_position) in instanciation.pos().iter().enumerate() {
+                        strand_maker.add_free_nucl(*space_position, dom_position);
                     }
                 }
             }
-            if s.cyclic {
-                bounds.iter_mut().last().unwrap().prime3 = first_strand_nucl;
-                bounds.get_mut(first_strand_nucl as usize).unwrap().prime5 = nucl_id - 1;
-            }
+            // TODO: encapsulate this call to manually drop
+            ManuallyDrop::into_inner(strand_maker).end(s.cyclic);
         }
-        let topo = OxDnaTopology {
-            bounds,
-            nb_strand,
-            nb_nucl: nucl_id as usize,
-        };
-        let config = OxDnaConfig {
-            time: 0f32,
-            kinetic_energies: [0f32, 0f32, 0f32],
-            boundaries,
-            nucls,
-        };
-        (config, topo)
+
+        maker.end()
     }
 
     pub fn oxdna_export(&self, directory: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
