@@ -421,6 +421,7 @@ mod tests {
     use super::super::*;
     use super::controller::CopyOperation;
     use super::*;
+    use crate::app_state;
     use crate::scene::DesignReader as Reader3d;
     use ensnano_design::grid::HelixGridPosition;
     use ensnano_design::HelixCollection;
@@ -1469,6 +1470,92 @@ mod tests {
                 panic!("Incorrect staple name {:?}", s.name);
             }
         }
+    }
+
+    /// A design with two strands h1: 0 -> 5 and h1: 6 -> 10
+    fn two_neighbour_one_helix() -> AppState {
+        let path = test_path("two_neighbour_strands.ens");
+        AppState::import_design(&path).ok().unwrap()
+    }
+
+    #[test]
+    fn xover_same_helix_neighbour_strands() {
+        let mut app_state = two_neighbour_one_helix();
+        let first_nucl = Nucl {
+            helix: 1,
+            position: 0,
+            forward: true,
+        };
+        let last_nucl = Nucl {
+            position: 10,
+            ..first_nucl
+        };
+        app_state
+            .apply_design_op(DesignOperation::GeneralXover {
+                source: last_nucl,
+                target: first_nucl,
+            })
+            .unwrap();
+        app_state.update();
+
+        let s_id = app_state
+            .get_design_reader()
+            .get_id_of_strand_containing_nucl(&first_nucl)
+            .expect(&format!("no strand containing {:?}", first_nucl));
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&s_id)
+            .expect(&format!("No strand {s_id}"));
+
+        assert_good_strand(strand, "[H1: 6 -> 10] [H1: 0 -> 5]");
+    }
+
+    #[test]
+    fn merge_neighbour_strands_same_helix() {
+        let mut app_state = two_neighbour_one_helix();
+        let first_nucl = Nucl {
+            helix: 1,
+            position: 0,
+            forward: true,
+        };
+        let last_nucl = Nucl {
+            position: 10,
+            ..first_nucl
+        };
+        let s_id_first = app_state
+            .get_design_reader()
+            .get_id_of_strand_containing_nucl(&first_nucl)
+            .expect(&format!("no strand containing {:?}", first_nucl));
+        let s_id_last = app_state
+            .get_design_reader()
+            .get_id_of_strand_containing_nucl(&last_nucl)
+            .expect(&format!("no strand containing {:?}", last_nucl));
+        app_state
+            .apply_design_op(DesignOperation::Xover {
+                prime5_id: s_id_last,
+                prime3_id: s_id_first,
+            })
+            .unwrap();
+        app_state.update();
+
+        let s_id = app_state
+            .get_design_reader()
+            .get_id_of_strand_containing_nucl(&first_nucl)
+            .expect(&format!("no strand containing {:?}", first_nucl));
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&s_id)
+            .expect(&format!("No strand {s_id}"));
+
+        assert_good_strand(strand, "[H1: 6 -> 10] [H1: 0 -> 5]");
     }
 }
 

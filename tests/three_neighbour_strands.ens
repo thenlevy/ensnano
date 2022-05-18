@@ -1,0 +1,154 @@
+{
+  "helices": {
+    "1": {
+      "position": {
+        "x": 0.0,
+        "y": 5.0,
+        "z": 0.0
+      },
+      "orientation": {
+        "s": 0.7071068,
+        "bv": {
+          "xy": 0.0,
+          "xz": -0.7071068,
+          "yz": 0.0
+        }
+      },
+      "grid_position": {
+        "grid": {
+          "FreeGrid": 0
+        },
+        "x": 0,
+        "y": 0,
+        "axis_pos": 0,
+        "roll": 0.0
+      },
+      "isometry2d": {
+        "translation": {
+          "x": 0.0,
+          "y": 4.0
+        },
+        "rotation": {
+          "s": 1.0,
+          "bv": {
+            "xy": 0.0
+          }
+        }
+      },
+      "symmetry": {
+        "x": 1.0,
+        "y": 1.0
+      },
+      "roll": 0.0
+    }
+  },
+  "strands": {
+    "0": {
+      "domains": [
+        {
+          "HelixDomain": {
+            "helix": 1,
+            "start": 0,
+            "end": 6,
+            "forward": true,
+            "sequence": null
+          }
+        }
+      ],
+      "junctions": [
+        "Prime3"
+      ],
+      "color": 4286521119
+    },
+    "1": {
+      "domains": [
+        {
+          "HelixDomain": {
+            "helix": 1,
+            "start": 6,
+            "end": 11,
+            "forward": true,
+            "sequence": null
+          }
+        }
+      ],
+      "junctions": [
+        "Prime3"
+      ],
+      "color": 4278662565
+    },
+    "2": {
+      "domains": [
+        {
+          "HelixDomain": {
+            "helix": 1,
+            "start": 11,
+            "end": 16,
+            "forward": true,
+            "sequence": null
+          }
+        }
+      ],
+      "junctions": [
+        "Prime3"
+      ],
+      "color": 4286499601
+    }
+  },
+  "dna_parameters": {
+    "z_step": 0.332,
+    "helix_radius": 0.93,
+    "bases_per_turn": 10.44,
+    "groove_angle": 2.974041,
+    "inter_helix_gap": 0.7900001,
+    "inclination": 0.375
+  },
+  "free_grids": {
+    "0": {
+      "position": {
+        "x": 0.0,
+        "y": 5.0,
+        "z": 0.0
+      },
+      "orientation": {
+        "s": 0.70710677,
+        "bv": {
+          "xy": 0.0,
+          "xz": -0.70710677,
+          "yz": 0.0
+        }
+      },
+      "grid_type": {
+        "Square": {}
+      },
+      "invisible": false,
+      "bezier_vertex": null
+    }
+  },
+  "ensnano_version": "0.5.0",
+  "saved_camera": {
+    "position": {
+      "x": 0.0,
+      "y": 5.0,
+      "z": 10.0
+    },
+    "orientation": {
+      "s": 1.0,
+      "bv": {
+        "xy": 0.0,
+        "xz": 0.0,
+        "yz": 0.0
+      }
+    },
+    "name": "Saved Camera",
+    "id": 0,
+    "pivot_position": {
+      "x": null,
+      "y": null,
+      "z": null
+    }
+  },
+  "rainbow_scaffold": false,
+  "bezier_planes": {},
+  "bezier_paths": {}
+}
