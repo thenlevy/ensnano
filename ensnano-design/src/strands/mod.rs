@@ -1011,9 +1011,15 @@ impl Domain {
     pub fn can_merge(&self, other: &Domain) -> bool {
         match (self, other) {
             (Domain::HelixDomain(dom1), Domain::HelixDomain(dom2)) => {
-                dom1.helix == dom2.helix
-                    && (dom1.end == dom2.start || dom1.start == dom2.end)
-                    && dom1.forward == dom2.forward
+                if dom1.forward {
+                    dom1.helix == dom2.helix
+                        && dom1.end == dom2.start
+                        && dom1.forward == dom2.forward
+                } else {
+                    dom1.helix == dom2.helix
+                        && dom1.start == dom2.end
+                        && dom1.forward == dom2.forward
+                }
             }
             _ => false,
         }
