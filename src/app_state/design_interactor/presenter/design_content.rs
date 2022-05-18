@@ -609,6 +609,7 @@ impl DesignContent {
                     nb_nucl,
                     instanciation,
                     sequence: dom_seq,
+                    ..
                 } = domain
                 {
                     if let Some(instanciation) = instanciation.as_ref() {

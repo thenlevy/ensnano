@@ -420,6 +420,7 @@ mod tests {
     use super::super::OkOperation as TopOkOperation;
     use super::super::*;
     use super::controller::CopyOperation;
+    use super::file_parsing::StrandJunction;
     use super::*;
     use crate::app_state;
     use crate::scene::DesignReader as Reader3d;
@@ -1556,6 +1557,51 @@ mod tests {
             .expect(&format!("No strand {s_id}"));
 
         assert_good_strand(strand, "[H1: 6 -> 10] [H1: 0 -> 5]");
+    }
+
+    /// A design with two strands [h1: 0 -> 10] and [@10] [h2: 0 <- 10]
+    fn loopout_5prime_end() -> AppState {
+        let path = test_path("loopout_5prime.ens");
+        AppState::import_design(&path).ok().unwrap()
+    }
+
+    #[test]
+    fn xover_on_prime5_end_with_loopout() {
+        let mut app_state = loopout_5prime_end();
+        let source_nucl = Nucl {
+            helix: 1,
+            position: 10,
+            forward: true,
+        };
+        let dest_nucl = Nucl {
+            helix: 2,
+            position: 10,
+            forward: false,
+        };
+        app_state
+            .apply_design_op(DesignOperation::GeneralXover {
+                source: source_nucl,
+                target: dest_nucl,
+            })
+            .unwrap();
+        app_state.update();
+        let mut xover_ids = ensnano_utils::id_generator::IdGenerator::default();
+
+        let s_id = app_state
+            .get_design_reader()
+            .get_id_of_strand_containing_nucl(&source_nucl)
+            .expect(&format!("no strand containing {:?}", source_nucl));
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&s_id)
+            .expect(&format!("No strand {s_id}"));
+        let mut strand = Strand::clone(&strand);
+        strand.read_junctions(&mut xover_ids, true);
+        strand.read_junctions(&mut xover_ids, false);
     }
 }
 

@@ -2266,6 +2266,21 @@ impl Controller {
                 // half
                 on_3prime = true;
                 i = d_id;
+                let move_last_insertion = if let Some(Domain::Insertion {
+                    attached_to_prime3,
+                    ..
+                }) = prim5_domains.last()
+                {
+                    *attached_to_prime3
+                } else {
+                    false
+                };
+
+                // the insertion is currently
+                if move_last_insertion {
+                    prim5_domains = vec![prim5_domains.pop().unwrap()];
+                }
+
                 if let Some(j) = prime5_junctions.last_mut() {
                     *j = DomainJunction::Prime3;
                 }

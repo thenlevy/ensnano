@@ -258,21 +258,27 @@ pub struct Strand {
     pub name: Option<Cow<'static, str>>,
 }
 
+struct InsertionAccumulator {
+    attached_to_prime3: bool,
+    length: usize,
+    sequence: String,
+}
+
 /// Return a list of domains that validate the following condition:
 /// [SaneDomains]: There must always be a Domain::HelixDomain between two Domain::Insertion. If the
 /// strand is cyclic, this include the first and the last domain.
 pub fn sanitize_domains(domains: &[Domain], cyclic: bool) -> Vec<Domain> {
     let mut ret = Vec::with_capacity(domains.len());
-    let mut current_insertion: Option<usize> = None;
-    let mut current_seq: String = String::new();
+    let mut current_insertion: Option<InsertionAccumulator> = None;
     for d in domains {
         match d {
             Domain::HelixDomain(_) => {
-                if let Some(n) = current_insertion.take() {
+                if let Some(acc) = current_insertion.take() {
                     ret.push(Domain::Insertion {
-                        nb_nucl: n,
-                        sequence: Some(current_seq.clone().into()),
+                        nb_nucl: acc.length,
+                        sequence: Some(acc.sequence.into()),
                         instanciation: None,
+                        attached_to_prime3: acc.attached_to_prime3,
                     });
                 }
                 ret.push(d.clone());
@@ -280,35 +286,52 @@ pub fn sanitize_domains(domains: &[Domain], cyclic: bool) -> Vec<Domain> {
             Domain::Insertion {
                 nb_nucl: m,
                 sequence,
+                attached_to_prime3,
                 ..
             } => {
-                if let Some(n) = current_insertion {
-                    current_insertion = Some(n + m);
+                if let Some(acc) = current_insertion.as_mut() {
+                    acc.length += m;
                     if let Some(seq) = sequence {
-                        current_seq.push_str(seq);
+                        acc.sequence.push_str(seq);
                     }
                 } else {
-                    current_insertion = Some(*m);
-                    current_seq = sequence.as_ref().map(|s| s.to_string()).unwrap_or_default();
+                    current_insertion = Some(InsertionAccumulator {
+                        length: *m,
+                        attached_to_prime3: *attached_to_prime3,
+                        sequence: sequence.as_ref().map(|s| s.to_string()).unwrap_or_default(),
+                    });
                 }
             }
         }
     }
 
-    if let Some(mut n) = current_insertion {
+    if let Some(mut acc) = current_insertion {
         if cyclic {
             if let Domain::Insertion { nb_nucl, .. } = ret[0].clone() {
                 ret.remove(0);
-                n += nb_nucl;
+                acc.length += nb_nucl;
             }
-            ret.push(Domain::new_insertion(n));
+            ret.push(Domain::new_insertion(acc.length));
         } else {
-            ret.push(Domain::new_insertion(n));
+            if acc.attached_to_prime3 {
+                ret.push(Domain::new_prime5_insertion(acc.length));
+            } else {
+                ret.push(Domain::new_insertion(acc.length));
+            }
         }
     } else if cyclic {
-        if let Domain::Insertion { nb_nucl, .. } = ret[0].clone() {
+        if let Domain::Insertion {
+            nb_nucl,
+            attached_to_prime3,
+            ..
+        } = ret[0].clone()
+        {
             ret.remove(0);
-            ret.push(Domain::new_insertion(nb_nucl));
+            if attached_to_prime3 {
+                ret.push(Domain::new_prime5_insertion(nb_nucl));
+            } else {
+                ret.push(Domain::new_insertion(nb_nucl));
+            }
         }
     }
     ret
@@ -650,9 +673,14 @@ impl Strand {
     fn add_insertion_at_dom_position(&mut self, d_id: usize, pos: usize, insertion_size: usize) {
         if let Some((prime5, prime3)) = self.domains[d_id].split(pos) {
             self.domains[d_id] = prime3;
-            self.domains
-                .insert(d_id, Domain::new_insertion(insertion_size));
-            self.domains.insert(d_id, prime5);
+            if pos == 0 {
+                self.domains
+                    .insert(d_id, Domain::new_prime5_insertion(insertion_size));
+            } else {
+                self.domains
+                    .insert(d_id, Domain::new_insertion(insertion_size));
+                self.domains.insert(d_id, prime5);
+            }
         } else {
             println!("Could not split");
             if cfg!(test) {
@@ -687,6 +715,8 @@ pub enum Domain {
         instanciation: Option<Arc<InstanciatedInsertion>>,
         #[serde(default)]
         sequence: Option<Cow<'static, str>>,
+        #[serde(default)]
+        attached_to_prime3: bool,
     },
 }
 
@@ -1042,6 +1072,16 @@ impl Domain {
             nb_nucl,
             instanciation: None,
             sequence: None,
+            attached_to_prime3: false,
+        }
+    }
+
+    pub fn new_prime5_insertion(nb_nucl: usize) -> Self {
+        Self::Insertion {
+            nb_nucl,
+            instanciation: None,
+            sequence: None,
+            attached_to_prime3: true,
         }
     }
 }

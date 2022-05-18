@@ -172,11 +172,15 @@ impl Design {
         for d in source_strand.domains.iter() {
             match d {
                 Domain::Insertion {
-                    nb_nucl, sequence, ..
+                    nb_nucl,
+                    sequence,
+                    attached_to_prime3,
+                    ..
                 } => new_strand_domains.push(Domain::Insertion {
                     nb_nucl: *nb_nucl,
                     instanciation: None,
                     sequence: sequence.clone(),
+                    attached_to_prime3: *attached_to_prime3,
                 }),
                 Domain::HelixDomain(HelixInterval {
                     helix,
