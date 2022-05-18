@@ -44,7 +44,7 @@ use ensnano_interactor::consts::SAMPLE_COUNT;
 use ensnano_utils::winit::dpi::PhysicalPosition;
 use ensnano_utils::{chars2d as chars, circles2d as circles};
 use insertion::InsertionDrawer;
-pub use insertion::InsertionInstance;
+pub use insertion::{InsertionDescriptor, InsertionInstance};
 use rectangle::Rectangle;
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},

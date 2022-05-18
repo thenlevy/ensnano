@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use super::super::view::{CircleInstance, InsertionInstance};
+use super::super::view::{CircleInstance, InsertionDescriptor, InsertionInstance};
 use super::super::{CameraPtr, Flat, FlatHelix};
 use super::{FlatNucl, Helix2d, NuclCollection};
 use crate::flattypes::FlatHelixMaps;
@@ -644,10 +644,17 @@ impl Helix {
     pub fn insertion_instance(&self, nucl: &FlatNucl, color: u32) -> InsertionInstance {
         let position = self.get_nucl_position(nucl, Shift::Prime3);
         let mut orientation = self.isometry.rotation;
-        if !nucl.forward {
+        if nucl.forward {
             orientation = Rotor2::from_angle(std::f32::consts::PI) * orientation;
         }
-        InsertionInstance::new(position, self.get_depth(), orientation, color)
+
+        InsertionInstance::new(InsertionDescriptor {
+            position,
+            depth: self.get_depth(),
+            symmetry: self.isometry.symmetry,
+            orientation,
+            color,
+        })
     }
 
     fn info_line(&self) -> Line {
