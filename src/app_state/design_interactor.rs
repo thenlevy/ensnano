@@ -459,6 +459,7 @@ mod tests {
         for (a, b) in left.zip(right) {
             assert_eq!(a.as_str(), b.as_str());
         }
+        test_sane_strand(strand);
     }
 
     fn assert_good_junctions<S: std::ops::Deref<Target = str>>(strand: &Strand, objective: S) {
@@ -472,6 +473,7 @@ mod tests {
         for (a, b) in left.zip(right) {
             assert_eq!(a.as_str(), b.as_str());
         }
+        test_sane_strand(strand);
     }
 
     /// A design with one strand h1: 0 -> 5 ; h2: 0 <- 5
@@ -1136,6 +1138,13 @@ mod tests {
             insertion_len_1, insertion_len_2, insertion_len_3, insertion_len_4 + insertion_len_0
         );
         assert_good_strand(strand, expected_result);
+    }
+
+    fn test_sane_strand(strand: &Strand) {
+        let mut strand = Strand::clone(&strand);
+        let mut xover_ids = ensnano_utils::id_generator::IdGenerator::default();
+        strand.read_junctions(&mut xover_ids, true);
+        strand.read_junctions(&mut xover_ids, false);
     }
 
     #[test]

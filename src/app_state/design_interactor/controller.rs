@@ -2251,6 +2251,7 @@ impl Controller {
         let mut prev_helix = None;
         let mut prime5_junctions: Vec<DomainJunction> = Vec::new();
         let mut prime3_junctions: Vec<DomainJunction> = Vec::new();
+        let mut prim3_domains = Vec::new();
 
         log::info!("Spliting");
         log::info!("{:?}", strand.domains);
@@ -2278,7 +2279,8 @@ impl Controller {
 
                 // the insertion is currently
                 if move_last_insertion {
-                    prim5_domains = vec![prim5_domains.pop().unwrap()];
+                    prim3_domains = vec![prim5_domains.pop().unwrap()];
+                    prime3_junctions.push(DomainJunction::Adjacent);
                 }
 
                 if let Some(j) = prime5_junctions.last_mut() {
@@ -2310,7 +2312,6 @@ impl Controller {
             prev_helix = domain.half_helix();
         }
 
-        let mut prim3_domains = Vec::new();
         if let Some(ref domains) = domains {
             prim5_domains.push(domains.0.clone());
             prim3_domains.push(domains.1.clone());
