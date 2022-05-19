@@ -680,10 +680,120 @@ mod tests {
         app_state
     }
 
+    /// Add an insertion on 5'end of a xover, split the strand and check that the junctions are
+    /// correct
+    #[test]
+    fn correct_junctions_after_split() {
+        // A design with one strand h1: -1 -> 7 ; h2: -1 <- 7 ; h3: 0 -> 9
+        let mut app_state = pastable_design();
+
+        println!("add insertion on prime5 of xover");
+        // prime5 of xover
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 1,
+                        position: 7,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: true,
+                },
+                length: INSERTION_LEN_2,
+            })
+            .unwrap();
+        app_state.update();
+
+        let strands = &mut app_state.0.design.presenter.current_design.strands.clone();
+
+        let s_id_prime5 = controller::Controller::split_strand(
+            strands,
+            &Nucl {
+                helix: 3,
+                position: 0,
+                forward: true,
+            },
+            Some(true),
+        )
+        .ok()
+        .unwrap();
+
+        let s_id_prime3 = strands
+            .get_strand_nucl(&Nucl {
+                helix: 3,
+                position: 0,
+                forward: true,
+            })
+            .unwrap();
+
+        let strand = strands.get(&s_id_prime5).expect("No strand 5'");
+        let exptected_result = format!("[->] [x] [3']");
+        assert_good_junctions(strand, exptected_result);
+        println!("OK for 5' end");
+
+        let strand = strands.get(&s_id_prime3).expect("No strand 3'");
+        let exptected_result = format!("[3']");
+        assert_good_junctions(strand, exptected_result);
+    }
+
     /// Add an insertion on 3'end of a strand and check that the last two junctions are in correct
     /// oreder
     #[test]
     fn junction_on_xover_ends() {
+        // A design with one strand h1: -1 -> 7 ; h2: -1 <- 7 ; h3: 0 -> 9
+        let mut app_state = pastable_design();
+
+        println!("add insertion on prime5 of xover");
+        // prime5 of xover
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 1,
+                        position: 7,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: true,
+                },
+                length: INSERTION_LEN_2,
+            })
+            .unwrap();
+        app_state.update();
+
+        println!("add insertion on prime3 of xover");
+        // prime3 of xover
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 3,
+                        position: 0,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: false,
+                },
+                length: INSERTION_LEN_3,
+            })
+            .unwrap();
+        app_state.update();
+
+        app_state.update();
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&0)
+            .expect("No strand 0");
+        let exptected_result = format!("[->] [x] [->] [x] [3']");
+        assert_good_junctions(strand, exptected_result);
+    }
+
+    /// Add an insertion on 3'end of a strand and check that the last two junctions are in correct
+    /// oreder
+    #[test]
+    fn junction_on_xover_and_3prime_ends() {
         // A design with one strand h1: -1 -> 7 ; h2: -1 <- 7 ; h3: 0 -> 9
         let mut app_state = pastable_design();
 

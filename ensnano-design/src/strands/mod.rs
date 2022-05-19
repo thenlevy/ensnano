@@ -1031,6 +1031,23 @@ impl Domain {
                 dom1.start = start;
                 dom1.end = end;
             }
+            (
+                Domain::Insertion {
+                    nb_nucl: n1,
+                    sequence,
+                    ..
+                },
+                Domain::Insertion {
+                    nb_nucl: n2,
+                    sequence: s2,
+                    ..
+                },
+            ) => {
+                let s1 = sequence.as_ref().map(|s| s.to_string()).unwrap_or_default();
+                let s2 = s2.as_ref().map(|s2| s2.to_string()).unwrap_or_default();
+                *n1 += *n2;
+                *sequence = Some(Cow::Owned(format!("{s1}{s2}")));
+            }
             _ => println!(
                 "Warning attempt to merge unmergeable domains {:?}, {:?}",
                 old_self, other
@@ -1051,6 +1068,7 @@ impl Domain {
                         && dom1.forward == dom2.forward
                 }
             }
+            (Domain::Insertion { .. }, Domain::Insertion { .. }) => true,
             _ => false,
         }
     }
