@@ -544,6 +544,8 @@ impl Strand {
                 Domain::Insertion { nb_nucl, .. } if *nb_nucl > 0 => {
                     if let Some(nucl) = last_nucl {
                         ret.push(nucl);
+                    } else if let Some(nucl) = self.get_5prime() {
+                        ret.push(nucl)
                     }
                 }
                 Domain::Insertion { .. } => (),
