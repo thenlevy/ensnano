@@ -490,6 +490,16 @@ impl Curve {
         }
     }
 
+    pub fn axis_at_pos(&self, position: isize, forward: bool) -> Option<DMat3> {
+        let idx = self.idx_convertsion(position)?;
+        let axis = if forward {
+            &self.axis_forward
+        } else {
+            &self.axis_backward
+        };
+        axis.get(idx).cloned()
+    }
+
     pub fn points(&self) -> &[DVec3] {
         &self.positions_forward
     }

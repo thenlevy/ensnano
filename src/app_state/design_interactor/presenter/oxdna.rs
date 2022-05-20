@@ -117,9 +117,9 @@ impl OxDnaHelix for Helix {
             (other_base - backbone_position).normalized()
         };
         let normal = if forward {
-            (self.axis_position(parameters, 1) - self.axis_position(parameters, 0)).normalized()
+            (self.normal_at_pos(nucl_idx, forward)).normalized()
         } else {
-            -(self.axis_position(parameters, 1) - self.axis_position(parameters, 0)).normalized()
+            -(self.normal_at_pos(nucl_idx, forward)).normalized()
         };
         let cm_position = backbone_position + a1 * BACKBONE_TO_CM;
         OxDnaNucl {
@@ -329,17 +329,6 @@ impl Presenter {
         config.write(config_name.clone())?;
         topo.write(topology_name.clone())?;
         Ok((config_name, topology_name))
-        /*
-        if success {
-            crate::utils::message(
-                format!(
-                    "Successfully exported to {:?} and {:?}",
-                    config_name, topology_name,
-                )
-                .into(),
-                rfd::MessageLevel::Info,
-            );
-        }*/
     }
 }
 
