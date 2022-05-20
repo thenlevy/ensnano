@@ -217,9 +217,9 @@ struct StrandMaker<'a> {
 
 impl StrandMaker<'_> {
     fn add_ox_nucl(&mut self, ox_nucl: OxDnaNucl, nucl: Option<Nucl>) {
-        self.context.boundaries[0] = self.context.boundaries[0].max(2. * ox_nucl.position.x.abs());
-        self.context.boundaries[1] = self.context.boundaries[1].max(2. * ox_nucl.position.y.abs());
-        self.context.boundaries[2] = self.context.boundaries[2].max(2. * ox_nucl.position.z.abs());
+        self.context.boundaries[0] = self.context.boundaries[0].max(4. * ox_nucl.position.x.abs());
+        self.context.boundaries[1] = self.context.boundaries[1].max(4. * ox_nucl.position.y.abs());
+        self.context.boundaries[2] = self.context.boundaries[2].max(4. * ox_nucl.position.z.abs());
 
         self.previous_position = Some(ox_nucl.position);
         self.context.nucls.push(ox_nucl);
