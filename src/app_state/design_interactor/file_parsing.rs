@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 
 mod cadnano;
 mod junctions;
-use junctions::StrandJunction;
+pub(super) use junctions::StrandJunction;
 
 impl DesignInteractor {
     /// Create a new data by reading a file. At the moment, the supported format are

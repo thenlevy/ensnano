@@ -420,7 +420,9 @@ mod tests {
     use super::super::OkOperation as TopOkOperation;
     use super::super::*;
     use super::controller::CopyOperation;
+    use super::file_parsing::StrandJunction;
     use super::*;
+    use crate::app_state;
     use crate::scene::DesignReader as Reader3d;
     use ensnano_design::grid::HelixGridPosition;
     use ensnano_design::HelixCollection;
@@ -447,6 +449,8 @@ mod tests {
     }
 
     fn assert_good_strand<S: std::ops::Deref<Target = str>>(strand: &Strand, objective: S) {
+        println!("self {:?}", strand.formated_domains());
+        println!("objective {}", objective.deref());
         use regex::Regex;
         let re = Regex::new(r#"\[[^\]]*\]"#).unwrap();
         let formated_strand = strand.formated_domains();
@@ -455,6 +459,21 @@ mod tests {
         for (a, b) in left.zip(right) {
             assert_eq!(a.as_str(), b.as_str());
         }
+        test_sane_strand(strand);
+    }
+
+    fn assert_good_junctions<S: std::ops::Deref<Target = str>>(strand: &Strand, objective: S) {
+        println!("self {:?}", strand.formated_anonymous_junctions());
+        println!("objective {}", objective.deref());
+        use regex::Regex;
+        let re = Regex::new(r#"\[[^\]]*\]"#).unwrap();
+        let formated_strand = strand.formated_anonymous_junctions();
+        let left = re.find_iter(&formated_strand);
+        let right = re.find_iter(&objective);
+        for (a, b) in left.zip(right) {
+            assert_eq!(a.as_str(), b.as_str());
+        }
+        test_sane_strand(strand);
     }
 
     /// A design with one strand h1: 0 -> 5 ; h2: 0 <- 5
@@ -661,6 +680,182 @@ mod tests {
             .unwrap();
         app_state.update();
         app_state
+    }
+
+    /// Add an insertion on 5'end of a xover, split the strand and check that the junctions are
+    /// correct
+    #[test]
+    fn correct_junctions_after_split() {
+        // A design with one strand h1: -1 -> 7 ; h2: -1 <- 7 ; h3: 0 -> 9
+        let mut app_state = pastable_design();
+
+        println!("add insertion on prime5 of xover");
+        // prime5 of xover
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 1,
+                        position: 7,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: true,
+                },
+                length: INSERTION_LEN_2,
+            })
+            .unwrap();
+        app_state.update();
+
+        let strands = &mut app_state.0.design.presenter.current_design.strands.clone();
+
+        let s_id_prime5 = controller::Controller::split_strand(
+            strands,
+            &Nucl {
+                helix: 3,
+                position: 0,
+                forward: true,
+            },
+            Some(true),
+        )
+        .ok()
+        .unwrap();
+
+        let s_id_prime3 = strands
+            .get_strand_nucl(&Nucl {
+                helix: 3,
+                position: 0,
+                forward: true,
+            })
+            .unwrap();
+
+        let strand = strands.get(&s_id_prime5).expect("No strand 5'");
+        let exptected_result = format!("[->] [x] [3']");
+        assert_good_junctions(strand, exptected_result);
+        println!("OK for 5' end");
+
+        let strand = strands.get(&s_id_prime3).expect("No strand 3'");
+        let exptected_result = format!("[3']");
+        assert_good_junctions(strand, exptected_result);
+    }
+
+    /// Add an insertion on 3'end of a strand and check that the last two junctions are in correct
+    /// oreder
+    #[test]
+    fn junction_on_xover_ends() {
+        // A design with one strand h1: -1 -> 7 ; h2: -1 <- 7 ; h3: 0 -> 9
+        let mut app_state = pastable_design();
+
+        println!("add insertion on prime5 of xover");
+        // prime5 of xover
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 1,
+                        position: 7,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: true,
+                },
+                length: INSERTION_LEN_2,
+            })
+            .unwrap();
+        app_state.update();
+
+        println!("add insertion on prime3 of xover");
+        // prime3 of xover
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 3,
+                        position: 0,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: false,
+                },
+                length: INSERTION_LEN_3,
+            })
+            .unwrap();
+        app_state.update();
+
+        app_state.update();
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&0)
+            .expect("No strand 0");
+        let exptected_result = format!("[->] [x] [->] [x] [3']");
+        assert_good_junctions(strand, exptected_result);
+    }
+
+    /// Add an insertion on 3'end of a strand and check that the last two junctions are in correct
+    /// oreder
+    #[test]
+    fn junction_on_xover_and_3prime_ends() {
+        // A design with one strand h1: -1 -> 7 ; h2: -1 <- 7 ; h3: 0 -> 9
+        let mut app_state = pastable_design();
+
+        // prime5 of xover
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 1,
+                        position: 7,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: true,
+                },
+                length: INSERTION_LEN_2,
+            })
+            .unwrap();
+        app_state.update();
+
+        // prime3 of xover
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 3,
+                        position: 0,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: false,
+                },
+                length: INSERTION_LEN_3,
+            })
+            .unwrap();
+        app_state.update();
+
+        //prime3 of strand
+        app_state
+            .apply_design_op(DesignOperation::SetInsertionLength {
+                insertion_point: ensnano_interactor::InsertionPoint {
+                    nucl: Nucl {
+                        helix: 3,
+                        position: 9,
+                        forward: true,
+                    },
+                    nucl_is_prime5_of_insertion: true,
+                },
+                length: INSERTION_LEN_4,
+            })
+            .unwrap();
+        app_state.update();
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&0)
+            .expect("No strand 0");
+        let exptected_result = format!("[->] [x] [->] [x] [->] [3']");
+        assert_good_junctions(strand, exptected_result);
     }
 
     #[test]
@@ -943,6 +1138,13 @@ mod tests {
             insertion_len_1, insertion_len_2, insertion_len_3, insertion_len_4 + insertion_len_0
         );
         assert_good_strand(strand, expected_result);
+    }
+
+    fn test_sane_strand(strand: &Strand) {
+        let mut strand = Strand::clone(&strand);
+        let mut xover_ids = ensnano_utils::id_generator::IdGenerator::default();
+        strand.read_junctions(&mut xover_ids, true);
+        strand.read_junctions(&mut xover_ids, false);
     }
 
     #[test]
@@ -1469,6 +1671,179 @@ mod tests {
                 panic!("Incorrect staple name {:?}", s.name);
             }
         }
+    }
+
+    /// A design with two strands h1: 0 -> 5 and h1: 6 -> 10
+    fn two_neighbour_one_helix() -> AppState {
+        let path = test_path("two_neighbour_strands.ens");
+        AppState::import_design(&path).ok().unwrap()
+    }
+
+    #[test]
+    fn xover_same_helix_neighbour_strands() {
+        let mut app_state = two_neighbour_one_helix();
+        let first_nucl = Nucl {
+            helix: 1,
+            position: 0,
+            forward: true,
+        };
+        let last_nucl = Nucl {
+            position: 10,
+            ..first_nucl
+        };
+        app_state
+            .apply_design_op(DesignOperation::GeneralXover {
+                source: last_nucl,
+                target: first_nucl,
+            })
+            .unwrap();
+        app_state.update();
+
+        let s_id = app_state
+            .get_design_reader()
+            .get_id_of_strand_containing_nucl(&first_nucl)
+            .expect(&format!("no strand containing {:?}", first_nucl));
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&s_id)
+            .expect(&format!("No strand {s_id}"));
+
+        assert_good_strand(strand, "[H1: 6 -> 10] [H1: 0 -> 5]");
+    }
+
+    #[test]
+    fn merge_neighbour_strands_same_helix() {
+        let mut app_state = two_neighbour_one_helix();
+        let first_nucl = Nucl {
+            helix: 1,
+            position: 0,
+            forward: true,
+        };
+        let last_nucl = Nucl {
+            position: 10,
+            ..first_nucl
+        };
+        let s_id_first = app_state
+            .get_design_reader()
+            .get_id_of_strand_containing_nucl(&first_nucl)
+            .expect(&format!("no strand containing {:?}", first_nucl));
+        let s_id_last = app_state
+            .get_design_reader()
+            .get_id_of_strand_containing_nucl(&last_nucl)
+            .expect(&format!("no strand containing {:?}", last_nucl));
+        app_state
+            .apply_design_op(DesignOperation::Xover {
+                prime5_id: s_id_last,
+                prime3_id: s_id_first,
+            })
+            .unwrap();
+        app_state.update();
+
+        let s_id = app_state
+            .get_design_reader()
+            .get_id_of_strand_containing_nucl(&first_nucl)
+            .expect(&format!("no strand containing {:?}", first_nucl));
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&s_id)
+            .expect(&format!("No strand {s_id}"));
+
+        assert_good_strand(strand, "[H1: 6 -> 10] [H1: 0 -> 5]");
+    }
+
+    /// A design with two strands [h1: 0 -> 10] and [@10] [h2: 0 <- 10]
+    fn loopout_5prime_end() -> AppState {
+        let path = test_path("loopout_5prime.ens");
+        AppState::import_design(&path).ok().unwrap()
+    }
+
+    #[test]
+    fn xover_on_prime5_end_with_loopout() {
+        let mut app_state = loopout_5prime_end();
+        let source_nucl = Nucl {
+            helix: 1,
+            position: 10,
+            forward: true,
+        };
+        let dest_nucl = Nucl {
+            helix: 2,
+            position: 10,
+            forward: false,
+        };
+        app_state
+            .apply_design_op(DesignOperation::GeneralXover {
+                source: source_nucl,
+                target: dest_nucl,
+            })
+            .unwrap();
+        app_state.update();
+        let mut xover_ids = ensnano_utils::id_generator::IdGenerator::default();
+
+        let s_id = app_state
+            .get_design_reader()
+            .get_id_of_strand_containing_nucl(&source_nucl)
+            .expect(&format!("no strand containing {:?}", source_nucl));
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&s_id)
+            .expect(&format!("No strand {s_id}"));
+        let mut strand = Strand::clone(&strand);
+        strand.read_junctions(&mut xover_ids, true);
+        strand.read_junctions(&mut xover_ids, false);
+    }
+
+    /// A design with two strands [h1: 0 -> 10] and [@20] [h2: 0 <- 10]
+    fn loopout_5prime_and_3prime_ends() -> AppState {
+        let path = test_path("loopout_5prime_and_3prime.ens");
+        AppState::import_design(&path).ok().unwrap()
+    }
+
+    #[test]
+    fn merge_insertions() {
+        let mut app_state = loopout_5prime_and_3prime_ends();
+        let source_nucl = Nucl {
+            helix: 1,
+            position: 10,
+            forward: true,
+        };
+        let dest_nucl = Nucl {
+            helix: 2,
+            position: 10,
+            forward: false,
+        };
+        app_state
+            .apply_design_op(DesignOperation::GeneralXover {
+                source: source_nucl,
+                target: dest_nucl,
+            })
+            .unwrap();
+        app_state.update();
+        let s_id = app_state
+            .get_design_reader()
+            .get_id_of_strand_containing_nucl(&source_nucl)
+            .expect(&format!("no strand containing {:?}", source_nucl));
+        let strand = app_state
+            .0
+            .design
+            .presenter
+            .current_design
+            .strands
+            .get(&s_id)
+            .expect(&format!("No strand {s_id}"));
+
+        assert_good_strand(strand, "[H1: 0 -> 10] [@20] [H2: 0 <- 10]");
     }
 }
 

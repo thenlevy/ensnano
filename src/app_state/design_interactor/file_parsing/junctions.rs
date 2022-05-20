@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::IdGenerator;
 use ensnano_design::*;
-pub(super) trait StrandJunction {
+pub trait StrandJunction {
     /// Read the junctions for self when loading the design.
     /// If `identified` is true (i.e. during the first pass), read the IdentifiedXover
     /// and insert them in the xover_ids.
@@ -94,7 +94,7 @@ impl StrandJunction for Strand {
                             let prime3 = d2.prime5();
                             xover_ids.insert_at((prime5, prime3), *id);
                         } else if let Domain::Insertion { .. } = next {
-                            panic!("UnindentifiedXover before an insertion");
+                            panic!("IdentifiedXover before an insertion");
                         } else if let Domain::Insertion { .. } = previous_domain {
                             panic!("Invariant violated: [SaneDomains]");
                         } else {

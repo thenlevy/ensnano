@@ -32,6 +32,14 @@ impl Strand {
         }
         ret
     }
+
+    pub fn formated_anonymous_junctions(&self) -> String {
+        let mut ret = String::new();
+        for j in self.junctions.iter() {
+            ret.push_str(&format!("{} ", j.anonymous_fmt()))
+        }
+        ret
+    }
 }
 
 impl fmt::Display for Domain {
@@ -39,6 +47,18 @@ impl fmt::Display for Domain {
         match self {
             Self::Insertion { nb_nucl, .. } => write!(f, "[@{}]", nb_nucl),
             Self::HelixDomain(dom) => write!(f, "{}", dom),
+        }
+    }
+}
+
+impl DomainJunction {
+    fn anonymous_fmt(&self) -> String {
+        match self {
+            DomainJunction::Prime3 => String::from("[3']"),
+            DomainJunction::Adjacent => String::from("[->]"),
+            DomainJunction::UnindentifiedXover | DomainJunction::IdentifiedXover(_) => {
+                String::from("[x]")
+            }
         }
     }
 }

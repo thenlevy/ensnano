@@ -70,9 +70,15 @@ impl Controller {
                 .strands
                 .get_mut(&s_id)
                 .ok_or(ErrOperation::StrandDoesNotExist(s_id))?;
+            if cfg!(test) {
+                println!(
+                    "junction after split {}",
+                    strand_mut.formated_anonymous_junctions()
+                )
+            }
             if insertion_point.nucl_is_prime5_of_insertion {
                 // The nucl is the 3' end of the splited strand
-                let insertion_junction_id = strand_mut.domains.len();
+                let insertion_junction_id = strand_mut.domains.len() - 1;
                 strand_mut.domains.push(Domain::new_insertion(length));
                 strand_mut
                     .junctions
@@ -90,17 +96,29 @@ impl Controller {
                 }
             } else {
                 // the nucl is the 5' end of the splited strand
-                strand_mut.domains.insert(0, Domain::new_insertion(length));
+                strand_mut
+                    .domains
+                    .insert(0, Domain::new_prime5_insertion(length));
                 strand_mut.junctions.insert(0, DomainJunction::Adjacent);
+                if cfg!(test) {
+                    println!(
+                        "After adding junction, merging {}",
+                        strand_mut.formated_anonymous_junctions()
+                    );
+                }
                 if let Some(strand) = design.strands.get(&s_2) {
                     if strand.length() > 0 {
                         if s_2 != s_id {
+                            if cfg!(test) {
+                                println!("with {}", strand.formated_anonymous_junctions());
+                            }
                             Self::merge_strands(&mut design.strands, s_2, s_id)?;
                             // The merged strand has id `s_2`, set it back to `s_id`
                             if let Some(merged_strand) = design.strands.remove(&s_2) {
                                 design.strands.insert(s_id, merged_strand);
                             }
                         } else {
+                            println!("with itself");
                             Self::make_cycle(&mut design.strands, s_id, true)?;
                         }
                     } else {
@@ -146,6 +164,7 @@ fn get_insertion_length_mut<'a>(
             )
         };
     if insertion_point.nucl_is_prime5_of_insertion {
+        // look for an insertion after the domain ending with the desired nucl
         for ((_, d_nucl), (d_id, d_insertion)) in domains_iterator {
             if d_nucl.prime3_end() == Some(insertion_point.nucl) {
                 if let Domain::Insertion { .. } = d_insertion {
@@ -157,6 +176,7 @@ fn get_insertion_length_mut<'a>(
             }
         }
     } else {
+        // look for an insertion before the domain ending with the desired nucl
         for ((d_id, d_insertion), (_, d_nucl)) in domains_iterator {
             if d_nucl.prime5_end() == Some(insertion_point.nucl) {
                 if let Domain::Insertion { .. } = d_insertion {

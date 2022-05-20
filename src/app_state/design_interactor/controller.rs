@@ -2221,7 +2221,7 @@ impl Controller {
     /// If `force_end` is `None`, nucl will be on the 5 prime half of the split unless nucl is the 3
     /// prime extremity of a crossover, in which case nucl will be on the 3 prime half of the
     /// split.
-    fn split_strand(
+    pub(crate) fn split_strand(
         strands: &mut Strands,
         nucl: &Nucl,
         force_end: Option<bool>,
@@ -2251,6 +2251,7 @@ impl Controller {
         let mut prev_helix = None;
         let mut prime5_junctions: Vec<DomainJunction> = Vec::new();
         let mut prime3_junctions: Vec<DomainJunction> = Vec::new();
+        let mut prim3_domains = Vec::new();
 
         log::info!("Spliting");
         log::info!("{:?}", strand.domains);
@@ -2266,6 +2267,22 @@ impl Controller {
                 // half
                 on_3prime = true;
                 i = d_id;
+                let move_last_insertion = if let Some(Domain::Insertion {
+                    attached_to_prime3,
+                    ..
+                }) = prim5_domains.last()
+                {
+                    *attached_to_prime3
+                } else {
+                    false
+                };
+
+                // the insertion is currently
+                if move_last_insertion {
+                    prim3_domains = vec![prim5_domains.pop().unwrap()];
+                    prime3_junctions.push(DomainJunction::Adjacent);
+                }
+
                 if let Some(j) = prime5_junctions.last_mut() {
                     *j = DomainJunction::Prime3;
                 }
@@ -2295,7 +2312,6 @@ impl Controller {
             prev_helix = domain.half_helix();
         }
 
-        let mut prim3_domains = Vec::new();
         if let Some(ref domains) = domains {
             prim5_domains.push(domains.0.clone());
             prim3_domains.push(domains.1.clone());
@@ -2573,7 +2589,27 @@ impl Controller {
                 domains.push(domain.clone());
                 junctions.push(strand5prime.junctions[i].clone());
             }
-            let skip;
+            let junction_between_merge = {
+                let last_interval_prime5 = strand5prime
+                    .domains
+                    .iter()
+                    .rev()
+                    .find(|d| matches!(d, Domain::HelixDomain(_)))
+                    .ok_or(ErrOperation::EmptyOrigin)?;
+                let first_interval_prime3 = strand5prime
+                    .domains
+                    .iter()
+                    .rev()
+                    .find(|d| matches!(d, Domain::HelixDomain(_)))
+                    .ok_or(ErrOperation::EmptyOrigin)?;
+                if last_interval_prime5.can_merge(first_interval_prime3) {
+                    DomainJunction::Adjacent
+                } else {
+                    DomainJunction::UnindentifiedXover
+                }
+            };
+            let skip_domain;
+            let skip_junction;
             let last_helix = domains.last().and_then(|d| d.half_helix());
             let next_helix = strand3prime
                 .domains
@@ -2581,13 +2617,13 @@ impl Controller {
                 .next()
                 .and_then(|d| d.half_helix());
             if last_helix == next_helix
-                && last_helix.is_some()
                 && domains
                     .last()
                     .unwrap()
                     .can_merge(strand3prime.domains.first().unwrap())
             {
-                skip = 1;
+                skip_domain = 1;
+                skip_junction = 0;
                 domains
                     .last_mut()
                     .as_mut()
@@ -2595,15 +2631,25 @@ impl Controller {
                     .merge(strand3prime.domains.iter().next().unwrap());
                 junctions.pop();
             } else {
-                skip = 0;
                 if let Some(j) = junctions.iter_mut().last() {
-                    *j = DomainJunction::UnindentifiedXover
+                    *j = junction_between_merge
+                }
+                if let Some(Domain::Insertion { .. }) = strand3prime.domains.first() {
+                    skip_domain = 1;
+                    skip_junction = 1;
+                    // the last domain is not an insertion in this case
+                    domains.push(strand3prime.domains.first().unwrap().clone());
+                    let insertion_idx = junctions.len() - 1;
+                    junctions.insert(insertion_idx, DomainJunction::Adjacent);
+                } else {
+                    skip_domain = 0;
+                    skip_junction = 0;
                 }
             }
-            for domain in strand3prime.domains.iter().skip(skip) {
+            for domain in strand3prime.domains.iter().skip(skip_domain) {
                 domains.push(domain.clone());
             }
-            for junction in strand3prime.junctions.iter() {
+            for junction in strand3prime.junctions.iter().skip(skip_junction) {
                 junctions.push(junction.clone());
             }
             let sequence = if let Some((seq5, seq3)) = strand5prime
@@ -2620,7 +2666,7 @@ impl Controller {
             } else {
                 None
             };
-            let new_strand = Strand {
+            let mut new_strand = Strand {
                 domains,
                 color: strand5prime.color,
                 sequence,
@@ -2628,6 +2674,7 @@ impl Controller {
                 cyclic: false,
                 name,
             };
+            new_strand.merge_consecutive_domains();
             strands.insert(prime5, new_strand);
             Ok(())
         } else {
