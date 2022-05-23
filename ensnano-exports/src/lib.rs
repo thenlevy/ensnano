@@ -18,13 +18,5 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! Exports utilities from ENSnano to other file formats used in DNA nanotechnologies
 
 pub mod oxdna;
+pub mod pdb;
 use ensnano_design::ultraviolet;
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
-}
