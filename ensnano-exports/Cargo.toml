@@ -1,0 +1,12 @@
+[package]
+name = "ensnano_exports"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ensnano_design = { path = "../ensnano-design" }
+ensnano_utils = { path = "../ensnano-utils" }
+ahash = "0.6.2"
+rand = "0.8.3"

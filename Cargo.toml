@@ -1,5 +1,5 @@
 [workspace]
-members = [ "ensnano-design", "ensnano-interactor", "ensnano-organizer", "ensnano-scene", "ensnano-flatscene", "ensnano-gui", "ensnano-utils"]
+members = [ "ensnano-design", "ensnano-interactor", "ensnano-organizer", "ensnano-scene", "ensnano-flatscene", "ensnano-gui", "ensnano-utils", "ensnano-exports"]
 
 [package]
 name = "ensnano"
@@ -41,6 +41,7 @@ ensnano_scene = { path = "ensnano-scene" }
 ensnano_flatscene = { path = "ensnano-flatscene" }
 ensnano_gui = { path = "ensnano-gui" }
 ensnano_utils = {path = "ensnano-utils" }
+ensnano_exports = {path = "ensnano-exports"}
 log = "0.4"
 pretty_env_logger = "0.4"
 dirs = "4.0"

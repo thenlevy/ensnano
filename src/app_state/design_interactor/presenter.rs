@@ -290,14 +290,14 @@ impl Presenter {
         let a1 = (pos_backward - pos_forward).normalized();
         let forward_half = HalfHBond {
             backbone: pos_forward,
-            center_of_mass: pos_forward + 2. * a1 * oxdna::BACKBONE_TO_CM,
+            center_of_mass: pos_forward + 2. * a1 * ensnano_exports::oxdna::BACKBONE_TO_CM,
             base: self.content.basis_map.get(&forward_nucl).cloned(),
             backbone_color: self.content.color.get(&forward_id).cloned()?,
         };
 
         let backward_half = HalfHBond {
             backbone: pos_backward,
-            center_of_mass: pos_backward - 2. * a1 * oxdna::BACKBONE_TO_CM,
+            center_of_mass: pos_backward - 2. * a1 * ensnano_exports::oxdna::BACKBONE_TO_CM,
             base: self.content.basis_map.get(&backward_nucl).cloned(),
             backbone_color: self.content.color.get(&backward_id).cloned()?,
         };
