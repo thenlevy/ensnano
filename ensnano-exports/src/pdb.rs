@@ -24,9 +24,11 @@ use ahash::AHashMap;
 use std::borrow::Cow;
 use ultraviolet::{Rotor3, Vec3};
 
+const MAX_ATOM_SERIAL_NUMBER: usize = 99_999;
+
 #[derive(Debug, Clone)]
 pub struct PdbNucleotide {
-    chain_idx: usize,
+    residue_idx: usize,
     base_atoms: AHashMap<Cow<'static, str>, PdbAtom>,
     phosphate_atoms: AHashMap<Cow<'static, str>, PdbAtom>,
     sugar_atoms: AHashMap<Cow<'static, str>, PdbAtom>,
@@ -38,13 +40,18 @@ pub struct ReferenceNucleotides(AHashMap<Cow<'static, str>, ReferenceNucleotide>
 
 impl ReferenceNucleotides {
     fn present_candidate(&mut self, nucl: PdbNucleotide) -> Result<(), PdbError> {
-        let candidate = ReferenceNucleotide::from_nucl(nucl)?;
+        let mut candidate = ReferenceNucleotide::from_nucl(nucl)?;
 
         if let Some(current) = self.0.get_mut(&candidate.nucl.name) {
             if current.score < candidate.score {
                 *current = candidate;
             }
         } else {
+            let rotation = candidate.frame.reversed();
+            candidate.nucl = candidate
+                .nucl
+                .with_center_of_mass(Vec3::zero())?
+                .rotated_by(rotation)?;
             self.0.insert(candidate.nucl.name.clone(), candidate);
         }
 
@@ -82,7 +89,7 @@ const CANONICAL_BASE_NAMES: &[&str] = &["A", "T", "G", "C"];
 const LONG_BASE_NAMES: &[&str] = &["ADE", "CYT", "GUA", "THY"];
 
 impl PdbNucleotide {
-    fn new(name: Cow<'static, str>, chain_idx: usize) -> Self {
+    fn new(name: Cow<'static, str>, residue_idx: usize) -> Self {
         let name: Cow<'static, str> = if CANONICAL_BASE_NAMES.contains(&name.as_ref()) {
             name
         } else if LONG_BASE_NAMES.contains(&name.as_ref()) {
@@ -92,7 +99,7 @@ impl PdbNucleotide {
         };
 
         Self {
-            chain_idx,
+            residue_idx,
             base_atoms: Default::default(),
             phosphate_atoms: Default::default(),
             sugar_atoms: Default::default(),
@@ -208,11 +215,138 @@ impl PdbNucleotide {
         Ok(ret.normalized())
     }
 
-    fn pdb_repr(&self) -> Result<String, PdbError> {
-        todo!()
+    fn pdb_repr(
+        &self,
+        residue_type: ResidueType,
+        nb_atom: &mut usize,
+        chain_id: char,
+    ) -> Result<String, PdbError> {
+        let additional_hydrogen: Option<PdbAtom> = self.additional_hydrogen(residue_type)?;
+
+        let mut lines = Vec::new();
+
+        for a in self
+            .phosphate_atoms
+            .values()
+            .chain(self.sugar_atoms.values())
+            .chain(self.base_atoms.values())
+            .chain(additional_hydrogen.iter())
+        {
+            let serial_number = (*nb_atom % MAX_ATOM_SERIAL_NUMBER) + 1;
+            lines.push(
+                a.format_with_paramters(
+                    AtomFormatParamter {
+                        serial_number,
+                        chain_id,
+                        residue_idx: self.residue_idx,
+                    },
+                    residue_type,
+                )
+                .map_err(|e| PdbError::Formating(e))?,
+            );
+            *nb_atom += 1;
+        }
+
+        Ok(lines.join("\n"))
+    }
+
+    fn additional_hydrogen(&self, residue_type: ResidueType) -> Result<Option<PdbAtom>, PdbError> {
+        let get_phosphate_atom = |name: &str| {
+            self.phosphate_atoms
+                .get(name)
+                .ok_or_else(|| PdbError::MissingAtom(name.to_string()))
+        };
+        let get_sugar_atom = |name: &str| {
+            self.sugar_atoms
+                .get(name)
+                .ok_or_else(|| PdbError::MissingAtom(name.to_string()))
+        };
+        match residue_type {
+            ResidueType::Prime5 => {
+                let phosphorus = get_phosphate_atom("P")?;
+                let oxygen_5prime = get_sugar_atom("O5'")?;
+
+                let mut ret = phosphorus.clone();
+                ret.name = "HO5'".into();
+
+                let p_o_normalized = (phosphorus.position - oxygen_5prime.position).normalized();
+                ret.position = oxygen_5prime.position + p_o_normalized;
+                Ok(Some(ret))
+            }
+            ResidueType::Prime3 => {
+                let oxygen_3prime = get_sugar_atom("O3'")?;
+
+                let mut ret = oxygen_3prime.clone();
+                ret.name = "HO3'".into();
+
+                let a1 = self.compute_a1()?;
+                let a3 = self.compute_a3()?;
+                let mut a2 = a3.cross(a1);
+                a2.normalize();
+                let a3 = a1.cross(a2);
+                let oh = (0.2 * a2 - 0.2 * a1 + a3).normalized();
+
+                ret.position = oxygen_3prime.position + oh;
+                Ok(Some(ret))
+            }
+            ResidueType::Middle => Ok(None),
+        }
+    }
+
+    fn with_center_of_mass(mut self, new_com: Vec3) -> Result<Self, PdbError> {
+        let old_com = self.get_center_of_mass()?;
+
+        for a in self
+            .phosphate_atoms
+            .values_mut()
+            .chain(self.sugar_atoms.values_mut())
+            .chain(self.base_atoms.values_mut())
+        {
+            a.position += new_com - old_com;
+        }
+
+        Ok(self)
+    }
+
+    fn translated_by(mut self, translation: Vec3) -> Self {
+        for a in self
+            .phosphate_atoms
+            .values_mut()
+            .chain(self.sugar_atoms.values_mut())
+            .chain(self.base_atoms.values_mut())
+        {
+            a.position += translation;
+        }
+
+        self
+    }
+
+    fn rotated_by(mut self, rotation: Rotor3) -> Result<Self, PdbError> {
+        let com = self.get_center_of_mass()?;
+
+        for a in self
+            .phosphate_atoms
+            .values_mut()
+            .chain(self.sugar_atoms.values_mut())
+            .chain(self.base_atoms.values_mut())
+        {
+            a.position -= com;
+            a.position.rotate_by(rotation);
+            a.position += com;
+        }
+
+        Ok(self)
+    }
+
+    fn with_residue_idx(self, residue_idx: usize) -> Self {
+        Self {
+            residue_idx,
+            ..self
+        }
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 enum ResidueType {
     Prime5,
     Prime3,
@@ -281,12 +415,33 @@ pub enum PdbError {
     EmptyBase,
     MissingAtom(String),
     Formating(std::fmt::Error),
+    IOError(std::io::Error),
 }
 
 const OCCUPENCY: f32 = 1.0;
 const TEMPERATURE_FACTOR: f32 = 1.0;
 
+struct AtomFormatParamter {
+    serial_number: usize,
+    residue_idx: usize,
+    chain_id: char,
+}
+
 impl PdbAtom {
+    fn format_with_paramters(
+        &self,
+        parameters: AtomFormatParamter,
+        residue_type: ResidueType,
+    ) -> Result<String, std::fmt::Error> {
+        let copy = Self {
+            serial_number: parameters.serial_number,
+            residue_idx: parameters.residue_idx,
+            chain_id: parameters.chain_id,
+            ..self.clone()
+        };
+        copy.pdb_repr(residue_type)
+    }
+
     fn pdb_repr(&self, residue_type: ResidueType) -> Result<String, std::fmt::Error> {
         // https://www.cgl.ucsf.edu/chimera/docs/UsersGuide/tutorials/framepdbintro.html
         use std::fmt::Write;
@@ -383,6 +538,98 @@ pub enum PdbAtomParseError {
     InvalidCoordinateX,
     InvalidCoordinateY,
     InvalidCoordinateZ,
+}
+
+use std::fs::File;
+use std::mem::ManuallyDrop;
+pub struct PdbFormatter {
+    out_file: File,
+    current_strand_id: usize,
+    nb_atom: usize,
+    reference: ReferenceNucleotides,
+}
+
+pub struct PdbStrand<'a> {
+    pdb_formater: ManuallyDrop<&'a mut PdbFormatter>,
+    nucleotides: Vec<PdbNucleotide>,
+    cyclic: bool,
+}
+
+use std::path::Path;
+impl PdbFormatter {
+    pub fn new<P: AsRef<Path>>(&self, path: P) -> Result<Self, PdbError> {
+        let out_file = std::fs::File::create(path).map_err(|e| PdbError::IOError(e))?;
+
+        let reference = make_reference_nucleotides()?;
+        Ok(Self {
+            out_file,
+            current_strand_id: 0,
+            nb_atom: 0,
+            reference,
+        })
+    }
+
+    pub fn add_strand<'a>(&'a mut self, cyclic: bool) -> PdbStrand<'a> {
+        PdbStrand {
+            pdb_formater: ManuallyDrop::new(self),
+            nucleotides: Vec::new(),
+            cyclic,
+        }
+    }
+}
+
+impl PdbStrand<'_> {
+    pub fn add_nucl(
+        &mut self,
+        base: char,
+        position: Vec3,
+        orientation: Rotor3,
+    ) -> Result<(), PdbError> {
+        let nucl = self
+            .pdb_formater
+            .reference
+            .get_nucl(&base.to_string())
+            .or_else(|| self.pdb_formater.reference.get_nucl("A"))
+            .ok_or(PdbError::MissingAtom("A".to_string()))?
+            .clone()
+            .with_residue_idx(self.nucleotides.len() + 1)
+            .translated_by(position)
+            .rotated_by(orientation)?;
+        self.nucleotides.push(nucl);
+        Ok(())
+    }
+
+    pub fn write(self) -> Result<(), PdbError> {
+        let mut nucls_strs = Vec::with_capacity(self.nucleotides.len());
+
+        let mut pdb_formatter = ManuallyDrop::into_inner(self.pdb_formater);
+
+        let chain_id = ((pdb_formatter.current_strand_id % 26) as u8 + 'A' as u8) as char;
+
+        let nb_nucl = self.nucleotides.len();
+        for (i, n) in self.nucleotides.into_iter().enumerate() {
+            let residue_type = if self.cyclic {
+                ResidueType::Middle
+            } else if i == 0 {
+                ResidueType::Prime5
+            } else if i == nb_nucl - 1 {
+                ResidueType::Prime3
+            } else {
+                ResidueType::Middle
+            };
+            nucls_strs.push(n.pdb_repr(residue_type, &mut pdb_formatter.nb_atom, chain_id)?);
+        }
+
+        // TODO should we put this when the strand is cyclic ?
+        nucls_strs.push(String::from("TER"));
+        let to_write = nucls_strs.join("\n");
+
+        use std::io::Write;
+        writeln!(&mut pdb_formatter.out_file, "{to_write}").map_err(|e| PdbError::IOError(e))?;
+
+        pdb_formatter.current_strand_id += 1;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
