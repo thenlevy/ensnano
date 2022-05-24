@@ -26,6 +26,7 @@ struct PdbNucleotide {
     chain_idx: usize,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 struct PdbAtom {
     serial_number: usize,
     name: String,
@@ -67,6 +68,70 @@ impl PdbAtom {
         ret.push_str(&vec![" "; 14].join("")); // 67-80
         Ok(ret)
     }
+
+    fn parse_line<S: AsRef<str>>(input: &S) -> Result<Self, PdbAtomParseError> {
+        let input: &str = input.as_ref();
+        if !input.is_ascii() {
+            return Err(PdbAtomParseError::InputIsNotAscii);
+        }
+
+        if input.len() < 66 {
+            return Err(PdbAtomParseError::InputTooShort);
+        }
+
+        if &input[0..4] != "ATOM" {
+            return Err(PdbAtomParseError::NotAnAtom);
+        }
+
+        let serial_number = input[6..11]
+            .trim()
+            .parse::<usize>()
+            .map_err(|_| PdbAtomParseError::InvalidSerialNumber)?;
+        let name = input[12..16].trim().to_string();
+        let residue_name = input[17..20].trim().to_string();
+        let chain_id: char = input
+            .chars()
+            .nth(21)
+            .ok_or(PdbAtomParseError::InputTooShort)?;
+        let residue_idx = input[22..26]
+            .trim()
+            .parse::<usize>()
+            .map_err(|_| PdbAtomParseError::InvalidResidueSequenceNumber)?;
+
+        let position_x = input[30..38]
+            .trim()
+            .parse::<f32>()
+            .map_err(|_| PdbAtomParseError::InvalidCoordinateX)?;
+        let position_y = input[38..46]
+            .trim()
+            .parse::<f32>()
+            .map_err(|_| PdbAtomParseError::InvalidCoordinateY)?;
+        let position_z = input[46..54]
+            .trim()
+            .parse::<f32>()
+            .map_err(|_| PdbAtomParseError::InvalidCoordinateZ)?;
+
+        Ok(Self {
+            serial_number,
+            name,
+            residue_idx,
+            chain_id,
+            residue_name,
+            position: Vec3::new(position_x, position_y, position_z),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum PdbAtomParseError {
+    InputIsNotAscii,
+    InputTooShort,
+    NotAnAtom,
+    InvalidSerialNumber,
+    InvalidResidueSequenceNumber,
+    InvalidCoordinateX,
+    InvalidCoordinateY,
+    InvalidCoordinateZ,
 }
 
 #[cfg(test)]
@@ -87,5 +152,22 @@ mod test {
             residue_idx: 1,
         };
         assert_eq!(atom.pdb_repr().unwrap(), expected);
+    }
+
+    #[test]
+    fn parse_atom() {
+        let atom = PdbAtom {
+            serial_number: 1,
+            name: String::from("N9"),
+            residue_name: String::from("DG5"),
+            chain_id: 'A',
+            position: Vec3::new(55.550, 70.279, 208.461),
+            residue_idx: 1,
+        };
+        let input =
+            "ATOM      1  N9  DG5 A   1      55.550  70.279 208.461  1.00  1.00              ";
+
+        let parsed_atom = PdbAtom::parse_line(&input).unwrap();
+        assert_eq!(parsed_atom, atom);
     }
 }
