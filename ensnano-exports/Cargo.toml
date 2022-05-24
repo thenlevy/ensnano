@@ -10,3 +10,4 @@ ensnano_design = { path = "../ensnano-design" }
 ensnano_utils = { path = "../ensnano-utils" }
 ahash = "0.6.2"
 rand = "0.8.3"
+itertools = "0.10.3"

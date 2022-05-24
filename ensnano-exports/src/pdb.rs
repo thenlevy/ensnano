@@ -24,12 +24,57 @@ use ahash::AHashMap;
 use std::borrow::Cow;
 use ultraviolet::{Rotor3, Vec3};
 
+#[derive(Debug, Clone)]
 pub struct PdbNucleotide {
     chain_idx: usize,
     base_atoms: AHashMap<Cow<'static, str>, PdbAtom>,
     phosphate_atoms: AHashMap<Cow<'static, str>, PdbAtom>,
     sugar_atoms: AHashMap<Cow<'static, str>, PdbAtom>,
     name: Cow<'static, str>,
+}
+
+#[derive(Default, Clone, Debug)]
+pub struct ReferenceNucleotides(AHashMap<Cow<'static, str>, ReferenceNucleotide>);
+
+impl ReferenceNucleotides {
+    fn present_candidate(&mut self, nucl: PdbNucleotide) -> Result<(), PdbError> {
+        let candidate = ReferenceNucleotide::from_nucl(nucl)?;
+
+        if let Some(current) = self.0.get_mut(&candidate.nucl.name) {
+            if current.score < candidate.score {
+                *current = candidate;
+            }
+        } else {
+            self.0.insert(candidate.nucl.name.clone(), candidate);
+        }
+
+        Ok(())
+    }
+
+    pub fn get_nucl(&self, name: &str) -> Option<&PdbNucleotide> {
+        self.0.get(&name[..1]).map(|n| &n.nucl)
+    }
+}
+
+#[derive(Clone, Debug)]
+struct ReferenceNucleotide {
+    nucl: PdbNucleotide,
+    score: f32,
+    frame: Rotor3,
+}
+
+impl ReferenceNucleotide {
+    fn from_nucl(nucl: PdbNucleotide) -> Result<Self, PdbError> {
+        let a1 = nucl.compute_a1()?;
+        let a3 = nucl.compute_a3()?;
+        let mut a2 = a3.cross(a1);
+        let score = a2.mag();
+        a2.normalize();
+        let a3 = a1.cross(a2);
+
+        let frame = ultraviolet::Mat3::new(a1, a2, a3).into_rotor3();
+        Ok(Self { nucl, score, frame })
+    }
 }
 
 const CANONICAL_BASE_NAMES: &[&str] = &["A", "T", "G", "C"];
@@ -65,6 +110,103 @@ impl PdbNucleotide {
             self.base_atoms.insert(atom.name.clone(), atom);
         }
     }
+
+    fn get_center_of_mass(&self) -> Result<Vec3, PdbError> {
+        let mut ret = Vec3::zero();
+
+        let nb_atoms = self.sugar_atoms.len() + self.base_atoms.len() + self.phosphate_atoms.len();
+        if nb_atoms == 0 {
+            return Err(PdbError::EmptyNucleotide);
+        }
+
+        for a in self.sugar_atoms.values() {
+            ret += a.position
+        }
+        for a in self.phosphate_atoms.values() {
+            ret += a.position
+        }
+        for a in self.base_atoms.values() {
+            ret += a.position
+        }
+
+        Ok(ret / (nb_atoms as f32))
+    }
+
+    fn get_base_center_of_mass(&self) -> Result<Vec3, PdbError> {
+        let mut ret = Vec3::zero();
+
+        let nb_atoms = self.base_atoms.len();
+        if nb_atoms == 0 {
+            return Err(PdbError::EmptyBase);
+        }
+
+        for a in self.base_atoms.values() {
+            ret += a.position
+        }
+
+        Ok(ret / (nb_atoms as f32))
+    }
+
+    fn compute_a1(&self) -> Result<Vec3, PdbError> {
+        let pairs = if self.name.find(&['C', 'T']).is_some() {
+            &[["N3", "C6"], ["C2", "N1"], ["C4", "C5"]]
+        } else {
+            &[["N1", "C4"], ["C2", "N3"], ["C6", "C5"]]
+        };
+
+        let mut ret = Vec3::zero();
+
+        for pair in pairs {
+            let p = self
+                .base_atoms
+                .get(pair[0])
+                .ok_or(PdbError::MissingAtom(pair[0].to_string()))?;
+            let q = self
+                .base_atoms
+                .get(pair[1])
+                .ok_or(PdbError::MissingAtom(pair[1].to_string()))?;
+            ret += p.position - q.position;
+        }
+
+        Ok(ret.normalized())
+    }
+
+    fn compute_a3(&self) -> Result<Vec3, PdbError> {
+        let base_com = self.get_base_center_of_mass()?;
+
+        let oxygen4 = self
+            .sugar_atoms
+            .get("O4'")
+            .ok_or(PdbError::MissingAtom(String::from("O4'")))?;
+        let parralel_to = oxygen4.position - base_com;
+
+        let mut ret = Vec3::zero();
+
+        let get_base_atom = |name: &str| {
+            self.base_atoms
+                .get(name)
+                .ok_or(PdbError::MissingAtom(name.to_string()))
+        };
+        let ring_atom_names = ["C2", "C4", "C5", "C6", "N1", "N3"];
+
+        use itertools::Itertools;
+        for perm in ring_atom_names.iter().permutations(3) {
+            let p = get_base_atom(&perm[0])?;
+            let q = get_base_atom(&perm[1])?;
+            let r = get_base_atom(&perm[2])?;
+
+            let v1 = (p.position - q.position).normalized();
+            let v2 = (p.position - r.position).normalized();
+
+            if v1.dot(v2).abs() > 0.01 {
+                let mut a3 = v1.cross(v2).normalized();
+                a3 *= a3.dot(parralel_to).signum();
+                ret += a3;
+            }
+        }
+
+        Ok(ret.normalized())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -77,48 +219,22 @@ struct PdbAtom {
     position: Vec3,
 }
 
-pub fn make_reference_nucleotides() -> Result<AHashMap<Cow<'static, str>, PdbNucleotide>, PdbError>
-{
-    /*
-    with open(os.path.join(os.path.dirname(__file__), DD12_PDB_PATH)) as f:
-        nucleotides = []
-        old_residue = ""
-        for line in f.readlines():
-            if len(line) > 77:
-                na = Atom(line)
-                if na.residue_idx != old_residue:
-                    nn = Nucleotide(na.residue, na.residue_idx)
-                    nucleotides.append(nn)
-                    old_residue = na.residue_idx
-                nn.add_atom(na)
-
-    bases = {}
-    for n in nucleotides:
-        n.compute_as()
-        if n.base in bases:
-            if n.check < bases[n.base].check: bases[n.base] = copy.deepcopy(n)
-        else:
-            bases[n.base] = n
-
-    for n in nucleotides:
-        n.a1, n.a2, n.a3 = utils.get_orthonormalized_base(n.a1, n.a2, n.a3)
-    */
-
+pub fn make_reference_nucleotides() -> Result<ReferenceNucleotides, PdbError> {
+    // Method taken from https://github.com/lorenzo-rovigatti/tacoxDNA
     let pdb_string = include_str!("../dd12_na.pdb");
-    let mut ret = AHashMap::new();
+    let mut ret = ReferenceNucleotides::default();
     let mut current_residue: Cow<'static, str> = "".into();
     let mut current_nucl: Option<PdbNucleotide> = None;
     for (line_number, line) in pdb_string.lines().enumerate() {
-        if line.len() > 77 {
+        if line.len() >= 77 {
             let atom = PdbAtom::parse_line(&line)
                 .map_err(|error| PdbError::ParsingError { line_number, error })?;
 
             if atom.residue_name != current_residue {
                 if let Some(nucl) = current_nucl.take() {
-                    ret.insert(current_residue.clone(), nucl);
+                    ret.present_candidate(nucl)?;
                 }
                 current_residue = atom.residue_name.clone();
-                //TODO get the atom with the best orthogonal basis
             }
 
             current_nucl
@@ -128,14 +244,21 @@ pub fn make_reference_nucleotides() -> Result<AHashMap<Cow<'static, str>, PdbNuc
                 .add_atom(atom);
         }
     }
+    if let Some(nucl) = current_nucl.take() {
+        ret.present_candidate(nucl)?;
+    }
     Ok(ret)
 }
 
+#[derive(Debug)]
 pub enum PdbError {
     ParsingError {
         line_number: usize,
         error: PdbAtomParseError,
     },
+    EmptyNucleotide,
+    EmptyBase,
+    MissingAtom(String),
 }
 
 const OCCUPENCY: f32 = 1.0;
@@ -275,6 +398,14 @@ mod test {
 
     #[test]
     fn can_make_reference_collection() {
-        assert!(make_reference_nucleotides().is_ok())
+        let references = make_reference_nucleotides().unwrap();
+
+        let names = [
+            "A5", "T5", "G5", "C5", "A", "T", "G", "C", "A3", "T3", "C3", "G3",
+        ];
+
+        for name in names {
+            let _ = references.get_nucl(name).expect(name);
+        }
     }
 }
