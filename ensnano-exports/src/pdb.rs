@@ -207,6 +207,27 @@ impl PdbNucleotide {
 
         Ok(ret.normalized())
     }
+
+    fn pdb_repr(&self) -> Result<String, PdbError> {
+        todo!()
+    }
+}
+
+enum ResidueType {
+    Prime5,
+    Prime3,
+    Middle,
+}
+
+impl ResidueType {
+    fn suffix(&self) -> String {
+        match self {
+            Self::Prime5 => "5",
+            Self::Prime3 => "3",
+            Self::Middle => "",
+        }
+        .into()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -259,13 +280,14 @@ pub enum PdbError {
     EmptyNucleotide,
     EmptyBase,
     MissingAtom(String),
+    Formating(std::fmt::Error),
 }
 
 const OCCUPENCY: f32 = 1.0;
 const TEMPERATURE_FACTOR: f32 = 1.0;
 
 impl PdbAtom {
-    fn pdb_repr(&self) -> Result<String, std::fmt::Error> {
+    fn pdb_repr(&self, residue_type: ResidueType) -> Result<String, std::fmt::Error> {
         // https://www.cgl.ucsf.edu/chimera/docs/UsersGuide/tutorials/framepdbintro.html
         use std::fmt::Write;
         let mut ret = String::with_capacity(80);
@@ -281,7 +303,11 @@ impl PdbAtom {
             write!(&mut ret, "{:<4}", self.name)?; //13-16
         }
         ret.push_str(" "); // 17
-        write!(&mut ret, "{:>3}", self.residue_name)?; // 18-20
+        write!(
+            &mut ret,
+            "{:>3}",
+            self.residue_name.to_string() + &residue_type.suffix()
+        )?; // 18-20
         write!(&mut ret, " {}", self.chain_id)?; //21-22
         write!(&mut ret, "{:>4}", self.residue_idx)?; // 23-26
         ret.push_str(&vec![" "; 4].join("")); // 27-30
@@ -365,18 +391,24 @@ mod test {
 
     #[test]
     fn pdb_repr() {
-        let expected =
+        let expected_prime5 =
             "ATOM      1  N9  DG5 A   1      55.550  70.279 208.461  1.00  1.00              ";
+        let expected_prime3 =
+            "ATOM      1  N9  DG3 A   1      55.550  70.279 208.461  1.00  1.00              ";
+        let expected_middle =
+            "ATOM      1  N9   DG A   1      55.550  70.279 208.461  1.00  1.00              ";
 
         let atom = PdbAtom {
             serial_number: 1,
             name: "N9".into(),
-            residue_name: "DG5".into(),
+            residue_name: "DG".into(),
             chain_id: 'A',
             position: Vec3::new(55.550, 70.279, 208.461),
             residue_idx: 1,
         };
-        assert_eq!(atom.pdb_repr().unwrap(), expected);
+        assert_eq!(atom.pdb_repr(ResidueType::Prime5).unwrap(), expected_prime5);
+        assert_eq!(atom.pdb_repr(ResidueType::Prime3).unwrap(), expected_prime3);
+        assert_eq!(atom.pdb_repr(ResidueType::Middle).unwrap(), expected_middle);
     }
 
     #[test]
