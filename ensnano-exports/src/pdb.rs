@@ -20,20 +20,122 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! [tacOxDNA](https://github.com/lorenzo-rovigatti/tacoxDNA)
 
 use super::ultraviolet;
+use ahash::AHashMap;
+use std::borrow::Cow;
 use ultraviolet::{Rotor3, Vec3};
 
-struct PdbNucleotide {
+pub struct PdbNucleotide {
     chain_idx: usize,
+    base_atoms: AHashMap<Cow<'static, str>, PdbAtom>,
+    phosphate_atoms: AHashMap<Cow<'static, str>, PdbAtom>,
+    sugar_atoms: AHashMap<Cow<'static, str>, PdbAtom>,
+    name: Cow<'static, str>,
+}
+
+const CANONICAL_BASE_NAMES: &[&str] = &["A", "T", "G", "C"];
+
+const LONG_BASE_NAMES: &[&str] = &["ADE", "CYT", "GUA", "THY"];
+
+impl PdbNucleotide {
+    fn new(name: Cow<'static, str>, chain_idx: usize) -> Self {
+        let name: Cow<'static, str> = if CANONICAL_BASE_NAMES.contains(&name.as_ref()) {
+            name
+        } else if LONG_BASE_NAMES.contains(&name.as_ref()) {
+            name[..1].to_string().into()
+        } else {
+            name[1..].to_string().into()
+        };
+
+        Self {
+            chain_idx,
+            base_atoms: Default::default(),
+            phosphate_atoms: Default::default(),
+            sugar_atoms: Default::default(),
+            name,
+        }
+    }
+
+    fn add_atom(&mut self, atom: PdbAtom) {
+        let name_chars: Vec<char> = atom.name.chars().collect();
+        if name_chars.contains(&'P') || atom.name == "HO5'" {
+            self.phosphate_atoms.insert(atom.name.clone(), atom);
+        } else if name_chars.contains(&'\'') {
+            self.sugar_atoms.insert(atom.name.clone(), atom);
+        } else {
+            self.base_atoms.insert(atom.name.clone(), atom);
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 struct PdbAtom {
     serial_number: usize,
-    name: String,
-    residue_name: String,
+    name: Cow<'static, str>,
+    residue_name: Cow<'static, str>,
     chain_id: char,
     residue_idx: usize,
     position: Vec3,
+}
+
+pub fn make_reference_nucleotides() -> Result<AHashMap<Cow<'static, str>, PdbNucleotide>, PdbError>
+{
+    /*
+    with open(os.path.join(os.path.dirname(__file__), DD12_PDB_PATH)) as f:
+        nucleotides = []
+        old_residue = ""
+        for line in f.readlines():
+            if len(line) > 77:
+                na = Atom(line)
+                if na.residue_idx != old_residue:
+                    nn = Nucleotide(na.residue, na.residue_idx)
+                    nucleotides.append(nn)
+                    old_residue = na.residue_idx
+                nn.add_atom(na)
+
+    bases = {}
+    for n in nucleotides:
+        n.compute_as()
+        if n.base in bases:
+            if n.check < bases[n.base].check: bases[n.base] = copy.deepcopy(n)
+        else:
+            bases[n.base] = n
+
+    for n in nucleotides:
+        n.a1, n.a2, n.a3 = utils.get_orthonormalized_base(n.a1, n.a2, n.a3)
+    */
+
+    let pdb_string = include_str!("../dd12_na.pdb");
+    let mut ret = AHashMap::new();
+    let mut current_residue: Cow<'static, str> = "".into();
+    let mut current_nucl: Option<PdbNucleotide> = None;
+    for (line_number, line) in pdb_string.lines().enumerate() {
+        if line.len() > 77 {
+            let atom = PdbAtom::parse_line(&line)
+                .map_err(|error| PdbError::ParsingError { line_number, error })?;
+
+            if atom.residue_name != current_residue {
+                if let Some(nucl) = current_nucl.take() {
+                    ret.insert(current_residue.clone(), nucl);
+                }
+                current_residue = atom.residue_name.clone();
+                //TODO get the atom with the best orthogonal basis
+            }
+
+            current_nucl
+                .get_or_insert_with(|| {
+                    PdbNucleotide::new(atom.residue_name.clone(), atom.residue_idx)
+                })
+                .add_atom(atom);
+        }
+    }
+    Ok(ret)
+}
+
+pub enum PdbError {
+    ParsingError {
+        line_number: usize,
+        error: PdbAtomParseError,
+    },
 }
 
 const OCCUPENCY: f32 = 1.0;
@@ -113,17 +215,17 @@ impl PdbAtom {
 
         Ok(Self {
             serial_number,
-            name,
+            name: name.into(),
             residue_idx,
             chain_id,
-            residue_name,
+            residue_name: residue_name.into(),
             position: Vec3::new(position_x, position_y, position_z),
         })
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-enum PdbAtomParseError {
+pub enum PdbAtomParseError {
     InputIsNotAscii,
     InputTooShort,
     NotAnAtom,
@@ -145,8 +247,8 @@ mod test {
 
         let atom = PdbAtom {
             serial_number: 1,
-            name: String::from("N9"),
-            residue_name: String::from("DG5"),
+            name: "N9".into(),
+            residue_name: "DG5".into(),
             chain_id: 'A',
             position: Vec3::new(55.550, 70.279, 208.461),
             residue_idx: 1,
@@ -158,8 +260,8 @@ mod test {
     fn parse_atom() {
         let atom = PdbAtom {
             serial_number: 1,
-            name: String::from("N9"),
-            residue_name: String::from("DG5"),
+            name: "N9".into(),
+            residue_name: "DG5".into(),
             chain_id: 'A',
             position: Vec3::new(55.550, 70.279, 208.461),
             residue_idx: 1,
@@ -169,5 +271,10 @@ mod test {
 
         let parsed_atom = PdbAtom::parse_line(&input).unwrap();
         assert_eq!(parsed_atom, atom);
+    }
+
+    #[test]
+    fn can_make_reference_collection() {
+        assert!(make_reference_nucleotides().is_ok())
     }
 }
