@@ -638,7 +638,7 @@ impl Helix {
                 let axis = c.curve.axis_at_pos(n, forward)?;
                 Some(dvec_to_vec(axis[2]))
             })
-            .unwrap_or_else(|| Vec3::unit_z().rotated_by(self.orientation))
+            .unwrap_or_else(|| Vec3::unit_x().rotated_by(self.orientation))
     }
 
     fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32, forward: bool) -> Vec3 {

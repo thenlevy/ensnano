@@ -41,17 +41,18 @@ pub struct ReferenceNucleotides(AHashMap<Cow<'static, str>, ReferenceNucleotide>
 impl ReferenceNucleotides {
     fn present_candidate(&mut self, nucl: PdbNucleotide) -> Result<(), PdbError> {
         let mut candidate = ReferenceNucleotide::from_nucl(nucl)?;
+        let rotation = candidate.frame.reversed();
+
+        candidate.nucl = candidate
+            .nucl
+            .with_center_of_mass(Vec3::zero())?
+            .rotated_by(rotation)?;
 
         if let Some(current) = self.0.get_mut(&candidate.nucl.name) {
             if current.score < candidate.score {
                 *current = candidate;
             }
         } else {
-            let rotation = candidate.frame.reversed();
-            candidate.nucl = candidate
-                .nucl
-                .with_center_of_mass(Vec3::zero())?
-                .rotated_by(rotation)?;
             self.0.insert(candidate.nucl.name.clone(), candidate);
         }
 
@@ -77,7 +78,7 @@ impl ReferenceNucleotide {
         let mut a2 = a3.cross(a1);
         let score = a2.mag();
         a2.normalize();
-        let a3 = a1.cross(a2);
+        let a3 = a1.cross(a2).normalized();
 
         let frame = ultraviolet::Mat3::new(a1, a2, a3).into_rotor3();
         Ok(Self { nucl, score, frame })
@@ -402,6 +403,7 @@ pub fn make_reference_nucleotides() -> Result<ReferenceNucleotides, PdbError> {
     if let Some(nucl) = current_nucl.take() {
         ret.present_candidate(nucl)?;
     }
+    println!("{:#?}", ret);
     Ok(ret)
 }
 
@@ -622,7 +624,10 @@ impl PdbStrand<'_> {
         }
 
         // TODO should we put this when the strand is cyclic ?
-        nucls_strs.push(String::from("TER"));
+        if !self.cyclic {
+            nucls_strs.push(String::from("TER"));
+        }
+
         let to_write = nucls_strs.join("\n");
 
         use std::io::Write;

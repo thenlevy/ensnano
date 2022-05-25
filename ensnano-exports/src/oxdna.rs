@@ -37,7 +37,7 @@ pub struct OxDnaNucl {
 impl OxDnaNucl {
     pub fn get_basis(&self) -> Rotor3 {
         let a1 = self.backbone_base.normalized();
-        let a3 = self.normal.normalized();
+        let a3 = -self.normal.normalized();
         let a2 = a3.cross(a1).normalized();
         let a3 = a1.cross(a2).normalized();
 
