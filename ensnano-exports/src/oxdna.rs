@@ -24,7 +24,9 @@ use std::mem::ManuallyDrop;
 use std::path::Path;
 use ultraviolet::{Mat3, Rotor3, Vec3};
 
-pub const BACKBONE_TO_CM: f32 = 0.34;
+pub const OXDNA_LEN_FACTOR: f32 = 1. / 0.8518;
+pub const BACKBONE_TO_CM: f32 = 0.34 * OXDNA_LEN_FACTOR;
+
 
 pub struct OxDnaNucl {
     pub position: Vec3,
@@ -133,7 +135,7 @@ impl OxDnaHelix for Helix {
         } else {
             -(self.normal_at_pos(nucl_idx, forward)).normalized()
         };
-        let cm_position = backbone_position + a1 * BACKBONE_TO_CM;
+        let cm_position = backbone_position * OXDNA_LEN_FACTOR + a1 * BACKBONE_TO_CM;
         OxDnaNucl {
             position: cm_position,
             backbone_base: a1,
@@ -158,7 +160,7 @@ pub fn free_oxdna_nucl(
         let angle = std::f32::consts::TAU / parameters.bases_per_turn * -(free_idx as f32);
         tangent * angle.sin() + bitangent * angle.cos()
     };
-    let cm_position = backbone_position + a1 * BACKBONE_TO_CM;
+    let cm_position = backbone_position * OXDNA_LEN_FACTOR + a1 * BACKBONE_TO_CM;
     OxDnaNucl {
         position: cm_position,
         backbone_base: a1,
