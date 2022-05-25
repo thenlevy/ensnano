@@ -27,7 +27,6 @@ use ultraviolet::{Mat3, Rotor3, Vec3};
 pub const OXDNA_LEN_FACTOR: f32 = 1. / 0.8518;
 pub const BACKBONE_TO_CM: f32 = 0.34 * OXDNA_LEN_FACTOR;
 
-
 pub struct OxDnaNucl {
     pub position: Vec3,
     backbone_base: Vec3,
