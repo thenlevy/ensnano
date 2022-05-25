@@ -557,7 +557,7 @@ pub struct PdbStrand<'a> {
 
 use std::path::Path;
 impl PdbFormatter {
-    pub fn new<P: AsRef<Path>>(&self, path: P) -> Result<Self, PdbError> {
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, PdbError> {
         let out_file = std::fs::File::create(path).map_err(|e| PdbError::IOError(e))?;
 
         let reference = make_reference_nucleotides()?;
@@ -569,7 +569,8 @@ impl PdbFormatter {
         })
     }
 
-    pub fn add_strand<'a>(&'a mut self, cyclic: bool) -> PdbStrand<'a> {
+    /// Create a new strand. The returned value must be droped with `PdbStrand::write`.
+    pub fn start_strand<'a>(&'a mut self, cyclic: bool) -> PdbStrand<'a> {
         PdbStrand {
             pdb_formater: ManuallyDrop::new(self),
             nucleotides: Vec::new(),

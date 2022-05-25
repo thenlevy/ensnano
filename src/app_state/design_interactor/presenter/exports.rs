@@ -73,4 +73,32 @@ impl Presenter {
         topo.write(topology_name.clone())?;
         Ok((config_name, topology_name))
     }
+
+    pub fn pdb_export(&self, out_path: &PathBuf) -> Result<(), ensnano_exports::pdb::PdbError> {
+        use ensnano_exports::pdb;
+        let mut exporter = pdb::PdbFormatter::new(out_path)?;
+        let parameters = self.current_design.parameters.unwrap_or_default();
+
+        for s in self.current_design.strands.values() {
+            let mut pdb_strand = exporter.start_strand(s.cyclic);
+
+            for d in s.domains.iter() {
+                if let Domain::HelixDomain(dom) = d {
+                    for position in dom.iter() {
+                        let ox_nucl = self
+                            .current_design
+                            .helices
+                            .get(&dom.helix)
+                            .unwrap()
+                            .ox_dna_nucl(position, dom.forward, &parameters);
+                        let base = if dom.forward { 'A' } else { 'T' };
+                        pdb_strand.add_nucl(base, ox_nucl.position * 10., ox_nucl.get_basis())?;
+                    }
+                }
+            }
+            pdb_strand.write()?;
+        }
+
+        Ok(())
+    }
 }

@@ -22,16 +22,27 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::mem::ManuallyDrop;
 use std::path::Path;
-use ultraviolet::Vec3;
+use ultraviolet::{Mat3, Rotor3, Vec3};
 
 pub const BACKBONE_TO_CM: f32 = 0.34;
 
 pub struct OxDnaNucl {
-    position: Vec3,
+    pub position: Vec3,
     backbone_base: Vec3,
     normal: Vec3,
     velocity: Vec3,
     angular_velocity: Vec3,
+}
+
+impl OxDnaNucl {
+    pub fn get_basis(&self) -> Rotor3 {
+        let a1 = self.backbone_base.normalized();
+        let a3 = self.normal.normalized();
+        let a2 = a3.cross(a1).normalized();
+        let a3 = a1.cross(a2).normalized();
+
+        Mat3::new(a1, a2, a3).into_rotor3()
+    }
 }
 
 pub struct OxDnaConfig {
