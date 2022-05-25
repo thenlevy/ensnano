@@ -91,7 +91,18 @@ impl Presenter {
                             .get(&dom.helix)
                             .unwrap()
                             .ox_dna_nucl(position, dom.forward, &parameters);
-                        let base = if dom.forward { 'A' } else { 'T' };
+                        let nucl = Nucl {
+                            position,
+                            helix: dom.helix,
+                            forward: dom.forward,
+                        };
+
+                        let base = self
+                            .content
+                            .basis_map
+                            .get(&nucl)
+                            .cloned()
+                            .unwrap_or(if dom.forward { 'A' } else { 'T' });
                         pdb_strand.add_nucl(base, ox_nucl.position * 10., ox_nucl.get_basis())?;
                     }
                 }
