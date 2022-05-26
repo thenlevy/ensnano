@@ -74,6 +74,52 @@ impl Presenter {
         Ok((config_name, topology_name))
     }
 
+    pub fn cando_export(
+        &self,
+        out_path: &PathBuf,
+    ) -> Result<(), ensnano_exports::cando::CanDoError> {
+        use ensnano_exports::cando;
+
+        let mut exporter = cando::CanDoFormater::new();
+        let parameters = self.current_design.parameters.unwrap_or_default();
+
+        for s in self.current_design.strands.values() {
+            let mut cando_strand = exporter.add_strand();
+
+            for d in s.domains.iter() {
+                if let Domain::HelixDomain(dom) = d {
+                    for position in dom.iter() {
+                        let ox_nucl = self
+                            .current_design
+                            .helices
+                            .get(&dom.helix)
+                            .unwrap()
+                            .ox_dna_nucl(position, dom.forward, &parameters);
+                        let nucl = Nucl {
+                            position,
+                            helix: dom.helix,
+                            forward: dom.forward,
+                        };
+
+                        let base = self.content.basis_map.get(&nucl).cloned();
+                        //let base = if dom.forward { 'C' } else { 'G'};
+                        let sign = if nucl.forward { 1. } else { -1. };
+                        cando_strand.add_nucl(
+                            nucl,
+                            ox_nucl.position,
+                            sign * ox_nucl.normal,
+                            base,
+                        )?;
+                    }
+                }
+            }
+            cando_strand.end(s.cyclic)?;
+        }
+        exporter
+            .write_to(out_path)
+            .map_err(|e| cando::CanDoError::IOError(e))
+    }
+
     pub fn pdb_export(&self, out_path: &PathBuf) -> Result<(), ensnano_exports::pdb::PdbError> {
         use ensnano_exports::pdb;
         let mut exporter = pdb::PdbFormatter::new(out_path)?;

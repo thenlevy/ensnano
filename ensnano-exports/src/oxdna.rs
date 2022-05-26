@@ -30,7 +30,7 @@ pub const BACKBONE_TO_CM: f32 = 0.34 * OXDNA_LEN_FACTOR;
 pub struct OxDnaNucl {
     pub position: Vec3,
     backbone_base: Vec3,
-    normal: Vec3,
+    pub normal: Vec3,
     velocity: Vec3,
     angular_velocity: Vec3,
 }

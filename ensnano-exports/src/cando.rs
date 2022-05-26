@@ -27,7 +27,7 @@ const TRIAD_HEADER: &str =
     r#"triad,"e1(1)","e1(2)","e1(3)","e2(1)","e2(2)","e2(3)","e3(1)","e3(2)","e3(3)"#;
 const BP_LIST_HEADER: &str = "id_nt,id1,id2";
 
-use super::ultraviolet::{Mat3, Rotor3, Vec3};
+use super::ultraviolet::{Mat3, Vec3};
 use ahash::AHashMap;
 use ensnano_design::Nucl;
 use std::path::Path;
@@ -38,11 +38,44 @@ struct DnaTopEntry {
     prime5_id: Option<usize>,
     prime3_id: Option<usize>,
     paired_id: Option<usize>,
+    seq: char,
+}
+
+impl DnaTopEntry {
+    fn format(&self) -> String {
+        vec![
+            self.serial_number.to_string(),
+            self.id.to_string(),
+            self.prime5_id
+                .map(|n| n.to_string())
+                .unwrap_or("-1".to_string()),
+            self.prime3_id
+                .map(|n| n.to_string())
+                .unwrap_or("-1".to_string()),
+            self.paired_id
+                .map(|n| n.to_string())
+                .unwrap_or("-1".to_string()),
+            self.seq.to_string(),
+        ]
+        .join(",")
+    }
 }
 
 struct NodeEntry {
     id: usize,
     position: Vec3,
+}
+
+impl NodeEntry {
+    fn format(&self) -> String {
+        vec![
+            self.id.to_string(),
+            self.position.x.to_string(),
+            self.position.y.to_string(),
+            self.position.z.to_string(),
+        ]
+        .join(",")
+    }
 }
 
 struct TriadEntry {
@@ -51,10 +84,39 @@ struct TriadEntry {
     orientation: Mat3,
 }
 
+impl TriadEntry {
+    fn format(&self) -> String {
+        vec![
+            self.id.to_string(),
+            self.orientation[0].x.to_string(),
+            self.orientation[0].y.to_string(),
+            self.orientation[0].z.to_string(),
+            self.orientation[1].x.to_string(),
+            self.orientation[1].y.to_string(),
+            self.orientation[1].z.to_string(),
+            self.orientation[2].x.to_string(),
+            self.orientation[2].y.to_string(),
+            self.orientation[2].z.to_string(),
+        ]
+        .join(",")
+    }
+}
+
 struct BpEntry {
     node_id: usize,
     nt_1: usize,
-    n2_2: usize,
+    nt_2: usize,
+}
+
+impl BpEntry {
+    fn format(&self) -> String {
+        vec![
+            self.node_id.to_string(),
+            self.nt_1.to_string(),
+            self.nt_2.to_string(),
+        ]
+        .join(",")
+    }
 }
 
 pub struct CanDoStrand<'a> {
@@ -72,6 +134,7 @@ struct CanDoNucl {
     prime5_id: Option<usize>,
     prime3_id: Option<usize>,
     paired_id: Option<usize>,
+    basis: Option<char>,
 }
 
 impl CanDoNucl {
@@ -96,12 +159,21 @@ impl CanDoNucl {
 
         Ok((position, orientation))
     }
+
+    fn default_basis(&self) -> char {
+        let num = self.nucl.position + if self.nucl.forward { 2 } else { 0 };
+        match num % 4 {
+            0 => 'A',
+            1 => 'C',
+            2 => 'T',
+            _ => 'G',
+        }
+    }
 }
 
 #[derive(Default)]
 pub struct CanDoFormater {
     known_nucls: AHashMap<Nucl, CanDoNucl>,
-    top_entries: Vec<DnaTopEntry>,
     node_entries: Vec<NodeEntry>,
     triad_entries: Vec<TriadEntry>,
     bp_entries: Vec<BpEntry>,
@@ -120,7 +192,13 @@ impl CanDoFormater {
         }
     }
 
-    fn add_nucl(&mut self, nucl: Nucl, position: Vec3, normal: Vec3) -> Result<(), CanDoError> {
+    fn add_nucl(
+        &mut self,
+        nucl: Nucl,
+        position: Vec3,
+        normal: Vec3,
+        basis: Option<char>,
+    ) -> Result<(), CanDoError> {
         let id = self.known_nucls.len() + 1;
 
         let paired_id = self.known_nucls.get(&nucl.compl()).map(|n| n.id);
@@ -133,6 +211,7 @@ impl CanDoFormater {
             paired_id,
             prime3_id: None,
             prime5_id: None,
+            basis,
         };
 
         if let Some(paired) = self.known_nucls.get_mut(&nucl.compl()) {
@@ -144,7 +223,7 @@ impl CanDoFormater {
             self.bp_entries.push(BpEntry {
                 node_id: bp_id,
                 nt_1: paired.id,
-                n2_2: id,
+                nt_2: id,
             });
             self.triad_entries.push(TriadEntry {
                 id: bp_id,
@@ -200,17 +279,66 @@ impl CanDoFormater {
         let mut known_nucls = self.known_nucls.values().collect::<Vec<_>>();
         known_nucls.sort_by_key(|n| n.id);
 
-        // TODO for each nucl make topology entry and write
+        // For each nucl make topology entry and write
+        let topologie: Vec<String> = known_nucls
+            .into_iter()
+            .enumerate()
+            .map(|(id, nucl)| {
+                DnaTopEntry {
+                    seq: nucl.basis.unwrap_or_else(|| nucl.default_basis()),
+                    serial_number: id + 1,
+                    id: nucl.id,
+                    prime5_id: nucl.prime5_id,
+                    prime3_id: nucl.prime3_id,
+                    paired_id: nucl.paired_id,
+                }
+                .format()
+            })
+            .collect();
+
+        writeln!(&mut out_file, "{}\n", topologie.join("\n"))?;
 
         // TODO write self.node_entries, self.triad_entries and self.bp_entries
+        writeln!(&mut out_file, "{DNODE_HEADER}")?;
+        let node_str = self
+            .node_entries
+            .iter()
+            .map(NodeEntry::format)
+            .collect::<Vec<_>>()
+            .join("\n");
+        writeln!(&mut out_file, "{node_str}\n")?;
+
+        writeln!(&mut out_file, "{TRIAD_HEADER}")?;
+        let triad_str = self
+            .triad_entries
+            .iter()
+            .map(TriadEntry::format)
+            .collect::<Vec<_>>()
+            .join("\n");
+        writeln!(&mut out_file, "{triad_str}\n")?;
+
+        writeln!(&mut out_file, "{BP_LIST_HEADER}")?;
+        let bp_str = self
+            .bp_entries
+            .iter()
+            .map(BpEntry::format)
+            .collect::<Vec<_>>()
+            .join("\n");
+        writeln!(&mut out_file, "{bp_str}")?;
 
         Ok(())
     }
 }
 
 impl CanDoStrand<'_> {
-    pub fn add_nucl(&mut self, nucl: Nucl, position: Vec3, normal: Vec3) -> Result<(), CanDoError> {
-        self.formatter.add_nucl(nucl, position, normal)?;
+    pub fn add_nucl(
+        &mut self,
+        nucl: Nucl,
+        position: Vec3,
+        normal: Vec3,
+        basis: Option<char>,
+    ) -> Result<(), CanDoError> {
+        self.formatter.add_nucl(nucl, position, normal, basis)?;
 
         if let Some(prime5) = self.previous_nucl.take() {
             self.formatter.make_bound(prime5, nucl)?;
