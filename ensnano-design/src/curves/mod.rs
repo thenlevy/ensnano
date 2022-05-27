@@ -21,7 +21,6 @@ const EPSILON: f64 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
 
 /// To compute curvilinear abcissa over long distances
-const LONG_DISCRETISATION_FACTOR: usize = 10_000;
 const DELTA_MAX: f64 = 256.0;
 use crate::{
     grid::{Edge, GridPosition},
@@ -282,8 +281,6 @@ impl Curve {
         let mut abscissa_forward;
         let mut abscissa_backward;
 
-        let forward_first_nucl;
-
         if inclination >= 0. {
             // The forward strand is behind
             points_forward.push(point);
@@ -292,22 +289,18 @@ impl Curve {
             t_nucl.push(t);
             abscissa_forward = len_segment;
             abscissa_backward = inclination;
-            forward_first_nucl = true;
         } else {
             // The backward strand is behind
             points_backward.push(point);
             axis_backward.push(current_axis);
             abscissa_backward = len_segment;
             abscissa_forward = -inclination;
-            forward_first_nucl = false;
         }
 
         let mut current_abcissa = 0.0;
         let mut first_non_negative = t < 0.0;
 
-        let mut last_time_on_synchronized_strand = 0.;
         let mut synchronization_length = 0.;
-
 
         while t < self.geometry.t_max() {
             if first_non_negative && t >= 0.0 {
@@ -380,37 +373,37 @@ impl Curve {
                 }
 
                 /*
-                if forward_first_nucl == forward && self.nucl_pos_full_turn.is_none() {
-                    if let Some(t_obj) = self.geometry.full_turn_at_t().filter(|t_obj| t > *t_obj)
-                    {
-                        /*
-                        self.nucl_pos_full_turn = if forward {
-                            println!("first axis {:?}", axis_forward[0]);
-                            println!("current axis {:?}", current_axis);
-                            Some(points_forward.len() as isize - self.nucl_t0 as isize + 1)
-                        } else {
-                            println!("first axis {:?}", axis_backward[0]);
-                            println!("current axis {:?}", current_axis);
-                            Some(points_backward.len() as isize - self.nucl_t0 as isize + 1)
-                        };
-                        println!("pos full turn {:?}", self.nucl_pos_full_turn);
-                        */ 
-                        let epsilon_left = t_obj - last_time_on_synchronized_strand;
-                        let epsilon_right = t - t_obj;
-                        log::info!("epsilon_left = {epsilon_left}");
-                        log::info!("epsilon_right = {epsilon_right}");
-                        log::info!("extra frac = {}", epsilon_left / (epsilon_left + epsilon_right));
+                    if forward_first_nucl == forward && self.nucl_pos_full_turn.is_none() {
+                        if let Some(t_obj) = self.geometry.full_turn_at_t().filter(|t_obj| t > *t_obj)
+                        {
+                            /*
+                            self.nucl_pos_full_turn = if forward {
+                                println!("first axis {:?}", axis_forward[0]);
+                                println!("current axis {:?}", current_axis);
+                                Some(points_forward.len() as isize - self.nucl_t0 as isize + 1)
+                            } else {
+                                println!("first axis {:?}", axis_backward[0]);
+                                println!("current axis {:?}", current_axis);
+                                Some(points_backward.len() as isize - self.nucl_t0 as isize + 1)
+                            };
+                            println!("pos full turn {:?}", self.nucl_pos_full_turn);
+                            */
+                            let epsilon_left = t_obj - last_time_on_synchronized_strand;
+                            let epsilon_right = t - t_obj;
+                            log::info!("epsilon_left = {epsilon_left}");
+                            log::info!("epsilon_right = {epsilon_right}");
+                            log::info!("extra frac = {}", epsilon_left / (epsilon_left + epsilon_right));
 
-                        let idx_left = if forward {
-                            points_forward.len() - 2
-                        } else {
-                            points_forward.len() - 2
-                        };
-                        self.nucl_pos_full_turn = Some(idx_left as f64 + epsilon_left / (epsilon_left + epsilon_right));
+                            let idx_left = if forward {
+                                points_forward.len() - 2
+                            } else {
+                                points_forward.len() - 2
+                            };
+                            self.nucl_pos_full_turn = Some(idx_left as f64 + epsilon_left / (epsilon_left + epsilon_right));
+                        }
+                        last_time_on_synchronized_strand = t;
                     }
-                    last_time_on_synchronized_strand = t;
-                }
-            */
+                */
             }
         }
         /*
@@ -420,10 +413,10 @@ impl Curve {
         }
         */
 
-        self.nucl_pos_full_turn = self.geometry.full_turn_at_t().map(|t_obj| {
-            synchronization_length
-                / len_segment
-        });
+        self.nucl_pos_full_turn = self
+            .geometry
+            .full_turn_at_t()
+            .map(|_| synchronization_length / len_segment);
         if let Some(n) = self.nucl_pos_full_turn {
             log::info!("nucl_pos_full_turn = {n}");
         }
@@ -496,7 +489,7 @@ impl Curve {
         theta: f64,
         parameters: &Parameters,
     ) -> Option<DVec3> {
-        use std::f64::consts::{FRAC_PI_2, PI, TAU};
+        use std::f64::consts::{PI, TAU};
         let idx = self.idx_convertsion(n)?;
         let theta = if let Some(real_theta) = self.geometry.theta_shift(parameters) {
             let base_theta = TAU / parameters.bases_per_turn as f64;
@@ -509,7 +502,7 @@ impl Curve {
             if full_delta > PI {
                 full_delta -= TAU;
             }*/
-            let mut full_delta = -rem - FRAC_PI_2;
+            let mut full_delta = -rem;
             full_delta = full_delta.rem_euclid(TAU);
             if full_delta > PI {
                 full_delta -= TAU;
@@ -1078,7 +1071,12 @@ impl InstanciatedPiecewiseBezierDescriptor {
         } else {
             vec![]
         };
-        let desc = InstanciatedPiecewiseBeizer { ends, t_min, t_max, cyclic: false };
+        let desc = InstanciatedPiecewiseBeizer {
+            ends,
+            t_min,
+            t_max,
+            cyclic: false,
+        };
         Self {
             desc,
             grids: grid_reader.source(),

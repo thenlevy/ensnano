@@ -434,7 +434,7 @@ fn path_to_curve_descriptor(
         t_min: None,
         t_max: Some(descriptor.len() as f64 - 1.),
         ends: descriptor,
-        cyclic: source_path.cyclic
+        cyclic: source_path.cyclic,
     })
 }
 

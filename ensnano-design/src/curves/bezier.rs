@@ -240,7 +240,7 @@ impl InstanciatedPiecewiseBeizer {
             // for t = self.t_max() - 1 we take i = self.t_max() - 2
             if self.cyclic && self.ends.len() > 0 {
                 t.floor() as usize
-            } else { 
+            } else {
                 (t.floor() as usize).min(self.ends.len() - 2)
             }
         }
@@ -250,11 +250,12 @@ impl InstanciatedPiecewiseBeizer {
         CubicBezier::new(CubicBezierConstructor {
             start: self.ends.iter().cycle().nth(i).unwrap().position,
             end: self.ends.iter().cycle().nth(i + 1).unwrap().position,
-            control1: self.ends.iter().cycle().nth(i).unwrap().position + self.ends.iter().cycle().nth(i).unwrap().vector_out,
-            control2: self.ends.iter().cycle().nth(i + 1).unwrap().position - self.ends.iter().cycle().nth(i + 1).unwrap().vector_in,
+            control1: self.ends.iter().cycle().nth(i).unwrap().position
+                + self.ends.iter().cycle().nth(i).unwrap().vector_out,
+            control2: self.ends.iter().cycle().nth(i + 1).unwrap().position
+                - self.ends.iter().cycle().nth(i + 1).unwrap().vector_in,
         })
     }
-
 }
 
 /// An endpoint of a piecewise bezier curve.
@@ -373,7 +374,7 @@ impl super::Curved for TranslatedPiecewiseBezier {
 
     fn full_turn_at_t(&self) -> Option<f64> {
         if self.original_curve.cyclic {
-            Some(self.original_curve.ends.len() as f64 )
+            Some(self.original_curve.ends.len() as f64)
         } else {
             Some(self.original_curve.ends.len() as f64 - 1.)
         }
