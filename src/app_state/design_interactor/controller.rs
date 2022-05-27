@@ -1367,12 +1367,14 @@ impl Controller {
                 if v.plane_id == homothethy.plane_id {
                     let transform = |v: &mut Vec2| {
                         let vec = *v - homothethy.fixed_corner;
-                        let new_norm = vec.mag() * scale;
-                        *v = vec
-                            .normalized()
-                            .rotated_by(ensnano_design::Rotor2::from_angle(angle))
-                            * new_norm
-                            + homothethy.fixed_corner;
+                        if vec.mag() > 1e-6 {
+                            let new_norm = vec.mag() * scale;
+                            *v = vec
+                                .normalized()
+                                .rotated_by(ensnano_design::Rotor2::from_angle(angle))
+                                * new_norm
+                                + homothethy.fixed_corner;
+                        }
                     };
                     transform(&mut v.position);
                     if let Some(vec) = v.position_out.as_mut() {

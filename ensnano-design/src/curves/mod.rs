@@ -271,8 +271,9 @@ impl Curve {
 
         if let Some(frame) = self.geometry.initial_frame() {
             let up = frame[1];
-            translation_axis[0] = up.cross(translation_axis[2]).normalized();
-            translation_axis[1] = translation_axis[2].cross(translation_axis[0]).normalized();
+            translation_axis[1] = up;
+            translation_axis[0] = up.cross(self.geometry.speed(t).normalized());
+            translation_axis[2] = translation_axis[0].cross(translation_axis[1]);
         }
         let point = self.geometry.position(t)
             + translation_axis * self.geometry.translation().unwrap_or_else(DVec3::zero);
@@ -320,8 +321,9 @@ impl Curve {
             let mut translation_axis = current_axis;
             if let Some(frame) = self.geometry.initial_frame() {
                 let up = frame[1];
-                translation_axis[0] = up.cross(translation_axis[2]).normalized();
-                translation_axis[1] = translation_axis[2].cross(translation_axis[0]).normalized();
+                translation_axis[1] = up;
+                translation_axis[0] = up.cross(self.geometry.speed(t).normalized());
+                translation_axis[2] = translation_axis[0].cross(translation_axis[1]);
             }
             let mut p = self.geometry.position(t)
                 + translation_axis * self.geometry.translation().unwrap_or_else(DVec3::zero);
@@ -342,9 +344,9 @@ impl Curve {
                     let mut translation_axis = current_axis;
                     if let Some(frame) = self.geometry.initial_frame() {
                         let up = frame[1];
-                        translation_axis[0] = up.cross(translation_axis[2]).normalized();
-                        translation_axis[1] =
-                            translation_axis[2].cross(translation_axis[0]).normalized();
+                        translation_axis[1] = up;
+                        translation_axis[0] = up.cross(self.geometry.speed(t).normalized());
+                        translation_axis[2] = translation_axis[0].cross(translation_axis[1]);
                     }
 
                     if let Some(t) = self.geometry.translation() {
