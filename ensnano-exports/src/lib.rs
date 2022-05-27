@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 //! Exports utilities from ENSnano to other file formats used in DNA nanotechnologies
 
+pub mod cadnano;
 pub mod cando;
 pub mod oxdna;
 pub mod pdb;
