@@ -222,6 +222,7 @@ pub(crate) struct InstanciatedPiecewiseBeizer {
     pub ends: Vec<BezierEndCoordinates>,
     pub t_min: Option<f64>,
     pub t_max: Option<f64>,
+    pub cyclic: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -237,18 +238,23 @@ impl InstanciatedPiecewiseBeizer {
             0
         } else {
             // for t = self.t_max() - 1 we take i = self.t_max() - 2
-            (t.floor() as usize).min(self.ends.len() - 2)
+            if self.cyclic && self.ends.len() > 0 {
+                t.floor() as usize
+            } else { 
+                (t.floor() as usize).min(self.ends.len() - 2)
+            }
         }
     }
 
     fn ith_cubic_bezier(&self, i: usize) -> CubicBezier {
         CubicBezier::new(CubicBezierConstructor {
-            start: self.ends[i].position,
-            end: self.ends[i + 1].position,
-            control1: self.ends[i].position + self.ends[i].vector_out,
-            control2: self.ends[i + 1].position - self.ends[i + 1].vector_in,
+            start: self.ends.iter().cycle().nth(i).unwrap().position,
+            end: self.ends.iter().cycle().nth(i + 1).unwrap().position,
+            control1: self.ends.iter().cycle().nth(i).unwrap().position + self.ends.iter().cycle().nth(i).unwrap().vector_out,
+            control2: self.ends.iter().cycle().nth(i + 1).unwrap().position - self.ends.iter().cycle().nth(i + 1).unwrap().vector_in,
         })
     }
+
 }
 
 /// An endpoint of a piecewise bezier curve.
@@ -346,7 +352,11 @@ impl super::Curved for TranslatedPiecewiseBezier {
     }
 
     fn t_max(&self) -> f64 {
-        self.original_curve.t_max() + 0.1
+        if self.original_curve.cyclic {
+            self.original_curve.t_max() + 2.
+        } else {
+            self.original_curve.t_max() + 1.
+        }
     }
 
     fn t_min(&self) -> f64 {
@@ -362,6 +372,10 @@ impl super::Curved for TranslatedPiecewiseBezier {
     }
 
     fn full_turn_at_t(&self) -> Option<f64> {
-        Some(self.original_curve.ends.len() as f64 - 1.)
+        if self.original_curve.cyclic {
+            Some(self.original_curve.ends.len() as f64 )
+        } else {
+            Some(self.original_curve.ends.len() as f64 - 1.)
+        }
     }
 }

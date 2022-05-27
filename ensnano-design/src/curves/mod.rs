@@ -19,6 +19,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use ultraviolet::{DMat3, DVec3, Rotor3, Vec3};
 const EPSILON: f64 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
+
+/// To compute curvilinear abcissa over long distances
+const LONG_DISCRETISATION_FACTOR: usize = 10_000;
 const DELTA_MAX: f64 = 256.0;
 use crate::{
     grid::{Edge, GridPosition},
@@ -195,7 +198,7 @@ pub(super) struct Curve {
     nucl_t0: usize,
     /// The time point at which nucleotides where positioned
     t_nucl: Arc<Vec<f64>>,
-    nucl_pos_full_turn: Option<isize>,
+    nucl_pos_full_turn: Option<f64>,
     /// The first nucleotide of each additional helix segment needed to represent the curve.
     additional_segment_left: Vec<usize>,
 }
@@ -252,7 +255,7 @@ impl Curve {
 
     fn discretize(&mut self, len_segment: f64, nb_step: usize, inclination: f64) {
         let len = self.length_by_descretisation(0., 1., nb_step);
-        let nb_points = (len / len_segment) as usize;
+        let nb_points = (len / len_segment) as usize * 10;
         let small_step = 1. / (nb_step as f64 * nb_points as f64);
 
         let mut points_forward = Vec::with_capacity(nb_points + 1);
@@ -277,22 +280,33 @@ impl Curve {
         let mut t_nucl = Vec::new();
         let mut abscissa_forward;
         let mut abscissa_backward;
+
+        let forward_first_nucl;
+
         if inclination >= 0. {
+            // The forward strand is behind
             points_forward.push(point);
             axis_forward.push(current_axis);
             curvature.push(self.geometry.curvature(t));
             t_nucl.push(t);
             abscissa_forward = len_segment;
             abscissa_backward = inclination;
+            forward_first_nucl = true;
         } else {
+            // The backward strand is behind
             points_backward.push(point);
             axis_backward.push(current_axis);
             abscissa_backward = len_segment;
             abscissa_forward = -inclination;
+            forward_first_nucl = false;
         }
 
         let mut current_abcissa = 0.0;
         let mut first_non_negative = t < 0.0;
+
+        let mut last_time_on_synchronized_strand = 0.;
+        let mut synchronization_length = 0.;
+
 
         while t < self.geometry.t_max() {
             if first_non_negative && t >= 0.0 {
@@ -337,6 +351,11 @@ impl Curve {
                         q += translation_axis * t;
                     }
                     current_abcissa += (q - p).mag();
+                    if let Some(t_obj) = self.geometry.full_turn_at_t() {
+                        if t >= 0. && t < t_obj {
+                            synchronization_length += (q - p).mag();
+                        }
+                    }
                     p = q;
                 }
             }
@@ -349,16 +368,6 @@ impl Curve {
                         self.additional_segment_left.push(points_forward.len())
                     }
                     points_forward.push(p);
-                    if self.nucl_pos_full_turn.is_none()
-                        && self
-                            .geometry
-                            .full_turn_at_t()
-                            .map(|t_obj| t > t_obj)
-                            .unwrap_or(false)
-                    {
-                        self.nucl_pos_full_turn =
-                            Some(points_forward.len() as isize - self.nucl_t0 as isize);
-                    }
                     axis_forward.push(current_axis);
                     curvature.push(self.geometry.curvature(t));
                     abscissa_forward = current_abcissa + len_segment;
@@ -367,12 +376,54 @@ impl Curve {
                     axis_backward.push(current_axis);
                     abscissa_backward = current_abcissa + len_segment;
                 }
+
+                /*
+                if forward_first_nucl == forward && self.nucl_pos_full_turn.is_none() {
+                    if let Some(t_obj) = self.geometry.full_turn_at_t().filter(|t_obj| t > *t_obj)
+                    {
+                        /*
+                        self.nucl_pos_full_turn = if forward {
+                            println!("first axis {:?}", axis_forward[0]);
+                            println!("current axis {:?}", current_axis);
+                            Some(points_forward.len() as isize - self.nucl_t0 as isize + 1)
+                        } else {
+                            println!("first axis {:?}", axis_backward[0]);
+                            println!("current axis {:?}", current_axis);
+                            Some(points_backward.len() as isize - self.nucl_t0 as isize + 1)
+                        };
+                        println!("pos full turn {:?}", self.nucl_pos_full_turn);
+                        */ 
+                        let epsilon_left = t_obj - last_time_on_synchronized_strand;
+                        let epsilon_right = t - t_obj;
+                        log::info!("epsilon_left = {epsilon_left}");
+                        log::info!("epsilon_right = {epsilon_right}");
+                        log::info!("extra frac = {}", epsilon_left / (epsilon_left + epsilon_right));
+
+                        let idx_left = if forward {
+                            points_forward.len() - 2
+                        } else {
+                            points_forward.len() - 2
+                        };
+                        self.nucl_pos_full_turn = Some(idx_left as f64 + epsilon_left / (epsilon_left + epsilon_right));
+                    }
+                    last_time_on_synchronized_strand = t;
+                }
+            */
             }
         }
+        /*
         if self.nucl_pos_full_turn.is_none() && self.geometry.full_turn_at_t().is_some() {
             // We want to make a full turn just after the last nucl
-            self.nucl_pos_full_turn =
-                Some(points_forward.len() as isize - self.nucl_t0 as isize + 1);
+            log::error!("Could not synchronize path ends");
+        }
+        */
+
+        self.nucl_pos_full_turn = self.geometry.full_turn_at_t().map(|t_obj| {
+            synchronization_length
+                / len_segment
+        });
+        if let Some(n) = self.nucl_pos_full_turn {
+            log::info!("nucl_pos_full_turn = {n}");
         }
 
         self.axis_backward = axis_backward;
@@ -449,7 +500,7 @@ impl Curve {
             let base_theta = TAU / parameters.bases_per_turn as f64;
             (base_theta - real_theta) * n as f64 + theta
         } else if let Some(pos_full_turn) = self.nucl_pos_full_turn {
-            let final_angle = -pos_full_turn as f64 * TAU / parameters.bases_per_turn as f64;
+            let final_angle = pos_full_turn as f64 * TAU / -parameters.bases_per_turn as f64;
             let rem = final_angle.rem_euclid(TAU);
             /*
             let mut full_delta = if rem > PI { TAU - rem } else { -rem } + FRAC_PI_2;
@@ -1025,7 +1076,7 @@ impl InstanciatedPiecewiseBezierDescriptor {
         } else {
             vec![]
         };
-        let desc = InstanciatedPiecewiseBeizer { ends, t_min, t_max };
+        let desc = InstanciatedPiecewiseBeizer { ends, t_min, t_max, cyclic: false };
         Self {
             desc,
             grids: grid_reader.source(),

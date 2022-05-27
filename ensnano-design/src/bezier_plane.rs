@@ -369,6 +369,8 @@ fn path_to_curve_descriptor(
                 }
             };
             bezier_points.push(last_point);
+        } else {
+            bezier_points.pop();
         }
         Some(bezier_points)
     } else if source_path.vertices.len() == 2 {
@@ -401,6 +403,7 @@ fn path_to_curve_descriptor(
         t_min: None,
         t_max: Some(descriptor.len() as f64 - 1.),
         ends: descriptor,
+        cyclic: source_path.cyclic
     })
 }
 
