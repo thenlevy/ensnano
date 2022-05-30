@@ -376,12 +376,21 @@ struct PdbAtom {
 }
 
 pub fn make_reference_nucleotides() -> Result<ReferenceNucleotides, PdbError> {
+    let pdb_content = include_str!("../dd12_na.pdb");
+    read_pdb_string(&pdb_content)
+}
+
+pub fn make_reference_nucleotides_rna() -> Result<ReferenceNucleotides, PdbError> {
+    let pdb_content = include_str!("../ds_rna_Helix.pdb");
+    read_pdb_string(&pdb_content)
+}
+
+fn read_pdb_string(pdb_content: &str) -> Result<ReferenceNucleotides, PdbError> {
     // Method taken from https://github.com/lorenzo-rovigatti/tacoxDNA
-    let pdb_string = include_str!("../dd12_na.pdb");
     let mut ret = ReferenceNucleotides::default();
     let mut current_residue: Cow<'static, str> = "".into();
     let mut current_nucl: Option<PdbNucleotide> = None;
-    for (line_number, line) in pdb_string.lines().enumerate() {
+    for (line_number, line) in pdb_content.lines().enumerate() {
         if line.len() >= 77 {
             let atom = PdbAtom::parse_line(&line)
                 .map_err(|error| PdbError::ParsingError { line_number, error })?;
@@ -403,8 +412,8 @@ pub fn make_reference_nucleotides() -> Result<ReferenceNucleotides, PdbError> {
     if let Some(nucl) = current_nucl.take() {
         ret.present_candidate(nucl)?;
     }
-    println!("{:#?}", ret);
     Ok(ret)
+
 }
 
 #[derive(Debug)]
@@ -557,12 +566,31 @@ pub struct PdbStrand<'a> {
     cyclic: bool,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum NucleicAcidKind {
+    Dna,
+    Rna
+}
+
+impl NucleicAcidKind {
+    pub fn compl_to_a(&self) -> char {
+        match self {
+            Self::Dna => 'T',
+            Self::Rna => 'U',
+        }
+    }
+}
+
 use std::path::Path;
 impl PdbFormatter {
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, PdbError> {
+    pub fn new<P: AsRef<Path>>(path: P, nu_kind: NucleicAcidKind) -> Result<Self, PdbError> {
         let out_file = std::fs::File::create(path).map_err(|e| PdbError::IOError(e))?;
 
-        let reference = make_reference_nucleotides()?;
+        let reference = match nu_kind {
+            NucleicAcidKind::Dna =>make_reference_nucleotides()?,
+            NucleicAcidKind::Rna => make_reference_nucleotides_rna()?,
+        };
+
         Ok(Self {
             out_file,
             current_strand_id: 0,

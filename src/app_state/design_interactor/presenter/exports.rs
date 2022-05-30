@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 use ensnano_design::Domain;
 use ensnano_exports::oxdna::*;
-use std::mem::ManuallyDrop;
+use std::{mem::ManuallyDrop, thread::park};
 
 impl Presenter {
     fn to_oxdna(&self) -> (OxDnaConfig, OxDnaTopology) {
@@ -122,8 +122,13 @@ impl Presenter {
 
     pub fn pdb_export(&self, out_path: &PathBuf) -> Result<(), ensnano_exports::pdb::PdbError> {
         use ensnano_exports::pdb;
-        let mut exporter = pdb::PdbFormatter::new(out_path)?;
         let parameters = self.current_design.parameters.unwrap_or_default();
+        let na_kind = if parameters.name().name.contains("RNA") {
+            ensnano_exports::pdb::NucleicAcidKind::Rna
+        } else {
+            ensnano_exports::pdb::NucleicAcidKind::Dna
+        };
+        let mut exporter = pdb::PdbFormatter::new(out_path, na_kind)?;
 
         for s in self.current_design.strands.values() {
             let mut pdb_strand = exporter.start_strand(s.cyclic);
@@ -148,7 +153,7 @@ impl Presenter {
                             .basis_map
                             .get(&nucl)
                             .cloned()
-                            .unwrap_or(if dom.forward { 'A' } else { 'T' });
+                            .unwrap_or(if dom.forward { 'A' } else { na_kind.compl_to_a() });
                         //let base = if dom.forward { 'C' } else { 'G'};
                         pdb_strand.add_nucl(base, ox_nucl.position * 10., ox_nucl.get_basis())?;
                     }
