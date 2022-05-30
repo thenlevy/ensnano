@@ -85,7 +85,7 @@ impl ReferenceNucleotide {
     }
 }
 
-const CANONICAL_BASE_NAMES: &[&str] = &["A", "T", "G", "C"];
+const CANONICAL_BASE_NAMES: &[&str] = &["A", "T", "G", "C", "U"];
 
 const LONG_BASE_NAMES: &[&str] = &["ADE", "CYT", "GUA", "THY"];
 
@@ -112,7 +112,7 @@ impl PdbNucleotide {
         let name_chars: Vec<char> = atom.name.chars().collect();
         if name_chars.contains(&'P') || atom.name == "HO5'" {
             self.phosphate_atoms.insert(atom.name.clone(), atom);
-        } else if name_chars.contains(&'\'') {
+        } else if name_chars.contains(&'\'') || name_chars.contains(&'*') {
             self.sugar_atoms.insert(atom.name.clone(), atom);
         } else {
             self.base_atoms.insert(atom.name.clone(), atom);
@@ -156,7 +156,7 @@ impl PdbNucleotide {
     }
 
     fn compute_a1(&self) -> Result<Vec3, PdbError> {
-        let pairs = if self.name.find(&['C', 'T']).is_some() {
+        let pairs = if self.name.find(&['C', 'T', 'U']).is_some() {
             &[["N3", "C6"], ["C2", "N1"], ["C4", "C5"]]
         } else {
             &[["N1", "C4"], ["C2", "N3"], ["C6", "C5"]]
@@ -185,6 +185,7 @@ impl PdbNucleotide {
         let oxygen4 = self
             .sugar_atoms
             .get("O4'")
+            .or(self.sugar_atoms.get("O4*"))
             .ok_or(PdbError::MissingAtom(String::from("O4'")))?;
         let parralel_to = oxygen4.position - base_com;
 
@@ -265,7 +266,7 @@ impl PdbNucleotide {
         match residue_type {
             ResidueType::Prime5 => {
                 let phosphorus = get_phosphate_atom("P")?;
-                let oxygen_5prime = get_sugar_atom("O5'")?;
+                let oxygen_5prime = get_sugar_atom("O5'").or(get_sugar_atom("O5*"))?;
 
                 let mut ret = phosphorus.clone();
                 ret.name = "HO5'".into();
@@ -275,7 +276,7 @@ impl PdbNucleotide {
                 Ok(Some(ret))
             }
             ResidueType::Prime3 => {
-                let oxygen_3prime = get_sugar_atom("O3'")?;
+                let oxygen_3prime = get_sugar_atom("O3'").or(get_sugar_atom("O3*"))?;
 
                 let mut ret = oxygen_3prime.clone();
                 ret.name = "HO3'".into();
@@ -375,23 +376,25 @@ struct PdbAtom {
     position: Vec3,
 }
 
+const DNA_MIN_LINE_LENGTH: usize = 77;
 pub fn make_reference_nucleotides() -> Result<ReferenceNucleotides, PdbError> {
     let pdb_content = include_str!("../dd12_na.pdb");
-    read_pdb_string(&pdb_content)
+    read_pdb_string(&pdb_content, DNA_MIN_LINE_LENGTH)
 }
 
+const RNA_MIN_LINE_LENGTH: usize = 66;
 pub fn make_reference_nucleotides_rna() -> Result<ReferenceNucleotides, PdbError> {
     let pdb_content = include_str!("../ds_rna_Helix.pdb");
-    read_pdb_string(&pdb_content)
+    read_pdb_string(&pdb_content, RNA_MIN_LINE_LENGTH)
 }
 
-fn read_pdb_string(pdb_content: &str) -> Result<ReferenceNucleotides, PdbError> {
+fn read_pdb_string(pdb_content: &str, min_line_length: usize) -> Result<ReferenceNucleotides, PdbError> {
     // Method taken from https://github.com/lorenzo-rovigatti/tacoxDNA
     let mut ret = ReferenceNucleotides::default();
     let mut current_residue: Cow<'static, str> = "".into();
     let mut current_nucl: Option<PdbNucleotide> = None;
     for (line_number, line) in pdb_content.lines().enumerate() {
-        if line.len() >= 77 {
+        if line.len() >= min_line_length {
             let atom = PdbAtom::parse_line(&line)
                 .map_err(|error| PdbError::ParsingError { line_number, error })?;
 
@@ -412,6 +415,7 @@ fn read_pdb_string(pdb_content: &str) -> Result<ReferenceNucleotides, PdbError> 
     if let Some(nucl) = current_nucl.take() {
         ret.present_candidate(nucl)?;
     }
+    println!("{:#?}", ret);
     Ok(ret)
 
 }
