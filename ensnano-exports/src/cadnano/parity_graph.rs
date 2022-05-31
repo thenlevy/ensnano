@@ -18,19 +18,19 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 
-pub fn get_parity(design: &Design, max_y: usize) -> Result<Vec<bool>, CadnanoError> {
-    let mut father = make_group(design, max_y);
-    let graph = make_graph(design, max_y, &mut father)?;
+pub fn get_parity(design: &Design, max_helix_idx: usize) -> Result<Vec<bool>, CadnanoError> {
+    let mut father = make_group(design, max_helix_idx);
+    let graph = make_graph(design, max_helix_idx, &mut father)?;
 
-    color_graph(&graph, max_y, &mut father)
+    color_graph(&graph, max_helix_idx, &mut father)
 }
 
 fn make_graph(
     design: &Design,
-    max_y: usize,
+    max_helix_idx: usize,
     father: &mut Vec<usize>,
 ) -> Result<Vec<Vec<bool>>, CadnanoError> {
-    let mut ret = vec![vec![false; max_y + 1]; max_y + 1];
+    let mut ret = vec![vec![false; max_helix_idx + 1]; max_helix_idx + 1];
     for s in design.strands.values() {
         let mut group_sens: Vec<usize> = Vec::new();
         let mut group_anti: Vec<usize> = Vec::new();
@@ -62,20 +62,20 @@ fn make_graph(
 
 fn color_graph(
     graph: &Vec<Vec<bool>>,
-    max_y: usize,
+    max_helix_idx: usize,
     father: &mut Vec<usize>,
 ) -> Result<Vec<bool>, CadnanoError> {
-    let mut color = vec![false; max_y + 1];
-    let mut seen: Vec<bool> = (0..(max_y + 1)).map(|i| i != father[i]).collect();
+    let mut color = vec![false; max_helix_idx + 1];
+    let mut seen: Vec<bool> = (0..(max_helix_idx + 1)).map(|i| i != father[i]).collect();
 
-    for i in 0..(max_y + 1) {
+    for i in 0..(max_helix_idx + 1) {
         if !seen[i] {
             seen[i] = true;
             let mut to_do: Vec<usize> = vec![i];
             while to_do.len() > 0 {
                 let i = to_do.pop().unwrap();
                 let i = find(i, father);
-                for j in 0..(max_y + 1) {
+                for j in 0..(max_helix_idx + 1) {
                     let j = find(j, father);
                     if graph[i][j] && !seen[j] {
                         if seen[j] && color[j] == color[i] {
@@ -90,16 +90,16 @@ fn color_graph(
         }
     }
 
-    for i in 0..(max_y + 1) {
+    for i in 0..(max_helix_idx + 1) {
         let repr_i = find(i, father);
         color[i] = color[repr_i];
     }
     Ok(color)
 }
 
-fn make_group(design: &Design, max_y: usize) -> Vec<usize> {
-    let mut father: Vec<usize> = (0..(max_y + 1)).map(|i| i).collect();
-    let mut rank: Vec<usize> = vec![0; max_y + 1];
+fn make_group(design: &Design, max_helix_idx: usize) -> Vec<usize> {
+    let mut father: Vec<usize> = (0..(max_helix_idx + 1)).map(|i| i).collect();
+    let mut rank: Vec<usize> = vec![0; max_helix_idx + 1];
     for s in design.strands.values() {
         let mut group_sens: Vec<usize> = Vec::new();
         let mut group_anti: Vec<usize> = Vec::new();

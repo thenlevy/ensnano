@@ -388,7 +388,10 @@ pub fn make_reference_nucleotides_rna() -> Result<ReferenceNucleotides, PdbError
     read_pdb_string(&pdb_content, RNA_MIN_LINE_LENGTH)
 }
 
-fn read_pdb_string(pdb_content: &str, min_line_length: usize) -> Result<ReferenceNucleotides, PdbError> {
+fn read_pdb_string(
+    pdb_content: &str,
+    min_line_length: usize,
+) -> Result<ReferenceNucleotides, PdbError> {
     // Method taken from https://github.com/lorenzo-rovigatti/tacoxDNA
     let mut ret = ReferenceNucleotides::default();
     let mut current_residue: Cow<'static, str> = "".into();
@@ -417,7 +420,6 @@ fn read_pdb_string(pdb_content: &str, min_line_length: usize) -> Result<Referenc
     }
     println!("{:#?}", ret);
     Ok(ret)
-
 }
 
 #[derive(Debug)]
@@ -573,7 +575,7 @@ pub struct PdbStrand<'a> {
 #[derive(Debug, Clone, Copy)]
 pub enum NucleicAcidKind {
     Dna,
-    Rna
+    Rna,
 }
 
 impl NucleicAcidKind {
@@ -591,7 +593,7 @@ impl PdbFormatter {
         let out_file = std::fs::File::create(path).map_err(|e| PdbError::IOError(e))?;
 
         let reference = match nu_kind {
-            NucleicAcidKind::Dna =>make_reference_nucleotides()?,
+            NucleicAcidKind::Dna => make_reference_nucleotides()?,
             NucleicAcidKind::Rna => make_reference_nucleotides_rna()?,
         };
 
