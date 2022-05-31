@@ -129,6 +129,7 @@ impl Presenter {
             ensnano_exports::pdb::NucleicAcidKind::Dna
         };
         let mut exporter = pdb::PdbFormatter::new(out_path, na_kind)?;
+        let mut previous_position = None;
 
         for s in self.current_design.strands.values() {
             let mut pdb_strand = exporter.start_strand(s.cyclic);
@@ -147,7 +148,7 @@ impl Presenter {
                             helix: dom.helix,
                             forward: dom.forward,
                         };
-
+                        previous_position = Some(ox_nucl.position);
                         let base = self
                             .content
                             .basis_map
@@ -156,6 +157,12 @@ impl Presenter {
                             .unwrap_or(if dom.forward { 'A' } else { na_kind.compl_to_a() });
                         //let base = if dom.forward { 'C' } else { 'G'};
                         pdb_strand.add_nucl(base, ox_nucl.position * 10., ox_nucl.get_basis())?;
+                    }
+                } else if let Domain::Insertion {instanciation: Some(instanciation), ..} = d {
+                    for (insertion_idx, position) in instanciation.pos().iter().enumerate() {
+                        let ox_nucl = ensnano_exports::oxdna::free_oxdna_nucl(*position, previous_position, insertion_idx, &parameters);
+                        previous_position = Some(*position);
+                        pdb_strand.add_nucl(na_kind.compl_to_a(), ox_nucl.position * 10., ox_nucl.get_basis())?;
                     }
                 }
             }
