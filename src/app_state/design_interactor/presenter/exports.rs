@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 use ensnano_design::Domain;
 use ensnano_exports::oxdna::*;
-use std::{mem::ManuallyDrop, thread::park};
+use std::mem::ManuallyDrop;
 
 impl Presenter {
     fn to_oxdna(&self) -> (OxDnaConfig, OxDnaTopology) {

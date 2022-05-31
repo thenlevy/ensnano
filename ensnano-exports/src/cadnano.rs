@@ -157,7 +157,7 @@ fn init_cadnano_exporter(design: &Design) -> Result<CadnanoExporter, CadnanoErro
             let cadnano_helix = CadnanoHelix::new(num, candidate, bonds.max_nt_pos);
             cadnano_helices.insert(*h, cadnano_helix);
         }
-        shift_x += max_x
+        shift_x += max_x + 1
     }
 
     Ok(CadnanoExporter {
@@ -229,13 +229,13 @@ impl CadnanoExporter {
             .ok_or(CadnanoError::HelixNotFound(prime5.helix))?;
         let helix_prime3 = self
             .helices
-            .get(&prime5.helix)
-            .ok_or(CadnanoError::HelixNotFound(prime5.helix))?;
+            .get(&prime3.helix)
+            .ok_or(CadnanoError::HelixNotFound(prime3.helix))?;
 
         let num_prime5 = helix_prime5.num;
         let num_prime3 = helix_prime3.num;
 
-        if (num_prime5 % 2 == num_prime3 % 2) != (prime5.forward != prime3.forward) {
+        if (num_prime5 % 2 == num_prime3 % 2) != (prime5.forward == prime3.forward) {
             return Err(CadnanoError::ImpossibleBond);
         } else {
             let helix_prime5 = self
@@ -335,15 +335,16 @@ struct CadnanoHelix {
     num: isize,
     row: isize,
     scaf: Vec<(isize, isize, isize, isize)>,
-    #[serde(rename = "scafLoop")]
     skip: Vec<isize>,
     stap: Vec<(isize, isize, isize, isize)>,
     /// Each entry is a pair `(prime5_pos, color)` where `prime5_pos` is the position of
     /// the 5' end and color is an u32 of the form 0x00_RR_GG_BB
     stap_colors: Vec<(isize, u32)>,
     /// Unused, can be left empty
+    #[serde(rename = "scafLoop")]
     scaf_loop: Vec<isize>,
     /// Unused, can be left empty
+    #[serde(rename = "stapLoop")]
     stap_loop: Vec<isize>,
 }
 
