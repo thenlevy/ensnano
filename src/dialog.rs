@@ -84,16 +84,29 @@ impl PathInput {
     }
 }
 
-pub fn save<P: AsRef<Path>>(
-    target_extension: &'static str,
-    starting_path: Option<P>,
-    starting_name: Option<P>,
+fn filter_has_extension(filter: &Filters, extension: &str) -> bool {
+    for f in filter.iter() {
+        if f.1.contains(&extension) {
+            return true;
+        }
+    }
+    false
+}
+
+pub fn get_file_to_write<P1: AsRef<Path>, P2: AsRef<Path>>(
+    extension_filter: &'static Filters,
+    starting_path: Option<P1>,
+    starting_name: Option<P2>,
 ) -> PathInput {
     let mut dialog = rfd::AsyncFileDialog::new();
+
+    let default_extenstion = extension_filter.get(0).and_then(|f| f.1.get(0));
+
     let starting_name = starting_name.and_then(|p| {
-        let mut path_buf = p.as_ref().to_path_buf();
-        path_buf.set_extension(target_extension);
-        path_buf.file_name().map(|s| s.to_os_string())
+        p.as_ref()
+            .to_path_buf()
+            .file_name()
+            .map(|s| s.to_os_string())
     });
     if let Some(path) = starting_path {
         dialog = dialog.set_directory(path);
@@ -109,12 +122,16 @@ pub fn save<P: AsRef<Path>>(
             if let Some(handle) = file {
                 let mut path_buf: std::path::PathBuf = handle.path().clone().into();
                 let extension = path_buf.extension().clone();
-                if extension.is_none() {
-                    path_buf.set_extension(target_extension);
-                } else if extension.and_then(|e| e.to_str()) != Some(target_extension.into()) {
-                    let extension = extension.unwrap();
-                    let new_extension =
-                        format!("{}.{}", extension.to_str().unwrap(), target_extension);
+                if extension.is_none() && default_extenstion.is_some() {
+                    path_buf.set_extension(default_extenstion.unwrap());
+                } else if let Some(current_extension) = extension.filter(|ext| {
+                    !filter_has_extension(extension_filter, ext.to_str().unwrap_or(""))
+                }) {
+                    let new_extension = format!(
+                        "{}.{}",
+                        current_extension.to_str().unwrap(),
+                        default_extenstion.unwrap_or(&"")
+                    );
                     path_buf.set_extension(new_extension);
                 }
                 log_err![snd.send(Some(path_buf))];

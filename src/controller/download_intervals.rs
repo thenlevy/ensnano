@@ -55,7 +55,7 @@ impl State for DownloadIntervals {
         let downloader = main_state.get_staple_downloader();
         match self.step {
             Step::Init => get_design_providing_staples(downloader.as_ref()),
-            Step::AskingPath(state) => ask_path(state, main_state.get_current_design_directory()),
+            Step::AskingPath(state) => ask_path(state, main_state),
             Step::PathAsked {
                 path_input,
                 design_id,
@@ -94,10 +94,7 @@ fn get_design_providing_staples(downlader: &dyn StaplesDownloader) -> Box<dyn St
     }
 }
 
-fn ask_path<P: AsRef<Path>>(
-    mut state: AskingPath_,
-    starting_diectory: Option<P>,
-) -> Box<DownloadIntervals> {
+fn ask_path(mut state: AskingPath_, main_state: &mut dyn MainState) -> Box<DownloadIntervals> {
     if let Some(must_ack) = state.warning_ack.as_ref() {
         if !must_ack.was_ack() {
             return Box::new(DownloadIntervals {
@@ -109,7 +106,17 @@ fn ask_path<P: AsRef<Path>>(
         let must_ack = dialog::blocking_message(msg.into(), rfd::MessageLevel::Warning);
         state.with_ack(must_ack)
     } else {
-        let path_input = dialog::save(crate::consts::ORIGAMI_EXTENSION, starting_diectory, None);
+        let candidate_name = main_state.get_current_file_name().map(|p| {
+            let mut ret = p.to_owned();
+            ret.set_extension(crate::consts::ORIGAMI_EXTENSION);
+            ret
+        });
+        let starting_directory = main_state.get_current_design_directory();
+        let path_input = dialog::get_file_to_write(
+            &messages::ORIGAMI_FLTER,
+            starting_directory.as_ref(),
+            candidate_name,
+        );
         Box::new(DownloadIntervals {
             step: Step::PathAsked {
                 path_input,

@@ -179,7 +179,7 @@ fn ask_path<P: AsRef<Path>>(
             })
         }
     } else {
-        let path_input = dialog::load(starting_directory, messages::DESIGN_FILTERS);
+        let path_input = dialog::load(starting_directory, messages::DESIGN_LOAD_FILTER);
         Box::new(Load {
             step: LoadStep::AskPath {
                 path_input: Some(path_input),
@@ -300,8 +300,8 @@ impl State for SaveAs {
                 self
             }
         } else {
-            let getter = dialog::save(
-                crate::consts::ENS_EXTENSION,
+            let getter = dialog::get_file_to_write(
+                &messages::DESIGN_WRITE_FILTER,
                 main_state.get_current_design_directory(),
                 main_state.get_current_file_name(),
             );
@@ -379,7 +379,17 @@ impl State for OxDnaExport {
                 self
             }
         } else {
-            let getter = dialog::get_dir();
+            use messages::OXDNA_CONFIG_EXTENSTION;
+            let candidate_name = main_state.get_current_file_name().map(|p| {
+                let mut ret = p.to_owned();
+                ret.set_extension(OXDNA_CONFIG_EXTENSTION);
+                ret
+            });
+            let getter = dialog::get_file_to_write(
+                &messages::OXDNA_CONFIG_FILTERS,
+                main_state.get_current_design_directory(),
+                candidate_name,
+            );
             self.file_getter = Some(getter);
             self
         }
