@@ -1556,7 +1556,9 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn export(&mut self, path: &PathBuf, export_type: ExportType) -> ExportResult {
-        self.main_state.app_state.export(path, export_type)
+        let ret = self.main_state.app_state.export(path, export_type);
+        self.set_exporting(false);
+        ret
     }
 
     fn load_design(&mut self, mut path: PathBuf) -> Result<(), LoadDesignError> {

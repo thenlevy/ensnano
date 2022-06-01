@@ -116,3 +116,6 @@ pub const OXDNA_CONFIG_FILTERS: Filters = &[("Oxdna config files", &[OXDNA_CONFI
 pub const STAPLES_FILTER: Filters = &[("Excel files", &["xlsx"])];
 
 pub const ORIGAMI_FLTER: Filters = &[("Origami files", &[crate::consts::ORIGAMI_EXTENSION])];
+
+pub const PDB_FILTER: Filters = &[("Pdb files", &["pdb"])];
+pub const CADNANO_FILTER: Filters = &[("Cadnano files", &["json"])];

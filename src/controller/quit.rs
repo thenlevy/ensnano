@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::controller::normal_state::NormalState;
+use crate::dialog::Filters;
 
 use super::{dialog, messages, MainState, State, TransitionMessage, YesNo};
 
@@ -386,19 +387,36 @@ impl State for Exporting {
                 self
             }
         } else {
-            use messages::OXDNA_CONFIG_EXTENSTION;
             let candidate_name = main_state.get_current_file_name().map(|p| {
                 let mut ret = p.to_owned();
-                ret.set_extension(OXDNA_CONFIG_EXTENSTION);
+                ret.set_extension(export_extenstion(self.export_type));
                 ret
             });
             let getter = dialog::get_file_to_write(
-                &messages::OXDNA_CONFIG_FILTERS,
+                export_filters(self.export_type),
                 main_state.get_current_design_directory(),
                 candidate_name,
             );
             self.file_getter = Some(getter);
             self
         }
+    }
+}
+
+fn export_extenstion(export_type: ExportType) -> &'static str {
+    match export_type {
+        ExportType::Oxdna => messages::OXDNA_CONFIG_EXTENSTION,
+        ExportType::Pdb => "pdb",
+        ExportType::Cadnano => "json",
+        ExportType::Cando => "cndo",
+    }
+}
+
+fn export_filters(export_type: ExportType) -> &'static Filters {
+    match export_type {
+        ExportType::Oxdna => &messages::OXDNA_CONFIG_FILTERS,
+        ExportType::Pdb => &messages::PDB_FILTER,
+        ExportType::Cadnano => &messages::CADNANO_FILTER,
+        ExportType::Cando => todo!(),
     }
 }
