@@ -52,7 +52,7 @@ impl State for NormalState {
                     main_state.toggle_split_mode(mode);
                     self
                 }
-                Action::OxDnaExport => oxdna_export(),
+                Action::Export(export_type) => export(export_type),
                 Action::CloseOverlay(_) | Action::OpenOverlay(_) => {
                     println!("unexpected action");
                     self
@@ -381,14 +381,14 @@ fn quicksave<P: AsRef<Path>>(starting_path: P) -> Box<dyn State> {
     })
 }
 
-fn oxdna_export() -> Box<dyn State> {
+fn export(export_type: ExportType) -> Box<dyn State> {
     let on_success = Box::new(NormalState);
     let on_error = TransitionMessage::new(
         messages::OXDNA_EXPORT_FAILED,
         rfd::MessageLevel::Error,
         Box::new(NormalState),
     );
-    Box::new(OxDnaExport::new(on_success, on_error))
+    Box::new(Exporting::new(on_success, on_error, export_type))
 }
 
 use ensnano_design::grid::{GridDescriptor, GridTypeDescr};
@@ -413,7 +413,7 @@ pub enum Action {
     },
     Exit,
     ToggleSplit(SplitMode),
-    OxDnaExport,
+    Export(ExportType),
     CloseOverlay(OverlayType),
     OpenOverlay(OverlayType),
     ChangeUiSize(UiSize),

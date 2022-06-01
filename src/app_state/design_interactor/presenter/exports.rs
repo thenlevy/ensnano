@@ -22,46 +22,6 @@ use ensnano_exports::oxdna::*;
 use std::mem::ManuallyDrop;
 
 impl Presenter {
-    fn to_oxdna(&self) -> (OxDnaConfig, OxDnaTopology) {
-        let basis_map = (*self.content.basis_map.clone()).clone();
-        let parameters = self.current_design.parameters.unwrap_or_default();
-        let mut maker = OxDnaMaker::new(basis_map, parameters);
-
-        for (strand_id, s) in self.current_design.strands.values().enumerate() {
-            let mut strand_maker = maker.new_strand(strand_id);
-
-            for d in s.domains.iter() {
-                if let Domain::HelixDomain(dom) = d {
-                    for position in dom.iter() {
-                        let ox_nucl = self
-                            .current_design
-                            .helices
-                            .get(&dom.helix)
-                            .unwrap()
-                            .ox_dna_nucl(position, dom.forward, &parameters);
-                        let nucl = Nucl {
-                            position,
-                            helix: dom.helix,
-                            forward: dom.forward,
-                        };
-                        strand_maker.add_ox_nucl(ox_nucl, Some(nucl));
-                    }
-                } else if let Domain::Insertion {
-                    instanciation: Some(instanciation),
-                    ..
-                } = d
-                {
-                    for (dom_position, space_position) in instanciation.pos().iter().enumerate() {
-                        strand_maker.add_free_nucl(*space_position, dom_position);
-                    }
-                }
-            }
-            // TODO: encapsulate this call to manually drop
-            ManuallyDrop::into_inner(strand_maker).end(s.cyclic);
-        }
-
-        maker.end()
-    }
 
     pub fn oxdna_export(&self, config_name: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
         let mut topology_name = config_name.clone();

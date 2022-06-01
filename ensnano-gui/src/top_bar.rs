@@ -159,7 +159,11 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             Message::Resize(size) => self.resize(size),
             Message::ToggleView(b) => self.requests.lock().unwrap().change_split_mode(b),
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
-            Message::OxDNARequested => self.requests.lock().unwrap().export_to_oxdna(),
+            Message::OxDNARequested => self
+                .requests
+                .lock()
+                .unwrap()
+                .export(ensnano_exports::ExportType::Oxdna),
             Message::Split2d => self.requests.lock().unwrap().toggle_2d_view_split(),
             Message::NewApplicationState(state) => self.application_state = state,
             Message::Undo => self.requests.lock().unwrap().undo(),

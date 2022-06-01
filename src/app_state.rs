@@ -25,6 +25,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! Each component of ENSnano has specific needs and express them via its own `AppState` trait.
 
 use ensnano_design::group_attributes::GroupPivot;
+use ensnano_exports::{ExportResult, ExportType};
 use ensnano_interactor::graphics::{Background3D, RenderingMode};
 use ensnano_interactor::{
     operation::Operation, ActionMode, CenterOfSelection, CheckXoversParameter, Selection,
@@ -375,8 +376,8 @@ impl AppState {
         self.0.design.get_design_reader()
     }
 
-    pub fn oxdna_export(&self, config_name: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
-        self.get_design_reader().oxdna_export(config_name)
+    pub fn export(&self, export_path: &PathBuf, export_type: ExportType) -> ExportResult {
+        self.get_design_reader().export(export_path, export_type)
     }
 
     pub fn get_selection(&self) -> impl AsRef<[Selection]> {

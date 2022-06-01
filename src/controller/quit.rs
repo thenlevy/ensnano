@@ -21,6 +21,7 @@ use crate::controller::normal_state::NormalState;
 use super::{dialog, messages, MainState, State, TransitionMessage, YesNo};
 
 use dialog::PathInput;
+use ensnano_exports::ExportType;
 use std::path::Path;
 
 pub(super) struct Quit {
@@ -335,35 +336,41 @@ impl State for SaveWithPath {
     }
 }
 
-pub(super) struct OxDnaExport {
+pub(super) struct Exporting {
     file_getter: Option<PathInput>,
     on_success: Box<dyn State>,
     on_error: Box<dyn State>,
+    export_type: ExportType,
 }
 
-impl OxDnaExport {
-    pub(super) fn new(on_success: Box<dyn State>, on_error: Box<dyn State>) -> Self {
+impl Exporting {
+    pub(super) fn new(
+        on_success: Box<dyn State>,
+        on_error: Box<dyn State>,
+        export_type: ExportType,
+    ) -> Self {
         Self {
             file_getter: None,
             on_success,
             on_error,
+            export_type,
         }
     }
 }
 
-impl State for OxDnaExport {
+impl State for Exporting {
     fn make_progress(mut self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         if let Some(ref getter) = self.file_getter {
             if let Some(path_opt) = getter.get() {
                 if let Some(ref path) = path_opt {
-                    match main_state.oxdna_export(path) {
+                    match main_state.export(path, self.export_type) {
                         Err(err) => TransitionMessage::new(
                             messages::failed_to_save_msg(&err),
                             rfd::MessageLevel::Error,
                             self.on_error,
                         ),
-                        Ok((config, topo)) => TransitionMessage::new(
-                            messages::succesfull_oxdna_export_msg(config, topo),
+                        Ok(success) => TransitionMessage::new(
+                            success.message(),
                             rfd::MessageLevel::Info,
                             self.on_success,
                         ),

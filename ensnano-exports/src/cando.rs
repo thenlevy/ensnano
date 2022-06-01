@@ -365,6 +365,7 @@ impl CanDoStrand<'_> {
     }
 }
 
+#[derive(Debug)]
 pub enum CanDoError {
     DuplicateNucleotide(Nucl),
     NotPaired(Nucl, Nucl),

@@ -30,7 +30,6 @@ use ultraviolet::Mat4;
 use crate::utils::id_generator::IdGenerator;
 type JunctionsIds = IdGenerator<(Nucl, Nucl)>;
 mod design_content;
-mod exports;
 mod impl_main_reader;
 mod impl_reader2d;
 mod impl_reader3d;
@@ -488,6 +487,15 @@ impl Presenter {
             .into_iter()
             .find(|(_, pair)| pair.0 == nucl || pair.1 == nucl)
             .map(|t| t.0)
+    }
+
+    pub fn export(&self, export_path: &PathBuf, export_type: ExportType) -> ExportResult {
+        ensnano_exports::export(
+            &self.current_design,
+            export_type,
+            Some(self.content.basis_map.as_ref()),
+            export_path,
+        )
     }
 }
 

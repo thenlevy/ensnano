@@ -83,6 +83,7 @@ use std::time::{Duration, Instant};
 
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
 use ensnano_design::{grid::GridId, Camera, Nucl};
+use ensnano_exports::{ExportResult, ExportType};
 use ensnano_interactor::application::{Application, Notification};
 use ensnano_interactor::{
     CenterOfSelection, CursorIcon, DesignOperation, DesignReader, RigidBodyConstants,
@@ -1554,8 +1555,8 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.new_design()
     }
 
-    fn oxdna_export(&mut self, path: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
-        self.main_state.app_state.oxdna_export(path)
+    fn export(&mut self, path: &PathBuf, export_type: ExportType) -> ExportResult {
+        self.main_state.app_state.export(path, export_type)
     }
 
     fn load_design(&mut self, mut path: PathBuf) -> Result<(), LoadDesignError> {

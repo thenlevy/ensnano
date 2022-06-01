@@ -148,7 +148,7 @@ pub trait Requests: 'static + Send {
         keys: BTreeSet<DnaElementKey>,
     );
     fn change_split_mode(&mut self, split_mode: SplitMode);
-    fn export_to_oxdna(&mut self);
+    fn export(&mut self, export_type: ensnano_exports::ExportType);
     /// Split/Unsplit the 2D view
     fn toggle_2d_view_split(&mut self);
     fn undo(&mut self);

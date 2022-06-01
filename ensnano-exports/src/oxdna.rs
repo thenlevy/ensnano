@@ -16,9 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
-use ahash::RandomState;
-use ensnano_design::{Helix, Nucl, Parameters};
-use std::collections::HashMap;
+use ensnano_design::{Domain, Helix, HelixCollection, Nucl, Parameters};
 use std::io::Write;
 use std::mem::ManuallyDrop;
 use std::path::Path;
@@ -169,18 +167,18 @@ pub fn free_oxdna_nucl(
     }
 }
 
-pub struct OxDnaMaker {
+pub(super) struct OxDnaMaker<'a> {
     nucl_id: isize,
     boundaries: [f32; 3],
     bounds: Vec<OxDnaBound>,
     nucls: Vec<OxDnaNucl>,
-    basis_map: HashMap<Nucl, char, RandomState>,
+    basis_map: BasisMapper<'a>,
     nb_strand: usize,
     parameters: Parameters,
 }
 
-impl OxDnaMaker {
-    pub fn new(basis_map: HashMap<Nucl, char, RandomState>, parameters: Parameters) -> Self {
+impl<'a> OxDnaMaker<'a> {
+    pub fn new(basis_map: BasisMapper<'a>, parameters: Parameters) -> Self {
         Self {
             nucl_id: 0,
             boundaries: Default::default(),
@@ -192,7 +190,7 @@ impl OxDnaMaker {
         }
     }
 
-    pub fn new_strand<'a>(&'a mut self, strand_id: usize) -> ManuallyDrop<StrandMaker<'a>> {
+    pub fn new_strand<'b>(&'b mut self, strand_id: usize) -> ManuallyDrop<StrandMaker<'b, 'a>> {
         self.nb_strand += 1;
         let first_strand_nucl = self.nucl_id;
         ManuallyDrop::new(StrandMaker {
@@ -220,15 +218,15 @@ impl OxDnaMaker {
     }
 }
 
-pub struct StrandMaker<'a> {
-    context: &'a mut OxDnaMaker,
+pub struct StrandMaker<'a, 'b> {
+    context: &'a mut OxDnaMaker<'b>,
     strand_id: usize,
     prev_nucl: Option<isize>,
     first_strand_nucl: isize,
     previous_position: Option<Vec3>,
 }
 
-impl StrandMaker<'_> {
+impl StrandMaker<'_, '_> {
     pub fn add_ox_nucl(&mut self, ox_nucl: OxDnaNucl, nucl: Option<Nucl>) {
         self.context.boundaries[0] = self.context.boundaries[0].max(4. * ox_nucl.position.x.abs());
         self.context.boundaries[1] = self.context.boundaries[1].max(4. * ox_nucl.position.y.abs());
@@ -239,21 +237,10 @@ impl StrandMaker<'_> {
 
         let base = nucl
             .as_ref()
-            .and_then(|nucl| {
-                self.context
-                    .basis_map
-                    .get(&nucl)
-                    .cloned()
-                    .or_else(|| self.context.basis_map.get(&nucl.compl()).cloned())
-            })
-            .unwrap_or_else(rand_base);
-
-        if let Some(nucl) = nucl {
-            self.context.basis_map.insert(nucl.compl(), compl(base));
-        }
+            .map(|nucl| self.context.basis_map.get_basis(&nucl));
 
         let bound = OxDnaBound {
-            base,
+            base: base.unwrap_or(super::rand_base()),
             strand_id: self.strand_id,
             prime3: -1,
             prime5: self.prev_nucl.unwrap_or(-1),
@@ -291,20 +278,41 @@ impl StrandMaker<'_> {
     }
 }
 
-fn rand_base() -> char {
-    match rand::random::<u8>() % 4 {
-        0 => 'A',
-        1 => 'T',
-        2 => 'G',
-        _ => 'C',
-    }
-}
+pub(super) fn to_oxdna(design: &Design, basis_map: BasisMapper) -> (OxDnaConfig, OxDnaTopology) {
+    let parameters = design.parameters.unwrap_or_default();
+    let mut maker = OxDnaMaker::new(basis_map, parameters);
 
-fn compl(c: char) -> char {
-    match c {
-        'A' => 'T',
-        'G' => 'C',
-        'T' => 'A',
-        _ => 'G',
+    for (strand_id, s) in design.strands.values().enumerate() {
+        let mut strand_maker = maker.new_strand(strand_id);
+
+        for d in s.domains.iter() {
+            if let Domain::HelixDomain(dom) = d {
+                for position in dom.iter() {
+                    let ox_nucl = design.helices.get(&dom.helix).unwrap().ox_dna_nucl(
+                        position,
+                        dom.forward,
+                        &parameters,
+                    );
+                    let nucl = Nucl {
+                        position,
+                        helix: dom.helix,
+                        forward: dom.forward,
+                    };
+                    strand_maker.add_ox_nucl(ox_nucl, Some(nucl));
+                }
+            } else if let Domain::Insertion {
+                instanciation: Some(instanciation),
+                ..
+            } = d
+            {
+                for (dom_position, space_position) in instanciation.pos().iter().enumerate() {
+                    strand_maker.add_free_nucl(*space_position, dom_position);
+                }
+            }
+        }
+        // TODO: encapsulate this call to manually drop
+        ManuallyDrop::into_inner(strand_maker).end(s.cyclic);
     }
+
+    maker.end()
 }
