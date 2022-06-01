@@ -207,6 +207,7 @@ pub trait Requests: 'static + Send {
     fn turn_path_into_grid(&mut self, path_id: BezierPathId, grid_type: GridTypeDescr);
     fn set_show_bezier_paths(&mut self, show: bool);
     fn make_bezier_path_cyclic(&mut self, path_id: BezierPathId, cyclic: bool);
+    fn set_exporting(&mut self, exporting: bool);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1001,6 +1002,7 @@ pub trait AppState:
     fn expand_insertions(&self) -> bool;
     fn get_show_bezier_paths(&self) -> bool;
     fn get_selected_bezier_path(&self) -> Option<BezierPathId>;
+    fn is_exporting(&self) -> bool;
 }
 
 pub trait DesignReader: 'static {

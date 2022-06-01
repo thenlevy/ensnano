@@ -199,6 +199,12 @@ impl AppState {
         }
     }
 
+    pub fn exporting(&self, exporting: bool) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.exporting = exporting;
+        Self(AddressPointer::new(new_state))
+    }
+
     pub fn with_toggled_widget_basis(&self) -> Self {
         let mut new_state = (*self.0).clone();
         new_state.widget_basis.toggle();
@@ -642,6 +648,7 @@ struct AppState_ {
     updated_once: bool,
     parameters: AppStateParameters,
     show_insertion_representents: bool,
+    exporting: bool,
 }
 
 #[derive(Clone, Default)]

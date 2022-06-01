@@ -269,6 +269,10 @@ impl State for NormalState {
                     main_state.set_expand_insertions(b);
                     self
                 }
+                Action::SetExporting(exporting) => {
+                    main_state.set_exporting(exporting);
+                    self
+                }
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -480,4 +484,5 @@ pub enum Action {
     SetDnaParameters(Parameters),
     SetExpandInsertions(bool),
     AddBezierPlane,
+    SetExporting(bool),
 }

@@ -41,6 +41,8 @@ use ensnano_interactor::{
     ActionMode, SelectionConversion, SuggestionParameters,
 };
 
+use ensnano_exports::ExportType;
+
 use super::{
     icon_btn,
     material_icons_light::{
@@ -61,7 +63,9 @@ use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
 mod tabs;
 use crate::consts::*;
 mod contextual_panel;
+mod export_menu;
 use contextual_panel::{ContextualPanel, InstanciatedValue, ValueKind};
+use export_menu::ExportMenu;
 
 use ensnano_interactor::{CheckXoversParameter, HyperboloidRequest, Selection};
 use tabs::{
@@ -99,6 +103,7 @@ pub struct LeftPanel<R: Requests, S: AppState> {
     contextual_panel: ContextualPanel<S>,
     camera_shortcut: CameraShortcut,
     application_state: S,
+    exports_menu: ExportMenu,
 }
 
 #[derive(Debug, Clone)]
@@ -200,6 +205,8 @@ pub enum Message<S> {
         path_id: BezierPathId,
         cyclic: bool,
     },
+    Export(ExportType),
+    CancelExport,
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -243,6 +250,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
             contextual_panel: ContextualPanel::new(logical_size.width as u32),
             camera_shortcut: CameraShortcut::new(),
             application_state: state.clone(),
+            exports_menu: Default::default(),
         }
     }
 
@@ -838,6 +846,12 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .unwrap()
                     .make_bezier_path_cyclic(path_id, cyclic);
             }
+            Message::Export(export_type) => {
+                self.requests.lock().unwrap().export(export_type);
+            }
+            Message::CancelExport => {
+                self.requests.lock().unwrap().set_exporting(false);
+            }
         };
         Command::none()
     }
@@ -922,10 +936,16 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             .view(selection)
             .map(|m| Message::OrganizerMessage(m));
 
+        let first_container = if self.application_state.is_exporting() {
+            Container::new(self.exports_menu.view()).height(Length::FillPortion(2))
+        } else {
+            Container::new(tabs).height(Length::FillPortion(2))
+        };
+
         Container::new(
             Column::new()
                 .width(Length::Fill)
-                .push(Container::new(tabs).height(Length::FillPortion(2)))
+                .push(first_container)
                 .push(iced::Rule::horizontal(5))
                 .push(Container::new(camera_shortcut).height(Length::FillPortion(1)))
                 .push(iced::Rule::horizontal(5))

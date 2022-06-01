@@ -1922,6 +1922,11 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state
             .modify_state(|app| app.with_expand_insertion_set(expand), None);
     }
+
+    fn set_exporting(&mut self, exporting: bool) {
+        self.main_state
+            .modify_state(|app| app.exporting(exporting), None)
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};

@@ -453,6 +453,10 @@ impl GuiRequests for Requests {
             DesignOperation::MakeBezierPathCyclic { path_id, cyclic },
         ))
     }
+
+    fn set_exporting(&mut self, exporting: bool) {
+        self.keep_proceed.push_back(Action::SetExporting(exporting))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {
