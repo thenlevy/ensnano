@@ -375,8 +375,8 @@ impl AppState {
         self.0.design.get_design_reader()
     }
 
-    pub fn oxdna_export(&self, target_dir: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
-        self.get_design_reader().oxdna_export(target_dir)
+    pub fn oxdna_export(&self, config_name: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
+        self.get_design_reader().oxdna_export(config_name)
     }
 
     pub fn get_selection(&self) -> impl AsRef<[Selection]> {

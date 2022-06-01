@@ -398,8 +398,8 @@ impl DesignReader {
         Ok(())
     }
 
-    pub fn oxdna_export(&self, target_dir: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
-        self.presenter.oxdna_export(target_dir)
+    pub fn oxdna_export(&self, config_name: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
+        self.presenter.oxdna_export(config_name)
     }
 
     pub fn get_strand_domain(&self, s_id: usize, d_id: usize) -> Option<&ensnano_design::Domain> {

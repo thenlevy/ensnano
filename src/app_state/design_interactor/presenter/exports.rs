@@ -63,15 +63,13 @@ impl Presenter {
         maker.end()
     }
 
-    pub fn oxdna_export(&self, directory: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
-        let mut config_name = directory.clone();
-        config_name.push("export.oxdna");
-        let mut topology_name = directory.clone();
-        topology_name.push("export.top");
+    pub fn oxdna_export(&self, config_name: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
+        let mut topology_name = config_name.clone();
+        topology_name.set_extension("top");
         let (config, topo) = self.to_oxdna();
         config.write(config_name.clone())?;
         topo.write(topology_name.clone())?;
-        Ok((config_name, topology_name))
+        Ok((config_name.to_path_buf(), topology_name))
     }
 
     pub fn cando_export(
