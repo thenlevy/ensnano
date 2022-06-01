@@ -98,6 +98,8 @@ pub fn get_file_to_write<P1: AsRef<Path>, P2: AsRef<Path>>(
     starting_path: Option<P1>,
     starting_name: Option<P2>,
 ) -> PathInput {
+    log::info!("starting path {:?}", starting_path.as_ref().map(|p| p.as_ref().to_str()));
+    log::info!("starting name {:?}", starting_name.as_ref().map(|p| p.as_ref().to_str()));
     let mut dialog = rfd::AsyncFileDialog::new();
 
     let default_extenstion = extension_filter.get(0).and_then(|f| f.1.get(0));
@@ -108,6 +110,9 @@ pub fn get_file_to_write<P1: AsRef<Path>, P2: AsRef<Path>>(
             .file_name()
             .map(|s| s.to_os_string())
     });
+    for filter in extension_filter.iter() {
+        dialog = dialog.add_filter(filter.0, filter.1);
+    }
     if let Some(path) = starting_path {
         dialog = dialog.set_directory(path);
     }
@@ -144,6 +149,7 @@ pub fn get_file_to_write<P1: AsRef<Path>, P2: AsRef<Path>>(
     PathInput(rcv)
 }
 
+#[allow(dead_code)]
 pub fn get_dir() -> PathInput {
     let dialog = rfd::AsyncFileDialog::new().pick_folder();
     let (snd, rcv) = mpsc::channel();
