@@ -16,13 +16,17 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use ensnano_design::HelixCollection;
+
 use super::*;
 
 pub fn get_parity(design: &Design, max_helix_idx: usize) -> Result<Vec<bool>, CadnanoError> {
     let mut father = make_group(design, max_helix_idx);
     let graph = make_graph(design, max_helix_idx, &mut father)?;
 
-    color_graph(&graph, max_helix_idx, &mut father)
+    let color_first_helix = get_color_first_helix(design, &father);
+
+    color_graph(&graph, max_helix_idx, &mut father, color_first_helix)
 }
 
 fn make_graph(
@@ -60,12 +64,28 @@ fn make_graph(
     Ok(ret)
 }
 
+fn get_color_first_helix(design: &Design, father: &[usize]) -> bool {
+    for h_id in 0..father.len() {
+        if father[h_id] == h_id {
+            if let Some(grid_pos) = design
+                .helices
+                .get(&h_id)
+                .and_then(|h| h.grid_position.as_ref())
+            {
+                return (grid_pos.x + grid_pos.y) % 2 == 0;
+            }
+        }
+    }
+    false
+}
+
 fn color_graph(
     graph: &Vec<Vec<bool>>,
     max_helix_idx: usize,
     father: &mut Vec<usize>,
+    color_first_helix: bool,
 ) -> Result<Vec<bool>, CadnanoError> {
-    let mut color = vec![false; max_helix_idx + 1];
+    let mut color = vec![color_first_helix; max_helix_idx + 1];
     let mut seen: Vec<bool> = (0..(max_helix_idx + 1)).map(|i| i != father[i]).collect();
 
     for i in 0..(max_helix_idx + 1) {

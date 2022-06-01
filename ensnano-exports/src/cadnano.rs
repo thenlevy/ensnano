@@ -49,7 +49,7 @@ pub fn cadnano_export(design: &Design) -> Result<String, CadnanoError> {
     let mut helices: Vec<_> = exporter.helices.values().map(|h| h.clone()).collect();
     helices.sort_by_key(|h| h.num);
 
-    serde_json::to_string_pretty(&ExportedCadnano {
+    serde_json::to_string(&ExportedCadnano {
         name: String::from("ENSnano exported design"),
         helices,
     })
