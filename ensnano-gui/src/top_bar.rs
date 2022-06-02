@@ -78,7 +78,7 @@ pub enum Message<S: AppState> {
     Resize(LogicalSize<f64>),
     ToggleView(SplitMode),
     UiSizeChanged(UiSize),
-    OxDNARequested,
+    ExportRequested,
     Split2d,
     NewApplicationState(MainState<S>),
     ForceHelp,
@@ -159,7 +159,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             Message::Resize(size) => self.resize(size),
             Message::ToggleView(b) => self.requests.lock().unwrap().change_split_mode(b),
             Message::UiSizeChanged(ui_size) => self.ui_size = ui_size,
-            Message::OxDNARequested => self.requests.lock().unwrap().export_to_oxdna(),
+            Message::ExportRequested => self.requests.lock().unwrap().set_exporting(true),
             Message::Split2d => self.requests.lock().unwrap().toggle_2d_view_split(),
             Message::NewApplicationState(state) => self.application_state = state,
             Message::Undo => self.requests.lock().unwrap().undo(),
@@ -320,9 +320,12 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .height(Length::Units(self.ui_size.button()))
             .on_press(Message::ToggleView(SplitMode::Both));
 
-        let button_oxdna = Button::new(&mut self.button_oxdna, iced::Text::new("To OxView"))
-            .height(Length::Units(self.ui_size.button()))
-            .on_press(Message::OxDNARequested);
+        let button_oxdna = Button::new(
+            &mut self.button_oxdna,
+            light_icon(LightIcon::Upload, self.ui_size),
+        )
+        .height(Length::Units(self.ui_size.button()))
+        .on_press(Message::ExportRequested);
         let oxdna_tooltip = button_oxdna;
 
         let split_icon = if self.application_state.splited_2d {

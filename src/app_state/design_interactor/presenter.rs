@@ -34,7 +34,6 @@ mod impl_main_reader;
 mod impl_reader2d;
 mod impl_reader3d;
 mod impl_readergui;
-mod oxdna;
 use crate::scene::{HBond, HalfHBond};
 use design_content::DesignContent;
 use std::collections::{BTreeMap, HashSet};
@@ -290,14 +289,14 @@ impl Presenter {
         let a1 = (pos_backward - pos_forward).normalized();
         let forward_half = HalfHBond {
             backbone: pos_forward,
-            center_of_mass: pos_forward + 2. * a1 * oxdna::BACKBONE_TO_CM,
+            center_of_mass: pos_forward + 2. * a1 * ensnano_exports::oxdna::BACKBONE_TO_CM,
             base: self.content.basis_map.get(&forward_nucl).cloned(),
             backbone_color: self.content.color.get(&forward_id).cloned()?,
         };
 
         let backward_half = HalfHBond {
             backbone: pos_backward,
-            center_of_mass: pos_backward - 2. * a1 * oxdna::BACKBONE_TO_CM,
+            center_of_mass: pos_backward - 2. * a1 * ensnano_exports::oxdna::BACKBONE_TO_CM,
             base: self.content.basis_map.get(&backward_nucl).cloned(),
             backbone_color: self.content.color.get(&backward_id).cloned()?,
         };
@@ -488,6 +487,15 @@ impl Presenter {
             .into_iter()
             .find(|(_, pair)| pair.0 == nucl || pair.1 == nucl)
             .map(|t| t.0)
+    }
+
+    pub fn export(&self, export_path: &PathBuf, export_type: ExportType) -> ExportResult {
+        ensnano_exports::export(
+            &self.current_design,
+            export_type,
+            Some(self.content.basis_map.as_ref()),
+            export_path,
+        )
     }
 }
 

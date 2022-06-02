@@ -211,8 +211,8 @@ impl GuiRequests for Requests {
         self.keep_proceed.push_back(Action::ToggleSplit(split_mode))
     }
 
-    fn export_to_oxdna(&mut self) {
-        self.keep_proceed.push_back(Action::OxDnaExport)
+    fn export(&mut self, export_type: ExportType) {
+        self.keep_proceed.push_back(Action::Export(export_type))
     }
 
     fn toggle_2d_view_split(&mut self) {
@@ -452,6 +452,10 @@ impl GuiRequests for Requests {
         self.keep_proceed.push_back(Action::DesignOperation(
             DesignOperation::MakeBezierPathCyclic { path_id, cyclic },
         ))
+    }
+
+    fn set_exporting(&mut self, exporting: bool) {
+        self.keep_proceed.push_back(Action::SetExporting(exporting))
     }
 }
 

@@ -26,6 +26,7 @@ pub use download_staples::{DownloadStappleError, DownloadStappleOk, StaplesDownl
 mod quit;
 use ensnano_design::grid::GridId;
 use ensnano_design::group_attributes::GroupPivot;
+use ensnano_exports::{ExportResult, ExportType};
 use ensnano_interactor::{application::Notification, DesignOperation};
 use ensnano_interactor::{DesignReader, RigidBodyConstants, Selection};
 use quit::*;
@@ -191,7 +192,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn redo(&mut self);
     fn get_staple_downloader(&self) -> Box<dyn StaplesDownloader>;
     fn toggle_split_mode(&mut self, mode: SplitMode);
-    fn oxdna_export(&mut self, path: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)>;
+    fn export(&mut self, path: &PathBuf, export_type: ExportType) -> ExportResult;
     fn change_ui_size(&mut self, ui_size: UiSize);
     fn notify_apps(&mut self, notificiation: Notification);
     fn get_selection(&mut self) -> Box<dyn AsRef<[Selection]>>;
@@ -230,6 +231,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn flip_split_views(&mut self);
     fn start_twist(&mut self, g_id: GridId);
     fn set_expand_insertions(&mut self, expand: bool);
+    fn set_exporting(&mut self, exporting: bool);
 }
 
 pub enum LoadDesignError {

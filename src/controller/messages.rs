@@ -81,7 +81,7 @@ pub fn invalid_sequence_file(first_invalid_char_position: usize) -> String {
 }
 
 use crate::dialog::Filters;
-pub const DESIGN_FILTERS: Filters = &[
+pub const DESIGN_LOAD_FILTER: Filters = &[
     (
         "All supported files",
         &[
@@ -102,7 +102,20 @@ pub const DESIGN_FILTERS: Filters = &[
     ("scadnano files", &["sc"]),
 ];
 
+pub const DESIGN_WRITE_FILTER: Filters = &[("ENSnano files", &[crate::consts::ENS_EXTENSION])];
+
 pub const SEQUENCE_FILTERS: Filters = &[("Text files", &["txt"])];
 
 pub const CHANGING_DNA_PARAMETERS_WARNING: &'static str =
     "Are you sure that you want to change DNA parameters?";
+
+pub const OXDNA_CONFIG_EXTENSTION: &str = "oxdna";
+
+pub const OXDNA_CONFIG_FILTERS: Filters = &[("Oxdna config files", &[OXDNA_CONFIG_EXTENSTION])];
+
+pub const STAPLES_FILTER: Filters = &[("Excel files", &["xlsx"])];
+
+pub const ORIGAMI_FLTER: Filters = &[("Origami files", &[crate::consts::ORIGAMI_EXTENSION])];
+
+pub const PDB_FILTER: Filters = &[("Pdb files", &["pdb"])];
+pub const CADNANO_FILTER: Filters = &[("Cadnano files", &["json"])];

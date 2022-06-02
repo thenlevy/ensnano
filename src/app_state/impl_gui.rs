@@ -158,6 +158,10 @@ impl GuiState for AppState {
             None
         }
     }
+
+    fn is_exporting(&self) -> bool {
+        self.0.exporting
+    }
 }
 
 #[cfg(test)]

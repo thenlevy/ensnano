@@ -20,6 +20,7 @@ use super::AddressPointer;
 use ensnano_design::{
     grid::GridId, group_attributes::GroupAttribute, Design, HelixCollection, Parameters,
 };
+use ensnano_exports::{ExportResult, ExportType};
 use ensnano_interactor::{
     operation::Operation, ActionMode, DesignOperation, RigidBodyConstants, Selection,
     SimulationState, StrandBuilder, SuggestionParameters,
@@ -398,8 +399,8 @@ impl DesignReader {
         Ok(())
     }
 
-    pub fn oxdna_export(&self, target_dir: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)> {
-        self.presenter.oxdna_export(target_dir)
+    pub fn export(&self, export_path: &PathBuf, export_type: ExportType) -> ExportResult {
+        self.presenter.export(export_path, export_type)
     }
 
     pub fn get_strand_domain(&self, s_id: usize, d_id: usize) -> Option<&ensnano_design::Domain> {

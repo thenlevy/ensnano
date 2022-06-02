@@ -106,7 +106,13 @@ fn ask_path<P: AsRef<Path>>(
         let must_ack = dialog::blocking_message(msg.into(), rfd::MessageLevel::Warning);
         state.with_ack(must_ack)
     } else {
-        let path_input = dialog::save("xlsx", starting_diectory, None);
+        let candidate_name = starting_diectory.as_ref().map(|p| {
+            let mut ret: PathBuf = p.as_ref().to_owned();
+            ret.push("staples.xlsx");
+            ret
+        });
+        let path_input =
+            dialog::get_file_to_write(&messages::STAPLES_FILTER, starting_diectory, candidate_name);
         Box::new(DownloadStaples {
             step: Step::PathAsked {
                 path_input,
