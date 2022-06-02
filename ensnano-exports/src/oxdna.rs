@@ -237,7 +237,7 @@ impl StrandMaker<'_, '_> {
 
         let base = nucl
             .as_ref()
-            .map(|nucl| self.context.basis_map.get_basis(&nucl));
+            .map(|nucl| self.context.basis_map.get_basis(&nucl, 'T'));
 
         let bound = OxDnaBound {
             base: base.unwrap_or(super::rand_base()),

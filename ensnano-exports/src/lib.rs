@@ -121,15 +121,15 @@ struct BasisMapper<'a> {
 }
 
 impl<'a> BasisMapper<'a> {
-    fn get_basis(&mut self, nucl: &Nucl) -> char {
+    fn get_basis(&mut self, nucl: &Nucl, compl_a: char) -> char {
         if let Some(c) = self.map.and_then(|m| m.get(nucl)) {
             *c
         } else if let Some(c) = self.map.and_then(|m| m.get(&nucl.compl())) {
-            compl(*c)
+            compl(*c, compl_a)
         } else {
             let base = rand_base();
             self.alternative.insert(nucl.clone(), base);
-            self.alternative.insert(nucl.compl(), compl(base));
+            self.alternative.insert(nucl.compl(), compl(base, compl_a));
             base
         }
     }
@@ -142,11 +142,12 @@ impl<'a> BasisMapper<'a> {
     }
 }
 
-fn compl(c: char) -> char {
+fn compl(c: char, compl_a: char) -> char {
     match c {
-        'A' => 'T',
+        'A' => compl_a,
         'G' => 'C',
         'T' => 'A',
+        'U' => 'A',
         _ => 'G',
     }
 }
@@ -157,6 +158,35 @@ fn rand_base() -> char {
         1 => 'T',
         2 => 'G',
         _ => 'C',
+    }
+}
+
+fn rand_pick(list: &[char]) -> char {
+    let idx = rand::random::<usize>() % list.len();
+    list[idx]
+}
+
+const CANNONICAL_BASES: &[char] = &['A', 'T', 'G', 'C', 'U'];
+
+/// Perform a symbol conversion based on this [list](http://www.hgmd.cf.ac.uk/docs/nuc_lett.html)
+fn rand_base_from_symbol(symbol: char, compl_a: char) -> char {
+    match symbol {
+        c if CANNONICAL_BASES.contains(&c) => c,
+        'R' => rand_pick(&['G', 'A']),
+        'Y' => rand_pick(&['C', compl_a]),
+        'K' => rand_pick(&['G', compl_a]),
+        'M' => rand_pick(&['A', 'C']),
+        'S' => rand_pick(&['G', 'C']),
+        'W' => rand_pick(&['A', compl_a]),
+        'B' => rand_pick(&['G', 'C', compl_a]),
+        'D' => rand_pick(&['G', 'A', compl_a]),
+        'H' => rand_pick(&['C', 'A', compl_a]),
+        'V' => rand_pick(&['G', 'C', 'A']),
+        'N' => rand_pick(&['C', 'G', 'A', compl_a]),
+        c => {
+            println!("WARNING USING UNUSUAL SYMBOL {c}");
+            rand_pick(&['C', 'G', 'A', compl_a])
+        }
     }
 }
 
@@ -179,6 +209,10 @@ pub fn export(
                 topology,
                 configuration,
             })
+        }
+        ExportType::Pdb => {
+            pdb::pdb_export(design, basis_mapper, export_path)?;
+            Ok(ExportSuccess::Pdb(export_path.clone()))
         }
         _ => todo!(),
     }

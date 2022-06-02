@@ -19,8 +19,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! Export to pdb file format. The method used here is an adpatation from the one used in
 //! [tacOxDNA](https://github.com/lorenzo-rovigatti/tacoxDNA)
 
+use crate::BasisMapper;
+
 use super::ultraviolet;
+use super::PathBuf;
+use crate::oxdna::OxDnaHelix;
 use ahash::AHashMap;
+use ensnano_design::{Design, Domain, HelixCollection, Nucl};
 use std::borrow::Cow;
 use ultraviolet::{Rotor3, Vec3};
 
@@ -670,6 +675,68 @@ impl PdbStrand<'_> {
         pdb_formatter.current_strand_id += 1;
         Ok(())
     }
+}
+
+pub(super) fn pdb_export(
+    design: &Design,
+    mut basis_map: BasisMapper,
+    out_path: &PathBuf,
+) -> Result<(), PdbError> {
+    let parameters = design.parameters.unwrap_or_default();
+    let na_kind = if parameters.name().name.contains("RNA") {
+        NucleicAcidKind::Rna
+    } else {
+        NucleicAcidKind::Dna
+    };
+    let mut exporter = PdbFormatter::new(out_path, na_kind)?;
+    let mut previous_position = None;
+
+    for s in design.strands.values() {
+        let mut pdb_strand = exporter.start_strand(s.cyclic);
+
+        for d in s.domains.iter() {
+            if let Domain::HelixDomain(dom) = d {
+                for position in dom.iter() {
+                    let ox_nucl = design.helices.get(&dom.helix).unwrap().ox_dna_nucl(
+                        position,
+                        dom.forward,
+                        &parameters,
+                    );
+                    let nucl = Nucl {
+                        position,
+                        helix: dom.helix,
+                        forward: dom.forward,
+                    };
+                    previous_position = Some(ox_nucl.position);
+                    let symbol = basis_map.get_basis(&nucl, na_kind.compl_to_a());
+                    let base = super::rand_base_from_symbol(symbol, na_kind.compl_to_a());
+                    pdb_strand.add_nucl(base, ox_nucl.position * 10., ox_nucl.get_basis())?;
+                }
+            } else if let Domain::Insertion {
+                instanciation: Some(instanciation),
+                ..
+            } = d
+            {
+                for (insertion_idx, position) in instanciation.pos().iter().enumerate() {
+                    let ox_nucl = crate::oxdna::free_oxdna_nucl(
+                        *position,
+                        previous_position,
+                        insertion_idx,
+                        &parameters,
+                    );
+                    previous_position = Some(*position);
+                    pdb_strand.add_nucl(
+                        na_kind.compl_to_a(),
+                        ox_nucl.position * 10.,
+                        ox_nucl.get_basis(),
+                    )?;
+                }
+            }
+        }
+        pdb_strand.write()?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
