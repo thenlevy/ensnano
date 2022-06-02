@@ -17,7 +17,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 //! Exports utilities from ENSnano to other file formats used in DNA nanotechnologies
 
-use ahash::AHashMap;
 use strum::Display;
 
 pub mod cadnano;
@@ -81,6 +80,7 @@ pub enum ExportError {
     CandoConversion(CanDoError),
     PdbConversion(PdbError),
     IOError(std::io::Error),
+    NotImplemented,
 }
 
 impl From<CadnanoError> for ExportError {
@@ -214,7 +214,14 @@ pub fn export(
             pdb::pdb_export(design, basis_mapper, export_path)?;
             Ok(ExportSuccess::Pdb(export_path.clone()))
         }
-        _ => todo!(),
+        ExportType::Cadnano => {
+            let cadnano_content = cadnano::cadnano_export(design)?;
+            let mut out_file = std::fs::File::create(export_path)?;
+            use std::io::Write;
+            writeln!(&mut out_file, "{cadnano_content}")?;
+            Ok(ExportSuccess::Cadnano(export_path.clone()))
+        }
+        _ => Err(ExportError::NotImplemented),
     }
 }
 
