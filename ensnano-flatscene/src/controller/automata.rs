@@ -204,7 +204,8 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         }
                     }
                     ClickResult::Nucl(nucl)
-                        if controller.data.borrow().can_make_auto_xover(nucl).is_some() =>
+                        if controller.data.borrow().can_make_auto_xover(nucl).is_some()
+                            && ctrl(&controller.modifiers) =>
                     {
                         Transition {
                             new_state: Some(Box::new(FollowingSuggestion {
@@ -709,7 +710,22 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                         consequences: Consequence::Nothing,
                     },
                     ClickResult::Nucl(nucl)
-                        if controller.data.borrow().can_make_auto_xover(nucl).is_some() =>
+                        if controller.data.borrow().is_suggested(&nucl)
+                            && ctrl(&controller.modifiers) =>
+                    {
+                        Transition {
+                            new_state: Some(Box::new(FollowingSuggestion {
+                                nucl,
+                                mouse_position: self.mouse_position,
+                                double: controller.modifiers.shift(),
+                                button: MouseButton::Left,
+                            })),
+                            consequences: Consequence::Nothing,
+                        }
+                    }
+                    ClickResult::Nucl(nucl)
+                        if controller.data.borrow().can_make_auto_xover(nucl).is_some()
+                            && ctrl(&controller.modifiers) =>
                     {
                         Transition {
                             new_state: Some(Box::new(FollowingSuggestion {

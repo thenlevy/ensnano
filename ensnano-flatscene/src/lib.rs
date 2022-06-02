@@ -472,6 +472,9 @@ impl<S: AppState> FlatScene<S> {
                     now.second()
                 );
                 self.export_png(&name, glob_png);
+                self.view[self.selected_design]
+                    .borrow_mut()
+                    .clear_rectangle();
             }
             _ => (),
         }
