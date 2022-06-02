@@ -622,15 +622,23 @@ fn view_3d_help() -> Vec<(String, String)> {
         (format!("{}", RCLICK), "Set pivot".to_owned()),
         (
             format!("{} Drag", RCLICK),
-            "Rotate camera around pivot".to_owned(),
-        ),
-        (
-            format!("{}+{} Drag", CTRL, MCLICK),
-            "Rotate camera around pivot".to_owned(),
+            "Rotate camera around pivot (preserve the XZ plane)".to_owned(),
         ),
         (
             format!("{}+{} Drag", CTRL, RCLICK),
+            "Rotate camera freely around pivot".to_owned(),
+        ),
+        (
+            format!("{}+{} Drag", ALT, RCLICK),
+            "Rotate camera around pivot (preserve the current horizon plane)".to_owned(),
+        ),
+        (
+            format!("{}+{} Drag", SHIFT, RCLICK),
             "Tilt camera".to_owned(),
+        ),
+        (
+            "⎵ (with cursor over the 3D scene)".to_owned(),
+            "Export the current view in png format".to_owned(),
         ),
         (String::new(), String::new()),
         (format!("{} Drag", LCLICK), "Edit strand".to_owned()),
@@ -708,6 +716,10 @@ fn view_2d_help() -> Vec<(String, String)> {
         (
             format!("{} Drag", LCLICK),
             "Rectangular selection".to_owned(),
+        ),
+        (
+            format!("{} Drag, followed by {ALT} before releasing", LCLICK),
+            "PNG export of rectangular area".to_owned(),
         ),
         (String::new(), String::new()),
         ("On helix numbers".to_owned(), String::new()),
