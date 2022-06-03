@@ -16,18 +16,26 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::SimulationUpdate;
+use super::{NuclCollection, SimulationUpdate};
 use crate::app_state::AddressPointer;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
-    grid::{Edge, GridDescriptor, GridPosition, Hyperboloid},
+    grid::{
+        Edge, FreeGridId, GridDescriptor, GridId, GridObject, GridPosition, GridTypeDescr,
+        HelixGridPosition, Hyperboloid,
+    },
     group_attributes::GroupPivot,
-    mutate_in_arc, CameraId, Design, Domain, DomainJunction, Helix, Nucl, Strand,
+    mutate_in_arc, BezierEnd, BezierPathId, BezierPlaneDescriptor, BezierVertex, BezierVertexId,
+    CameraId, Collection, CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix,
+    HelixCollection, Nucl, Strand, Strands, UpToDateDesign,
 };
-use ensnano_interactor::{operation::Operation, HyperboloidOperation, SimulationState};
 use ensnano_interactor::{
-    DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier, IsometryTarget,
-    NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
+    operation::{Operation, TranslateBezierPathVertex},
+    ActionMode, BezierControlPoint, HyperboloidOperation, NewBezierTengentVector, SimulationState,
+};
+use ensnano_interactor::{
+    BezierPlaneHomothethy, DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier,
+    IsometryTarget, NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
 };
 use ensnano_organizer::GroupId;
 use std::borrow::Cow;
@@ -38,31 +46,32 @@ use clipboard::{PastedStrand, StrandClipboard};
 
 use self::simulations::{
     GridSystemInterface, GridsSystemThread, HelixSystemInterface, HelixSystemThread,
-    PhysicalSystem, RollInterface,
+    PhysicalSystem, RollInterface, TwistInterface,
 };
 
-use super::grid_data::GridManager;
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 
 mod clipboard;
 use clipboard::Clipboard;
-pub use clipboard::CopyOperation;
+pub use clipboard::{CopyOperation, PastePosition};
 
 mod shift_optimization;
-use ahash::AHashMap;
 pub use shift_optimization::{ShiftOptimizationResult, ShiftOptimizerReader};
 
 mod simulations;
 pub use simulations::{
     GridPresenter, HelixPresenter, RigidHelixState, RollPresenter, ShakeTarget,
-    SimulationInterface, SimulationOperation, SimulationReader,
+    SimulationInterface, SimulationOperation, SimulationReader, TwistPresenter,
 };
+
+mod update_insertion_length;
 
 #[derive(Clone, Default)]
 pub(super) struct Controller {
     color_idx: usize,
     state: ControllerState,
     clipboard: AddressPointer<Clipboard>,
+    pub(super) next_action_mode: Option<ActionMode>,
 }
 
 impl Controller {
@@ -94,7 +103,8 @@ impl Controller {
             OperationCompatibility::Compatible => (),
         }
         log::debug!("applicable");
-        match operation {
+        let label = operation.label();
+        let mut ret = match operation {
             DesignOperation::RecolorStaples => Ok(self.ok_apply(Self::recolor_stapples, design)),
             DesignOperation::SetScaffoldSequence { sequence, shift } => Ok(self.ok_apply(
                 |ctrl, design| ctrl.set_scaffold_sequence(design, sequence, shift),
@@ -126,14 +136,24 @@ impl Controller {
                 pivots,
                 translation,
             } => Ok(self.ok_apply(|c, d| c.snap_helices(d, pivots, translation), design)),
-            DesignOperation::SetIsometry { helix, isometry } => {
-                Ok(self.ok_apply(|c, d| c.set_isometry(d, helix, isometry), design))
-            }
+            DesignOperation::SetIsometry {
+                helix,
+                segment,
+                isometry,
+            } => Ok(self.ok_apply(|c, d| c.set_isometry(d, helix, segment, isometry), design)),
             DesignOperation::RotateHelices {
                 helices,
                 center,
                 angle,
             } => Ok(self.ok_apply(|c, d| c.rotate_helices(d, helices, center, angle), design)),
+            DesignOperation::ApplySymmetryToHelices {
+                helices,
+                centers,
+                symmetry,
+            } => Ok(self.ok_apply(
+                |c, d| c.apply_symmetry_to_helices(d, helices, centers, symmetry),
+                design,
+            )),
             DesignOperation::Translation(translation) => {
                 self.apply(|c, d| c.apply_translation(d, translation), design)
             }
@@ -152,6 +172,9 @@ impl Controller {
                 length,
                 start,
             } => self.apply(|c, d| c.add_grid_helix(d, position, start, length), design),
+            DesignOperation::AddTwoPointsBezier { start, end } => {
+                self.apply(|c, d| c.add_two_points_bezier(d, start, end), design)
+            }
             DesignOperation::CrossCut {
                 target_3prime,
                 source_id,
@@ -206,8 +229,8 @@ impl Controller {
             DesignOperation::RmGrid(_) => Err(ErrOperation::NotImplemented), // TODO
             DesignOperation::ChangeSequence { .. } => Err(ErrOperation::NotImplemented), // TODO
             DesignOperation::CleanDesign => Err(ErrOperation::NotImplemented), // TODO
-            DesignOperation::AttachHelix { helix, grid, x, y } => {
-                self.apply(|c, d| c.attach_helix(d, helix, grid, x, y), design)
+            DesignOperation::AttachObject { object, grid, x, y } => {
+                self.apply(|c, d| c.attach_object(d, object, grid, x, y), design)
             }
             DesignOperation::SetOrganizerTree(tree) => Ok(self.ok_apply(
                 |_, mut d| {
@@ -225,7 +248,11 @@ impl Controller {
             DesignOperation::CreateNewCamera {
                 position,
                 orientation,
-            } => Ok(self.ok_apply(|c, d| c.create_camera(d, position, orientation), design)),
+                pivot_position,
+            } => Ok(self.ok_apply(
+                |c, d| c.create_camera(d, position, orientation, pivot_position),
+                design,
+            )),
             DesignOperation::DeleteCamera(cam_id) => {
                 self.apply(|c, d| c.delete_camera(d, cam_id), design)
             }
@@ -243,7 +270,89 @@ impl Controller {
             DesignOperation::SetCameraName { camera_id, name } => {
                 self.apply(|c, d| c.set_camera_name(d, camera_id, name), design)
             }
+            DesignOperation::SetGridPosition { grid_id, position } => {
+                self.apply(|c, d| c.set_grid_position(d, grid_id, position), design)
+            }
+            DesignOperation::SetGridOrientation {
+                grid_id,
+                orientation,
+            } => self.apply(
+                |c, d| c.set_grid_orientation(d, grid_id, orientation),
+                design,
+            ),
+            DesignOperation::SetGridNbTurn { grid_id, nb_turn } => self.apply(
+                |c, d| c.set_grid_nb_turn(d, grid_id, nb_turn as f64),
+                design,
+            ),
+            DesignOperation::MakeSeveralXovers { xovers, doubled } => {
+                self.apply(|c, d| c.apply_several_xovers(d, xovers, doubled), design)
+            }
+
+            DesignOperation::CheckXovers { xovers } => {
+                self.apply(|c, d| c.check_xovers(d, xovers), design)
+            }
+            DesignOperation::SetRainbowScaffold(b) => Ok(self.ok_apply(
+                |_c, mut d| {
+                    d.rainbow_scaffold = b;
+                    d
+                },
+                design,
+            )),
+            DesignOperation::SetDnaParameters { parameters } => Ok(self.ok_apply(
+                |_, mut d| {
+                    d.parameters = Some(parameters);
+                    d
+                },
+                design,
+            )),
+            DesignOperation::SetInsertionLength {
+                insertion_point,
+                length,
+            } => self.apply(
+                |c, d| c.update_insertion_length(d, insertion_point, length),
+                design,
+            ),
+            DesignOperation::AddBezierPlane { desc } => {
+                Ok(self.ok_apply(|c, d| c.add_bezier_plane(d, desc), design))
+            }
+            DesignOperation::CreateBezierPath { first_vertex } => {
+                Ok(self.ok_apply(|c, d| c.create_bezier_path(d, first_vertex), design))
+            }
+            DesignOperation::AppendVertexToPath { path_id, vertex } => self.apply(
+                |c, d| c.append_vertex_to_bezier_path(d, path_id, vertex),
+                design,
+            ),
+            DesignOperation::MoveBezierVertex {
+                path_id,
+                vertex_id,
+                position,
+            } => self.apply(
+                |c, d| c.move_bezier_vertex(d, path_id, vertex_id, position),
+                design,
+            ),
+            DesignOperation::TurnPathVerticesIntoGrid { path_id, grid_type } => self.apply(
+                |c, d| c.turn_bezier_path_into_grids(d, path_id, grid_type),
+                design,
+            ),
+            DesignOperation::ApplyHomothethyOnBezierPlane { homothethy } => Ok(self.ok_apply(
+                |c, d| c.apply_homothethy_on_bezier_plane(d, homothethy),
+                design,
+            )),
+            DesignOperation::SetVectorOfBezierTengent(requested_vector) => {
+                self.apply(|c, d| c.set_bezier_tengent(d, requested_vector), design)
+            }
+            DesignOperation::MakeBezierPathCyclic { path_id, cyclic } => {
+                self.apply(|c, d| c.make_bezier_path_cyclic(d, path_id, cyclic), design)
+            }
+            DesignOperation::RmFreeGrids { grid_ids } => {
+                self.apply(|c, d| c.delete_free_grids(d, grid_ids), design)
+            }
+        };
+
+        if let Ok(ret) = &mut ret {
+            ret.0.set_label(label);
         }
+        ret
     }
 
     pub fn update_pending_operation(
@@ -252,6 +361,15 @@ impl Controller {
         operation: Arc<dyn Operation>,
     ) -> Result<(OkOperation, Self), ErrOperation> {
         let effect = operation.effect();
+        let design = if operation.replace_previous() {
+            if let ControllerState::WithPendingOp { design, .. } = &self.state {
+                design.as_ref()
+            } else {
+                design
+            }
+        } else {
+            design
+        };
         let mut ret = self.apply_operation(design, effect)?;
         ret.1.state.update_operation(operation);
         Ok(ret)
@@ -259,34 +377,37 @@ impl Controller {
 
     pub fn apply_copy_operation(
         &self,
-        design: &Design,
+        up_to_date_design: UpToDateDesign<'_>,
         operation: CopyOperation,
     ) -> Result<(OkOperation, Self), ErrOperation> {
         match operation {
-            CopyOperation::CopyStrands(strand_ids) => {
-                self.apply_no_op(|c, d| c.set_templates(d, strand_ids), design)
-            }
+            CopyOperation::CopyStrands(strand_ids) => self.apply_no_op(
+                |c, _d| c.set_templates(&up_to_date_design, strand_ids),
+                &up_to_date_design.design,
+            ),
             CopyOperation::CopyXovers(xovers) => {
-                self.apply_no_op(|c, _d| c.copy_xovers(xovers), design)
+                self.apply_no_op(|c, _d| c.copy_xovers(xovers), up_to_date_design.design)
+            }
+            CopyOperation::CopyHelices(helices) => {
+                self.apply_no_op(|c, _d| c.copy_helices(helices), up_to_date_design.design)
             }
             CopyOperation::PositionPastingPoint(nucl) => {
                 if self.get_pasting_point() == Some(nucl) {
                     Ok((OkOperation::NoOp, self.clone()))
                 } else {
-                    let design_pasted_on = if let Some(p) = self.get_design_before_pasting_xovers()
-                    {
+                    let design_pasted_on = if let Some(p) = self.get_design_beign_pasted_on() {
                         p.as_ref()
                     } else {
-                        design
+                        up_to_date_design.design
                     };
                     self.apply(|c, d| c.position_copy(d, nucl), design_pasted_on)
                 }
             }
             CopyOperation::InitStrandsDuplication(strand_ids) => self.apply_no_op(
-                |c, d| {
-                    c.set_templates(d, strand_ids)?;
+                |c, _d| {
+                    c.set_templates(&up_to_date_design, strand_ids)?;
                     let clipboard = c.clipboard.as_ref().get_strand_clipboard()?;
-                    c.state = ControllerState::PositioningDuplicationPoint {
+                    c.state = ControllerState::PositioningStrandDuplicationPoint {
                         pasted_strands: vec![],
                         duplication_edge: None,
                         pasting_point: None,
@@ -294,10 +415,18 @@ impl Controller {
                     };
                     Ok(())
                 },
-                design,
+                &up_to_date_design.design,
             ),
-            CopyOperation::Duplicate => self.apply(|c, d| c.apply_duplication(d), design),
-            CopyOperation::Paste => self.make_undoable(self.apply(|c, d| c.apply_paste(d), design)),
+            CopyOperation::Duplicate => {
+                self.apply(|c, d| c.apply_duplication(d), up_to_date_design.design)
+            }
+            CopyOperation::Paste => {
+                println!("nb helices {}", up_to_date_design.design.helices.len());
+                self.make_undoable(
+                    self.apply(|c, d| c.apply_paste(d), up_to_date_design.design),
+                    "Paste".into(),
+                )
+            }
             CopyOperation::InitXoverDuplication(xovers) => self.apply_no_op(
                 |c, d| {
                     c.copy_xovers(xovers.clone())?;
@@ -309,8 +438,24 @@ impl Controller {
                     };
                     Ok(())
                 },
-                design,
+                up_to_date_design.design,
             ),
+            CopyOperation::InitHelicesDuplication(helices) => self.apply_no_op(
+                |c, d| {
+                    c.copy_helices(helices.clone())?;
+                    c.state = ControllerState::PositioningHelicesDuplicationPoint {
+                        pasting_point: None,
+                        duplication_edge: None,
+                        initial_design: AddressPointer::new(d.clone()),
+                        helices,
+                    };
+                    Ok(())
+                },
+                up_to_date_design.design,
+            ),
+            CopyOperation::CopyGrids(grid_ids) => {
+                self.apply_no_op(|c, d| c.copy_grids(d, grid_ids), up_to_date_design.design)
+            }
         }
     }
 
@@ -346,7 +491,7 @@ impl Controller {
                 let interface = GridsSystemThread::start_new(presenter, parameters, reader)?;
                 ret.state = ControllerState::SimulatingGrids {
                     interface,
-                    initial_design: AddressPointer::new(design.clone()),
+                    _initial_design: AddressPointer::new(design.clone()),
                 }
             }
             SimulationOperation::StartRoll {
@@ -359,8 +504,24 @@ impl Controller {
                 }
                 let interface = PhysicalSystem::start_new(presenter, target_helices, reader);
                 ret.state = ControllerState::Rolling {
-                    interface,
-                    initial_design: AddressPointer::new(design.clone()),
+                    _interface: interface,
+                    _initial_design: AddressPointer::new(design.clone()),
+                };
+            }
+            SimulationOperation::StartTwist {
+                grid_id,
+                presenter,
+                reader,
+            } => {
+                if self.is_in_persistant_state().is_transitory() {
+                    return Err(ErrOperation::IncompatibleState);
+                }
+                let interface = simulations::Twister::start_new(presenter, grid_id, reader)
+                    .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+                ret.state = ControllerState::Twisting {
+                    _interface: interface,
+                    _initial_design: AddressPointer::new(design.clone()),
+                    grid_id,
                 };
             }
             SimulationOperation::UpdateParameters { new_parameters } => {
@@ -388,17 +549,25 @@ impl Controller {
                     ret.state = ControllerState::Normal;
                 } else if let ControllerState::Rolling { .. } = &ret.state {
                     ret.state = ControllerState::Normal
+                } else if let ControllerState::Twisting { .. } = &ret.state {
+                    ret.state = ControllerState::Normal
                 }
             }
             SimulationOperation::Reset => {
                 if let ControllerState::WithPausedSimulation { initial_design } = &ret.state {
                     let returned_design = initial_design.clone_inner();
                     ret.state = ControllerState::Normal;
-                    return Ok((OkOperation::Push(returned_design), ret));
+                    return Ok((
+                        OkOperation::Push {
+                            design: returned_design,
+                            label: "Simulation".into(),
+                        },
+                        ret,
+                    ));
                 }
             }
         }
-        Ok((self.return_design(design), ret))
+        Ok((self.return_design(design, "Simulation".into()), ret))
     }
 
     fn change_strand_name(
@@ -422,40 +591,56 @@ impl Controller {
         hyperboloid: &Hyperboloid,
         position: Vec3,
         orientation: Rotor3,
-    ) {
+    ) -> Result<(), ErrOperation> {
         use ensnano_design::grid::GridDivision;
         // the hyperboloid grid is always the last one that was added to the design
-        let grid_id = design.grids.len() - 1;
+        let grid_id = design
+            .free_grids
+            .keys()
+            .max()
+            .ok_or(ErrOperation::GridDoesNotExist(GridId::FreeGrid(0)))?;
         let parameters = design.parameters.unwrap_or_default();
         let (helices, nb_nucl) = hyperboloid.make_helices(&parameters);
         let nb_nucl = nb_nucl.min(5000);
-        let mut key = design.helices.keys().max().map(|m| m + 1).unwrap_or(0);
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        let mut helices_mut = design.helices.make_mut();
+        let mut keys = Vec::with_capacity(helices.len());
         for (i, mut h) in helices.into_iter().enumerate() {
             let origin = hyperboloid.origin_helix(&parameters, i as isize, 0);
             let z_vec = Vec3::unit_z().rotated_by(orientation);
             let y_vec = Vec3::unit_y().rotated_by(orientation);
             h.position = position + origin.x * z_vec + origin.y * y_vec;
             h.orientation = orientation * hyperboloid.orientation_helix(&parameters, i as isize, 0);
-            h.grid_position = Some(GridPosition {
-                grid: grid_id,
+            if let Some(curve) = h.curve.as_mut() {
+                mutate_in_arc(curve, |c| {
+                    if let CurveDescriptor::Twist(twist) = c {
+                        twist.orientation = orientation;
+                        twist.position = position;
+                    }
+                })
+            }
+            h.grid_position = Some(HelixGridPosition {
+                grid: grid_id.to_grid_id(),
                 x: i as isize,
                 y: 0,
                 axis_pos: 0,
                 roll: 0.,
             });
-            new_helices.insert(key, Arc::new(h));
+            let key = helices_mut.push_helix(h);
+            keys.push(key);
+        }
+        drop(helices_mut);
+        for key in keys.into_iter() {
             for b in [true, false].iter() {
-                let new_key = self.add_strand(design, key, -(nb_nucl as isize) / 2, *b);
+                //let new_key = self.add_strand(design, key, -(nb_nucl as isize) / 2, *b);
+                let new_key = self.add_strand(design, key, 0, *b);
                 if let Domain::HelixDomain(ref mut dom) =
                     design.strands.get_mut(&new_key).unwrap().domains[0]
                 {
                     dom.end = dom.start + nb_nucl as isize;
                 }
             }
-            key += 1;
         }
-        design.helices = Arc::new(new_helices);
+        Ok(())
     }
 
     fn set_roll_helices(
@@ -464,17 +649,16 @@ impl Controller {
         helices: Vec<usize>,
         roll: f32,
     ) -> Result<Design, ErrOperation> {
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        let mut helices_mut = design.helices.make_mut();
         for h in helices.iter() {
-            if let Some(mut helix) = new_helices.get(h).map(|ptr| Helix::clone(ptr)) {
+            if let Some(mut helix) = helices_mut.get_mut(h) {
                 helix.roll = roll;
-                new_helices.insert(*h, Arc::new(helix));
             } else {
                 return Err(ErrOperation::HelixDoesNotExists(*h));
             }
         }
         self.state = ControllerState::SettingRollHelices;
-        design.helices = Arc::new(new_helices);
+        drop(helices_mut);
         Ok(design)
     }
 
@@ -516,8 +700,9 @@ impl Controller {
         pivot: GroupPivot,
     ) -> Result<Design, ErrOperation> {
         let attributes = design.group_attributes.entry(group_id).or_default();
-        attributes.pivot = Some(pivot);
-
+        if attributes.pivot.is_none() {
+            attributes.pivot = Some(pivot);
+        }
         Ok(design)
     }
 
@@ -570,8 +755,13 @@ impl Controller {
                     .ok_or(ErrOperation::HelixDoesNotExists(*helix))?;
             }
             DnaElementKey::Grid(g_id) => {
-                ensnano_design::mutate_one_grid(design, *g_id, |g| g.invisible = !visible)
-                    .ok_or(ErrOperation::GridDoesNotExist(*g_id))?;
+                let mut grids_mut = design.free_grids.make_mut();
+                let g_id = ensnano_design::grid::FreeGridId(*g_id);
+                let grid = grids_mut
+                    .get_mut(&g_id)
+                    .ok_or(ErrOperation::GridDoesNotExist(g_id.to_grid_id()))?;
+                grid.invisible = !grid.invisible;
+                drop(grids_mut);
             }
             _ => (),
         }
@@ -634,7 +824,7 @@ impl Controller {
                 let grid_descriptor =
                     GridDescriptor::hyperboloid(position, orientation, hyperboloid.clone());
                 design = self.add_grid(design, grid_descriptor);
-                self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation);
+                self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation)?;
                 Ok(design)
             }
             HyperboloidOperation::Update(request) => {
@@ -651,7 +841,7 @@ impl Controller {
                     let grid_descriptor =
                         GridDescriptor::hyperboloid(position, orientation, hyperboloid.clone());
                     design = self.add_grid(design, grid_descriptor);
-                    self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation);
+                    self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation)?;
                     Ok(design)
                 } else {
                     Err(ErrOperation::IncompatibleState)
@@ -686,19 +876,21 @@ impl Controller {
     }
 
     pub fn can_iterate_duplication(&self) -> bool {
-        if let ControllerState::WithPendingDuplication { .. } = self.state {
+        if let ControllerState::WithPendingStrandDuplication { .. } = self.state {
             true
         } else if let ControllerState::WithPendingXoverDuplication { .. } = self.state {
+            true
+        } else if let ControllerState::WithPendingHelicesDuplication { .. } = self.state {
             true
         } else {
             false
         }
     }
 
-    pub(super) fn optimize_shift(
+    pub(super) fn optimize_shift<Nc: NuclCollection>(
         &self,
         chanel_reader: &mut dyn ShiftOptimizerReader,
-        nucl_map: Arc<AHashMap<Nucl, u32>>,
+        nucl_collection: Arc<Nc>,
         design: &Design,
     ) -> Result<(OkOperation, Self), ErrOperation> {
         if let OperationCompatibility::Incompatible =
@@ -707,19 +899,23 @@ impl Controller {
             return Err(ErrOperation::IncompatibleState);
         }
         Ok(self.ok_no_op(
-            |c, d| c.start_shift_optimization(d, chanel_reader, nucl_map),
+            |c, d| c.start_shift_optimization(d, chanel_reader, nucl_collection),
             design,
         ))
     }
 
-    fn start_shift_optimization(
+    fn start_shift_optimization<Nc: NuclCollection>(
         &mut self,
         design: &Design,
         chanel_reader: &mut dyn ShiftOptimizerReader,
-        nucl_map: Arc<AHashMap<Nucl, u32>>,
+        nucl_collection: Arc<Nc>,
     ) {
         self.state = ControllerState::OptimizingScaffoldPosition;
-        shift_optimization::optimize_shift(Arc::new(design.clone()), nucl_map, chanel_reader);
+        shift_optimization::optimize_shift(
+            Arc::new(design.clone()),
+            nucl_collection,
+            chanel_reader,
+        );
     }
 
     #[allow(dead_code)]
@@ -729,10 +925,14 @@ impl Controller {
 
     pub fn is_pasting(&self) -> PastingStatus {
         match self.state {
-            ControllerState::PositioningPastingPoint { .. } => PastingStatus::Copy,
-            ControllerState::PositioningDuplicationPoint { .. } => PastingStatus::Duplication,
+            ControllerState::PositioningStrandPastingPoint { .. } => PastingStatus::Copy,
+            ControllerState::PositioningStrandDuplicationPoint { .. } => PastingStatus::Duplication,
             ControllerState::PastingXovers { .. } => PastingStatus::Copy,
             ControllerState::DoingFirstXoversDuplication { .. } => PastingStatus::Duplication,
+            ControllerState::PositioningHelicesPastingPoint { .. } => PastingStatus::Copy,
+            ControllerState::PositioningHelicesDuplicationPoint { .. } => {
+                PastingStatus::Duplication
+            }
             _ => PastingStatus::None,
         }
     }
@@ -762,8 +962,13 @@ impl Controller {
                     OperationCompatibility::Incompatible
                 }
             }
-            ControllerState::WithPendingOp(_) => OperationCompatibility::Compatible,
-            ControllerState::WithPendingDuplication { .. } => OperationCompatibility::Compatible,
+            ControllerState::WithPendingOp { .. } => OperationCompatibility::Compatible,
+            ControllerState::WithPendingStrandDuplication { .. } => {
+                OperationCompatibility::Compatible
+            }
+            ControllerState::WithPendingHelicesDuplication { .. } => {
+                OperationCompatibility::Compatible
+            }
             ControllerState::ChangingColor => {
                 if let DesignOperation::ChangeColor { .. } = operation {
                     OperationCompatibility::Compatible
@@ -810,6 +1015,7 @@ impl Controller {
                     OperationCompatibility::FinishFirst
                 }
             }
+            ControllerState::WithPausedSimulation { .. } => OperationCompatibility::FinishFirst,
             _ => OperationCompatibility::Incompatible,
         }
     }
@@ -828,9 +1034,20 @@ impl Controller {
         }
     }
 
-    fn return_design(&self, design: Design) -> OkOperation {
+    fn update_state_not_design(&mut self, design: &Design) {
+        if let ControllerState::ApplyingOperation { .. } = &self.state {
+            return;
+        } else {
+            self.state = ControllerState::ApplyingOperation {
+                design: AddressPointer::new(design.clone()),
+                operation: None,
+            };
+        }
+    }
+
+    fn return_design(&self, design: Design, label: std::borrow::Cow<'static, str>) -> OkOperation {
         if self.is_in_persistant_state().is_persistant() {
-            OkOperation::Push(design)
+            OkOperation::Push { design, label }
         } else {
             OkOperation::Replace(design)
         }
@@ -842,17 +1059,38 @@ impl Controller {
             ControllerState::WithPausedSimulation { .. } => SimulationState::Paused,
             ControllerState::SimulatingGrids { .. } => SimulationState::RigidGrid,
             ControllerState::Rolling { .. } => SimulationState::Rolling,
+            ControllerState::Twisting { grid_id, .. } => SimulationState::Twisting { grid_id },
             _ => SimulationState::None,
+        }
+    }
+
+    pub(super) fn get_new_selection(&self) -> Option<Vec<Selection>> {
+        if let ControllerState::BuildingStrand {
+            builders,
+            initializing,
+            ..
+        } = &self.state
+        {
+            Some(
+                builders
+                    .iter()
+                    .map(|b| Selection::Nucleotide(0, b.moving_end))
+                    .collect(),
+            )
+            .filter(|_| !initializing)
+        } else {
+            None
         }
     }
 
     pub(super) fn is_in_persistant_state(&self) -> StatePersitance {
         match self.state {
             ControllerState::Normal => StatePersitance::Persistant,
-            ControllerState::WithPendingOp(_) => StatePersitance::Persistant,
-            ControllerState::WithPendingDuplication { .. } => StatePersitance::Persistant,
+            ControllerState::WithPendingOp { .. } => StatePersitance::Persistant,
+            ControllerState::WithPendingStrandDuplication { .. } => StatePersitance::Persistant,
             ControllerState::WithPendingXoverDuplication { .. } => StatePersitance::Persistant,
-            ControllerState::WithPausedSimulation { .. } => StatePersitance::Persistant,
+            ControllerState::WithPendingHelicesDuplication { .. } => StatePersitance::Persistant,
+            ControllerState::WithPausedSimulation { .. } => StatePersitance::NeedFinish,
             ControllerState::SettingRollHelices { .. } => StatePersitance::NeedFinish,
             ControllerState::ChangingStrandName { .. } => StatePersitance::NeedFinish,
             _ => StatePersitance::Transitory,
@@ -866,7 +1104,10 @@ impl Controller {
     {
         let mut new_controller = self.clone();
         let returned_design = design_op(&mut new_controller, design.clone());
-        (self.return_design(returned_design), new_controller)
+        (
+            self.return_design(returned_design, "".into()),
+            new_controller,
+        )
     }
 
     /// Apply an operation that modifies the interactor and not the design, and that cannot fail.
@@ -886,16 +1127,20 @@ impl Controller {
     {
         let mut new_controller = self.clone();
         let returned_design = design_op(&mut new_controller, design.clone())?;
-        Ok((self.return_design(returned_design), new_controller))
+        Ok((
+            self.return_design(returned_design, "".into()),
+            new_controller,
+        ))
     }
 
     fn make_undoable(
         &self,
         result: Result<(OkOperation, Self), ErrOperation>,
+        label: Cow<'static, str>,
     ) -> Result<(OkOperation, Self), ErrOperation> {
         if self.state.is_undoable_once() {
             match result {
-                Ok((ok_op, interactor)) => Ok((ok_op.into_undoable(), interactor)),
+                Ok((ok_op, interactor)) => Ok((ok_op.into_undoable(label), interactor)),
                 Err(e) => Err(e),
             }
         } else {
@@ -921,22 +1166,238 @@ impl Controller {
         mut design: Design,
         selection: Vec<Selection>,
     ) -> Result<Design, ErrOperation> {
-        let mut grid_manager = GridManager::new_from_design(&design);
         let helices =
             ensnano_interactor::list_of_helices(&selection).ok_or(ErrOperation::BadSelection)?;
-        grid_manager.make_grid_from_helices(&mut design, &helices.1)?;
+        ensnano_design::design_operations::make_grid_from_helices(&mut design, &helices.1)?;
         Ok(design)
     }
 
     fn add_grid(&mut self, mut design: Design, descriptor: GridDescriptor) -> Design {
-        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let mut new_grids = design.free_grids.make_mut();
         new_grids.push(descriptor);
-        design.grids = Arc::new(new_grids);
+        drop(new_grids);
         design
     }
 
-    fn create_camera(&mut self, mut design: Design, position: Vec3, orientation: Rotor3) -> Design {
-        design.add_camera(position, orientation);
+    fn add_bezier_plane(
+        &mut self,
+        mut design: Design,
+        descriptor: BezierPlaneDescriptor,
+    ) -> Design {
+        let mut new_planes = design.bezier_planes.make_mut();
+        new_planes.push(descriptor);
+        drop(new_planes);
+        design
+    }
+
+    fn create_bezier_path(&mut self, mut design: Design, first_vertex: BezierVertex) -> Design {
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path_id = new_paths.create_path(first_vertex);
+        drop(new_paths);
+        self.state = ControllerState::ApplyingOperation {
+            design: AddressPointer::new(design.clone()),
+            operation: Some(Arc::new(TranslateBezierPathVertex {
+                design_id: 0,
+                path_id,
+                vertex_id: 0,
+                x: first_vertex.position.x,
+                y: first_vertex.position.y,
+            })),
+        };
+        self.next_action_mode = Some(ActionMode::EditBezierPath {
+            path_id: Some(path_id),
+            vertex_id: Some(0),
+        });
+        design
+    }
+
+    fn append_vertex_to_bezier_path(
+        &mut self,
+        mut design: Design,
+        path_id: BezierPathId,
+        vertex: BezierVertex,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        let vertex_id = path.add_vertex(vertex);
+        drop(new_paths);
+        self.state = ControllerState::ApplyingOperation {
+            design: AddressPointer::new(design.clone()),
+            operation: Some(Arc::new(TranslateBezierPathVertex {
+                design_id: 0,
+                path_id,
+                vertex_id,
+                x: vertex.position.x,
+                y: vertex.position.y,
+            })),
+        };
+        self.next_action_mode = Some(ActionMode::EditBezierPath {
+            path_id: Some(path_id),
+            vertex_id: Some(vertex_id),
+        });
+        Ok(design)
+    }
+
+    fn move_bezier_vertex(
+        &mut self,
+        mut design: Design,
+        path_id: BezierPathId,
+        vertex_id: usize,
+        position: Vec2,
+    ) -> Result<Design, ErrOperation> {
+        self.update_state_and_design(&mut design);
+
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        let vertex = path
+            .get_vertex_mut(vertex_id)
+            .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
+        let old_tengent_in = vertex.position_in.map(|p| p - vertex.position);
+        let old_tengent_out = vertex.position_out.map(|p| p - vertex.position);
+        vertex.position = position;
+        vertex.position_out = old_tengent_out.map(|t| vertex.position + t);
+        vertex.position_in = old_tengent_in.map(|t| vertex.position + t);
+        drop(new_paths);
+        Ok(design)
+    }
+
+    fn make_bezier_path_cyclic(
+        &mut self,
+        mut design: Design,
+        path_id: BezierPathId,
+        cyclic: bool,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        path.cyclic = cyclic;
+        drop(new_paths);
+        Ok(design)
+    }
+
+    fn set_bezier_tengent(
+        &mut self,
+        mut design: Design,
+        request: NewBezierTengentVector,
+    ) -> Result<Design, ErrOperation> {
+        self.update_state_not_design(&design);
+
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path_id = request.vertex_id.path_id;
+        let vertex_id = request.vertex_id.vertex_id;
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        let vertex = path
+            .get_vertex_mut(vertex_id)
+            .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
+        if request.tengent_in {
+            vertex.position_in = Some(vertex.position + request.new_vector);
+            if request.full_symetry_other_tengent {
+                vertex.position_out = Some(vertex.position - request.new_vector);
+            } else {
+                let norm = vertex
+                    .position_out
+                    .map(|p| (vertex.position - p).mag())
+                    .unwrap_or(request.new_vector.mag());
+                let out_vec = request.new_vector.normalized() * -norm;
+                log::info!("norm {:?}", norm);
+                log::info!("new vec {:?}", request.new_vector);
+                log::info!("out vec {:?}", out_vec);
+                vertex.position_out = Some(vertex.position + out_vec);
+            }
+        } else {
+            vertex.position_out = Some(vertex.position + request.new_vector);
+            if request.full_symetry_other_tengent {
+                vertex.position_in = Some(vertex.position - request.new_vector);
+            } else {
+                let norm = vertex
+                    .position_in
+                    .map(|p| (vertex.position - p).mag())
+                    .unwrap_or(request.new_vector.mag());
+                let in_vec = request.new_vector.normalized() * -norm;
+                vertex.position_in = Some(vertex.position + in_vec);
+            }
+        }
+        drop(new_paths);
+        Ok(design)
+    }
+
+    fn turn_bezier_path_into_grids(
+        &mut self,
+        mut design: Design,
+        path_id: BezierPathId,
+        desc: GridTypeDescr,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_paths = design.bezier_paths.make_mut();
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        path.grid_type = Some(desc);
+        drop(new_paths);
+        Ok(design)
+    }
+
+    fn apply_homothethy_on_bezier_plane(
+        &mut self,
+        mut design: Design,
+        homothethy: BezierPlaneHomothethy,
+    ) -> Design {
+        self.update_state_and_design(&mut design);
+        log::info!("Applying homothethy {:?}", homothethy);
+        let mut paths_mut = design.bezier_paths.make_mut();
+        let angle_origin = {
+            let ab = homothethy.origin_moving_corner - homothethy.fixed_corner;
+            ab.y.atan2(ab.x)
+        };
+        let angle_now = {
+            let ab = homothethy.moving_corner - homothethy.fixed_corner;
+            ab.y.atan2(ab.x)
+        };
+        let angle = angle_now - angle_origin;
+        let scale = (homothethy.moving_corner - homothethy.fixed_corner).mag()
+            / (homothethy.origin_moving_corner - homothethy.fixed_corner).mag();
+        for path in paths_mut.values_mut() {
+            for v in path.vertices_mut() {
+                if v.plane_id == homothethy.plane_id {
+                    let transform = |v: &mut Vec2| {
+                        let vec = *v - homothethy.fixed_corner;
+                        if vec.mag() > 1e-6 {
+                            let new_norm = vec.mag() * scale;
+                            *v = vec
+                                .normalized()
+                                .rotated_by(ensnano_design::Rotor2::from_angle(angle))
+                                * new_norm
+                                + homothethy.fixed_corner;
+                        }
+                    };
+                    transform(&mut v.position);
+                    if let Some(vec) = v.position_out.as_mut() {
+                        transform(vec);
+                    }
+                    if let Some(vec) = v.position_in.as_mut() {
+                        transform(vec);
+                    }
+                }
+            }
+        }
+        drop(paths_mut);
+        design
+    }
+
+    fn create_camera(
+        &mut self,
+        mut design: Design,
+        position: Vec3,
+        orientation: Rotor3,
+        pivot_position: Option<Vec3>,
+    ) -> Design {
+        design.add_camera(position, orientation, pivot_position);
         design
     }
 
@@ -1011,18 +1472,31 @@ impl Controller {
         design: Design,
         translation: DesignTranslation,
     ) -> Result<Design, ErrOperation> {
-        match translation.target {
+        let mut design = match translation.target {
             IsometryTarget::Design => Err(ErrOperation::NotImplemented),
             IsometryTarget::Helices(helices, snap) => {
                 Ok(self.translate_helices(design, snap, helices, translation.translation))
             }
             IsometryTarget::Grids(grid_ids) => {
-                Ok(self.translate_grids(design, grid_ids, translation.translation))
+                self.translate_grids(design, grid_ids, translation.translation)
             }
             IsometryTarget::GroupPivot(group_id) => {
                 self.translate_group_pivot(design, translation.translation, group_id)
             }
+            IsometryTarget::ControlPoint(control_points) => {
+                self.translate_control_points(design, control_points, translation.translation)
+            }
+        }?;
+
+        if let Some(group_id) = translation.group_id {
+            let pivot = design
+                .group_attributes
+                .get_mut(&group_id)
+                .and_then(|attributes| attributes.pivot.as_mut())
+                .ok_or(ErrOperation::GroupHasNoPivot(group_id))?;
+            pivot.position += translation.translation;
         }
+        Ok(design)
     }
 
     fn translate_group_pivot(
@@ -1057,50 +1531,17 @@ impl Controller {
         Ok(design)
     }
 
-    fn attach_helix(
+    fn attach_object(
         &mut self,
         mut design: Design,
-        helix: usize,
-        grid: usize,
+        object: GridObject,
+        grid: GridId,
         x: isize,
         y: isize,
     ) -> Result<Design, ErrOperation> {
         self.update_state_and_design(&mut design);
-        let grid_manager = GridManager::new_from_design(&design);
-        if matches!(grid_manager.pos_to_helix(grid, x, y), Some(h_id) if h_id != helix) {
-            Err(ErrOperation::GridPositionAlreadyUsed)
-        } else {
-            let mut new_helices = BTreeMap::clone(design.helices.as_ref());
-            let helix_ref = new_helices
-                .get_mut(&helix)
-                .ok_or(ErrOperation::HelixDoesNotExists(helix))?;
-            // take previous axis position if there were one
-            let axis_pos = helix_ref
-                .grid_position
-                .map(|pos| pos.axis_pos)
-                .unwrap_or_default();
-            let roll = helix_ref
-                .grid_position
-                .map(|pos| pos.roll)
-                .unwrap_or_default();
-            let grid_ref = grid_manager
-                .grids
-                .get(grid)
-                .ok_or(ErrOperation::GridDoesNotExist(grid))?;
-            let helix = Helix::new_on_grid(grid_ref, x, y, grid);
-            mutate_in_arc(helix_ref, |h| {
-                h.grid_position = Some(GridPosition {
-                    grid,
-                    x,
-                    y,
-                    axis_pos,
-                    roll,
-                });
-                h.position = helix.position;
-            });
-            design.helices = Arc::new(new_helices);
-            Ok(design)
-        }
+        ensnano_design::design_operations::attach_object_to_grid(&mut design, object, grid, x, y)?;
+        Ok(design)
     }
 
     fn apply_rotattion(
@@ -1108,7 +1549,7 @@ impl Controller {
         design: Design,
         rotation: DesignRotation,
     ) -> Result<Design, ErrOperation> {
-        match rotation.target {
+        let mut design = match rotation.target {
             IsometryTarget::Design => Err(ErrOperation::NotImplemented),
             IsometryTarget::GroupPivot(g_id) => {
                 self.rotate_group_pivot(design, rotation.rotation, g_id)
@@ -1123,7 +1564,17 @@ impl Controller {
             IsometryTarget::Grids(grid_ids) => {
                 Ok(self.rotate_grids(design, grid_ids, rotation.rotation, rotation.origin))
             }
+            IsometryTarget::ControlPoint(_) => Err(ErrOperation::NotImplemented),
+        }?;
+        if let Some(group_id) = rotation.group_id {
+            let pivot = design
+                .group_attributes
+                .get_mut(&group_id)
+                .and_then(|attributes| attributes.pivot.as_mut())
+                .ok_or(ErrOperation::GroupHasNoPivot(group_id))?;
+            pivot.orientation = rotation.rotation * pivot.orientation;
         }
+        Ok(design)
     }
 
     fn translate_helices(
@@ -1134,19 +1585,43 @@ impl Controller {
         translation: Vec3,
     ) -> Design {
         self.update_state_and_design(&mut design);
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
-        for h_id in helices.iter() {
-            if let Some(h) = new_helices.get_mut(h_id) {
-                mutate_in_arc(h, |h| h.translate(translation));
+        let mut new_design = design.clone();
+        if ensnano_design::design_operations::translate_helices(
+            &mut new_design,
+            snap,
+            helices,
+            translation,
+        )
+        .is_ok()
+        {
+            new_design
+        } else {
+            design
+        }
+    }
+
+    fn translate_control_points(
+        &mut self,
+        mut design: Design,
+        control_points: Vec<(usize, BezierControlPoint)>,
+        translation: Vec3,
+    ) -> Result<Design, ErrOperation> {
+        self.update_state_and_design(&mut design);
+        let grid_data = design.get_updated_grid_data();
+        let translations: Vec<_> = control_points
+            .iter()
+            .cloned()
+            .map(|cp| grid_data.translate_bezier_point(cp, translation))
+            .collect();
+        let mut new_helices = design.helices.make_mut();
+        for ((h_id, control), translation) in control_points.iter().zip(translations.iter()) {
+            let translation = translation.ok_or(ErrOperation::BadSelection)?;
+            if let Some(helix) = new_helices.get_mut(&h_id) {
+                helix.translate_bezier_point(*control, translation)?;
             }
         }
-        let mut new_design = design.clone();
-        new_design.helices = Arc::new(new_helices);
-        if snap {
-            self.attempt_reattach(design, new_design, &helices)
-        } else {
-            new_design
-        }
+        drop(new_helices);
+        Ok(design)
     }
 
     fn rotate_helices_3d(
@@ -1158,34 +1633,16 @@ impl Controller {
         origin: Vec3,
     ) -> Design {
         self.update_state_and_design(&mut design);
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
-        for h_id in helices.iter() {
-            if let Some(h) = new_helices.get_mut(h_id) {
-                mutate_in_arc(h, |h| h.rotate_arround(rotation, origin))
-            }
-        }
         let mut new_design = design.clone();
-        new_design.helices = Arc::new(new_helices);
-        if snap {
-            self.attempt_reattach(design, new_design, &helices)
-        } else {
-            new_design
-        }
-    }
-
-    fn attempt_reattach(
-        &mut self,
-        design: Design,
-        mut new_design: Design,
-        helices: &[usize],
-    ) -> Design {
-        let mut grid_manager = GridManager::new_from_design(&new_design);
-        let mut successfull_reattach = true;
-        for h_id in helices.iter() {
-            successfull_reattach &=
-                grid_manager.reattach_helix(*h_id, &mut new_design, true, helices);
-        }
-        if successfull_reattach {
+        if ensnano_design::design_operations::rotate_helices_3d(
+            &mut new_design,
+            snap,
+            helices,
+            rotation,
+            origin,
+        )
+        .is_ok()
+        {
             new_design
         } else {
             design
@@ -1195,38 +1652,53 @@ impl Controller {
     fn translate_grids(
         &mut self,
         mut design: Design,
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         translation: Vec3,
-    ) -> Design {
+    ) -> Result<Design, ErrOperation> {
         self.update_state_and_design(&mut design);
-        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let mut new_paths = design.bezier_paths.make_mut();
+        for g_id in grid_ids.iter() {
+            if let GridId::BezierPathGrid(vertex_id) = g_id {
+                let path = new_paths
+                    .get_mut(&vertex_id.path_id)
+                    .ok_or(ErrOperation::PathDoesNotExist(vertex_id.path_id))?;
+                let vertex = path.get_vertex_mut(vertex_id.vertex_id).ok_or(
+                    ErrOperation::VertexDoesNotExist(vertex_id.path_id, vertex_id.vertex_id),
+                )?;
+                vertex.add_translation(translation);
+            }
+        }
+        drop(new_paths);
+        let mut new_grids = design.free_grids.make_mut();
         for g_id in grid_ids.into_iter() {
-            if let Some(desc) = new_grids.get_mut(g_id) {
+            if let Some(desc) =
+                FreeGridId::try_from_grid_id(g_id).and_then(|g_id| new_grids.get_mut(&g_id))
+            {
                 desc.position += translation;
             }
         }
-        design.grids = Arc::new(new_grids);
-        design
+        drop(new_grids);
+        Ok(design)
     }
 
     fn rotate_grids(
         &mut self,
         mut design: Design,
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         rotation: Rotor3,
         origin: Vec3,
     ) -> Design {
         self.update_state_and_design(&mut design);
-        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let mut new_grids = design.free_grids.make_mut();
         for g_id in grid_ids.into_iter() {
-            if let Some(desc) = new_grids.get_mut(g_id) {
+            if let Some(desc) = new_grids.get_mut_g_id(&g_id) {
                 desc.position -= origin;
                 desc.orientation = rotation * desc.orientation;
                 desc.position = rotation * desc.position;
                 desc.position += origin;
             }
         }
-        design.grids = Arc::new(new_grids);
+        drop(new_grids);
         design
     }
 }
@@ -1237,7 +1709,11 @@ pub enum OkOperation {
     /// Push the current design on the undo stack and replace it by the wrapped value. This variant
     /// is produced when the operation has been peroformed on a non transitory design and can be
     /// undone.
-    Push(Design),
+    Push {
+        design: Design,
+        /// A description of the operation that was applied
+        label: std::borrow::Cow<'static, str>,
+    },
     /// Replace the current design by the wrapped value. This variant is produced when the
     /// operation has been peroformed on a transitory design and should not been undone.
     ///
@@ -1250,11 +1726,18 @@ pub enum OkOperation {
 }
 
 impl OkOperation {
-    fn into_undoable(self) -> Self {
+    fn into_undoable(self, label: Cow<'static, str>) -> Self {
         match self {
-            Self::Replace(design) => Self::Push(design),
-            Self::Push(design) => Self::Push(design),
+            Self::Replace(design) => Self::Push { design, label },
+            // We do not keep the old label
+            Self::Push { design, .. } => Self::Push { design, label },
             Self::NoOp => Self::NoOp,
+        }
+    }
+
+    fn set_label(&mut self, new_label: Cow<'static, str>) {
+        if let Self::Push { label, .. } = self {
+            *label = new_label;
         }
     }
 }
@@ -1263,22 +1746,18 @@ impl OkOperation {
 pub enum ErrOperation {
     GroupHasNoPivot(GroupId),
     NotImplemented,
-    NotEnoughHelices {
-        actual: usize,
-        required: usize,
-    },
     /// The operation cannot be applied on the current selection
     BadSelection,
     /// The controller is in a state incompatible with applying the operation
     IncompatibleState,
     CannotBuildOn(Nucl),
     CutInexistingStrand,
-    GridDoesNotExist(usize),
+    GridDoesNotExist(GridId),
     GridPositionAlreadyUsed,
     StrandDoesNotExist(usize),
     HelixDoesNotExists(usize),
     HelixHasNoGridPosition(usize),
-    CouldNotMakeEdge(GridPosition, GridPosition),
+    CouldNotMakeEdge(HelixGridPosition, HelixGridPosition),
     MergingSameStrand,
     XoverOnSameHelix,
     NuclDoesNotExist(Nucl),
@@ -1295,23 +1774,27 @@ pub enum ErrOperation {
     NoGrids,
     FinishFirst,
     CameraDoesNotExist(CameraId),
+    GridIsNotHyperboloid(GridId),
+    DesignOperationError(ensnano_design::design_operations::ErrOperation),
+    NotPiecewiseBezier(usize),
+    GridCopyError(ensnano_design::grid::GridCopyError),
+    CouldNotGetPrime3of(usize),
+    PathDoesNotExist(BezierPathId),
+    VertexDoesNotExist(BezierPathId, usize),
+    GridIsNotEmpty(GridId),
+}
+
+impl From<ensnano_design::design_operations::ErrOperation> for ErrOperation {
+    fn from(e: ensnano_design::design_operations::ErrOperation) -> Self {
+        Self::DesignOperationError(e)
+    }
 }
 
 impl Controller {
     fn recolor_stapples(&mut self, mut design: Design) -> Design {
         for (s_id, strand) in design.strands.iter_mut() {
             if Some(*s_id) != design.scaffold_id {
-                let color = {
-                    let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
-                    let saturation =
-                        (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.4;
-                    let value =
-                        (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.1;
-                    let hsv = color_space::Hsv::new(hue, saturation, value);
-                    let rgb = color_space::Rgb::from(hsv);
-                    (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
-                };
-                self.color_idx += 1;
+                let color = crate::utils::new_color(&mut self.color_idx);
                 strand.color = color;
             }
         }
@@ -1355,14 +1838,14 @@ impl Controller {
     fn set_helices_persisance(
         &mut self,
         mut design: Design,
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         persistant: bool,
     ) -> Design {
         for g_id in grid_ids.into_iter() {
             if persistant {
-                design.no_phantoms.remove(&g_id);
+                Arc::make_mut(&mut design.no_phantoms).remove(&g_id);
             } else {
-                design.no_phantoms.insert(g_id);
+                Arc::make_mut(&mut design.no_phantoms).insert(g_id);
             }
         }
         design
@@ -1371,45 +1854,97 @@ impl Controller {
     fn set_small_spheres(
         &mut self,
         mut design: Design,
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         small: bool,
     ) -> Design {
         for g_id in grid_ids.into_iter() {
             if small {
-                design.small_spheres.insert(g_id);
+                Arc::make_mut(&mut design.small_spheres).insert(g_id);
             } else {
-                design.small_spheres.remove(&g_id);
+                Arc::make_mut(&mut design.small_spheres).remove(&g_id);
             }
         }
         design
     }
 
-    fn snap_helices(&mut self, mut design: Design, pivots: Vec<Nucl>, translation: Vec2) -> Design {
+    fn snap_helices(
+        &mut self,
+        mut design: Design,
+        pivots: Vec<(Nucl, usize)>,
+        translation: Vec2,
+    ) -> Design {
         self.update_state_and_design(&mut design);
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
-        for p in pivots.iter() {
-            if let Some(h) = new_helices.get_mut(&p.helix) {
-                if let Some(old_pos) = nucl_pos_2d(&design, p) {
+        let mut new_helices = design.helices.make_mut();
+        for (p, segment_idx) in pivots.iter() {
+            if let Some(old_pos) = nucl_pos_2d(new_helices.as_ref(), p, *segment_idx) {
+                if let Some(h) = new_helices.get_mut(&p.helix) {
                     let position = old_pos + translation;
                     let position = Vec2::new(position.x.round(), position.y.round());
-                    mutate_in_arc(h, |h| {
-                        if let Some(isometry) = h.isometry2d.as_mut() {
-                            isometry.append_translation(position - old_pos)
-                        }
-                    })
+                    let isometry = if *segment_idx > 0 {
+                        h.additonal_isometries
+                            .get_mut(segment_idx - 1)
+                            .and_then(|i| i.additional_isometry.as_mut())
+                    } else {
+                        h.isometry2d.as_mut()
+                    };
+                    if let Some(isometry) = isometry {
+                        isometry.append_translation(position - old_pos)
+                    }
                 }
             }
         }
-        design.helices = Arc::new(new_helices);
+        drop(new_helices);
         design
     }
 
-    fn set_isometry(&mut self, mut design: Design, h_id: usize, isometry: Isometry2) -> Design {
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
-        if let Some(h) = new_helices.get_mut(&h_id) {
-            mutate_in_arc(h, |h| h.isometry2d = Some(isometry));
-            design.helices = Arc::new(new_helices);
+    fn set_isometry(
+        &mut self,
+        mut design: Design,
+        h_id: usize,
+        segment: usize,
+        isometry: Isometry2,
+    ) -> Design {
+        println!("setting isometry {h_id} {segment}");
+        let mut new_helices = design.helices.make_mut();
+        if segment == 0 {
+            if let Some(h) = new_helices.get_mut(&h_id) {
+                h.isometry2d = Some(isometry);
+            }
+        } else {
+            if let Some(i) = new_helices
+                .get_mut(&h_id)
+                .and_then(|h| h.additonal_isometries.get_mut(segment - 1))
+            {
+                i.additional_isometry = Some(isometry);
+            }
         }
+        drop(new_helices);
+        design
+    }
+
+    fn apply_symmetry_to_helices(
+        &mut self,
+        mut design: Design,
+        helices_id: Vec<usize>,
+        centers: Vec<Vec2>,
+        symmetry: Vec2,
+    ) -> Design {
+        let mut new_helices = design.helices.make_mut();
+        for (h_id, center) in helices_id.iter().zip(centers.iter()) {
+            if let Some(h) = new_helices.get_mut(h_id) {
+                if let Some(isometry) = h.isometry2d.as_mut() {
+                    isometry.translation -= *center;
+                    isometry.translation.rotate_by(isometry.rotation.reversed());
+                    let mut new_rotation = isometry.rotation.into_matrix().into_homogeneous();
+                    new_rotation[0] *= symmetry.x;
+                    new_rotation[1] *= symmetry.y;
+                    isometry.translation = new_rotation.transform_vec2(isometry.translation);
+                    isometry.translation += *center;
+                }
+                h.symmetry *= symmetry;
+            }
+        }
+        drop(new_helices);
         design
     }
 
@@ -1426,19 +1961,17 @@ impl Controller {
             let k = (angle / step).round();
             k * step
         };
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
+        let mut new_helices = design.helices.make_mut();
         for h_id in helices.iter() {
             if let Some(h) = new_helices.get_mut(h_id) {
-                mutate_in_arc(h, |h| {
-                    if let Some(isometry) = h.isometry2d.as_mut() {
-                        isometry.append_translation(-center);
-                        isometry.append_rotation(ultraviolet::Rotor2::from_angle(angle));
-                        isometry.append_translation(center);
-                    }
-                })
+                if let Some(isometry) = h.isometry2d.as_mut() {
+                    isometry.append_translation(-center);
+                    isometry.append_rotation(ultraviolet::Rotor2::from_angle(angle));
+                    isometry.append_translation(center);
+                }
             }
         }
-        design.helices = Arc::new(new_helices);
+        drop(new_helices);
         design
     }
 
@@ -1448,25 +1981,40 @@ impl Controller {
         nucls: Vec<Nucl>,
     ) -> Result<Design, ErrOperation> {
         let mut builders = Vec::with_capacity(nucls.len());
+        let ignored_domains: Vec<_> = nucls
+            .iter()
+            .filter_map(|nucl| {
+                design
+                    .get_neighbour_nucl(*nucl)
+                    .map(|neighbour| neighbour.identifier)
+            })
+            .collect();
         for nucl in nucls.into_iter() {
             builders.push(
-                self.request_one_builder(&mut design, nucl)
+                self.request_one_builder(&mut design, nucl, &ignored_domains)
                     .ok_or(ErrOperation::CannotBuildOn(nucl))?,
             );
         }
+        log::info!("Ingnored domains: {:?}", ignored_domains);
         self.state = ControllerState::BuildingStrand {
             builders,
             initializing: true,
             // The initial design is indeed the one AFTER adding the new strands
             initial_design: AddressPointer::new(design.clone()),
+            ignored_domains,
         };
         Ok(design)
     }
 
-    fn request_one_builder(&mut self, design: &mut Design, nucl: Nucl) -> Option<StrandBuilder> {
+    fn request_one_builder(
+        &mut self,
+        design: &mut Design,
+        nucl: Nucl,
+        ignored_domains: &[DomainIdentifier],
+    ) -> Option<StrandBuilder> {
         // if there is a strand that passes through the nucleotide
-        if design.get_strand_nucl(&nucl).is_some() {
-            self.strand_builder_on_exisiting(design, nucl)
+        if design.strands.get_strand_nucl(&nucl).is_some() {
+            self.strand_builder_on_exisiting(design, nucl, ignored_domains)
         } else {
             self.new_strand_builder(design, nucl)
         }
@@ -1476,28 +2024,48 @@ impl Controller {
         &mut self,
         design: &Design,
         nucl: Nucl,
+        ignored_domains: &[DomainIdentifier],
     ) -> Option<StrandBuilder> {
-        let left = design.get_neighbour_nucl(nucl.left());
-        let right = design.get_neighbour_nucl(nucl.right());
+        let left = design
+            .get_neighbour_nucl(nucl.left())
+            .filter(|n| !ignored_domains.contains(&n.identifier));
+        let right = design
+            .get_neighbour_nucl(nucl.right())
+            .filter(|n| !ignored_domains.contains(&n.identifier));
         let axis = design
             .helices
             .get(&nucl.helix)
             .map(|h| h.get_axis(&design.parameters.unwrap_or_default()))?;
         let desc = design.get_neighbour_nucl(nucl)?;
         let strand_id = desc.identifier.strand;
-        let filter = |d: &NeighbourDescriptor| d.identifier != desc.identifier;
+        let filter =
+            |d: &NeighbourDescriptor| !(d.identifier.is_same_domain_than(&desc.identifier));
         let neighbour_desc = left.filter(filter).or(right.filter(filter));
-        let stick = neighbour_desc.map(|d| d.identifier.strand) == Some(strand_id);
+        // stick to the neighbour if it is its direct neighbour. This is because we want don't want
+        // to create a gap between neighbouring domains
+        let stick = neighbour_desc
+            .filter(|d| {
+                (d.identifier.domain as isize - desc.identifier.domain as isize).abs() < 1
+                    && d.identifier.strand == desc.identifier.strand
+            })
+            .is_some();
+        log::info!("stick {}", stick);
         if left.filter(filter).and(right.filter(filter)).is_some() {
             // TODO maybe we should do something else ?
             return None;
         }
+        let other_end = desc
+            .identifier
+            .other_end()
+            .filter(|d| !ignored_domains.contains(d))
+            .is_some()
+            .then(|| desc.fixed_end);
         match design.strands.get(&strand_id).map(|s| s.length()) {
             Some(n) if n > 1 => Some(StrandBuilder::init_existing(
                 desc.identifier,
                 nucl,
-                axis,
-                desc.fixed_end,
+                axis.to_owned(),
+                other_end,
                 neighbour_desc,
                 stick,
             )),
@@ -1505,9 +2073,10 @@ impl Controller {
                 DomainIdentifier {
                     strand: strand_id,
                     domain: 0,
+                    start: None,
                 },
                 nucl,
-                axis,
+                axis.to_owned(),
                 neighbour_desc,
                 false,
             )),
@@ -1517,21 +2086,22 @@ impl Controller {
     fn new_strand_builder(&mut self, design: &mut Design, nucl: Nucl) -> Option<StrandBuilder> {
         let left = design.get_neighbour_nucl(nucl.left());
         let right = design.get_neighbour_nucl(nucl.right());
-        let axis = design
-            .helices
-            .get(&nucl.helix)
-            .map(|h| h.get_axis(&design.parameters.unwrap_or_default()))?;
         if left.is_some() && right.is_some() {
             return None;
         }
         let new_key = self.init_strand(design, nucl);
+        let axis = design
+            .helices
+            .get(&nucl.helix)
+            .map(|h| h.get_axis(&design.parameters.unwrap_or_default()))?;
         Some(StrandBuilder::init_empty(
             DomainIdentifier {
                 strand: new_key,
                 domain: 0,
+                start: None,
             },
             nucl,
-            axis,
+            axis.to_owned(),
             left.or(right),
             true,
         ))
@@ -1539,16 +2109,7 @@ impl Controller {
 
     fn init_strand(&mut self, design: &mut Design, nucl: Nucl) -> usize {
         let s_id = design.strands.keys().max().map(|n| n + 1).unwrap_or(0);
-        let color = {
-            let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
-            let saturation =
-                (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.4;
-            let value = (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.1;
-            let hsv = color_space::Hsv::new(hue, saturation, value);
-            let rgb = color_space::Rgb::from(hsv);
-            (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
-        };
-        self.color_idx += 1;
+        let color = crate::utils::new_color(&mut self.color_idx);
         design.strands.insert(
             s_id,
             Strand::init(nucl.helix, nucl.position, nucl.forward, color),
@@ -1568,33 +2129,66 @@ impl Controller {
         } else {
             0
         };
-        let color = {
-            let hue = (self.color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
-            let saturation =
-                (self.color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.4 + 0.4;
-            let value = (self.color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.7 + 0.1;
-            let hsv = color_space::Hsv::new(hue, saturation, value);
-            let rgb = color_space::Rgb::from(hsv);
-            (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
-        };
-        self.color_idx += 1;
-
+        let color = crate::utils::new_color(&mut self.color_idx);
         design
             .strands
             .insert(new_key, Strand::init(helix, position, forward, color));
         new_key
     }
 
-    fn move_strand_builders(&mut self, _: Design, n: isize) -> Result<Design, ErrOperation> {
+    fn move_strand_builders(
+        &mut self,
+        current_design: Design,
+        n: isize,
+    ) -> Result<Design, ErrOperation> {
         if let ControllerState::BuildingStrand {
             initial_design,
             builders,
             initializing,
+            ignored_domains,
         } = &mut self.state
         {
+            let delta = builders
+                .get(0)
+                .map(|b| n - b.get_moving_end_position())
+                .unwrap_or(0);
             let mut design = initial_design.clone_inner();
-            for builder in builders.iter_mut() {
-                builder.move_to(n, &mut design)
+            if builders.len() > 1 {
+                let sign = delta.signum();
+                let mut blocked = false;
+                if delta != 0 {
+                    for i in 0..(sign * delta) {
+                        let mut copy_builder = builders.clone();
+                        for builder in copy_builder.iter_mut() {
+                            if sign > 0 && !builder.try_incr(&current_design, ignored_domains) {
+                                blocked = true;
+                                break;
+                            } else if sign < 0
+                                && !builder.try_decr(&current_design, ignored_domains)
+                            {
+                                blocked = true;
+                                break;
+                            }
+                        }
+                        if blocked {
+                            if i == 0 {
+                                return Ok(current_design);
+                            }
+                            break;
+                        }
+                        *builders = copy_builder;
+                        for builder in builders.iter_mut() {
+                            builder.update(&mut design);
+                        }
+                    }
+                } else {
+                    return Ok(current_design);
+                }
+            } else {
+                for builder in builders.iter_mut() {
+                    let to = builder.get_moving_end_position() + delta;
+                    builder.move_to(to, &mut design, &ignored_domains)
+                }
             }
             *initializing = false;
             Ok(design)
@@ -1609,13 +2203,13 @@ impl Controller {
         xovers: &[(Nucl, Nucl)],
     ) -> Result<Design, ErrOperation> {
         for (n1, _) in xovers.iter() {
-            let _ = Self::split_strand(&mut design, &n1, None)?;
+            let _ = Self::split_strand(&mut design.strands, &n1, None)?;
         }
         Ok(design)
     }
 
     fn cut(&mut self, mut design: Design, nucl: Nucl) -> Result<Design, ErrOperation> {
-        let _ = Self::split_strand(&mut design, &nucl, None)?;
+        let _ = Self::split_strand(&mut design.strands, &nucl, None)?;
         Ok(design)
     }
 
@@ -1629,19 +2223,20 @@ impl Controller {
     /// If `force_end` is `None`, nucl will be on the 5 prime half of the split unless nucl is the 3
     /// prime extremity of a crossover, in which case nucl will be on the 3 prime half of the
     /// split.
-    fn split_strand(
-        design: &mut Design,
+    pub(crate) fn split_strand(
+        strands: &mut Strands,
         nucl: &Nucl,
         force_end: Option<bool>,
     ) -> Result<usize, ErrOperation> {
-        let id = design
+        let id = strands
             .get_strand_nucl(nucl)
             .ok_or(ErrOperation::CutInexistingStrand)?;
 
-        let strand = design.strands.remove(&id).expect("strand");
+        let strand = strands.remove(&id).expect("strand");
+        let name = strand.name.clone();
         if strand.cyclic {
             let new_strand = Self::break_cycle(strand.clone(), *nucl, force_end);
-            design.strands.insert(id, new_strand);
+            strands.insert(id, new_strand);
             //self.clean_domains_one_strand(id);
             //println!("Cutting cyclic strand");
             return Ok(id);
@@ -1658,6 +2253,7 @@ impl Controller {
         let mut prev_helix = None;
         let mut prime5_junctions: Vec<DomainJunction> = Vec::new();
         let mut prime3_junctions: Vec<DomainJunction> = Vec::new();
+        let mut prim3_domains = Vec::new();
 
         log::info!("Spliting");
         log::info!("{:?}", strand.domains);
@@ -1665,7 +2261,7 @@ impl Controller {
 
         for (d_id, domain) in strand.domains.iter().enumerate() {
             if domain.prime5_end() == Some(*nucl)
-                && prev_helix != domain.helix()
+                && prev_helix != domain.half_helix()
                 && force_end != Some(false)
             {
                 // nucl is the 5' end of the next domain so it is the on the 3' end of a xover.
@@ -1673,6 +2269,22 @@ impl Controller {
                 // half
                 on_3prime = true;
                 i = d_id;
+                let move_last_insertion = if let Some(Domain::Insertion {
+                    attached_to_prime3,
+                    ..
+                }) = prim5_domains.last()
+                {
+                    *attached_to_prime3
+                } else {
+                    false
+                };
+
+                // the insertion is currently
+                if move_last_insertion {
+                    prim3_domains = vec![prim5_domains.pop().unwrap()];
+                    prime3_junctions.push(DomainJunction::Adjacent);
+                }
+
                 if let Some(j) = prime5_junctions.last_mut() {
                     *j = DomainJunction::Prime3;
                 }
@@ -1699,10 +2311,9 @@ impl Controller {
                 prim5_domains.push(domain.clone());
                 prime5_junctions.push(strand.junctions[d_id].clone());
             }
-            prev_helix = domain.helix();
+            prev_helix = domain.half_helix();
         }
 
-        let mut prim3_domains = Vec::new();
         if let Some(ref domains) = domains {
             prim5_domains.push(domains.0.clone());
             prim3_domains.push(domains.1.clone());
@@ -1738,7 +2349,7 @@ impl Controller {
             junctions: prime5_junctions,
             cyclic: false,
             sequence: seq_prim5,
-            name: None,
+            name: name.clone(),
         };
 
         let strand_3prime = Strand {
@@ -1747,9 +2358,9 @@ impl Controller {
             cyclic: false,
             junctions: prime3_junctions,
             sequence: seq_prim3,
-            name: None,
+            name,
         };
-        let new_id = (*design.strands.keys().max().unwrap_or(&0)).max(id) + 1;
+        let new_id = (*strands.keys().max().unwrap_or(&0)).max(id) + 1;
         log::info!("new id {}, ; id {}", new_id, id);
         let (id_5prime, id_3prime) = if !on_3prime {
             (id, new_id)
@@ -1757,10 +2368,10 @@ impl Controller {
             (new_id, id)
         };
         if strand_5prime.domains.len() > 0 {
-            design.strands.insert(id_5prime, strand_5prime);
+            strands.insert(id_5prime, strand_5prime);
         }
         if strand_3prime.domains.len() > 0 {
-            design.strands.insert(id_3prime, strand_3prime);
+            strands.insert(id_3prime, strand_3prime);
         }
         //self.make_hash_maps();
 
@@ -1837,25 +2448,31 @@ impl Controller {
     fn add_grid_helix(
         &mut self,
         mut design: Design,
-        position: GridPosition,
+        position: HelixGridPosition,
         start: isize,
         length: usize,
     ) -> Result<Design, ErrOperation> {
-        let grid_manager = GridManager::new_from_design(&design);
-        if grid_manager
-            .pos_to_helix(position.grid, position.x, position.y)
-            .is_some()
-        {
+        let grid_manager = design.get_updated_grid_data();
+        if grid_manager.pos_to_object(position.light()).is_some() {
             return Err(ErrOperation::GridPositionAlreadyUsed);
         }
-        let grid = grid_manager
-            .grids
-            .get(position.grid)
-            .ok_or(ErrOperation::GridDoesNotExist(position.grid))?;
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
-        let helix = Helix::new_on_grid(grid, position.x, position.y, position.grid);
-        let helix_id = new_helices.keys().last().unwrap_or(&0) + 1;
-        new_helices.insert(helix_id, Arc::new(helix));
+        let helix = if let GridId::BezierPathGrid(BezierVertexId { path_id, .. }) = position.grid {
+            Helix::new_on_bezier_path(grid_manager, position, path_id)
+        } else {
+            let grid = grid_manager
+                .grids
+                .get(&position.grid)
+                .ok_or(ErrOperation::GridDoesNotExist(position.grid))?;
+            Ok(Helix::new_on_grid(
+                grid,
+                position.x,
+                position.y,
+                position.grid,
+            ))
+        }?;
+        let mut new_helices = design.helices.make_mut();
+        let helix_id = new_helices.push_helix(helix);
+        drop(new_helices);
         if length > 0 {
             for b in [false, true].iter() {
                 let new_key = self.add_strand(&mut design, helix_id, start, *b);
@@ -1866,27 +2483,107 @@ impl Controller {
                 }
             }
         }
-        design.helices = Arc::new(new_helices);
         Ok(design)
+    }
+
+    fn add_two_points_bezier(
+        &mut self,
+        mut design: Design,
+        start: HelixGridPosition,
+        end: HelixGridPosition,
+    ) -> Result<Design, ErrOperation> {
+        log::info!("Add {:?} {:?}", start, end);
+        let grid_manager = design.get_updated_grid_data();
+        if let Some(obj) = grid_manager.pos_to_object(start.light()) {
+            if grid_manager.pos_to_object(end.light()).is_some() {
+                return Err(ErrOperation::GridPositionAlreadyUsed);
+            }
+            let (_, tengent) = grid_manager
+                .get_tengents_between_two_points(start.light(), end.light())
+                .ok_or(ErrOperation::GridDoesNotExist(end.grid))?;
+            return self.add_bezier_point(design, obj, end.light(), tengent, true);
+        } else if let Some(obj) = grid_manager.pos_to_object(end.light()) {
+            let (tengent, _) = grid_manager
+                .get_tengents_between_two_points(start.light(), end.light())
+                .ok_or(ErrOperation::GridDoesNotExist(end.grid))?;
+            return self.add_bezier_point(design, obj, start.light(), tengent, false);
+        }
+        drop(grid_manager);
+        let helix = Helix::new_bezier_two_points(&grid_manager, start, end)?;
+        let mut new_helices = design.helices.make_mut();
+
+        let length = helix.nb_bezier_nucls();
+        let helix_id = new_helices.push_helix(helix);
+        drop(new_helices);
+        if length > 0 {
+            for b in [false, true].iter() {
+                let new_key = self.add_strand(&mut design, helix_id, 0, *b);
+                if let Domain::HelixDomain(ref mut dom) =
+                    design.strands.get_mut(&new_key).unwrap().domains[0]
+                {
+                    dom.end = dom.start + length as isize;
+                }
+            }
+        }
+        Ok(design)
+    }
+
+    fn add_bezier_point(
+        &self,
+        mut design: Design,
+        object: GridObject,
+        point: GridPosition,
+        _tengent: Vec3,
+        append: bool,
+    ) -> Result<Design, ErrOperation> {
+        match object {
+            GridObject::BezierPoint { helix_id, n } => {
+                let mut helices_mut = design.helices.make_mut();
+                let helix_ref = helices_mut
+                    .get_mut(&helix_id)
+                    .ok_or(ErrOperation::HelixDoesNotExists(helix_id))?;
+                let desc: Option<&mut CurveDescriptor> =
+                    if let Some(desc) = helix_ref.curve.as_mut() {
+                        Some(Arc::make_mut(desc))
+                    } else {
+                        None
+                    };
+                if let Some(CurveDescriptor::PiecewiseBezier { points, .. }) = desc {
+                    let insertion_point = if append { n + 1 } else { n };
+                    points.insert(
+                        insertion_point,
+                        BezierEnd {
+                            position: point,
+                            inward_coeff: 1.,
+                            outward_coeff: 1.,
+                        },
+                    );
+                    drop(helices_mut);
+                    Ok(design)
+                } else {
+                    Err(ErrOperation::NotPiecewiseBezier(helix_id))
+                }
+            }
+            GridObject::Helix(_) => Err(ErrOperation::GridPositionAlreadyUsed),
+        }
     }
 
     /// Merge two strands with identifier prime5 and prime3. The resulting strand will have
     /// identifier prime5.
     fn merge_strands(
-        design: &mut Design,
+        strands: &mut Strands,
         prime5: usize,
         prime3: usize,
     ) -> Result<(), ErrOperation> {
         // We panic, if we can't find the strand, because this means that the program has a bug
         if prime5 != prime3 {
-            let strand5prime = design
-                .strands
+            let strand5prime = strands
                 .remove(&prime5)
                 .ok_or(ErrOperation::StrandDoesNotExist(prime5))?;
-            let strand3prime = design
-                .strands
+            let strand3prime = strands
                 .remove(&prime3)
                 .ok_or(ErrOperation::StrandDoesNotExist(prime3))?;
+            let name = strand5prime.name.or(strand3prime.name);
             let len = strand5prime.domains.len() + strand3prime.domains.len();
             let mut domains = Vec::with_capacity(len);
             let mut junctions = Vec::with_capacity(len);
@@ -1894,15 +2591,41 @@ impl Controller {
                 domains.push(domain.clone());
                 junctions.push(strand5prime.junctions[i].clone());
             }
-            let skip;
+            let junction_between_merge = {
+                let last_interval_prime5 = strand5prime
+                    .domains
+                    .iter()
+                    .rev()
+                    .find(|d| matches!(d, Domain::HelixDomain(_)))
+                    .ok_or(ErrOperation::EmptyOrigin)?;
+                let first_interval_prime3 = strand5prime
+                    .domains
+                    .iter()
+                    .rev()
+                    .find(|d| matches!(d, Domain::HelixDomain(_)))
+                    .ok_or(ErrOperation::EmptyOrigin)?;
+                if last_interval_prime5.can_merge(first_interval_prime3) {
+                    DomainJunction::Adjacent
+                } else {
+                    DomainJunction::UnindentifiedXover
+                }
+            };
+            let skip_domain;
+            let skip_junction;
             let last_helix = domains.last().and_then(|d| d.half_helix());
             let next_helix = strand3prime
                 .domains
                 .iter()
                 .next()
                 .and_then(|d| d.half_helix());
-            if last_helix == next_helix && last_helix.is_some() {
-                skip = 1;
+            if last_helix == next_helix
+                && domains
+                    .last()
+                    .unwrap()
+                    .can_merge(strand3prime.domains.first().unwrap())
+            {
+                skip_domain = 1;
+                skip_junction = 0;
                 domains
                     .last_mut()
                     .as_mut()
@@ -1910,15 +2633,25 @@ impl Controller {
                     .merge(strand3prime.domains.iter().next().unwrap());
                 junctions.pop();
             } else {
-                skip = 0;
                 if let Some(j) = junctions.iter_mut().last() {
-                    *j = DomainJunction::UnindentifiedXover
+                    *j = junction_between_merge
+                }
+                if let Some(Domain::Insertion { .. }) = strand3prime.domains.first() {
+                    skip_domain = 1;
+                    skip_junction = 1;
+                    // the last domain is not an insertion in this case
+                    domains.push(strand3prime.domains.first().unwrap().clone());
+                    let insertion_idx = junctions.len() - 1;
+                    junctions.insert(insertion_idx, DomainJunction::Adjacent);
+                } else {
+                    skip_domain = 0;
+                    skip_junction = 0;
                 }
             }
-            for domain in strand3prime.domains.iter().skip(skip) {
+            for domain in strand3prime.domains.iter().skip(skip_domain) {
                 domains.push(domain.clone());
             }
-            for junction in strand3prime.junctions.iter() {
+            for junction in strand3prime.junctions.iter().skip(skip_junction) {
                 junctions.push(junction.clone());
             }
             let sequence = if let Some((seq5, seq3)) = strand5prime
@@ -1935,15 +2668,16 @@ impl Controller {
             } else {
                 None
             };
-            let new_strand = Strand {
+            let mut new_strand = Strand {
                 domains,
                 color: strand5prime.color,
                 sequence,
                 junctions,
                 cyclic: false,
-                name: None,
+                name,
             };
-            design.strands.insert(prime5, new_strand);
+            new_strand.merge_consecutive_domains();
+            strands.insert(prime5, new_strand);
             Ok(())
         } else {
             // To make a cyclic strand use `make_cyclic_strand` instead
@@ -1952,43 +2686,59 @@ impl Controller {
     }
 
     /// Make a strand cyclic by linking the 3' and the 5' end, or undo this operation.
-    fn make_cycle(design: &mut Design, strand_id: usize, cyclic: bool) -> Result<(), ErrOperation> {
-        design
-            .strands
+    fn make_cycle(
+        strands: &mut Strands,
+        strand_id: usize,
+        cyclic: bool,
+    ) -> Result<(), ErrOperation> {
+        strands
             .get_mut(&strand_id)
             .ok_or(ErrOperation::StrandDoesNotExist(strand_id))?
             .cyclic = cyclic;
 
-        let strand = design
-            .strands
+        let strand = strands
             .get_mut(&strand_id)
             .ok_or(ErrOperation::StrandDoesNotExist(strand_id))?;
         if cyclic {
             let first_last_domains = (strand.domains.iter().next(), strand.domains.iter().last());
-            let merge_insertions =
-                if let (Some(Domain::Insertion(n1)), Some(Domain::Insertion(n2))) =
-                    first_last_domains
-                {
-                    Some(n1 + n2)
-                } else {
-                    None
-                };
+            let (merge_insertions, replace) = if let (
+                Some(Domain::Insertion { nb_nucl: n1, .. }),
+                Some(Domain::Insertion { nb_nucl: n2, .. }),
+            ) = first_last_domains
+            {
+                (Some(n1 + n2), true)
+            } else if let Some(Domain::Insertion { nb_nucl: n1, .. }) = strand.domains.iter().next()
+            {
+                if cfg!(test) {
+                    println!("First domain is insertion");
+                }
+                (Some(*n1), false)
+            } else {
+                (None, false)
+            };
             if let Some(n) = merge_insertions {
                 // If the strand starts and finishes by an Insertion, merge the insertions.
                 // TODO UNITTEST for this specific case
-                *strand.domains.last_mut().unwrap() = Domain::Insertion(n);
+                if replace {
+                    *strand.domains.last_mut().unwrap() = Domain::new_insertion(n);
+                } else {
+                    strand.domains.push(Domain::new_insertion(n));
+                    strand
+                        .junctions
+                        .insert(strand.junctions.len() - 1, DomainJunction::Adjacent);
+                }
                 // remove the first insertions
                 strand.domains.remove(0);
                 strand.junctions.remove(0);
             }
 
             let first_last_domains = (strand.domains.iter().next(), strand.domains.iter().last());
-            let skip_last = if let (_, Some(Domain::Insertion(_))) = first_last_domains {
+            let skip_last = if let (_, Some(Domain::Insertion { .. })) = first_last_domains {
                 1
             } else {
                 0
             };
-            let skip_first = if let (Some(Domain::Insertion(_)), _) = first_last_domains {
+            let skip_first = if let (Some(Domain::Insertion { .. }), _) = first_last_domains {
                 1
             } else {
                 0
@@ -2008,6 +2758,7 @@ impl Controller {
         } else {
             *strand.junctions.last_mut().unwrap() = DomainJunction::Prime3;
         }
+        strand.merge_consecutive_domains();
         Ok(())
     }
 
@@ -2020,7 +2771,7 @@ impl Controller {
         target_3prime: bool,
     ) -> Result<Design, ErrOperation> {
         Self::cross_cut(
-            &mut design,
+            &mut design.strands,
             source_strand,
             target_strand,
             nucl,
@@ -2037,9 +2788,9 @@ impl Controller {
         prime3_id: usize,
     ) -> Result<Design, ErrOperation> {
         if prime5_id != prime3_id {
-            Self::merge_strands(&mut design, prime5_id, prime3_id)?;
+            Self::merge_strands(&mut design.strands, prime5_id, prime3_id)?;
         } else {
-            Self::make_cycle(&mut design, prime5_id, true)?;
+            Self::make_cycle(&mut design.strands, prime5_id, true)?;
         }
         self.state = ControllerState::Normal;
         Ok(design)
@@ -2048,59 +2799,54 @@ impl Controller {
     /// Cut the target strand at nucl and the make a cross over from the source strand to the part
     /// that contains nucl
     fn cross_cut(
-        design: &mut Design,
+        strands: &mut Strands,
         source_strand: usize,
         target_strand: usize,
         nucl: Nucl,
         target_3prime: bool,
     ) -> Result<(), ErrOperation> {
-        let new_id = design.strands.keys().max().map(|n| n + 1).unwrap_or(0);
-        let was_cyclic = design
-            .strands
+        let new_id = strands.keys().max().map(|n| n + 1).unwrap_or(0);
+        let was_cyclic = strands
             .get(&target_strand)
             .ok_or(ErrOperation::StrandDoesNotExist(target_strand))?
             .cyclic;
         //println!("half1 {}, ; half0 {}", new_id, target_strand);
-        Self::split_strand(design, &nucl, Some(target_3prime))?;
+        Self::split_strand(strands, &nucl, Some(target_3prime))?;
         //println!("splitted");
 
         if !was_cyclic && source_strand != target_strand {
             if target_3prime {
                 // swap the position of the two half of the target strands so that the merged part is the
                 // new id
-                let half0 = design
-                    .strands
+                let half0 = strands
                     .remove(&target_strand)
                     .ok_or(ErrOperation::StrandDoesNotExist(target_strand))?;
-                let half1 = design
-                    .strands
+                let half1 = strands
                     .remove(&new_id)
                     .ok_or(ErrOperation::StrandDoesNotExist(new_id))?;
-                design.strands.insert(new_id, half0);
-                design.strands.insert(target_strand, half1);
-                Self::merge_strands(design, source_strand, new_id)
+                strands.insert(new_id, half0);
+                strands.insert(target_strand, half1);
+                Self::merge_strands(strands, source_strand, new_id)
             } else {
                 // if the target strand is the 5' end of the merge, we give the new id to the source
                 // strand because it is the one that is lost in the merge.
-                let half0 = design
-                    .strands
+                let half0 = strands
                     .remove(&source_strand)
                     .ok_or(ErrOperation::StrandDoesNotExist(source_strand))?;
-                let half1 = design
-                    .strands
+                let half1 = strands
                     .remove(&new_id)
                     .ok_or(ErrOperation::StrandDoesNotExist(new_id))?;
-                design.strands.insert(new_id, half0);
-                design.strands.insert(source_strand, half1);
-                Self::merge_strands(design, target_strand, new_id)
+                strands.insert(new_id, half0);
+                strands.insert(source_strand, half1);
+                Self::merge_strands(strands, target_strand, new_id)
             }
         } else if source_strand == target_strand {
-            Self::make_cycle(design, source_strand, true)
+            Self::make_cycle(strands, source_strand, true)
         } else {
             if target_3prime {
-                Self::merge_strands(design, source_strand, target_strand)
+                Self::merge_strands(strands, source_strand, target_strand)
             } else {
-                Self::merge_strands(design, target_strand, source_strand)
+                Self::merge_strands(strands, target_strand, source_strand)
             }
         }
     }
@@ -2111,40 +2857,110 @@ impl Controller {
         source_nucl: Nucl,
         target_nucl: Nucl,
     ) -> Result<Design, ErrOperation> {
-        self.general_cross_over(&mut design, source_nucl, target_nucl)?;
+        self.general_cross_over(&mut design.strands, source_nucl, target_nucl)?;
+        Ok(design)
+    }
+
+    fn check_xovers(
+        &mut self,
+        mut design: Design,
+        xovers: Vec<usize>,
+    ) -> Result<Design, ErrOperation> {
+        let xovers_set = &mut design.checked_xovers;
+        for x in xovers {
+            if !xovers_set.insert(x) {
+                xovers_set.remove(&x);
+            }
+        }
+        Ok(design)
+    }
+
+    fn twisted_pair(mut a1: Nucl, mut b1: Nucl, mut a2: Nucl, mut b2: Nucl) -> bool {
+        if a1 > b1 {
+            std::mem::swap(&mut a1, &mut b1);
+        }
+        if a2 > b2 {
+            std::mem::swap(&mut a2, &mut b2);
+        }
+
+        if a1.prime3() == a2 && b1.prime3() == b2 {
+            true
+        } else if a1.prime5() == a2 && b1.prime5() == b2 {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn apply_several_xovers(
+        &mut self,
+        mut design: Design,
+        mut pairs: Vec<(Nucl, Nucl)>,
+        doubled: bool,
+    ) -> Result<Design, ErrOperation> {
+        pairs.sort();
+
+        for i in 0..pairs.len() {
+            for j in i..pairs.len() {
+                if Self::twisted_pair(pairs[i].0, pairs[i].1, pairs[j].0, pairs[j].1) {
+                    let (l, r) = pairs.split_at_mut(j);
+                    std::mem::swap(&mut l[i].1, &mut r[0].1);
+                }
+            }
+        }
+
+        pairs = if doubled {
+            let mut ret = pairs.clone();
+            for (a, b) in pairs {
+                if !ret.iter().any(|(x, y)| {
+                    *x == a.prime5() || *x == b.prime5() || *y == a.prime5() || *y == b.prime5()
+                }) {
+                    ret.push((a.prime3(), b.prime5()));
+                }
+            }
+            ret.dedup();
+            ret
+        } else {
+            pairs
+        };
+        for (source_nucl, target_nucl) in pairs {
+            if let Err(e) = self.general_cross_over(&mut design.strands, source_nucl, target_nucl) {
+                log::error!(
+                    "when making xover {:?} {:?} : {:?}",
+                    source_nucl,
+                    target_nucl,
+                    e
+                )
+            }
+        }
         Ok(design)
     }
 
     fn general_cross_over(
         &mut self,
-        design: &mut Design,
+        strands: &mut Strands,
         source_nucl: Nucl,
         target_nucl: Nucl,
     ) -> Result<(), ErrOperation> {
-        if source_nucl.helix == target_nucl.helix {
-            return Err(ErrOperation::XoverOnSameHelix);
-        }
         log::info!("cross over between {:?} and {:?}", source_nucl, target_nucl);
-        let source_id = design
+        let source_id = strands
             .get_strand_nucl(&source_nucl)
             .ok_or(ErrOperation::NuclDoesNotExist(source_nucl))?;
-        let target_id = design
+        let target_id = strands
             .get_strand_nucl(&target_nucl)
             .ok_or(ErrOperation::NuclDoesNotExist(target_nucl))?;
 
-        let source = design
-            .strands
+        let source = strands
             .get(&source_id)
             .cloned()
             .ok_or(ErrOperation::StrandDoesNotExist(source_id))?;
-        let _ = design
-            .strands
+        let _ = strands
             .get(&target_id)
             .cloned()
             .ok_or(ErrOperation::StrandDoesNotExist(target_id))?;
 
-        let source_strand_end = design.is_strand_end(&source_nucl);
-        let target_strand_end = design.is_strand_end(&target_nucl);
+        let source_strand_end = strands.is_strand_end(&source_nucl);
+        let target_strand_end = strands.is_strand_end(&target_nucl);
         log::info!(
             "source strand {:?}, target strand {:?}",
             source_id,
@@ -2161,17 +2977,17 @@ impl Controller {
             (Some(true), Some(false)) => {
                 // We can xover directly
                 if source_id == target_id {
-                    Self::make_cycle(design, source_id, true)?
+                    Self::make_cycle(strands, source_id, true)?
                 } else {
-                    Self::merge_strands(design, source_id, target_id)?
+                    Self::merge_strands(strands, source_id, target_id)?
                 }
             }
             (Some(false), Some(true)) => {
                 // We can xover directly but we must reverse the xover
                 if source_id == target_id {
-                    Self::make_cycle(design, target_id, true)?
+                    Self::make_cycle(strands, target_id, true)?
                 } else {
-                    Self::merge_strands(design, target_id, source_id)?
+                    Self::merge_strands(strands, target_id, source_id)?
                 }
             }
             (Some(b), None) => {
@@ -2179,24 +2995,24 @@ impl Controller {
                 // different
                 let target_3prime = b;
                 if source_nucl.helix != target_nucl.helix {
-                    Self::cross_cut(design, source_id, target_id, target_nucl, target_3prime)?
+                    Self::cross_cut(strands, source_id, target_id, target_nucl, target_3prime)?
                 }
             }
             (None, Some(b)) => {
                 // We can cut cross directly but we need to reverse the xover
                 let target_3prime = b;
                 if source_nucl.helix != target_nucl.helix {
-                    Self::cross_cut(design, target_id, source_id, source_nucl, target_3prime)?
+                    Self::cross_cut(strands, target_id, source_id, source_nucl, target_3prime)?
                 }
             }
             (None, None) => {
                 if source_nucl.helix != target_nucl.helix {
                     if source_id != target_id {
-                        Self::split_strand(design, &source_nucl, None)?;
-                        Self::cross_cut(design, source_id, target_id, target_nucl, true)?;
+                        Self::split_strand(strands, &source_nucl, None)?;
+                        Self::cross_cut(strands, source_id, target_id, target_nucl, true)?;
                     } else if source.cyclic {
-                        Self::split_strand(design, &source_nucl, Some(false))?;
-                        Self::cross_cut(design, source_id, target_id, target_nucl, true)?;
+                        Self::split_strand(strands, &source_nucl, Some(false))?;
+                        Self::cross_cut(strands, source_id, target_id, target_nucl, true)?;
                     } else {
                         // if the two nucleotides are on the same strand care must be taken
                         // because one of them might be on the newly crated strand after the
@@ -2210,11 +3026,11 @@ impl Controller {
                         if pos1 > pos2 {
                             // the source nucl will be on the 5' end of the split and the
                             // target nucl as well
-                            Self::split_strand(design, &source_nucl, Some(false))?;
-                            Self::cross_cut(design, source_id, target_id, target_nucl, true)?;
+                            Self::split_strand(strands, &source_nucl, Some(false))?;
+                            Self::cross_cut(strands, source_id, target_id, target_nucl, true)?;
                         } else {
-                            let new_id = Self::split_strand(design, &source_nucl, Some(false))?;
-                            Self::cross_cut(design, source_id, new_id, target_nucl, true)?;
+                            let new_id = Self::split_strand(strands, &source_nucl, Some(false))?;
+                            Self::cross_cut(strands, source_id, new_id, target_nucl, true)?;
                         }
                     }
                 }
@@ -2239,27 +3055,124 @@ impl Controller {
         mut design: Design,
         helices_id: Vec<usize>,
     ) -> Result<Design, ErrOperation> {
-        let mut new_helices = BTreeMap::clone(design.helices.as_ref());
         for h_id in helices_id.iter() {
-            if design.uses_helix(*h_id) {
+            if design.strands.uses_helix(*h_id) {
                 return Err(ErrOperation::HelixNotEmpty(*h_id));
             } else {
-                new_helices.remove(h_id);
+                design.helices.make_mut().remove(h_id);
             }
         }
-        design.helices = Arc::new(new_helices);
         Ok(design)
+    }
+
+    fn delete_free_grids(
+        &mut self,
+        mut design: Design,
+        grid_ids: Vec<usize>,
+    ) -> Result<Design, ErrOperation> {
+        let data = design.get_updated_grid_data();
+        let empty_grids = data.get_empty_grids_id();
+
+        let mut free_grids_mut = design.free_grids.make_mut();
+        for id in grid_ids.into_iter() {
+            let g_id = GridId::FreeGrid(id);
+            if !empty_grids.contains(&g_id) {
+                return Err(ErrOperation::GridIsNotEmpty(g_id));
+            } else {
+                free_grids_mut
+                    .remove(&g_id)
+                    .ok_or(ErrOperation::GridDoesNotExist(g_id))?;
+            }
+        }
+
+        drop(free_grids_mut);
+        Ok(design)
+    }
+
+    fn set_grid_position(
+        &mut self,
+        mut design: Design,
+        grid_id: GridId,
+        position: Vec3,
+    ) -> Result<Design, ErrOperation> {
+        if let GridId::FreeGrid(id) = grid_id {
+            let mut new_grids = design.free_grids.make_mut();
+            let grid = new_grids
+                .get_mut(&ensnano_design::grid::FreeGridId(id))
+                .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+            grid.position = position;
+            drop(new_grids);
+            Ok(design)
+        } else {
+            log::error!("Setting position of bezier path grids is not yet implemented");
+            Err(ErrOperation::NotImplemented)
+        }
+    }
+
+    fn set_grid_orientation(
+        &mut self,
+        mut design: Design,
+        grid_id: GridId,
+        orientation: Rotor3,
+    ) -> Result<Design, ErrOperation> {
+        if let GridId::FreeGrid(id) = grid_id {
+            let mut new_grids = design.free_grids.make_mut();
+            let grid = new_grids
+                .get_mut(&ensnano_design::grid::FreeGridId(id))
+                .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+            grid.orientation = orientation;
+            drop(new_grids);
+            Ok(design)
+        } else {
+            log::error!("Setting orientation of bezier path grids is not yet implemented");
+            Err(ErrOperation::NotImplemented)
+        }
+    }
+
+    fn set_grid_nb_turn(
+        &mut self,
+        mut design: Design,
+        grid_id: GridId,
+        x: f64,
+    ) -> Result<Design, ErrOperation> {
+        if let GridId::FreeGrid(id) = grid_id {
+            let mut new_grids = design.free_grids.make_mut();
+            let grid = new_grids
+                .get_mut(&ensnano_design::grid::FreeGridId(id))
+                .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
+            if let GridTypeDescr::Hyperboloid {
+                nb_turn_per_100_nt, ..
+            } = &mut grid.grid_type
+            {
+                *nb_turn_per_100_nt = x;
+            } else {
+                return Err(ErrOperation::GridIsNotHyperboloid(grid_id));
+            }
+            drop(new_grids);
+            Ok(design)
+        } else {
+            log::error!("Setting nb turn of bezier path grids is not yet implemented");
+            Err(ErrOperation::NotImplemented)
+        }
     }
 }
 
-fn nucl_pos_2d(design: &Design, nucl: &Nucl) -> Option<Vec2> {
+fn nucl_pos_2d(helices: &Helices, nucl: &Nucl, segment: usize) -> Option<Vec2> {
+    let isometry = helices.get(&nucl.helix).and_then(|h| {
+        if segment > 0 {
+            h.additonal_isometries
+                .get(segment - 1)
+                .and_then(|i| (i.additional_isometry.or(h.isometry2d)))
+        } else {
+            h.isometry2d
+        }
+    });
     let local_position = nucl.position as f32 * Vec2::unit_x()
         + if nucl.forward {
             Vec2::zero()
         } else {
             Vec2::unit_y()
         };
-    let isometry = design.helices.get(&nucl.helix).and_then(|h| h.isometry2d);
 
     isometry.map(|i| i.into_homogeneous_matrix().transform_point2(local_position))
 }
@@ -2276,25 +3189,44 @@ enum ControllerState {
         builders: Vec<StrandBuilder>,
         initial_design: AddressPointer<Design>,
         initializing: bool,
+        ignored_domains: Vec<DomainIdentifier>,
     },
     ChangingColor,
     SettingRollHelices,
-    WithPendingOp(Arc<dyn Operation>),
+    WithPendingOp {
+        operation: Arc<dyn Operation>,
+        design: AddressPointer<Design>,
+    },
     ApplyingOperation {
         design: AddressPointer<Design>,
         operation: Option<Arc<dyn Operation>>,
     },
-    PositioningPastingPoint {
+    PositioningStrandPastingPoint {
         pasting_point: Option<Nucl>,
         pasted_strands: Vec<PastedStrand>,
     },
-    PositioningDuplicationPoint {
+    PositioningStrandDuplicationPoint {
         pasting_point: Option<Nucl>,
         pasted_strands: Vec<PastedStrand>,
         duplication_edge: Option<(Edge, isize)>,
         clipboard: StrandClipboard,
     },
-    WithPendingDuplication {
+    PositioningHelicesPastingPoint {
+        pasting_point: Option<GridPosition>,
+        initial_design: AddressPointer<Design>,
+    },
+    PositioningHelicesDuplicationPoint {
+        pasting_point: Option<GridPosition>,
+        initial_design: AddressPointer<Design>,
+        duplication_edge: Option<Edge>,
+        helices: Vec<usize>,
+    },
+    WithPendingHelicesDuplication {
+        last_pasting_point: GridPosition,
+        duplication_edge: Edge,
+        helices: Vec<usize>,
+    },
+    WithPendingStrandDuplication {
         last_pasting_point: Nucl,
         duplication_edge: (Edge, isize),
         clipboard: StrandClipboard,
@@ -2321,14 +3253,19 @@ enum ControllerState {
     },
     SimulatingGrids {
         interface: Arc<Mutex<GridSystemInterface>>,
-        initial_design: AddressPointer<Design>,
+        _initial_design: AddressPointer<Design>,
     },
     WithPausedSimulation {
         initial_design: AddressPointer<Design>,
     },
     Rolling {
-        interface: Arc<Mutex<RollInterface>>,
-        initial_design: AddressPointer<Design>,
+        _interface: Arc<Mutex<RollInterface>>,
+        _initial_design: AddressPointer<Design>,
+    },
+    Twisting {
+        _interface: Arc<Mutex<TwistInterface>>,
+        _initial_design: AddressPointer<Design>,
+        grid_id: GridId,
     },
     ChangingStrandName {
         strand_id: usize,
@@ -2349,11 +3286,11 @@ impl ControllerState {
             Self::MakingHyperboloid { .. } => "MakingHyperboloid",
             Self::BuildingStrand { .. } => "BuildingStrand",
             Self::ChangingColor => "ChangingColor",
-            Self::WithPendingOp(_) => "WithPendingOp",
+            Self::WithPendingOp { .. } => "WithPendingOp",
             Self::ApplyingOperation { .. } => "ApplyingOperation",
-            Self::PositioningPastingPoint { .. } => "PositioningPastingPoint",
-            Self::PositioningDuplicationPoint { .. } => "PositioningDuplicationPoint",
-            Self::WithPendingDuplication { .. } => "WithPendingDuplication",
+            Self::PositioningStrandPastingPoint { .. } => "PositioningStrandPastingPoint",
+            Self::PositioningStrandDuplicationPoint { .. } => "PositioningStrandDuplicationPoint",
+            Self::WithPendingStrandDuplication { .. } => "WithPendingDuplication",
             Self::WithPendingXoverDuplication { .. } => "WithPendingXoverDuplication",
             Self::PastingXovers { .. } => "PastingXovers",
             Self::DoingFirstXoversDuplication { .. } => "DoingFirstXoversDuplication",
@@ -2364,28 +3301,73 @@ impl ControllerState {
             Self::Rolling { .. } => "Rolling",
             Self::SettingRollHelices => "SettingRollHelices",
             Self::ChangingStrandName { .. } => "ChangingStrandName",
+            Self::Twisting { .. } => "Twisting",
+            Self::PositioningHelicesPastingPoint { .. } => "Positioning strand pasting point",
+            Self::WithPendingHelicesDuplication { .. } => "With pending helices duplication",
+            Self::PositioningHelicesDuplicationPoint { .. } => {
+                "Positioning helices duplication point"
+            }
         }
     }
     fn update_pasting_position(
         &mut self,
-        point: Option<Nucl>,
+        point: Option<PastePosition>,
         strands: Vec<PastedStrand>,
         duplication_edge: Option<(Edge, isize)>,
     ) -> Result<(), ErrOperation> {
         match self {
-            Self::PositioningPastingPoint { .. } | Self::Normal | Self::WithPendingOp(_) => {
-                *self = Self::PositioningPastingPoint {
-                    pasting_point: point,
+            Self::PositioningStrandPastingPoint { .. }
+            | Self::Normal
+            | Self::WithPendingHelicesDuplication { .. }
+            | Self::WithPendingXoverDuplication { .. }
+            | Self::WithPendingOp { .. } => {
+                *self = Self::PositioningStrandPastingPoint {
+                    pasting_point: point.and_then(PastePosition::to_nucl),
                     pasted_strands: strands,
                 };
                 Ok(())
             }
-            Self::PositioningDuplicationPoint { clipboard, .. } => {
-                *self = Self::PositioningDuplicationPoint {
-                    pasting_point: point,
+            Self::PositioningStrandDuplicationPoint { clipboard, .. } => {
+                *self = Self::PositioningStrandDuplicationPoint {
+                    pasting_point: point.and_then(PastePosition::to_nucl),
                     pasted_strands: strands,
                     duplication_edge,
                     clipboard: clipboard.clone(),
+                };
+                Ok(())
+            }
+            _ => Err(ErrOperation::IncompatibleState),
+        }
+    }
+
+    fn update_helices_pasting_position(
+        &mut self,
+        position: Option<PastePosition>,
+        edge: Option<Edge>,
+        design: &Design,
+    ) -> Result<(), ErrOperation> {
+        match self {
+            Self::PositioningHelicesPastingPoint { pasting_point, .. } => {
+                *pasting_point = position.and_then(PastePosition::to_grid_position);
+                Ok(())
+            }
+            Self::PositioningHelicesDuplicationPoint {
+                pasting_point,
+                duplication_edge,
+                ..
+            } => {
+                *pasting_point = position.and_then(PastePosition::to_grid_position);
+                *duplication_edge = edge;
+                Ok(())
+            }
+            Self::Normal
+            | Self::WithPendingOp { .. }
+            | Self::WithPendingStrandDuplication { .. }
+            | Self::WithPendingXoverDuplication { .. }
+            | Self::WithPendingHelicesDuplication { .. } => {
+                *self = Self::PositioningHelicesPastingPoint {
+                    pasting_point: position.and_then(PastePosition::to_grid_position),
+                    initial_design: AddressPointer::new(design.clone()),
                 };
                 Ok(())
             }
@@ -2413,7 +3395,10 @@ impl ControllerState {
                 *duplication_edge = edge;
                 Ok(())
             }
-            Self::Normal | Self::WithPendingOp(_) | Self::WithPendingDuplication { .. } => {
+            Self::Normal
+            | Self::WithPendingOp { .. }
+            | Self::WithPendingHelicesDuplication { .. }
+            | Self::WithPendingStrandDuplication { .. } => {
                 *self = Self::PastingXovers {
                     pasting_point: point,
                     initial_design: AddressPointer::new(design.clone()),
@@ -2427,51 +3412,54 @@ impl ControllerState {
     fn update_operation(&mut self, op: Arc<dyn Operation>) {
         match self {
             Self::ApplyingOperation { operation, .. } => *operation = Some(op),
-            Self::WithPendingOp(old_op) => *old_op = op,
+            Self::WithPendingOp { operation, .. } => *operation = op,
             _ => (),
         }
     }
 
-    fn get_operation(&self) -> Option<Arc<dyn Operation>> {
-        match self {
-            Self::ApplyingOperation { operation, .. } => operation.clone(),
-            Self::WithPendingOp(op) => Some(op.clone()),
-            _ => None,
-        }
-    }
-
     fn finish(&self) -> Self {
-        if let Some(op) = self.get_operation() {
-            Self::WithPendingOp(op)
-        } else {
-            match self {
-                Self::Normal => Self::Normal,
-                Self::MakingHyperboloid { .. } => self.clone(),
-                Self::BuildingStrand { .. } => Self::Normal,
-                Self::ChangingColor => Self::Normal,
-                Self::WithPendingOp(_) => Self::Normal,
-                Self::ApplyingOperation { .. } => Self::Normal,
-                Self::PositioningPastingPoint { .. } => self.clone(),
-                Self::PositioningDuplicationPoint { .. } => self.clone(),
-                Self::WithPendingDuplication { .. } => self.clone(),
-                Self::WithPendingXoverDuplication { .. } => self.clone(),
-                Self::PastingXovers { .. } => self.clone(),
-                Self::DoingFirstXoversDuplication { .. } => self.clone(),
-                Self::OptimizingScaffoldPosition => self.clone(),
-                Self::Simulating { .. } => self.clone(),
-                Self::SimulatingGrids { .. } => self.clone(),
-                Self::WithPausedSimulation { .. } => self.clone(),
-                Self::Rolling { .. } => Self::Normal,
-                Self::SettingRollHelices => Self::Normal,
-                Self::ChangingStrandName { .. } => Self::Normal,
-            }
+        match self {
+            Self::Normal => Self::Normal,
+            Self::MakingHyperboloid { .. } => self.clone(),
+            Self::BuildingStrand { .. } => Self::Normal,
+            Self::ChangingColor => Self::Normal,
+            Self::WithPendingOp { .. } => self.clone(),
+            Self::ApplyingOperation {
+                operation: Some(op),
+                design,
+            } => Self::WithPendingOp {
+                operation: op.clone(),
+                design: design.clone(),
+            },
+            Self::ApplyingOperation { .. } => Self::Normal,
+            Self::PositioningStrandPastingPoint { .. } => self.clone(),
+            Self::PositioningStrandDuplicationPoint { .. } => self.clone(),
+            Self::WithPendingStrandDuplication { .. } => self.clone(),
+            Self::WithPendingXoverDuplication { .. } => self.clone(),
+            Self::PastingXovers { .. } => self.clone(),
+            Self::DoingFirstXoversDuplication { .. } => self.clone(),
+            Self::OptimizingScaffoldPosition => self.clone(),
+            Self::Simulating { .. } => self.clone(),
+            Self::SimulatingGrids { .. } => self.clone(),
+            Self::WithPausedSimulation { .. } => Self::Normal,
+            Self::Rolling { .. } => Self::Normal,
+            Self::SettingRollHelices => Self::Normal,
+            Self::Twisting { .. } => Self::Normal,
+            Self::ChangingStrandName { .. } => Self::Normal,
+            Self::PositioningHelicesPastingPoint { .. } => self.clone(),
+            Self::PositioningHelicesDuplicationPoint { .. } => self.clone(),
+            Self::WithPendingHelicesDuplication { .. } => self.clone(),
         }
     }
 
     fn acknowledge_new_selection(&self) -> Self {
-        if let Self::WithPendingDuplication { .. } = self {
+        if let Self::WithPendingStrandDuplication { .. } = self {
             Self::Normal
         } else if let Self::WithPendingXoverDuplication { .. } = self {
+            Self::Normal
+        } else if let Self::WithPendingHelicesDuplication { .. } = self {
+            Self::Normal
+        } else if let Self::WithPendingHelicesDuplication { .. } = self {
             Self::Normal
         } else {
             self.clone()
@@ -2481,7 +3469,8 @@ impl ControllerState {
     /// Return true if the operation is undoable only when going from this state to normal
     fn is_undoable_once(&self) -> bool {
         match self {
-            Self::PositioningDuplicationPoint { .. } | Self::PositioningPastingPoint { .. } => true,
+            Self::PositioningStrandDuplicationPoint { .. }
+            | Self::PositioningStrandPastingPoint { .. } => true,
             _ => false,
         }
     }

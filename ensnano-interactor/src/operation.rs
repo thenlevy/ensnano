@@ -16,12 +16,11 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use super::{DesignOperation, DesignRotation, DesignTranslation, IsometryTarget};
-use ensnano_design::{
-    grid::{GridDescriptor, GridTypeDescr},
-    Nucl,
-};
-use ultraviolet::{Bivec3, Rotor3, Vec3};
+use crate::BezierControlPoint;
+
+use super::{DesignOperation, DesignRotation, DesignTranslation, GroupId, IsometryTarget};
+use ensnano_design::{grid::*, BezierPathId, BezierPlaneId, Nucl};
+use ultraviolet::{Bivec3, Rotor3, Vec2, Vec3};
 
 pub enum ParameterField {
     Choice(Vec<String>),
@@ -46,18 +45,6 @@ pub trait Operation: std::fmt::Debug + Sync + Send {
         None
     }
 
-    fn must_reverse(&self) -> bool {
-        true
-    }
-
-    fn drop_undo(&self) -> bool {
-        false
-    }
-
-    fn redoable(&self) -> bool {
-        true
-    }
-
     /// The set of parameters that can be modified via a GUI component
     fn parameters(&self) -> Vec<Parameter> {
         vec![]
@@ -66,15 +53,22 @@ pub trait Operation: std::fmt::Debug + Sync + Send {
     fn values(&self) -> Vec<String> {
         vec![]
     }
+
+    /// If true, this new operation is applied to the last initial state instead
+    fn replace_previous(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct GridRotation {
     pub origin: Vec3,
     pub design_id: usize,
-    pub grid_ids: Vec<usize>,
+    pub grid_ids: Vec<GridId>,
     pub angle: f32,
     pub plane: Bivec3,
+    pub group_id: Option<GroupId>,
+    pub replace: bool,
 }
 
 impl Operation for GridRotation {
@@ -95,6 +89,7 @@ impl Operation for GridRotation {
             rotation: rotor,
             origin: self.origin,
             target: IsometryTarget::Grids(self.grid_ids.clone()),
+            group_id: self.group_id,
         })
     }
 
@@ -110,11 +105,16 @@ impl Operation for GridRotation {
             let degrees: f32 = val.parse().ok()?;
             Some(Arc::new(Self {
                 angle: degrees.to_radians(),
+                replace: true,
                 ..self.clone()
             }))
         } else {
             None
         }
+    }
+
+    fn replace_previous(&self) -> bool {
+        self.replace
     }
 }
 
@@ -125,6 +125,8 @@ pub struct HelixRotation {
     pub helices: Vec<usize>,
     pub angle: f32,
     pub plane: Bivec3,
+    pub group_id: Option<GroupId>,
+    pub replace: bool,
 }
 
 impl Operation for HelixRotation {
@@ -145,6 +147,7 @@ impl Operation for HelixRotation {
             rotation: rotor,
             origin: self.origin,
             target: IsometryTarget::Helices(self.helices.clone(), false),
+            group_id: self.group_id,
         })
     }
 
@@ -160,11 +163,16 @@ impl Operation for HelixRotation {
             let degrees: f32 = val.parse().ok()?;
             Some(Arc::new(Self {
                 angle: degrees.to_radians(),
+                replace: true,
                 ..self.clone()
             }))
         } else {
             None
         }
+    }
+
+    fn replace_previous(&self) -> bool {
+        self.replace
     }
 }
 
@@ -194,6 +202,7 @@ impl Operation for DesignViewRotation {
             rotation: rotor,
             origin: self.origin,
             target: IsometryTarget::Design,
+            group_id: None,
         })
     }
 
@@ -252,6 +261,7 @@ impl Operation for DesignViewTranslation {
         DesignOperation::Translation(DesignTranslation {
             translation,
             target: IsometryTarget::Design,
+            group_id: None,
         })
     }
 
@@ -279,6 +289,131 @@ impl Operation for DesignViewTranslation {
 }
 
 #[derive(Debug, Clone)]
+pub struct BezierControlPointTranslation {
+    pub design_id: usize,
+    pub control_points: Vec<(usize, BezierControlPoint)>,
+    pub right: Vec3,
+    pub top: Vec3,
+    pub dir: Vec3,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub snap: bool,
+    pub group_id: Option<GroupId>,
+}
+
+impl Operation for BezierControlPointTranslation {
+    fn parameters(&self) -> Vec<Parameter> {
+        vec![
+            Parameter {
+                field: ParameterField::Value,
+                name: String::from("x"),
+            },
+            Parameter {
+                field: ParameterField::Value,
+                name: String::from("y"),
+            },
+            Parameter {
+                field: ParameterField::Value,
+                name: String::from("z"),
+            },
+        ]
+    }
+
+    fn values(&self) -> Vec<String> {
+        vec![self.x.to_string(), self.y.to_string(), self.z.to_string()]
+    }
+
+    fn effect(&self) -> DesignOperation {
+        let translation = self.x * self.right + self.y * self.top + self.z * self.dir;
+        DesignOperation::Translation(DesignTranslation {
+            translation,
+            target: IsometryTarget::ControlPoint(self.control_points.clone()),
+            group_id: self.group_id,
+        })
+    }
+
+    fn description(&self) -> String {
+        format!("Translate control points {:?}", self.control_points,)
+    }
+
+    fn with_new_value(&self, n: usize, val: String) -> Option<Arc<dyn Operation>> {
+        match n {
+            0 => {
+                let new_x: f32 = val.parse().ok()?;
+                Some(Arc::new(Self {
+                    x: new_x,
+                    ..self.clone()
+                }))
+            }
+            1 => {
+                let new_y: f32 = val.parse().ok()?;
+                Some(Arc::new(Self {
+                    y: new_y,
+                    ..self.clone()
+                }))
+            }
+            2 => {
+                let new_z: f32 = val.parse().ok()?;
+                Some(Arc::new(Self {
+                    z: new_z,
+                    ..self.clone()
+                }))
+            }
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TranslateBezierPathVertex {
+    pub design_id: usize,
+    pub path_id: BezierPathId,
+    pub vertex_id: usize,
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Operation for TranslateBezierPathVertex {
+    fn description(&self) -> String {
+        String::from("Positioning BezierPath Vertex")
+    }
+
+    fn effect(&self) -> DesignOperation {
+        DesignOperation::MoveBezierVertex {
+            path_id: self.path_id,
+            vertex_id: self.vertex_id,
+            position: Vec2::new(self.x, self.y),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TranslateBezierSheetCorner {
+    pub plane_id: BezierPlaneId,
+    pub fixed_corner: Vec2,
+    pub origin_moving_corner: Vec2,
+    pub moving_corner: Vec2,
+}
+
+impl Operation for TranslateBezierSheetCorner {
+    fn description(&self) -> String {
+        String::from("Translating BezierSheet Corner")
+    }
+
+    fn effect(&self) -> DesignOperation {
+        DesignOperation::ApplyHomothethyOnBezierPlane {
+            homothethy: crate::BezierPlaneHomothethy {
+                plane_id: self.plane_id,
+                fixed_corner: self.fixed_corner,
+                origin_moving_corner: self.origin_moving_corner,
+                moving_corner: self.moving_corner,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct HelixTranslation {
     pub design_id: usize,
     pub helices: Vec<usize>,
@@ -289,6 +424,8 @@ pub struct HelixTranslation {
     pub y: f32,
     pub z: f32,
     pub snap: bool,
+    pub group_id: Option<GroupId>,
+    pub replace: bool,
 }
 
 impl Operation for HelixTranslation {
@@ -318,6 +455,7 @@ impl Operation for HelixTranslation {
         DesignOperation::Translation(DesignTranslation {
             translation,
             target: IsometryTarget::Helices(self.helices.clone(), self.snap),
+            group_id: self.group_id,
         })
     }
 
@@ -334,6 +472,7 @@ impl Operation for HelixTranslation {
                 let new_x: f32 = val.parse().ok()?;
                 Some(Arc::new(Self {
                     x: new_x,
+                    replace: true,
                     ..self.clone()
                 }))
             }
@@ -341,6 +480,7 @@ impl Operation for HelixTranslation {
                 let new_y: f32 = val.parse().ok()?;
                 Some(Arc::new(Self {
                     y: new_y,
+                    replace: true,
                     ..self.clone()
                 }))
             }
@@ -348,6 +488,7 @@ impl Operation for HelixTranslation {
                 let new_z: f32 = val.parse().ok()?;
                 Some(Arc::new(Self {
                     z: new_z,
+                    replace: true,
                     ..self.clone()
                 }))
             }
@@ -355,21 +496,23 @@ impl Operation for HelixTranslation {
         }
     }
 
-    fn must_reverse(&self) -> bool {
-        false
+    fn replace_previous(&self) -> bool {
+        self.replace
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct GridTranslation {
     pub design_id: usize,
-    pub grid_ids: Vec<usize>,
+    pub grid_ids: Vec<GridId>,
     pub right: Vec3,
     pub top: Vec3,
     pub dir: Vec3,
     pub x: f32,
     pub y: f32,
     pub z: f32,
+    pub group_id: Option<GroupId>,
+    pub replace: bool,
 }
 
 impl Operation for GridTranslation {
@@ -399,6 +542,7 @@ impl Operation for GridTranslation {
         DesignOperation::Translation(DesignTranslation {
             translation,
             target: IsometryTarget::Grids(self.grid_ids.clone()),
+            group_id: self.group_id,
         })
     }
 
@@ -415,6 +559,7 @@ impl Operation for GridTranslation {
                 let new_x: f32 = val.parse().ok()?;
                 Some(Arc::new(Self {
                     x: new_x,
+                    replace: true,
                     ..self.clone()
                 }))
             }
@@ -422,6 +567,7 @@ impl Operation for GridTranslation {
                 let new_y: f32 = val.parse().ok()?;
                 Some(Arc::new(Self {
                     y: new_y,
+                    replace: true,
                     ..self.clone()
                 }))
             }
@@ -429,18 +575,23 @@ impl Operation for GridTranslation {
                 let new_z: f32 = val.parse().ok()?;
                 Some(Arc::new(Self {
                     z: new_z,
+                    replace: true,
                     ..self.clone()
                 }))
             }
             _ => None,
         }
     }
+
+    fn replace_previous(&self) -> bool {
+        self.replace
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct GridHelixCreation {
     pub design_id: usize,
-    pub grid_id: usize,
+    pub grid_id: GridId,
     pub x: isize,
     pub y: isize,
     pub position: isize,
@@ -454,7 +605,7 @@ impl Operation for GridHelixCreation {
 
     fn effect(&self) -> DesignOperation {
         DesignOperation::AddGridHelix {
-            position: ensnano_design::grid::GridPosition {
+            position: ensnano_design::grid::HelixGridPosition {
                 grid: self.grid_id,
                 x: self.x,
                 y: self.y,
@@ -468,7 +619,7 @@ impl Operation for GridHelixCreation {
 
     fn description(&self) -> String {
         format!(
-            "Create helix on grid {} of design {}",
+            "Create helix on grid {:?} of design {}",
             self.grid_id, self.design_id
         )
     }
@@ -646,6 +797,7 @@ impl Operation for CreateGrid {
             orientation: self.orientation,
             grid_type: self.grid_type,
             invisible: false,
+            bezier_vertex: None,
         })
     }
 
@@ -657,11 +809,11 @@ impl Operation for CreateGrid {
         match n {
             0 => match val.as_str() {
                 "Square" => Some(Arc::new(Self {
-                    grid_type: GridTypeDescr::Square,
+                    grid_type: GridTypeDescr::Square { twist: None },
                     ..*self
                 })),
                 "Honeycomb" => Some(Arc::new(Self {
-                    grid_type: GridTypeDescr::Honeycomb,
+                    grid_type: GridTypeDescr::Honeycomb { twist: None },
                     ..*self
                 })),
                 _ => None,

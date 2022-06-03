@@ -16,12 +16,22 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+macro_rules! log_err {
+    ($x:expr) => {
+        if $x.is_err() {
+            log::error!("Unexpected error")
+        }
+    };
+}
+
+use crate::app_state::design_interactor::presenter::NuclCollection;
+
 use super::*;
 use std::sync::mpsc;
 
 fn read_scaffold_seq(
     design: &Design,
-    identifier_nucl: &AHashMap<Nucl, u32>,
+    nucl_collection: &dyn NuclCollection,
     shift: usize,
 ) -> Result<BTreeMap<Nucl, char>, ErrOperation> {
     let nb_skip = if let Some(sequence) = design.scaffold_sequence.as_ref() {
@@ -53,15 +63,23 @@ fn read_scaffold_seq(
                     };
                     let basis = sequence.next();
                     let basis_compl = compl(basis);
-                    if let Some((basis, basis_compl)) = basis.zip(basis_compl) {
-                        basis_map.insert(nucl, basis);
-                        if identifier_nucl.contains_key(&nucl.compl()) {
-                            basis_map.insert(nucl.compl(), basis_compl);
+                    if let Some(virtual_compl) =
+                        Nucl::map_to_virtual_nucl(nucl.compl(), &design.helices)
+                    {
+                        if let Some((basis, basis_compl)) = basis.zip(basis_compl) {
+                            basis_map.insert(nucl, basis);
+                            if let Some(real_compl) =
+                                nucl_collection.virtual_to_real(&virtual_compl)
+                            {
+                                basis_map.insert(*real_compl, basis_compl);
+                            }
                         }
+                    } else {
+                        log::error!("Could not get virtual mapping of {:?}", nucl.compl());
                     }
                 }
-            } else if let Domain::Insertion(n) = domain {
-                for _ in 0..*n {
+            } else if let Domain::Insertion { nb_nucl, .. } = domain {
+                for _ in 0..*nb_nucl {
                     sequence.next();
                 }
             }
@@ -73,9 +91,9 @@ fn read_scaffold_seq(
 }
 
 /// Shift the scaffold at an optimized poisition and return the corresponding score
-pub fn optimize_shift(
+pub fn optimize_shift<Nc: NuclCollection>(
     design: Arc<Design>,
-    identifier_nucl: Arc<AHashMap<Nucl, u32>>,
+    nucl_collection: Arc<Nc>,
     chanel_reader: &mut dyn ShiftOptimizerReader,
 ) {
     let (progress_snd, progress_rcv) = std::sync::mpsc::channel();
@@ -84,17 +102,17 @@ pub fn optimize_shift(
     chanel_reader.attach_progress_chanel(progress_rcv);
     std::thread::spawn(move || {
         let result =
-            get_shift_optimization_result(design.as_ref(), progress_snd, identifier_nucl.as_ref());
-        result_snd.send(result).unwrap();
+            get_shift_optimization_result(design.as_ref(), progress_snd, nucl_collection.as_ref());
+        log_err!(result_snd.send(result));
     });
 }
 
 fn get_shift_optimization_result(
     design: &Design,
     progress_channel: std::sync::mpsc::Sender<f32>,
-    identifier_nucl: &AHashMap<Nucl, u32>,
+    nucl_collection: &dyn NuclCollection,
 ) -> ShiftOptimizationResult {
-    let mut best_score = 10000;
+    let mut best_score = usize::MAX;
     let mut best_shfit = 0;
     let mut best_result = String::new();
     let len = design
@@ -104,9 +122,9 @@ fn get_shift_optimization_result(
         .ok_or(ErrOperation::NoScaffoldSet)?;
     for shift in 0..len {
         if shift % 100 == 0 {
-            progress_channel.send(shift as f32 / len as f32).unwrap();
+            log_err!(progress_channel.send(shift as f32 / len as f32))
         }
-        let char_map = read_scaffold_seq(design, identifier_nucl, shift)?;
+        let char_map = read_scaffold_seq(design, nucl_collection, shift)?;
         let (score, result) = evaluate_shift(design, &char_map);
         if score < best_score {
             println!("shift {} score {}", shift, score);
@@ -202,6 +220,7 @@ fn evaluate_shift(design: &Design, basis_map: &BTreeMap<Nucl, char>) -> (usize, 
         }
         result
     };
+    log::debug!("ret {}, {}", ret, result);
     (ret, result)
 }
 

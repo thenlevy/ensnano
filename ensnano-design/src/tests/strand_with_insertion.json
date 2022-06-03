@@ -10,10 +10,10 @@
           }
         },
         {
-            "Insertion": 5
+            "Insertion": {"nb_nucl": 5}
         },
         {
-            "Insertion": 3
+            "Insertion": {"nb_nucl": 3}
         },
         {
           "HelixDomain": {
@@ -25,7 +25,7 @@
           }
         },
         {
-            "Insertion": 5
+            "Insertion": {"nb_nucl": 5}
         },
         {
           "HelixDomain": {

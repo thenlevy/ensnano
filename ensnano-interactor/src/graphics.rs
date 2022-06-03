@@ -17,9 +17,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use iced_winit::winit;
+use serde::{Deserialize, Serialize};
 use ultraviolet::Vec3;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
-#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+#[derive(Clone, Debug, PartialEq, Eq, Copy, Serialize, Deserialize)]
 pub enum RenderingMode {
     Normal,
     Cartoon,
@@ -33,7 +34,7 @@ impl Default for RenderingMode {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+#[derive(Clone, Debug, PartialEq, Eq, Copy, Serialize, Deserialize)]
 pub enum Background3D {
     Sky,
     White,
@@ -67,11 +68,17 @@ impl std::fmt::Display for RenderingMode {
     }
 }
 
+pub mod fog_kind {
+    pub const NO_FOG: u32 = 0;
+    pub const TRANSPARENT_FOG: u32 = 1;
+    pub const DARK_FOG: u32 = 2;
+}
+
 #[derive(Debug, Clone)]
 pub struct FogParameters {
     pub radius: f32,
     pub length: f32,
-    pub active: bool,
+    pub fog_kind: u32,
     pub from_camera: bool,
     pub alt_fog_center: Option<Vec3>,
 }
@@ -81,7 +88,7 @@ impl FogParameters {
         Self {
             radius: 10.,
             length: 10.,
-            active: false,
+            fog_kind: fog_kind::NO_FOG,
             from_camera: true,
             alt_fog_center: None,
         }
@@ -124,6 +131,8 @@ pub enum ElementType {
     Overlay(usize),
     /// An area that has not been attributed to an element
     Unattributed,
+    /// A stereographic version of the 3D view
+    StereographicScene,
 }
 
 impl ElementType {
@@ -136,8 +145,26 @@ impl ElementType {
 
     pub fn is_scene(&self) -> bool {
         match self {
-            ElementType::Scene | ElementType::FlatScene => true,
+            ElementType::StereographicScene | ElementType::Scene | ElementType::FlatScene => true,
             _ => false,
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct LoopoutNucl {
+    pub position: Vec3,
+    pub color: u32,
+    /// The identifier of the bond representing the whole loopout involving this nucleotide
+    pub repr_bond_identifier: u32,
+    pub basis: Option<char>,
+}
+
+#[derive(Clone, Debug)]
+pub struct LoopoutBond {
+    pub position_prime5: Vec3,
+    pub position_prime3: Vec3,
+    pub color: u32,
+    /// The identifier of the bond representing the whole loopout involving this bond
+    pub repr_bond_identifier: u32,
 }

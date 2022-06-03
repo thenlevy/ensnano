@@ -16,6 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::app_state::design_interactor::presenter::NuclCollection;
+
 use super::*;
 
 use ensnano_design::{grid::Grid, Parameters};
@@ -33,6 +35,19 @@ use ultraviolet::{Bivec3, Mat3};
 
 mod roller;
 pub use roller::{PhysicalSystem, RollInterface, RollPresenter};
+mod twister;
+pub use twister::{TwistInterface, TwistPresenter, Twister};
+
+const MAX_DERIVATIVE_NORM: f32 = 1e4;
+
+macro_rules! bound_derivative {
+    ($obj:ident) => {
+        if $obj.mag() > MAX_DERIVATIVE_NORM {
+            $obj.normalize();
+            $obj *= MAX_DERIVATIVE_NORM;
+        }
+    };
+}
 
 #[derive(Debug)]
 struct HelixSystem {
@@ -131,52 +146,63 @@ impl ExplicitODE<f32> for HelixSystem {
                 }
                 let omega = self.helices[i].inertia_inverse * angular_momentums[i]
                     / self.rigid_parameters.mass;
-                let d_rotation = 0.5
+                let mut d_rotation = 0.5
                     * Rotor3::from_quaternion_array([omega.x, omega.y, omega.z, 0f32])
                     * rotations[i];
+
+                bound_derivative!(d_rotation);
 
                 ret.push(d_rotation.s);
                 ret.push(d_rotation.bv.xy);
                 ret.push(d_rotation.bv.xz);
                 ret.push(d_rotation.bv.yz);
 
-                let d_linear_momentum = forces[i]
+                let mut d_linear_momentum = forces[i]
                     - linear_momentums[i] * self.rigid_parameters.k_friction
                         / (self.helices[i].height() * self.rigid_parameters.mass);
+
+                bound_derivative!(d_linear_momentum);
 
                 ret.push(d_linear_momentum.x);
                 ret.push(d_linear_momentum.y);
                 ret.push(d_linear_momentum.z);
 
-                let d_angular_momentum = torques[i]
+                let mut d_angular_momentum = torques[i]
                     - angular_momentums[i] * self.rigid_parameters.k_friction
                         / (self.helices[i].height() * self.rigid_parameters.mass);
+
+                bound_derivative!(d_angular_momentum);
+
                 ret.push(d_angular_momentum.x);
                 ret.push(d_angular_momentum.y);
                 ret.push(d_angular_momentum.z);
             } else {
-                let d_position = linear_momentums[i] / (self.rigid_parameters.mass / 2.);
+                let mut d_position = linear_momentums[i] / (self.rigid_parameters.mass / 2.);
+                bound_derivative!(d_position);
                 ret.push(d_position.x);
                 ret.push(d_position.y);
                 ret.push(d_position.z);
 
-                let d_rotation = Rotor3::from_quaternion_array([0., 0., 0., 0.]);
+                let mut d_rotation = Rotor3::from_quaternion_array([0., 0., 0., 0.]);
+                bound_derivative!(d_rotation);
                 ret.push(d_rotation.s);
                 ret.push(d_rotation.bv.xy);
                 ret.push(d_rotation.bv.xz);
                 ret.push(d_rotation.bv.yz);
 
-                let d_linear_momentum = forces[i]
+                let mut d_linear_momentum = forces[i]
                     - linear_momentums[i] * self.rigid_parameters.k_friction
                         / (self.rigid_parameters.mass / 2.);
+                bound_derivative!(d_linear_momentum);
 
                 ret.push(d_linear_momentum.x);
                 ret.push(d_linear_momentum.y);
                 ret.push(d_linear_momentum.z);
 
-                let d_angular_momentum = torques[i]
+                let mut d_angular_momentum = torques[i]
                     - angular_momentums[i] * self.rigid_parameters.k_friction
                         / (self.rigid_parameters.mass / 2.);
+                bound_derivative!(d_angular_momentum);
                 ret.push(d_angular_momentum.x);
                 ret.push(d_angular_momentum.y);
                 ret.push(d_angular_momentum.z);
@@ -916,7 +942,7 @@ pub struct GridSystemState {
     positions: Vec<Vec3>,
     orientations: Vec<Rotor3>,
     center_of_mass_from_grid: Vec<Vec3>,
-    ids: Vec<usize>,
+    ids: Vec<GridId>,
 }
 
 pub(super) struct GridsSystemThread {
@@ -1017,7 +1043,7 @@ fn make_flexible_helices_system(
     let mut mixed_springs = Vec::with_capacity(xovers.len());
     let mut free_springs = Vec::with_capacity(xovers.len());
     for (n1, n2) in xovers {
-        println!("{:?}", (n1, n2));
+        log::debug!("xover {:?}", (n1, n2));
         let free_nucl1 = interval_results.nucl_map[&n1];
         let free_nucl2 = interval_results.nucl_map[&n2];
         if let Some((h1, h2)) = free_nucl1.helix.zip(free_nucl2.helix) {
@@ -1147,7 +1173,7 @@ fn read_intervals(presenter: &dyn HelixPresenter) -> Result<IntervalResult, ErrO
     let mut intervals = Vec::new();
     for s in presenter.get_design().strands.values() {
         for d in s.domains.iter() {
-            println!("New dom");
+            log::debug!("New dom");
             if let Some(nucl) = d.prime5_end() {
                 if !nucl_map.contains_key(&nucl) || !nucl.forward {
                     let starting_doubled = presenter.has_nucl(&nucl.compl());
@@ -1160,10 +1186,10 @@ fn read_intervals(presenter: &dyn HelixPresenter) -> Result<IntervalResult, ErrO
                         None
                     };
                     while presenter.has_nucl(&moving_nucl) {
-                        println!("nucl {:?}", moving_nucl);
+                        log::debug!("nucl {:?}", moving_nucl);
                         let doubled = presenter.has_nucl(&moving_nucl.compl());
                         if doubled && nucl.forward {
-                            println!("has compl");
+                            log::debug!("has compl");
                             let helix = if prev_doubled {
                                 current_helix.unwrap()
                             } else {
@@ -1177,7 +1203,7 @@ fn read_intervals(presenter: &dyn HelixPresenter) -> Result<IntervalResult, ErrO
                                     0
                                 }
                             };
-                            println!("helix {}", helix);
+                            log::debug!("helix {}", helix);
                             nucl_map.insert(
                                 moving_nucl,
                                 FreeNucl::with_helix(&moving_nucl, Some(helix)),
@@ -1189,7 +1215,7 @@ fn read_intervals(presenter: &dyn HelixPresenter) -> Result<IntervalResult, ErrO
                             intervals[helix].0 = intervals[helix].0.min(moving_nucl.position);
                             intervals[helix].1 = intervals[helix].1.max(moving_nucl.position);
                         } else if !doubled {
-                            println!("has not compl");
+                            log::debug!("has not compl");
                             nucl_map.insert(moving_nucl, FreeNucl::with_helix(&moving_nucl, None));
                             free_nucl_ids
                                 .insert(FreeNucl::with_helix(&moving_nucl, None), free_nucls.len());
@@ -1205,10 +1231,10 @@ fn read_intervals(presenter: &dyn HelixPresenter) -> Result<IntervalResult, ErrO
                     prev_doubled = starting_doubled;
                     moving_nucl = starting_nucl.right();
                     while presenter.has_nucl(&moving_nucl) {
-                        println!("nucl {:?}", moving_nucl);
+                        log::debug!("nucl {:?}", moving_nucl);
                         let doubled = presenter.has_nucl(&moving_nucl.compl());
                         if doubled && nucl.forward {
-                            println!("has compl");
+                            log::debug!("has compl");
                             let helix = if prev_doubled {
                                 current_helix.unwrap()
                             } else {
@@ -1230,7 +1256,7 @@ fn read_intervals(presenter: &dyn HelixPresenter) -> Result<IntervalResult, ErrO
                                     }
                                 }
                             };
-                            println!("helix {}", helix);
+                            log::debug!("helix {}", helix);
                             intervals[helix].0 = intervals[helix].0.min(moving_nucl.position);
                             intervals[helix].1 = intervals[helix].1.max(moving_nucl.position);
                             nucl_map.insert(
@@ -1242,7 +1268,7 @@ fn read_intervals(presenter: &dyn HelixPresenter) -> Result<IntervalResult, ErrO
                                 FreeNucl::with_helix(&moving_nucl.compl(), Some(helix)),
                             );
                         } else if !doubled {
-                            println!("has not compl");
+                            log::debug!("has not compl");
                             nucl_map.insert(moving_nucl, FreeNucl::with_helix(&moving_nucl, None));
                             free_nucl_ids
                                 .insert(FreeNucl::with_helix(&moving_nucl, None), free_nucls.len());
@@ -1311,6 +1337,11 @@ pub enum SimulationOperation<'pres, 'reader> {
         reader: &'reader mut dyn SimulationReader,
         target_helices: Option<Vec<usize>>,
     },
+    StartTwist {
+        grid_id: GridId,
+        presenter: &'pres dyn TwistPresenter,
+        reader: &'reader mut dyn SimulationReader,
+    },
 }
 
 pub trait SimulationReader {
@@ -1342,7 +1373,7 @@ impl SimulationUpdate for RigidHelixState {
 
     fn update_positions(
         &self,
-        identifier_nucl: &HashMap<Nucl, u32, ahash::RandomState>,
+        identifier_nucl: &dyn NuclCollection,
         space_position: &mut HashMap<u32, [f32; 3], ahash::RandomState>,
     ) {
         let helices: Vec<Helix> = (0..self.constants.nb_helices)
@@ -1355,7 +1386,7 @@ impl SimulationUpdate for RigidHelixState {
                 h
             })
             .collect();
-        for (nucl, id) in identifier_nucl.iter() {
+        for (nucl, id) in identifier_nucl.iter_nucls_ids() {
             let free_nucl = self.constants.nucl_maps[nucl];
             if let Some(n) = free_nucl.helix {
                 space_position.insert(
@@ -1399,19 +1430,19 @@ struct RigidGrid {
     orientation: Rotor3,
     inertia_inverse: Mat3,
     mass: f32,
-    id: usize,
+    id: GridId,
     helices: Vec<RigidHelix>,
 }
 
 impl RigidGrid {
     pub fn from_helices(
-        id: usize,
+        id: GridId,
         helices: Vec<RigidHelix>,
         position_grid: Vec3,
         orientation: Rotor3,
     ) -> Self {
         // Center of mass in the grid coordinates.
-        println!("helices {:?}", helices);
+        log::debug!("helices {:?}", helices);
         let center_of_mass = center_of_mass_helices(&helices);
 
         // Inertia matrix when the orientation is the identity
@@ -1536,25 +1567,28 @@ impl ExplicitODE<f32> for GridsSystem {
             ret.push(d_position.y);
             ret.push(d_position.z);
             let omega = self.grids[i].inertia_inverse * angular_momentums[i] / self.parameters.mass;
-            let d_rotation = 0.5
+            let mut d_rotation = 0.5
                 * Rotor3::from_quaternion_array([omega.x, omega.y, omega.z, 0f32])
                 * rotations[i];
+            bound_derivative!(d_rotation);
 
             ret.push(d_rotation.s);
             ret.push(d_rotation.bv.xy);
             ret.push(d_rotation.bv.xz);
             ret.push(d_rotation.bv.yz);
 
-            let d_linear_momentum = forces[i]
+            let mut d_linear_momentum = forces[i]
                 - linear_momentums[i] * self.parameters.k_friction
                     / (self.grids[i].mass * self.parameters.mass);
+            bound_derivative!(d_linear_momentum);
 
             ret.push(d_linear_momentum.x);
             ret.push(d_linear_momentum.y);
             ret.push(d_linear_momentum.z);
 
-            let d_angular_momentum = torques[i]
+            let mut d_angular_momentum = torques[i]
                 - angular_momentums[i] * self.parameters.k_friction / (self.parameters.mass);
+            bound_derivative!(d_angular_momentum);
             ret.push(d_angular_momentum.x);
             ret.push(d_angular_momentum.y);
             ret.push(d_angular_momentum.z);
@@ -1652,15 +1686,21 @@ fn make_grid_system(
     time_span: (f32, f32),
     rigid_paramaters: RigidBodyConstants,
 ) -> Result<GridsSystem, ErrOperation> {
-    let intervals = presenter.get_design().get_intervals();
+    let intervals = presenter.get_design().strands.get_intervals();
     let parameters = presenter
         .get_design()
         .parameters
         .clone()
         .unwrap_or_default();
-    let mut selected_grids = HashMap::with_capacity(presenter.get_design().grids.len());
-    let mut rigid_grids = Vec::with_capacity(presenter.get_design().grids.len());
-    for g_id in 0..presenter.get_design().grids.len() {
+    let mut selected_grids = HashMap::with_capacity(presenter.get_design().free_grids.len());
+    let mut rigid_grids = Vec::with_capacity(presenter.get_design().free_grids.len());
+    for g_id in presenter
+        .get_design()
+        .free_grids
+        .keys()
+        .cloned()
+        .map(FreeGridId::to_grid_id)
+    {
         if let Some(rigid_grid) = make_rigid_grid(presenter, g_id, &intervals, &parameters) {
             selected_grids.insert(g_id, rigid_grids.len());
             rigid_grids.push(rigid_grid);
@@ -1728,7 +1768,7 @@ fn make_grid_system(
 
 fn make_rigid_grid(
     presenter: &dyn GridPresenter,
-    g_id: usize,
+    g_id: GridId,
     intervals: &BTreeMap<usize, (isize, isize)>,
     parameters: &Parameters,
 ) -> Option<RigidGrid> {
@@ -1776,8 +1816,8 @@ fn make_rigid_helix_grid_pov(
 
 pub trait GridPresenter {
     fn get_design(&self) -> &Design;
-    fn get_grid(&self, g_id: usize) -> Option<&Grid>;
-    fn get_helices_attached_to_grid(&self, g_id: usize) -> Option<Vec<usize>>;
+    fn get_grid(&self, g_id: GridId) -> Option<&Grid>;
+    fn get_helices_attached_to_grid(&self, g_id: GridId) -> Option<Vec<usize>>;
     fn get_xovers_list(&self) -> Vec<(Nucl, Nucl)>;
 }
 
@@ -1790,14 +1830,14 @@ impl SimulationInterface for GridSystemInterface {
 
 impl SimulationUpdate for GridSystemState {
     fn update_design(&self, design: &mut Design) {
-        let mut new_grids = Vec::clone(design.grids.as_ref());
+        let mut new_grids = design.free_grids.make_mut();
         for i in 0..self.ids.len() {
             let position = self.positions[i];
             let orientation = self.orientations[i].normalized();
-            let grid = &mut new_grids[self.ids[i]];
-            grid.position = position - self.center_of_mass_from_grid[i].rotated_by(orientation);
-            grid.orientation = orientation;
+            if let Some(grid) = new_grids.get_mut_g_id(&self.ids[i]) {
+                grid.position = position - self.center_of_mass_from_grid[i].rotated_by(orientation);
+                grid.orientation = orientation;
+            }
         }
-        design.grids = Arc::new(new_grids);
     }
 }

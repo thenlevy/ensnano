@@ -18,12 +18,15 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 //! This modules defines the `Controller` struct which handles windows and dialog interactions.
 
-use ensnano_design::Nucl;
+use crate::PastePosition;
+mod download_intervals;
 mod download_staples;
 use download_staples::*;
 pub use download_staples::{DownloadStappleError, DownloadStappleOk, StaplesDownloader};
 mod quit;
+use ensnano_design::grid::GridId;
 use ensnano_design::group_attributes::GroupPivot;
+use ensnano_exports::{ExportResult, ExportType};
 use ensnano_interactor::{application::Notification, DesignOperation};
 use ensnano_interactor::{DesignReader, RigidBodyConstants, Selection};
 use quit::*;
@@ -57,8 +60,15 @@ impl Controller {
     }
 
     pub(crate) fn make_progress(&mut self, main_state: &mut dyn MainState) {
-        let old_state = std::mem::replace(&mut self.state, Box::new(OhNo));
-        self.state = old_state.make_progress(main_state);
+        main_state.check_backup();
+        if main_state.need_backup() {
+            if let Err(e) = main_state.save_backup() {
+                log::error!("{:?}", e);
+            }
+        } else {
+            let old_state = std::mem::replace(&mut self.state, Box::new(OhNo));
+            self.state = old_state.make_progress(main_state);
+        }
     }
 }
 
@@ -174,6 +184,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn new_design(&mut self);
     fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError>;
     fn save_design(&mut self, path: &PathBuf) -> Result<(), SaveDesignError>;
+    fn save_backup(&mut self) -> Result<(), SaveDesignError>;
     fn get_chanel_reader(&mut self) -> &mut ChanelReader;
     fn apply_operation(&mut self, operation: DesignOperation);
     fn apply_silent_operation(&mut self, operation: DesignOperation);
@@ -181,16 +192,15 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn redo(&mut self);
     fn get_staple_downloader(&self) -> Box<dyn StaplesDownloader>;
     fn toggle_split_mode(&mut self, mode: SplitMode);
-    fn oxdna_export(&mut self, path: &PathBuf) -> std::io::Result<(PathBuf, PathBuf)>;
+    fn export(&mut self, path: &PathBuf, export_type: ExportType) -> ExportResult;
     fn change_ui_size(&mut self, ui_size: UiSize);
-    fn invert_scroll_y(&mut self, inverted: bool);
     fn notify_apps(&mut self, notificiation: Notification);
     fn get_selection(&mut self) -> Box<dyn AsRef<[Selection]>>;
     fn get_design_reader(&mut self) -> Box<dyn DesignReader>;
     fn get_grid_creation_position(&self) -> Option<(Vec3, Rotor3)>;
     fn finish_operation(&mut self);
     fn request_copy(&mut self);
-    fn request_pasting_candidate(&mut self, candidate: Option<Nucl>);
+    fn request_pasting_candidate(&mut self, candidate: Option<PastePosition>);
     fn init_paste(&mut self);
     fn apply_paste(&mut self);
     fn duplicate(&mut self);
@@ -212,21 +222,60 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn rotate_group_pivot(&mut self, rotation: Rotor3);
     fn create_new_camera(&mut self);
     fn select_camera(&mut self, camera_id: ensnano_design::CameraId);
+    fn select_favorite_camera(&mut self, n_camera: u32);
     fn update_camera(&mut self, camera_id: ensnano_design::CameraId);
+    fn toggle_2d(&mut self);
+    fn make_all_suggested_xover(&mut self, doubled: bool);
+    fn need_backup(&self) -> bool;
+    fn check_backup(&mut self);
+    fn flip_split_views(&mut self);
+    fn start_twist(&mut self, g_id: GridId);
+    fn set_expand_insertions(&mut self, expand: bool);
+    fn set_exporting(&mut self, exporting: bool);
 }
 
-pub struct LoadDesignError(String);
-pub struct SaveDesignError(String);
+pub enum LoadDesignError {
+    JsonError(serde_json::Error),
+    ScadnanoImportError(ensnano_design::scadnano::ScadnanoImportError),
+    IncompatibleVersion { current: String, required: String },
+}
 
-impl From<String> for LoadDesignError {
-    fn from(s: String) -> Self {
-        Self(s)
+impl std::fmt::Display for LoadDesignError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::JsonError(e) => write!(f, "Json error: {e}"),
+            Self::ScadnanoImportError(e) => {
+                write!(
+                    f,
+                    "Scadnanofile detected but the following error was encountered:
+                {:?}",
+                    e
+                )
+            }
+            Self::IncompatibleVersion { current, required } => {
+                write!(
+                    f,
+                    "Your ENSnano version is too old to load this design.
+                Your version: {current},
+                Requiered version: {required}"
+                )
+            }
+        }
     }
 }
+
+#[derive(Debug)]
+pub struct SaveDesignError(String);
 
 impl<E: std::error::Error> From<E> for SaveDesignError {
     fn from(e: E) -> Self {
         Self(format!("{}", e))
+    }
+}
+
+impl SaveDesignError {
+    pub fn cannot_open_default_dir() -> Self {
+        Self(crate::consts::CANNOT_OPEN_DEFAULT_DIR.to_string())
     }
 }
 

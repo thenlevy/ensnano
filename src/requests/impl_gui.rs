@@ -17,7 +17,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::gui::{Requests as GuiRequests, RigidBodyParametersRequest};
-use ensnano_interactor::{RigidBodyConstants, RollRequest};
+use ensnano_design::grid::GridId;
+use ensnano_interactor::{InsertionPoint, RigidBodyConstants, RollRequest};
 use std::collections::BTreeSet;
 
 use super::*;
@@ -54,7 +55,7 @@ impl GuiRequests for Requests {
     }
 
     fn invert_scroll(&mut self, inverted: bool) {
-        self.keep_proceed.push_back(Action::InvertScrollY(inverted));
+        self.set_invert_y_scroll = Some(inverted)
     }
 
     fn resize_2d_helices(&mut self, all: bool) {
@@ -177,6 +178,10 @@ impl GuiRequests for Requests {
         self.new_grid = Some(grid_type_descriptor);
     }
 
+    fn create_bezier_plane(&mut self) {
+        self.new_bezier_plane = Some(())
+    }
+
     fn set_candidates_keys(&mut self, candidates: Vec<DnaElementKey>) {
         self.organizer_candidates = Some(candidates);
     }
@@ -185,8 +190,9 @@ impl GuiRequests for Requests {
         &mut self,
         selection: Vec<DnaElementKey>,
         group_id: Option<ensnano_organizer::GroupId>,
+        new_group: bool,
     ) {
-        self.organizer_selection = Some((selection, group_id));
+        self.organizer_selection = Some((selection, group_id, new_group));
     }
 
     fn update_organizer_tree(&mut self, tree: OrganizerTree<DnaElementKey>) {
@@ -205,8 +211,8 @@ impl GuiRequests for Requests {
         self.keep_proceed.push_back(Action::ToggleSplit(split_mode))
     }
 
-    fn export_to_oxdna(&mut self) {
-        self.keep_proceed.push_back(Action::OxDnaExport)
+    fn export(&mut self, export_type: ExportType) {
+        self.keep_proceed.push_back(Action::Export(export_type))
     }
 
     fn toggle_2d_view_split(&mut self) {
@@ -333,6 +339,123 @@ impl GuiRequests for Requests {
                 camera_id,
                 name,
             }))
+    }
+
+    fn set_suggestion_parameters(&mut self, param: SuggestionParameters) {
+        self.new_suggestion_parameters = Some(param);
+    }
+
+    fn set_grid_position(&mut self, grid_id: GridId, position: Vec3) {
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::SetGridPosition {
+                grid_id,
+                position,
+            }))
+    }
+
+    fn set_grid_orientation(&mut self, grid_id: GridId, orientation: Rotor3) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::SetGridOrientation {
+                grid_id,
+                orientation,
+            },
+        ))
+    }
+
+    fn toggle_2d(&mut self) {
+        self.keep_proceed.push_back(Action::Toggle2D)
+    }
+
+    fn set_nb_turn(&mut self, grid_id: GridId, nb_turn: f32) {
+        self.keep_proceed
+            .push_back(Action::DesignOperation(DesignOperation::SetGridNbTurn {
+                grid_id,
+                nb_turn,
+            }))
+    }
+
+    fn set_check_xover_parameters(&mut self, paramters: CheckXoversParameter) {
+        self.check_xover_parameters = Some(paramters);
+    }
+
+    fn follow_stereographic_camera(&mut self, follow: bool) {
+        self.follow_stereographic_camera = Some(follow);
+    }
+
+    fn flip_split_views(&mut self) {
+        self.keep_proceed.push_back(Action::FlipSplitViews);
+    }
+
+    fn set_rainbow_scaffold(&mut self, rainbow: bool) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::SetRainbowScaffold(rainbow),
+        ))
+    }
+
+    fn set_show_stereographic_camera(&mut self, show: bool) {
+        self.set_show_stereographic_camera = Some(show);
+    }
+
+    fn set_show_h_bonds(&mut self, show: bool) {
+        self.set_show_h_bonds = Some(show);
+    }
+
+    fn set_show_bezier_paths(&mut self, show: bool) {
+        self.set_show_bezier_paths = Some(show);
+    }
+
+    fn set_thick_helices(&mut self, thick: bool) {
+        self.set_thick_helices = Some(thick)
+    }
+
+    fn start_twist_simulation(&mut self, grid_id: GridId) {
+        self.twist_simulation = Some(grid_id);
+    }
+
+    fn align_horizon(&mut self) {
+        self.horizon_targeted = Some(());
+    }
+
+    fn download_origamis(&mut self) {
+        self.keep_proceed.push_back(Action::DownloadOrigamiRequest);
+    }
+
+    fn set_dna_parameters(&mut self, param: ensnano_design::Parameters) {
+        self.keep_proceed.push_back(Action::SetDnaParameters(param));
+    }
+
+    fn set_expand_insertions(&mut self, expand: bool) {
+        self.keep_proceed
+            .push_back(Action::SetExpandInsertions(expand))
+    }
+
+    fn set_insertion_length(&mut self, insertion_point: InsertionPoint, length: usize) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::SetInsertionLength {
+                length,
+                insertion_point,
+            },
+        ))
+    }
+
+    fn turn_path_into_grid(
+        &mut self,
+        path_id: ensnano_design::BezierPathId,
+        grid_type: GridTypeDescr,
+    ) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::TurnPathVerticesIntoGrid { path_id, grid_type },
+        ))
+    }
+
+    fn make_bezier_path_cyclic(&mut self, path_id: ensnano_design::BezierPathId, cyclic: bool) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::MakeBezierPathCyclic { path_id, cyclic },
+        ))
+    }
+
+    fn set_exporting(&mut self, exporting: bool) {
+        self.keep_proceed.push_back(Action::SetExporting(exporting))
     }
 }
 

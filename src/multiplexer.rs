@@ -66,20 +66,19 @@ pub struct Multiplexer {
     /// The area that are drawn on top of the application
     overlays: Vec<Overlay>,
     /// The texture on which the scene is rendered
-    scene_texture: Option<SampledTexture>,
+    scene_texture: Option<MultiplexerTexture>,
     /// The texture on which the top bar gui is rendered
-    top_bar_texture: Option<SampledTexture>,
+    top_bar_texture: Option<MultiplexerTexture>,
     /// The texture on which the left pannel is rendered
-    left_pannel_texture: Option<SampledTexture>,
+    left_pannel_texture: Option<MultiplexerTexture>,
     /// The textures on which the overlays are rendered
-    overlays_textures: Vec<SampledTexture>,
+    overlays_textures: Vec<MultiplexerTexture>,
     /// The texture on wich the grid is rendered
-    grid_panel_texture: Option<SampledTexture>,
+    grid_panel_texture: Option<MultiplexerTexture>,
+    stereographic_scene_texture: Option<MultiplexerTexture>,
+    status_bar_texture: Option<MultiplexerTexture>,
     /// The texutre on which the flat scene is rendered,
-    status_bar_texture: Option<SampledTexture>,
-    flat_scene_texture: Option<SampledTexture>,
-    /// The pointer the node that separate the left pannel from the scene
-    left_pannel_split: usize,
+    flat_scene_texture: Option<MultiplexerTexture>,
     /// The pointer to the node that separate the top bar from the scene
     top_bar_split: usize,
     /// The pointer to the node that separtate the status bar from the scene
@@ -91,8 +90,9 @@ pub struct Multiplexer {
     state: State,
     modifiers: ModifiersState,
     ui_size: UiSize,
-    pub invert_y_scroll: bool,
     pub icon: Option<CursorIcon>,
+    element_3d: ElementType,
+    element_2d: ElementType,
 }
 
 const MAX_LEFT_PANNEL_WIDTH: f64 = 200.;
@@ -112,7 +112,6 @@ impl Multiplexer {
             exact_proportion(ui_size.top_bar() * scale_factor, window_size.height as f64);
         let top_bar_split = 0;
         let (top_bar, scene) = layout_manager.hsplit(0, top_pannel_prop, false);
-        let left_pannel_split = scene;
         let left_pannel_prop = proportion(
             0.2,
             MAX_LEFT_PANNEL_WIDTH * scale_factor,
@@ -141,13 +140,13 @@ impl Multiplexer {
             left_pannel_texture: None,
             grid_panel_texture: None,
             status_bar_texture: None,
+            stereographic_scene_texture: None,
             overlays: Vec::new(),
             overlays_textures: Vec::new(),
             device,
             pipeline: None,
             split_mode: SplitMode::Scene3D,
             requests,
-            left_pannel_split,
             status_bar_split,
             top_bar_split,
             state: State::Normal {
@@ -155,8 +154,9 @@ impl Multiplexer {
             },
             modifiers: ModifiersState::empty(),
             ui_size,
-            invert_y_scroll: false,
             icon: None,
+            element_2d: ElementType::FlatScene,
+            element_3d: ElementType::Scene,
         };
         ret.generate_textures();
         ret
@@ -165,13 +165,33 @@ impl Multiplexer {
     /// Return a view of the texture on which the element must be rendered
     pub fn get_texture_view(&self, element_type: ElementType) -> Option<&wgpu::TextureView> {
         match element_type {
-            ElementType::Scene => self.scene_texture.as_ref().map(|t| &t.view),
-            ElementType::LeftPanel => self.left_pannel_texture.as_ref().map(|t| &t.view),
-            ElementType::TopBar => self.top_bar_texture.as_ref().map(|t| &t.view),
-            ElementType::Overlay(n) => Some(&self.overlays_textures[n].view),
-            ElementType::GridPanel => self.grid_panel_texture.as_ref().map(|t| &t.view),
-            ElementType::FlatScene => self.flat_scene_texture.as_ref().map(|t| &t.view),
-            ElementType::StatusBar => self.status_bar_texture.as_ref().map(|t| &t.view),
+            ElementType::StereographicScene => self
+                .stereographic_scene_texture
+                .as_ref()
+                .map(|t| &t.texture.view),
+            ElementType::Scene => self.scene_texture.as_ref().map(|t| &t.texture.view),
+            ElementType::LeftPanel => self.left_pannel_texture.as_ref().map(|t| &t.texture.view),
+            ElementType::TopBar => self.top_bar_texture.as_ref().map(|t| &t.texture.view),
+            ElementType::Overlay(n) => Some(&self.overlays_textures[n].texture.view),
+            ElementType::GridPanel => self.grid_panel_texture.as_ref().map(|t| &t.texture.view),
+            ElementType::FlatScene => self.flat_scene_texture.as_ref().map(|t| &t.texture.view),
+            ElementType::StatusBar => self.status_bar_texture.as_ref().map(|t| &t.texture.view),
+            ElementType::Unattributed => unreachable!(),
+        }
+    }
+
+    fn get_texture_size(&self, element_type: ElementType) -> Option<DrawArea> {
+        match element_type {
+            ElementType::Scene => self.scene_texture.as_ref().map(|t| t.area),
+            ElementType::LeftPanel => self.left_pannel_texture.as_ref().map(|t| t.area),
+            ElementType::TopBar => self.top_bar_texture.as_ref().map(|t| t.area),
+            ElementType::Overlay(n) => Some(self.overlays_textures[n].area),
+            ElementType::GridPanel => self.grid_panel_texture.as_ref().map(|t| t.area),
+            ElementType::FlatScene => self.flat_scene_texture.as_ref().map(|t| t.area),
+            ElementType::StatusBar => self.status_bar_texture.as_ref().map(|t| t.area),
+            ElementType::StereographicScene => {
+                self.stereographic_scene_texture.as_ref().map(|t| t.area)
+            }
             ElementType::Unattributed => unreachable!(),
         }
     }
@@ -180,9 +200,14 @@ impl Multiplexer {
         self.modifiers = modifiers
     }
 
-    pub fn draw(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
+    pub fn draw(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        window: &crate::Window,
+    ) {
         if self.pipeline.is_none() {
-            let bg_layout = &self.top_bar_texture.as_ref().unwrap().bg_layout;
+            let bg_layout = &self.top_bar_texture.as_ref().unwrap().texture.bg_layout;
             self.pipeline = Some(create_pipeline(self.device.as_ref(), bg_layout));
         }
         let clear_color = wgpu::Color {
@@ -225,11 +250,12 @@ impl Multiplexer {
                 ElementType::GridPanel,
                 ElementType::Scene,
                 ElementType::FlatScene,
+                ElementType::StereographicScene,
                 ElementType::StatusBar,
             ]
             .iter()
             {
-                if let Some(area) = self.get_draw_area(*element) {
+                if let Some(area) = self.get_texture_size(*element) {
                     render_pass.set_bind_group(0, self.get_bind_group(element), &[]);
 
                     render_pass.set_viewport(
@@ -243,11 +269,11 @@ impl Multiplexer {
                     let width = area
                         .size
                         .width
-                        .min(self.window_size.width - area.position.x);
+                        .min(window.inner_size().width - area.position.x);
                     let height = area
                         .size
                         .height
-                        .min(self.window_size.height - area.position.y);
+                        .min(window.inner_size().height - area.position.y);
                     render_pass.set_scissor_rect(area.position.x, area.position.y, width, height);
                     render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
                     render_pass.draw(0..4, 0..1);
@@ -258,13 +284,28 @@ impl Multiplexer {
 
     fn get_bind_group(&self, element_type: &ElementType) -> &wgpu::BindGroup {
         match element_type {
-            ElementType::TopBar => &self.top_bar_texture.as_ref().unwrap().bind_group,
-            ElementType::LeftPanel => &self.left_pannel_texture.as_ref().unwrap().bind_group,
-            ElementType::Scene => &self.scene_texture.as_ref().unwrap().bind_group,
-            ElementType::FlatScene => &self.flat_scene_texture.as_ref().unwrap().bind_group,
-            ElementType::GridPanel => &self.grid_panel_texture.as_ref().unwrap().bind_group,
-            ElementType::Overlay(n) => &self.overlays_textures[*n].bind_group,
-            ElementType::StatusBar => &self.status_bar_texture.as_ref().unwrap().bind_group,
+            ElementType::TopBar => &self.top_bar_texture.as_ref().unwrap().texture.bind_group,
+            ElementType::LeftPanel => {
+                &self
+                    .left_pannel_texture
+                    .as_ref()
+                    .unwrap()
+                    .texture
+                    .bind_group
+            }
+            ElementType::Scene => &self.scene_texture.as_ref().unwrap().texture.bind_group,
+            ElementType::FlatScene => &self.flat_scene_texture.as_ref().unwrap().texture.bind_group,
+            ElementType::GridPanel => &self.grid_panel_texture.as_ref().unwrap().texture.bind_group,
+            ElementType::Overlay(n) => &self.overlays_textures[*n].texture.bind_group,
+            ElementType::StatusBar => &self.status_bar_texture.as_ref().unwrap().texture.bind_group,
+            ElementType::StereographicScene => {
+                &self
+                    .stereographic_scene_texture
+                    .as_ref()
+                    .unwrap()
+                    .texture
+                    .bind_group
+            }
             ElementType::Unattributed => unreachable!(),
         }
     }
@@ -412,6 +453,10 @@ impl Multiplexer {
                     }
                     PixelRegion::Resize(_) => {
                         self.state = State::Normal { mouse_position };
+                        if log::log_enabled!(log::Level::Info) {
+                            log::info!("Tree after reisze");
+                            self.layout_manager.log_tree();
+                        }
                     }
                     PixelRegion::Element(element) => match state {
                         ElementState::Pressed => {
@@ -421,6 +466,12 @@ impl Multiplexer {
                             };
                         }
                         ElementState::Released => {
+                            if matches!(self.state, State::Resizing { .. })
+                                && log::log_enabled!(log::Level::Info)
+                            {
+                                log::info!("Tree after reisze");
+                                self.layout_manager.log_tree();
+                            }
                             self.state = State::Normal { mouse_position };
                         }
                     },
@@ -441,8 +492,19 @@ impl Multiplexer {
                     VirtualKeyCode::Escape => {
                         self.requests.lock().unwrap().action_mode = Some(ActionMode::Normal)
                     }
+                    VirtualKeyCode::X if self.modifiers.alt() => {
+                        self.requests.lock().unwrap().keep_proceed.push_back(
+                            Action::MakeAllSuggestedXover {
+                                doubled: self.modifiers.shift(),
+                            },
+                        )
+                    }
                     VirtualKeyCode::Z if ctrl(&self.modifiers) => {
-                        self.requests.lock().unwrap().undo = Some(());
+                        if self.modifiers.shift() {
+                            self.requests.lock().unwrap().redo = Some(())
+                        } else {
+                            self.requests.lock().unwrap().undo = Some(());
+                        }
                     }
                     VirtualKeyCode::R if ctrl(&self.modifiers) => {
                         self.requests.lock().unwrap().redo = Some(());
@@ -489,6 +551,14 @@ impl Multiplexer {
                             .keep_proceed
                             .push_back(Action::Exit);
                     }
+                    keycode if keycode_to_num(keycode).is_some() => {
+                        let n_camera = keycode_to_num(keycode).unwrap();
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .keep_proceed
+                            .push_back(Action::SelectFavoriteCamera(n_camera));
+                    }
                     VirtualKeyCode::S => {
                         self.requests.lock().unwrap().selection_mode = Some(SelectionMode::Strand)
                     }
@@ -499,18 +569,6 @@ impl Multiplexer {
                         self.requests.lock().unwrap().delete_selection = Some(());
                     }
                     _ => captured = false,
-                }
-            }
-            WindowEvent::MouseWheel { delta, .. } => {
-                if self.invert_y_scroll {
-                    match delta {
-                        MouseScrollDelta::LineDelta(_, y) => {
-                            *y *= -1.;
-                        }
-                        MouseScrollDelta::PixelDelta(position) => {
-                            position.y *= -1.;
-                        }
-                    }
                 }
             }
             _ => {}
@@ -529,69 +587,91 @@ impl Multiplexer {
         self.generate_textures();
     }
 
-    pub fn change_split(&mut self, split_mode: SplitMode) {
-        if split_mode != self.split_mode {
-            match self.split_mode {
-                SplitMode::Both => {
-                    let new_type = match split_mode {
-                        SplitMode::Scene3D => ElementType::Scene,
-                        SplitMode::Flat => ElementType::FlatScene,
-                        SplitMode::Both => unreachable!(),
-                    };
-                    self.layout_manager.merge(ElementType::Scene, new_type);
-                }
-                SplitMode::Scene3D | SplitMode::Flat => {
-                    let id = self
-                        .layout_manager
-                        .get_area_id(ElementType::Scene)
-                        .or(self.layout_manager.get_area_id(ElementType::FlatScene))
-                        .unwrap();
-                    match split_mode {
-                        SplitMode::Both => {
-                            let (scene, flat_scene) = self.layout_manager.vsplit(id, 0.5, true);
-                            self.layout_manager
-                                .attribute_element(scene, ElementType::Scene);
-                            self.layout_manager
-                                .attribute_element(flat_scene, ElementType::FlatScene);
-                        }
-                        SplitMode::Scene3D => self
-                            .layout_manager
-                            .attribute_element(id, ElementType::Scene),
-                        SplitMode::Flat => self
-                            .layout_manager
-                            .attribute_element(id, ElementType::FlatScene),
+    fn change_split_(&mut self, split_mode: SplitMode) {
+        match self.split_mode {
+            SplitMode::Both => {
+                let new_type = match split_mode {
+                    SplitMode::Scene3D => self.element_3d,
+                    SplitMode::Flat => self.element_2d,
+                    SplitMode::Both => unreachable!(),
+                };
+                self.layout_manager.merge(ElementType::Scene, new_type);
+            }
+            SplitMode::Scene3D | SplitMode::Flat => {
+                let id = self
+                    .layout_manager
+                    .get_area_id(self.element_3d)
+                    .or(self.layout_manager.get_area_id(self.element_2d))
+                    .unwrap();
+                match split_mode {
+                    SplitMode::Both => {
+                        let (scene, flat_scene) = self.layout_manager.vsplit(id, 0.5, true);
+                        self.layout_manager
+                            .attribute_element(scene, self.element_3d);
+                        self.layout_manager
+                            .attribute_element(flat_scene, self.element_2d);
                     }
+                    SplitMode::Scene3D => {
+                        self.layout_manager.attribute_element(id, self.element_3d)
+                    }
+                    SplitMode::Flat => self.layout_manager.attribute_element(id, self.element_2d),
                 }
             }
+        }
+    }
+
+    pub fn toggle_2d(&mut self) {
+        log::info!("Toggle 2d");
+        if log::log_enabled!(log::Level::Info) {
+            println!("Old tree");
+            self.layout_manager.log_tree();
+        }
+        let old_element_2d = self.element_2d;
+        if self.element_2d == ElementType::FlatScene {
+            self.element_2d = ElementType::StereographicScene;
+        } else {
+            self.element_2d = ElementType::FlatScene;
+        }
+        if let Some(id) = self.layout_manager.get_area_id(old_element_2d) {
+            self.layout_manager.attribute_element(id, self.element_2d)
+        }
+        log::info!("new element_2d {:?}", self.element_2d);
+        if log::log_enabled!(log::Level::Info) {
+            println!("New tree");
+            self.layout_manager.log_tree();
+        }
+        self.generate_textures();
+    }
+
+    pub fn change_split(&mut self, split_mode: SplitMode) {
+        if split_mode != self.split_mode {
+            self.change_split_(split_mode)
         }
         self.split_mode = split_mode;
         self.generate_textures();
     }
 
-    fn resize(&mut self, window_size: PhySize, scale_factor: f64) {
+    pub fn resize(&mut self, window_size: PhySize, scale_factor: f64) -> bool {
+        let ret = self.window_size != window_size;
         let top_pannel_prop = exact_proportion(
             self.ui_size.top_bar() * scale_factor,
             window_size.height as f64,
         );
-        let left_pannel_prop = proportion(
-            0.2,
-            MAX_LEFT_PANNEL_WIDTH * scale_factor,
-            window_size.width as f64,
-        );
         let scene_height = (1. - top_pannel_prop) * window_size.height as f64;
         let status_bar_prop = exact_proportion(MAX_STATUS_BAR_HEIGHT * scale_factor, scene_height);
-        self.layout_manager
-            .resize(self.left_pannel_split, left_pannel_prop);
         self.layout_manager
             .resize(self.top_bar_split, top_pannel_prop);
         self.layout_manager
             .resize(self.status_bar_split, 1. - status_bar_prop);
+        ret
     }
 
-    fn texture(&mut self, element_type: ElementType) -> Option<SampledTexture> {
-        self.get_draw_area(element_type)
-            .filter(|a| a.size.height > 0 && a.size.width > 0)
-            .map(|a| SampledTexture::create_target_texture(self.device.as_ref(), &a.size))
+    fn texture(&mut self, element_type: ElementType) -> Option<MultiplexerTexture> {
+        log::info!("texture of {:?}", element_type);
+        let area = self.get_draw_area(element_type)?;
+        log::info!("area = {:?}", area);
+        let texture = SampledTexture::create_target_texture(self.device.as_ref(), &area.size);
+        Some(MultiplexerTexture { area, texture })
     }
 
     pub fn generate_textures(&mut self) {
@@ -601,15 +681,20 @@ impl Multiplexer {
         self.grid_panel_texture = self.texture(ElementType::GridPanel);
         self.flat_scene_texture = self.texture(ElementType::FlatScene);
         self.status_bar_texture = self.texture(ElementType::StatusBar);
+        self.stereographic_scene_texture = self.texture(ElementType::StereographicScene);
 
         self.overlays_textures.clear();
         for overlay in self.overlays.iter() {
             let size = overlay.size;
-            self.overlays_textures
-                .push(SampledTexture::create_target_texture(
-                    self.device.as_ref(),
-                    &size,
-                ));
+            let texture = SampledTexture::create_target_texture(self.device.as_ref(), &size);
+
+            self.overlays_textures.push(MultiplexerTexture {
+                texture,
+                area: DrawArea {
+                    size,
+                    position: overlay.position,
+                },
+            });
         }
     }
 
@@ -647,21 +732,24 @@ impl Multiplexer {
         self.overlays_textures.clear();
         for overlay in self.overlays.iter_mut() {
             let size = overlay.size;
-            self.overlays_textures
-                .push(SampledTexture::create_target_texture(
-                    self.device.as_ref(),
-                    &size,
-                ));
+            let texture = SampledTexture::create_target_texture(self.device.as_ref(), &size);
+            self.overlays_textures.push(MultiplexerTexture {
+                texture,
+                area: DrawArea {
+                    size,
+                    position: overlay.position,
+                },
+            });
         }
     }
 
     pub fn is_showing(&self, area: &ElementType) -> bool {
         match area {
             ElementType::LeftPanel | ElementType::TopBar | ElementType::StatusBar => true,
-            ElementType::Scene => {
+            t if *t == self.element_3d => {
                 self.split_mode == SplitMode::Scene3D || self.split_mode == SplitMode::Both
             }
-            ElementType::FlatScene => {
+            t if *t == self.element_2d => {
                 self.split_mode == SplitMode::Flat || self.split_mode == SplitMode::Both
             }
             _ => false,
@@ -781,7 +869,7 @@ use crate::gui::Multiplexer as GuiMultiplexer;
 
 impl GuiMultiplexer for Multiplexer {
     fn get_draw_area(&self, element_type: ElementType) -> Option<DrawArea> {
-        self.get_draw_area(element_type)
+        self.get_texture_size(element_type)
     }
 
     fn get_texture_view(&self, element_type: ElementType) -> Option<&wgpu::TextureView> {
@@ -795,4 +883,25 @@ impl GuiMultiplexer for Multiplexer {
     fn foccused_element(&self) -> Option<ElementType> {
         self.foccused_element()
     }
+}
+
+fn keycode_to_num(keycode: VirtualKeyCode) -> Option<u32> {
+    if keycode as u32 >= VirtualKeyCode::Key1 as u32
+        && keycode as u32 <= VirtualKeyCode::Key0 as u32
+    {
+        Some(keycode as u32 - VirtualKeyCode::Key1 as u32)
+    } else if keycode == VirtualKeyCode::Numpad0 {
+        Some(9)
+    } else if keycode as u32 >= VirtualKeyCode::Numpad1 as u32
+        && keycode as u32 <= VirtualKeyCode::Numpad9 as u32
+    {
+        Some(keycode as u32 - VirtualKeyCode::Numpad1 as u32)
+    } else {
+        None
+    }
+}
+
+struct MultiplexerTexture {
+    area: DrawArea,
+    texture: SampledTexture,
 }

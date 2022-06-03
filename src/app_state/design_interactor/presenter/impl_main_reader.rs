@@ -18,6 +18,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use crate::controller::{DownloadStappleError, DownloadStappleOk, StaplesDownloader};
+use serde::Serialize;
+use std::io::Write;
 use std::path::PathBuf;
 
 impl StaplesDownloader for DesignReader {
@@ -59,7 +61,7 @@ impl StaplesDownloader for DesignReader {
             .map(|s| s.len())
             .unwrap();
         if scaffold_length != sequence_length {
-            warnings.push(warn_scaffold_seq_mismatch(sequence_length, sequence_length));
+            warnings.push(warn_scaffold_seq_mismatch(scaffold_length, sequence_length));
         }
         Ok(DownloadStappleOk { warnings })
     }
@@ -69,28 +71,96 @@ impl StaplesDownloader for DesignReader {
         let stapples = self
             .presenter
             .content
-            .get_staples(&self.presenter.current_design);
+            .get_staples(&self.presenter.current_design, &self.presenter);
         let mut wb = Workbook::create(xlsx_path.to_str().unwrap());
         let mut sheets = BTreeMap::new();
 
-        for stapple in stapples.iter() {
-            let sheet = sheets
-                .entry(stapple.plate)
-                .or_insert_with(|| vec![vec!["Well Position", "Name", "Sequence"]]);
-            sheet.push(vec![&stapple.well, &stapple.name, &stapple.sequence]);
+        let interval_strs: Vec<_> = stapples
+            .iter()
+            .map(|stapple| {
+                if let Ok(s) = serde_json::to_string(&stapple.intervals.intervals) {
+                    s
+                } else {
+                    String::from("error getting domains")
+                }
+            })
+            .collect();
+        for (i, stapple) in stapples.iter().enumerate() {
+            let sheet = sheets.entry(stapple.plate).or_insert_with(|| {
+                vec![vec![
+                    "Well Position",
+                    "Name",
+                    "Sequence",
+                    "Domains",
+                    "Length",
+                    "Domain Length",
+                    "Groups",
+                    "Color",
+                ]]
+            });
+            sheet.push(vec![
+                &stapple.well,
+                &stapple.name,
+                &stapple.sequence,
+                &interval_strs[i],
+                &stapple.length_str,
+                &stapple.domain_decomposition,
+                &stapple.groups_name_str,
+                &stapple.color_str,
+            ])
         }
 
         for (sheet_id, rows) in sheets.iter() {
             let mut sheet = wb.create_sheet(&format!("Plate {}", sheet_id));
             wb.write_sheet(&mut sheet, |sw| {
                 for row in rows {
-                    sw.append_row(row![row[0], row[1], row[2]])?;
+                    if let Ok(length) = row[3].parse::<f64>() {
+                        sw.append_row(row![
+                            row[0], row[1], row[2], length, row[4], row[5], row[6]
+                        ])?;
+                    } else {
+                        sw.append_row(row![
+                            row[0], row[1], row[2], row[3], row[4], row[5], row[6]
+                        ])?;
+                    }
                 }
                 Ok(())
             })
             .expect("write excel error!");
         }
         wb.close().expect("close excel error!");
+    }
+
+    fn write_intervals(&self, origami_path: &PathBuf) {
+        let stapples = self
+            .presenter
+            .content
+            .get_staples(&self.presenter.current_design, &self.presenter);
+        let origami = Origami {
+            scaffold_sequence: self
+                .presenter
+                .current_design
+                .scaffold_sequence
+                .clone()
+                .unwrap_or("NO SEQUENCE".to_string()),
+            intervals: stapples
+                .iter()
+                .map(|s| (s.intervals.staple_id, s.intervals.intervals.clone()))
+                .collect(),
+        };
+        let mut origamis = Origamis(BTreeMap::new());
+        origamis.0.insert(1, origami);
+        if let Ok(json_content) = serde_json::to_string_pretty(&origamis) {
+            if let Ok(mut f) = std::fs::File::create(origami_path) {
+                if let Err(e) = f.write_all(json_content.as_bytes()) {
+                    log::error!("Could not write to file {}", e);
+                }
+            } else {
+                log::error!("Could not open file");
+            }
+        } else {
+            log::error!("Serialization error");
+        }
     }
 
     fn default_shift(&self) -> Option<usize> {
@@ -114,7 +184,7 @@ fn warn_scaffold_seq_mismatch(scaffold_length: usize, sequence_length: usize) ->
     )
 }
 
-use ensnano_design::grid::GridPosition;
+use ensnano_design::grid::HelixGridPosition;
 use ensnano_interactor::DesignReader as MainReader;
 
 impl MainReader for DesignReader {
@@ -126,7 +196,7 @@ impl MainReader for DesignReader {
         self.presenter.junctions_ids.get_element(id)
     }
 
-    fn get_grid_position_of_helix(&self, h_id: usize) -> Option<GridPosition> {
+    fn get_grid_position_of_helix(&self, h_id: usize) -> Option<HelixGridPosition> {
         self.presenter
             .current_design
             .helices
@@ -138,11 +208,29 @@ impl MainReader for DesignReader {
         self.presenter.current_design.strands.get(&id)
     }
 
-    fn get_helix_grid(&self, h_id: usize) -> Option<usize> {
+    fn get_helix_grid(&self, h_id: usize) -> Option<GridId> {
         self.presenter
             .current_design
             .helices
             .get(&h_id)
             .and_then(|h| h.grid_position.map(|pos| pos.grid))
     }
+
+    fn get_domain_ends(&self, s_id: usize) -> Option<Vec<Nucl>> {
+        self.presenter
+            .current_design
+            .strands
+            .get(&s_id)
+            .map(|s| s.domain_ends())
+    }
+}
+
+use std::collections::BTreeMap;
+#[derive(Serialize)]
+struct Origamis(BTreeMap<usize, Origami>);
+
+#[derive(Serialize)]
+struct Origami {
+    scaffold_sequence: String,
+    intervals: BTreeMap<usize, Vec<(isize, isize)>>,
 }

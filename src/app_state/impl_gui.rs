@@ -106,6 +106,62 @@ impl GuiState for AppState {
     fn get_strand_building_state(&self) -> Option<crate::gui::StrandBuildingStatus> {
         self.get_strand_building_state()
     }
+
+    fn get_selected_group(&self) -> Option<GroupId> {
+        self.0.selection.selected_group.clone()
+    }
+
+    fn get_suggestion_parameters(&self) -> &SuggestionParameters {
+        &self.0.parameters.suggestion_parameters
+    }
+
+    fn get_checked_xovers_parameters(&self) -> CheckXoversParameter {
+        self.0.parameters.check_xover_paramters
+    }
+
+    fn follow_stereographic_camera(&self) -> bool {
+        self.0.parameters.follow_stereography
+    }
+
+    fn show_stereographic_camera(&self) -> bool {
+        self.0.parameters.show_stereography
+    }
+
+    fn show_h_bonds(&self) -> bool {
+        self.0.parameters.show_h_bonds
+    }
+
+    fn get_scroll_sensitivity(&self) -> f32 {
+        self.0.parameters.scroll_sensitivity
+    }
+
+    fn get_invert_y_scroll(&self) -> bool {
+        self.0.parameters.inverted_y_scroll
+    }
+
+    fn want_thick_helices(&self) -> bool {
+        self.0.parameters.thick_helices
+    }
+
+    fn expand_insertions(&self) -> bool {
+        !self.0.show_insertion_representents
+    }
+
+    fn get_show_bezier_paths(&self) -> bool {
+        self.0.parameters.show_bezier_paths
+    }
+
+    fn get_selected_bezier_path(&self) -> Option<ensnano_design::BezierPathId> {
+        if let Some(Selection::BezierVertex(vertex)) = self.0.selection.selection.get(0) {
+            Some(vertex.path_id)
+        } else {
+            None
+        }
+    }
+
+    fn is_exporting(&self) -> bool {
+        self.0.exporting
+    }
 }
 
 #[cfg(test)]

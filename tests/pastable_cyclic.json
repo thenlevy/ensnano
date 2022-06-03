@@ -1,0 +1,281 @@
+{
+  "helices": {
+    "1": {
+      "position": {
+        "x": 0.0,
+        "y": 10.299999,
+        "z": 0.0
+      },
+      "orientation": {
+        "s": 0.7071068,
+        "bv": {
+          "xy": 0.0,
+          "xz": -0.7071068,
+          "yz": 0.0
+        }
+      },
+      "visible": true,
+      "grid_position": {
+        "grid": 0,
+        "x": 0,
+        "y": -2,
+        "axis_pos": 0,
+        "roll": 0.0
+      },
+      "isometry2d": {
+        "translation": {
+          "x": 0.0,
+          "y": 4.0
+        },
+        "rotation": {
+          "s": 1.0,
+          "bv": {
+            "xy": 0.0
+          }
+        }
+      },
+      "roll": 0.0
+    },
+    "2": {
+      "position": {
+        "x": 0.0,
+        "y": 7.6499996,
+        "z": 0.0
+      },
+      "orientation": {
+        "s": 0.7071068,
+        "bv": {
+          "xy": 0.0,
+          "xz": -0.7071068,
+          "yz": 0.0
+        }
+      },
+      "visible": true,
+      "grid_position": {
+        "grid": 0,
+        "x": 0,
+        "y": -1,
+        "axis_pos": 0,
+        "roll": 0.0
+      },
+      "isometry2d": {
+        "translation": {
+          "x": 0.0,
+          "y": 9.0
+        },
+        "rotation": {
+          "s": 1.0,
+          "bv": {
+            "xy": 0.0
+          }
+        }
+      },
+      "roll": 0.0
+    },
+    "3": {
+      "position": {
+        "x": -2.6499999,
+        "y": 7.6499996,
+        "z": 0.0
+      },
+      "orientation": {
+        "s": 0.7071068,
+        "bv": {
+          "xy": 0.0,
+          "xz": -0.7071068,
+          "yz": 0.0
+        }
+      },
+      "visible": true,
+      "grid_position": {
+        "grid": 0,
+        "x": 1,
+        "y": -1,
+        "axis_pos": 0,
+        "roll": 0.0
+      },
+      "isometry2d": {
+        "translation": {
+          "x": 0.0,
+          "y": 14.0
+        },
+        "rotation": {
+          "s": 1.0,
+          "bv": {
+            "xy": 0.0
+          }
+        }
+      },
+      "roll": 0.0
+    },
+    "4": {
+      "position": {
+        "x": 0.0,
+        "y": 5.0,
+        "z": 0.0
+      },
+      "orientation": {
+        "s": 0.7071068,
+        "bv": {
+          "xy": 0.0,
+          "xz": -0.7071068,
+          "yz": 0.0
+        }
+      },
+      "visible": true,
+      "grid_position": {
+        "grid": 0,
+        "x": 0,
+        "y": 0,
+        "axis_pos": 0,
+        "roll": 0.0
+      },
+      "isometry2d": {
+        "translation": {
+          "x": 0.0,
+          "y": 19.0
+        },
+        "rotation": {
+          "s": 1.0,
+          "bv": {
+            "xy": 0.0
+          }
+        }
+      },
+      "roll": 0.0
+    },
+    "5": {
+      "position": {
+        "x": 0.0,
+        "y": 2.3500001,
+        "z": 0.0
+      },
+      "orientation": {
+        "s": 0.7071068,
+        "bv": {
+          "xy": 0.0,
+          "xz": -0.7071068,
+          "yz": 0.0
+        }
+      },
+      "visible": true,
+      "grid_position": {
+        "grid": 0,
+        "x": 0,
+        "y": 1,
+        "axis_pos": 0,
+        "roll": 0.0
+      },
+      "isometry2d": {
+        "translation": {
+          "x": 0.0,
+          "y": 24.0
+        },
+        "rotation": {
+          "s": 1.0,
+          "bv": {
+            "xy": 0.0
+          }
+        }
+      },
+      "roll": 0.0
+    },
+    "6": {
+      "position": {
+        "x": -2.6499999,
+        "y": 2.3500001,
+        "z": 0.0
+      },
+      "orientation": {
+        "s": 0.7071068,
+        "bv": {
+          "xy": 0.0,
+          "xz": -0.7071068,
+          "yz": 0.0
+        }
+      },
+      "visible": true,
+      "grid_position": {
+        "grid": 0,
+        "x": 1,
+        "y": 1,
+        "axis_pos": 0,
+        "roll": 0.0
+      },
+      "isometry2d": {
+        "translation": {
+          "x": 0.0,
+          "y": 29.0
+        },
+        "rotation": {
+          "s": 1.0,
+          "bv": {
+            "xy": 0.0
+          }
+        }
+      },
+      "roll": 0.0
+    }
+  },
+  "strands": {
+    "0": {
+      "domains": [
+        {
+          "HelixDomain": {
+            "helix": 1,
+            "start": -1,
+            "end": 8,
+            "forward": true,
+            "sequence": null
+          }
+        },
+        {
+          "HelixDomain": {
+            "helix": 2,
+            "start": -1,
+            "end": 8,
+            "forward": false,
+            "sequence": null
+          }
+        },
+        {
+          "HelixDomain": {
+            "helix": 3,
+            "start": 0,
+            "end": 10,
+            "forward": true,
+            "sequence": null
+          }
+        }
+      ],
+      "color": 4279832335,
+      "cyclic": true
+    }
+  },
+  "parameters": {
+    "z_step": 0.332,
+    "helix_radius": 1.0,
+    "bases_per_turn": 10.44,
+    "groove_angle": -2.2175949,
+    "inter_helix_gap": 0.65
+  },
+  "scaffold_shift": null,
+  "grids": [
+    {
+      "position": {
+        "x": 0.0,
+        "y": 5.0,
+        "z": 0.0
+      },
+      "orientation": {
+        "s": 0.70710677,
+        "bv": {
+          "xy": 0.0,
+          "xz": -0.70710677,
+          "yz": 0.0
+        }
+      },
+      "grid_type": "Square"
+    }
+  ]
+}

@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::scene::AppState as App3D;
+use crate::scene::{AppState as App3D, DrawOptions};
 use ensnano_interactor::StrandBuilder;
 
 use super::*;
@@ -92,6 +92,54 @@ impl App3D for AppState {
             .and_then(|attributes| attributes.pivot.clone())
             .or(self.0.selection.pivot.read().as_deref().unwrap().clone())
     }
+
+    fn get_current_group_id(&self) -> Option<ensnano_design::GroupId> {
+        self.0.selection.selected_group
+    }
+
+    fn suggestion_parameters_were_updated(&self, other: &Self) -> bool {
+        self.0.parameters.suggestion_parameters != other.0.parameters.suggestion_parameters
+    }
+
+    fn get_check_xover_parameters(&self) -> CheckXoversParameter {
+        self.0.parameters.check_xover_paramters
+    }
+
+    fn follow_stereographic_camera(&self) -> bool {
+        self.0.parameters.follow_stereography
+    }
+
+    fn get_draw_options(&self) -> DrawOptions {
+        DrawOptions {
+            background3d: self.0.parameters.background3d,
+            rendering_mode: self.0.parameters.rendering_mode,
+            show_stereographic_camera: self.0.parameters.show_stereography,
+            thick_helices: self.0.parameters.thick_helices,
+            h_bonds: self.0.parameters.show_h_bonds,
+            show_bezier_planes: self.0.parameters.show_bezier_paths,
+        }
+    }
+
+    fn draw_options_were_updated(&self, other: &Self) -> bool {
+        self.get_draw_options() != other.get_draw_options()
+    }
+
+    fn get_scroll_sensitivity(&self) -> f32 {
+        let sign = if self.0.parameters.inverted_y_scroll {
+            -1.0
+        } else {
+            1.0
+        };
+        sign * crate::consts::scroll_sensitivity_convertion(self.0.parameters.scroll_sensitivity)
+    }
+
+    fn show_insertion_representents(&self) -> bool {
+        self.0.show_insertion_representents
+    }
+
+    fn show_bezier_paths(&self) -> bool {
+        self.0.parameters.show_bezier_paths
+    }
 }
 
 #[cfg(test)]
@@ -128,6 +176,7 @@ mod tests {
 
         assert!(!state.design_was_modified(&old_state));
         state.update_design(Default::default());
+        state.update();
         assert!(state.design_was_modified(&old_state));
     }
 

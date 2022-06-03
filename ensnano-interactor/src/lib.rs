@@ -21,20 +21,25 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
-    grid::{GridDescriptor, GridPosition, Hyperboloid},
+    grid::{GridDescriptor, GridId, GridObject, GridTypeDescr, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
-    Nucl,
+    BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, BezierVertexId, Nucl,
+    Parameters,
 };
+use serde::{Deserialize, Serialize};
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
 pub mod graphics;
 mod selection;
 pub use selection::*;
 pub mod application;
+pub use application::CursorIcon;
 pub mod operation;
 mod strand_builder;
 pub use strand_builder::*;
+pub mod consts;
 pub mod torsion;
 use ensnano_organizer::GroupId;
+mod operation_labels;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum ObjectType {
@@ -89,9 +94,13 @@ pub enum DesignOperation {
     Translation(DesignTranslation),
     /// Add an helix on a grid
     AddGridHelix {
-        position: GridPosition,
+        position: HelixGridPosition,
         start: isize,
         length: usize,
+    },
+    AddTwoPointsBezier {
+        start: HelixGridPosition,
+        end: HelixGridPosition,
     },
     RmHelices {
         h_ids: Vec<usize>,
@@ -156,7 +165,7 @@ pub enum DesignOperation {
     CleanDesign,
     HelicesToGrid(Vec<Selection>),
     SetHelicesPersistance {
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         persistant: bool,
     },
     UpdateAttribute {
@@ -164,12 +173,12 @@ pub enum DesignOperation {
         elements: Vec<DnaElementKey>,
     },
     SetSmallSpheres {
-        grid_ids: Vec<usize>,
+        grid_ids: Vec<GridId>,
         small: bool,
     },
     /// Apply a translation to the 2d representation of helices holding each pivot
     SnapHelices {
-        pivots: Vec<Nucl>,
+        pivots: Vec<(Nucl, usize)>,
         translation: Vec2,
     },
     RotateHelices {
@@ -177,8 +186,14 @@ pub enum DesignOperation {
         center: Vec2,
         angle: f32,
     },
+    ApplySymmetryToHelices {
+        helices: Vec<usize>,
+        centers: Vec<Vec2>,
+        symmetry: Vec2,
+    },
     SetIsometry {
         helix: usize,
+        segment: usize,
         isometry: Isometry2,
     },
     RequestStrandBuilders {
@@ -199,9 +214,9 @@ pub enum DesignOperation {
     FlipAnchors {
         nucls: Vec<Nucl>,
     },
-    AttachHelix {
-        helix: usize,
-        grid: usize,
+    AttachObject {
+        object: GridObject,
+        grid: GridId,
         x: isize,
         y: isize,
     },
@@ -218,6 +233,7 @@ pub enum DesignOperation {
     CreateNewCamera {
         position: Vec3,
         orientation: Rotor3,
+        pivot_position: Option<Vec3>,
     },
     SetFavouriteCamera(ensnano_design::CameraId),
     UpdateCamera {
@@ -229,6 +245,78 @@ pub enum DesignOperation {
         camera_id: ensnano_design::CameraId,
         name: String,
     },
+    SetGridPosition {
+        grid_id: GridId,
+        position: Vec3,
+    },
+    SetGridOrientation {
+        grid_id: GridId,
+        orientation: Rotor3,
+    },
+    SetGridNbTurn {
+        grid_id: GridId,
+        nb_turn: f32,
+    },
+    MakeSeveralXovers {
+        xovers: Vec<(Nucl, Nucl)>,
+        doubled: bool,
+    },
+    CheckXovers {
+        xovers: Vec<usize>,
+    },
+    SetRainbowScaffold(bool),
+    SetDnaParameters {
+        parameters: Parameters,
+    },
+    SetInsertionLength {
+        length: usize,
+        insertion_point: InsertionPoint,
+    },
+    AddBezierPlane {
+        desc: BezierPlaneDescriptor,
+    },
+    CreateBezierPath {
+        first_vertex: BezierVertex,
+    },
+    AppendVertexToPath {
+        path_id: BezierPathId,
+        vertex: BezierVertex,
+    },
+    MoveBezierVertex {
+        path_id: BezierPathId,
+        vertex_id: usize,
+        position: Vec2,
+    },
+    TurnPathVerticesIntoGrid {
+        path_id: BezierPathId,
+        grid_type: GridTypeDescr,
+    },
+    ApplyHomothethyOnBezierPlane {
+        homothethy: BezierPlaneHomothethy,
+    },
+    SetVectorOfBezierTengent(NewBezierTengentVector),
+    MakeBezierPathCyclic {
+        path_id: BezierPathId,
+        cyclic: bool,
+    },
+    RmFreeGrids {
+        grid_ids: Vec<usize>,
+    },
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct NewBezierTengentVector {
+    pub vertex_id: BezierVertexId,
+    /// Wether `new_vector` is the vector of the inward or outward tengent
+    pub tengent_in: bool,
+    pub full_symetry_other_tengent: bool,
+    pub new_vector: Vec2,
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct InsertionPoint {
+    pub nucl: Nucl,
+    pub nucl_is_prime5_of_insertion: bool,
 }
 
 /// An action performed on the application
@@ -256,6 +344,7 @@ pub struct DesignRotation {
     pub rotation: Rotor3,
     /// The element of the design on which the rotation will be applied
     pub target: IsometryTarget,
+    pub group_id: Option<GroupId>,
 }
 
 /// A translation of an element of a design
@@ -263,6 +352,7 @@ pub struct DesignRotation {
 pub struct DesignTranslation {
     pub translation: Vec3,
     pub target: IsometryTarget,
+    pub group_id: Option<GroupId>,
 }
 
 /// A element on which an isometry must be applied
@@ -273,15 +363,29 @@ pub enum IsometryTarget {
     /// An helix of the design
     Helices(Vec<usize>, bool),
     /// A grid of the desgin
-    Grids(Vec<usize>),
+    Grids(Vec<GridId>),
     /// The pivot of a group
     GroupPivot(GroupId),
+    /// The control points of bezier curves
+    ControlPoint(Vec<(usize, BezierControlPoint)>),
+}
+
+impl ToString for IsometryTarget {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Design => "Design".into(),
+            Self::Helices(hs, _) => format!("Helices {:?}", hs),
+            Self::Grids(gs) => format!("Grids {:?}", gs),
+            Self::GroupPivot(_) => "Group pivot".into(),
+            Self::ControlPoint(_) => "Bezier control point".into(),
+        }
+    }
 }
 
 /// A stucture that defines an helix on a grid
 #[derive(Clone, Debug)]
 pub struct GridHelixDescriptor {
-    pub grid_id: usize,
+    pub grid_id: GridId,
     pub x: isize,
     pub y: isize,
 }
@@ -292,6 +396,7 @@ pub struct HyperboloidRequest {
     pub length: f32,
     pub shift: f32,
     pub radius_shift: f32,
+    pub nb_turn: f64,
 }
 
 impl HyperboloidRequest {
@@ -302,6 +407,7 @@ impl HyperboloidRequest {
             shift: self.shift,
             radius_shift: self.radius_shift,
             forced_radius: None,
+            nb_turn_per_100_nt: self.nb_turn,
         }
     }
 }
@@ -353,6 +459,7 @@ pub enum SimulationState {
     RigidGrid,
     RigidHelices,
     Paused,
+    Twisting { grid_id: GridId },
 }
 
 impl SimulationState {
@@ -447,4 +554,101 @@ pub struct StrandBuildingStatus {
     pub prime3: Nucl,
     pub prime5: Nucl,
     pub dragged_nucl: Nucl,
+}
+
+/// Parameters of strand suggestions
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct SuggestionParameters {
+    pub include_scaffold: bool,
+    pub include_intra_strand: bool,
+    pub include_xover_ends: bool,
+    pub ignore_groups: bool,
+}
+
+impl Default for SuggestionParameters {
+    fn default() -> Self {
+        Self {
+            include_intra_strand: true,
+            include_scaffold: true,
+            include_xover_ends: false,
+            ignore_groups: false,
+        }
+    }
+}
+
+impl SuggestionParameters {
+    pub fn with_include_scaffod(&self, include_scaffold: bool) -> Self {
+        let mut ret = self.clone();
+        ret.include_scaffold = include_scaffold;
+        ret
+    }
+
+    pub fn with_intra_strand(&self, intra_strand: bool) -> Self {
+        let mut ret = self.clone();
+        ret.include_intra_strand = intra_strand;
+        ret
+    }
+
+    pub fn with_ignore_groups(&self, ignore_groups: bool) -> Self {
+        let mut ret = self.clone();
+        ret.ignore_groups = ignore_groups;
+        ret
+    }
+
+    pub fn with_xover_ends(&self, include_xover_ends: bool) -> Self {
+        let mut ret = self.clone();
+        ret.include_xover_ends = include_xover_ends;
+        ret
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CheckXoversParameter {
+    None,
+    Checked,
+    Unchecked,
+    Both,
+}
+
+impl Default for CheckXoversParameter {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl ToString for CheckXoversParameter {
+    fn to_string(&self) -> String {
+        match self {
+            Self::None => String::from("None"),
+            Self::Checked => String::from("Checked"),
+            Self::Unchecked => String::from("Unchecked"),
+            Self::Both => String::from("Both"),
+        }
+    }
+}
+
+impl CheckXoversParameter {
+    pub const ALL: &'static [Self] = &[Self::None, Self::Checked, Self::Unchecked, Self::Both];
+
+    pub fn wants_checked(&self) -> bool {
+        match self {
+            Self::Checked | Self::Both => true,
+            Self::None | Self::Unchecked => false,
+        }
+    }
+
+    pub fn wants_unchecked(&self) -> bool {
+        match self {
+            Self::Unchecked | Self::Both => true,
+            Self::None | Self::Checked => false,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BezierPlaneHomothethy {
+    pub plane_id: BezierPlaneId,
+    pub fixed_corner: Vec2,
+    pub origin_moving_corner: Vec2,
+    pub moving_corner: Vec2,
 }

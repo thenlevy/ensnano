@@ -66,6 +66,16 @@ impl<T: Default> AddressPointer<T> {
     pub fn show_address(&self) {
         println!("{:p}", Arc::as_ptr(&self.0))
     }
+
+    pub fn get_ptr(&self) -> *const T {
+        Arc::as_ptr(&self.0)
+    }
+}
+
+impl<T: Default + Clone> AddressPointer<T> {
+    pub fn make_mut(&mut self) -> &mut T {
+        Arc::make_mut(&mut self.0)
+    }
 }
 
 use std::ops::Deref;
@@ -86,5 +96,12 @@ impl<T: Default + PartialEq> AddressPointer<T> {
 impl<T: Default> From<Arc<T>> for AddressPointer<T> {
     fn from(arc: Arc<T>) -> Self {
         Self(arc)
+    }
+}
+
+impl<T: Default> std::fmt::Pointer for AddressPointer<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ptr = Arc::as_ptr(&self.0);
+        std::fmt::Pointer::fmt(&ptr, f)
     }
 }

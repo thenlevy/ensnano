@@ -1,0 +1,25 @@
+[package]
+name = "ensnano_gui"
+version = "0.4.0"
+authors = ["thenlevy <nicolaspierrelevy@gmail.com>"]
+edition = "2018"
+license = "GPL-3.0-or-later"
+
+[dependencies]
+iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3", features = ["spirv"] }
+iced = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3", features=["image"] }
+iced_graphics = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
+iced_winit = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
+iced_native = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
+iced_aw = { git = "https://github.com/thenlevy/iced_aw", rev = "4ee0a6ac70633" , features = ["tab_bar"]}
+ensnano_design = { path = "../ensnano-design" }
+ensnano_interactor = { path = "../ensnano-interactor" }
+ensnano_organizer = { path = "../ensnano-organizer" }
+ensnano_utils = { path = "../ensnano-utils" }
+ensnano_exports = { path = "../ensnano-exports"}
+rfd = "0.4"
+futures = "0.3.5"
+open = "1"
+color_space = "0.5.2"
+log = "0.4"
+paste = "1.0.5"

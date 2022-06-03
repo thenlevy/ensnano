@@ -29,8 +29,8 @@ fn sanitize_with_insertions() {
             forward: true,
             sequence: None,
         }),
-        Domain::Insertion(3),
-        Domain::Insertion(5),
+        Domain::new_insertion(3),
+        Domain::new_insertion(5),
         Domain::HelixDomain(HelixInterval {
             helix: 1,
             start: 0,
@@ -131,7 +131,7 @@ fn assert_good_strand<S: std::ops::Deref<Target = str>>(strand: &Strand, objecti
 fn assert_sane_domains_non_cyclic(dom: &[Domain]) {
     let mut prev_insertion = false;
     for d in dom.iter() {
-        if let Domain::Insertion(_) = d {
+        if let Domain::Insertion { .. } = d {
             if prev_insertion {
                 panic!("Two successive Insertions in {:?}", dom);
             } else {
@@ -145,8 +145,8 @@ fn assert_sane_domains_non_cyclic(dom: &[Domain]) {
 
 fn assert_sane_domains_cyclic(dom: &[Domain]) {
     if dom.len() >= 2 {
-        if let Some(Domain::Insertion(_)) = dom.first() {
-            if let Some(Domain::Insertion(_)) = dom.last() {
+        if let Some(Domain::Insertion { .. }) = dom.first() {
+            if let Some(Domain::Insertion { .. }) = dom.last() {
                 panic!("First and last domains are both insertions in cyclic strand")
             }
         }
@@ -177,9 +177,9 @@ fn correct_sanetization_cyclic_pathological() {
     let mut strand = strand_with_insertion();
     strand.cyclic = true;
     let add_prime5 = 123;
-    strand.domains.insert(0, Domain::Insertion(add_prime5));
+    strand.domains.insert(0, Domain::new_insertion(add_prime5));
     let add_prime3 = 9874;
-    strand.domains.push(Domain::Insertion(add_prime3));
+    strand.domains.push(Domain::new_insertion(add_prime3));
     let sane_domains = sanitize_domains(&strand.domains, true);
     assert_eq!(
         sane_domains.iter().map(|d| d.length()).collect::<Vec<_>>(),
@@ -198,7 +198,7 @@ fn correct_sanetization_cyclic_insertion_5prime() {
     let insertion_prime5 = 17;
     strand
         .domains
-        .insert(0, Domain::Insertion(insertion_prime5));
+        .insert(0, Domain::new_insertion(insertion_prime5));
     let sane_domains = sanitize_domains(&strand.domains, true);
     assert_eq!(
         sane_domains.iter().map(|d| d.length()).collect::<Vec<_>>(),
@@ -211,7 +211,7 @@ fn correct_sanetization_cyclic_insertion_3prime() {
     let mut strand = strand_with_insertion();
     strand.cyclic = true;
     let insertion_prime3 = 17;
-    strand.domains.push(Domain::Insertion(insertion_prime3));
+    strand.domains.push(Domain::new_insertion(insertion_prime3));
     let sane_domains = sanitize_domains(&strand.domains, true);
     assert_eq!(
         sane_domains.iter().map(|d| d.length()).collect::<Vec<_>>(),
@@ -227,8 +227,8 @@ fn correct_sanetization_cyclic_insertion_3prime_5prime() {
     let insertion_prime3 = 17;
     strand
         .domains
-        .insert(0, Domain::Insertion(insertion_prime5));
-    strand.domains.push(Domain::Insertion(insertion_prime3));
+        .insert(0, Domain::new_insertion(insertion_prime5));
+    strand.domains.push(Domain::new_insertion(insertion_prime3));
     let sane_domains = sanitize_domains(&strand.domains, true);
     assert_eq!(
         sane_domains.iter().map(|d| d.length()).collect::<Vec<_>>(),
@@ -295,7 +295,7 @@ fn correct_insertion_points() {
 #[test]
 fn correct_insertion_prime5() {
     let mut strand = strand_with_insertion();
-    strand.domains.insert(0, Domain::Insertion(4));
+    strand.domains.insert(0, Domain::new_insertion(4));
     let sane_domains = sanitize_domains(strand.domains.as_slice(), false);
     strand.domains = sane_domains;
     let insertion_points = strand.insertion_points();
@@ -341,7 +341,7 @@ fn correct_insertion_prime5() {
 #[test]
 fn correct_insertion_prime3() {
     let mut strand = strand_with_insertion();
-    strand.domains.push(Domain::Insertion(4));
+    strand.domains.push(Domain::new_insertion(4));
     let sane_domains = sanitize_domains(strand.domains.as_slice(), false);
     strand.domains = sane_domains;
     let insertion_points = strand.insertion_points();
@@ -387,7 +387,7 @@ fn correct_insertion_prime3() {
 #[test]
 fn correct_insertion_cyclic_prime5() {
     let mut strand = strand_with_insertion();
-    strand.domains.insert(0, Domain::Insertion(4));
+    strand.domains.insert(0, Domain::new_insertion(4));
     let sane_domains = sanitize_domains(strand.domains.as_slice(), true);
     strand.domains = sane_domains;
     strand.cyclic = true;
@@ -438,7 +438,7 @@ fn correct_insertion_cyclic_prime5() {
 #[test]
 fn correct_insertion_cyclic_prime3() {
     let mut strand = strand_with_insertion();
-    strand.domains.push(Domain::Insertion(4));
+    strand.domains.push(Domain::new_insertion(4));
     let sane_domains = sanitize_domains(strand.domains.as_slice(), true);
     strand.domains = sane_domains;
     strand.cyclic = true;
@@ -489,8 +489,8 @@ fn correct_insertion_cyclic_prime3() {
 #[test]
 fn correct_insertion_cyclic_prime5_prime3() {
     let mut strand = strand_with_insertion();
-    strand.domains.insert(0, Domain::Insertion(3));
-    strand.domains.push(Domain::Insertion(4));
+    strand.domains.insert(0, Domain::new_insertion(3));
+    strand.domains.push(Domain::new_insertion(4));
     let sane_domains = sanitize_domains(strand.domains.as_slice(), true);
     strand.domains = sane_domains;
     strand.cyclic = true;
@@ -546,8 +546,8 @@ fn correct_junction_cyclic_pathological() {
     let insertion_prime3 = 17;
     strand
         .domains
-        .insert(0, Domain::Insertion(insertion_prime5));
-    strand.domains.push(Domain::Insertion(insertion_prime3));
+        .insert(0, Domain::new_insertion(insertion_prime5));
+    strand.domains.push(Domain::new_insertion(insertion_prime3));
     let sane_domains = sanitize_domains(&strand.domains, true);
     let junctions = read_junctions(sane_domains.as_slice(), strand.cyclic);
     assert_eq!(

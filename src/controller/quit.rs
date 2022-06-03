@@ -17,10 +17,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::controller::normal_state::NormalState;
+use crate::dialog::Filters;
 
 use super::{dialog, messages, MainState, State, TransitionMessage, YesNo};
 
 use dialog::PathInput;
+use ensnano_exports::ExportType;
 use std::path::Path;
 
 pub(super) struct Quit {
@@ -166,7 +168,7 @@ fn ask_path<P: AsRef<Path>>(
                 })
             } else {
                 TransitionMessage::new(
-                    messages::NO_FILE_RECIEVED,
+                    messages::NO_FILE_RECIEVED_LOAD,
                     rfd::MessageLevel::Error,
                     Box::new(super::NormalState),
                 )
@@ -179,7 +181,7 @@ fn ask_path<P: AsRef<Path>>(
             })
         }
     } else {
-        let path_input = dialog::load(starting_directory);
+        let path_input = dialog::load(starting_directory, messages::DESIGN_LOAD_FILTER);
         Box::new(Load {
             step: LoadStep::AskPath {
                 path_input: Some(path_input),
@@ -191,7 +193,7 @@ fn ask_path<P: AsRef<Path>>(
 fn load(path: PathBuf, state: &mut dyn MainState) -> Box<dyn State> {
     if let Err(err) = state.load_design(path) {
         TransitionMessage::new(
-            format!("Error when loading design: {}", err.0),
+            format!("Error when loading design:\n{err}"),
             rfd::MessageLevel::Error,
             Box::new(super::NormalState),
         )
@@ -291,16 +293,20 @@ impl State for SaveAs {
                     }
                 } else {
                     TransitionMessage::new(
-                        "Error, did not recieve any file".to_string(),
+                        messages::NO_FILE_RECIEVED_SAVE,
                         rfd::MessageLevel::Error,
-                        self.on_error,
+                        Box::new(super::NormalState),
                     )
                 }
             } else {
                 self
             }
         } else {
-            let getter = dialog::save("ens", main_state.get_current_design_directory());
+            let getter = dialog::get_file_to_write(
+                &messages::DESIGN_WRITE_FILTER,
+                main_state.get_current_design_directory(),
+                main_state.get_current_file_name(),
+            );
             self.file_getter = Some(getter);
             self
         }
@@ -331,42 +337,48 @@ impl State for SaveWithPath {
     }
 }
 
-pub(super) struct OxDnaExport {
+pub(super) struct Exporting {
     file_getter: Option<PathInput>,
     on_success: Box<dyn State>,
     on_error: Box<dyn State>,
+    export_type: ExportType,
 }
 
-impl OxDnaExport {
-    pub(super) fn new(on_success: Box<dyn State>, on_error: Box<dyn State>) -> Self {
+impl Exporting {
+    pub(super) fn new(
+        on_success: Box<dyn State>,
+        on_error: Box<dyn State>,
+        export_type: ExportType,
+    ) -> Self {
         Self {
             file_getter: None,
             on_success,
             on_error,
+            export_type,
         }
     }
 }
 
-impl State for OxDnaExport {
+impl State for Exporting {
     fn make_progress(mut self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         if let Some(ref getter) = self.file_getter {
             if let Some(path_opt) = getter.get() {
                 if let Some(ref path) = path_opt {
-                    match main_state.oxdna_export(path) {
+                    match main_state.export(path, self.export_type) {
                         Err(err) => TransitionMessage::new(
                             messages::failed_to_save_msg(&err),
                             rfd::MessageLevel::Error,
                             self.on_error,
                         ),
-                        Ok((config, topo)) => TransitionMessage::new(
-                            messages::succesfull_oxdna_export_msg(config, topo),
+                        Ok(success) => TransitionMessage::new(
+                            success.message(),
                             rfd::MessageLevel::Info,
                             self.on_success,
                         ),
                     }
                 } else {
                     TransitionMessage::new(
-                        messages::NO_FILE_RECIEVED,
+                        messages::NO_FILE_RECIEVED_OXDNA,
                         rfd::MessageLevel::Error,
                         self.on_error,
                     )
@@ -375,9 +387,36 @@ impl State for OxDnaExport {
                 self
             }
         } else {
-            let getter = dialog::get_dir();
+            let candidate_name = main_state.get_current_file_name().map(|p| {
+                let mut ret = p.to_owned();
+                ret.set_extension(export_extenstion(self.export_type));
+                ret
+            });
+            let getter = dialog::get_file_to_write(
+                export_filters(self.export_type),
+                main_state.get_current_design_directory(),
+                candidate_name,
+            );
             self.file_getter = Some(getter);
             self
         }
+    }
+}
+
+fn export_extenstion(export_type: ExportType) -> &'static str {
+    match export_type {
+        ExportType::Oxdna => messages::OXDNA_CONFIG_EXTENSTION,
+        ExportType::Pdb => "pdb",
+        ExportType::Cadnano => "json",
+        ExportType::Cando => "cndo",
+    }
+}
+
+fn export_filters(export_type: ExportType) -> &'static Filters {
+    match export_type {
+        ExportType::Oxdna => &messages::OXDNA_CONFIG_FILTERS,
+        ExportType::Pdb => &messages::PDB_FILTER,
+        ExportType::Cadnano => &messages::CADNANO_FILTER,
+        ExportType::Cando => todo!(),
     }
 }

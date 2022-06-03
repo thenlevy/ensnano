@@ -1,0 +1,20 @@
+[package]
+name = "ensnano_utils"
+version = "0.4.0"
+authors = ["thenlevy <nicolaspierrelevy@gmail.com>"]
+edition = "2018"
+license = "GPL-3.0-or-later"
+
+[dependencies]
+iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3", features = ["spirv"] }
+iced_winit = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
+bytemuck = "1.2.0"
+color_space = "0.5.2"
+ultraviolet = { git = "https://github.com/termhn/ultraviolet", rev = "b2fb29e" , features = ["bytemuck", "f64", "serde"] }
+ensnano_interactor = { path = "../ensnano-interactor" }
+ensnano_design = { path = "../ensnano-design" }
+log = "0.4"
+fontdue = "0.6.4"
+ahash = "0.6.2"
+gltf = "0.16.0"
+nom_stl = "0.2.2"

@@ -1,0 +1,19 @@
+[package]
+name = "ensnano_scene"
+version = "0.4.0"
+authors = ["thenlevy <nicolaspierrelevy@gmail.com>"]
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+[dependencies]
+ensnano_design = { path = "../ensnano-design" }
+ensnano_interactor = { path = "../ensnano-interactor" }
+ensnano_utils = { path = "../ensnano-utils" }
+lyon = { git = "https://github.com/nical/lyon", rev = "ea6d904c6c9ec0445c5653c119a48c43ea76cee9" }
+log = "0.4"
+bytemuck = "1.2.0"
+futures = "0.3.5"
+image = "0.23"
+num_enum = "0.5.1"
+png = "0.17.5"
+chrono = "0.4.19"

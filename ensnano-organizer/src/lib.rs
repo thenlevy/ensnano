@@ -274,7 +274,10 @@ impl<E: OrganizerElement> Organizer<E> {
     ) -> Option<OrganizerMessage<E>> {
         log::trace!("{:?}", message);
         match &message.0 {
-            OrganizerMessage_::Expand { id, expanded } => self.expand(id, *expanded),
+            OrganizerMessage_::Expand { id, expanded } => {
+                self.expand(id, *expanded);
+                return Some(OrganizerMessage::NewTree(self.tree()));
+            }
             OrganizerMessage_::NodeSelected { id } => {
                 let add = self.modifiers.command() || self.modifiers.shift();
                 let (new_selection, new_group) = self.select_node(id, add, selection.clone());
@@ -368,8 +371,13 @@ impl<E: OrganizerElement> Organizer<E> {
         }
     }
 
-    pub fn notify_selection(&mut self) {
+    pub fn notify_selection(&mut self, selected_group: Option<GroupId>) {
+        log::info!("Notified of selection");
+        let selected_node = selected_group.and_then(|g_id| self.group_to_node.get(&g_id).cloned());
         self.selected_nodes = BTreeSet::new();
+        if let Some(node_id) = selected_node {
+            self.selected_nodes.insert(node_id);
+        }
     }
 
     fn add_selection(selection: &mut BTreeSet<E::Key>, key: &E::Key, may_remove: bool) {
@@ -415,6 +423,7 @@ impl<E: OrganizerElement> Organizer<E> {
                 self.get_group(&id).and_then(|g| g.get_group_id())
             }
         };
+        log::info!("Selected nodes = {:?}", self.selected_nodes);
         (current_selection, group_id)
     }
 
@@ -600,6 +609,23 @@ impl<E: OrganizerElement> Organizer<E> {
         }
     }
 
+    fn delete_useless_leaves(&mut self, elements: BTreeSet<E::Key>) -> bool {
+        let mut ids_to_remove: Vec<NodeId> = Vec::new();
+        for g in self.groups.iter_mut() {
+            g.delete_useless_leaves(&mut ids_to_remove, &elements);
+        }
+        ids_to_remove.sort_unstable();
+        if ids_to_remove.len() > 0 {
+            for id in ids_to_remove.iter().rev() {
+                self.pop_id_no_recompute(id);
+            }
+            self.recompute_id();
+            true
+        } else {
+            false
+        }
+    }
+
     fn replace_id(&mut self, content: GroupContent<E>, id: &NodeId) {
         if let Some(id) = get_group_id(id) {
             if id.len() < 2 {
@@ -702,7 +728,8 @@ impl<E: OrganizerElement> Organizer<E> {
         self.must_update_tree = true;
     }
 
-    pub fn update_elements(&mut self, elements: &[E]) {
+    /// Update the elements in the tree and return true if the tree graph was modified
+    pub fn update_elements(&mut self, elements: &[E]) -> bool {
         for s in self.sections.iter_mut() {
             s.elements.clear();
             s.content.clear();
@@ -712,7 +739,9 @@ impl<E: OrganizerElement> Organizer<E> {
             let section_id: usize = key.section().into();
             self.sections[section_id].add_element(e.clone());
         }
+        let ret = self.delete_useless_leaves(elements.iter().map(|e| e.key()).collect());
         self.update_attributes();
+        ret
     }
 
     fn update_attributes(&mut self) {
@@ -988,6 +1017,10 @@ impl<E: OrganizerElement> NodeView<E> {
                     )
                     .push(Space::with_width(iced::Length::Fill));
 
+                row = row.push(
+                    Button::new(eddit_button, eddit_icon())
+                        .on_press(OrganizerMessage::stop_eddit()),
+                );
                 for ad in self.attribute_displayers.iter_mut() {
                     if let Some(view) = ad.view() {
                         let id = id.clone();
@@ -996,11 +1029,6 @@ impl<E: OrganizerElement> NodeView<E> {
                         )
                     }
                 }
-
-                row = row.push(
-                    Button::new(eddit_button, eddit_icon())
-                        .on_press(OrganizerMessage::stop_eddit()),
-                );
                 row = row.push(
                     Button::new(delete_button, icon(Icon::Trash.into()))
                         .on_press(OrganizerMessage::delete(id.clone())),
@@ -1542,10 +1570,41 @@ impl<E: OrganizerElement> GroupContent<E> {
             Self::Placeholder => None,
         }
     }
+
+    /// Auxiliary function for deletion of useless leaves.
+    ///
+    /// If self is a Leaf return true iff it owns an element that is *not* in elements.keys(), and
+    /// in this case adds its own node identifier to `ids_to_remove`
+    ///
+    /// If self is a group, apply recursievely this process to all its children and then return
+    /// true iff all the children need to be removed.
+    fn delete_useless_leaves(
+        &self,
+        ids_to_remove: &mut Vec<NodeId>,
+        elements: &BTreeSet<E::Key>,
+    ) -> bool {
+        let fake_id = &vec![];
+        let (ret, id) = match self {
+            Self::Placeholder => (false, fake_id),
+            Self::Leaf { element, id, .. } => (!elements.contains(element), id),
+            Self::Node { childrens, id, .. } => {
+                let mut _ret = true;
+                for c in childrens.iter() {
+                    _ret &= c.delete_useless_leaves(ids_to_remove, elements);
+                }
+                // Decomment this to also remove empty groups (ret, id)
+                (false, id)
+            }
+        };
+        if ret {
+            ids_to_remove.push(id.clone());
+        }
+        ret
+    }
 }
 
 fn icon(unicode: char) -> Text {
-    use iced::HorizontalAlignment;
+    use iced::alignment::Horizontal as HorizontalAlignment;
     Text::new(&unicode.to_string())
         .font(ICONS)
         .size(ICON_SIZE)
@@ -1574,7 +1633,7 @@ const ICONS: iced::Font = iced::Font::External {
 };
 
 fn tabulation() -> Space {
-    Space::with_width(iced::Length::FillPortion(1))
+    Space::with_width(iced::Length::Units(3))
 }
 
 fn merge_attributes<T: Ord + Clone + std::fmt::Debug>(
@@ -1586,7 +1645,9 @@ fn merge_attributes<T: Ord + Clone + std::fmt::Debug>(
         let n = attributes[0].len();
         let ret = (0..n)
             .map(|attr_n| {
-                (0..attributes.len()).fold(None, |a, n| merge_opt(&a, &attributes[n][attr_n]))
+                (0..attributes.len()).fold(None, |a, n| {
+                    merge_opt(&a, attributes[n].get(attr_n).unwrap_or(&None))
+                })
             })
             .collect();
         ret

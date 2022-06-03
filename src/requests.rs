@@ -23,21 +23,21 @@ mod poll;
 
 use super::gui::UiSize;
 use super::*;
-use ensnano_interactor::CenterOfSelection;
 use ensnano_interactor::{application::AppId, RollRequest, Selection};
+use ensnano_interactor::{CenterOfSelection, CheckXoversParameter};
 pub(crate) use poll::poll_all;
 use ultraviolet::Vec3;
 
 use super::gui::OrganizerTree;
 use super::scene::FogParameters;
-use ensnano_design::grid::GridTypeDescr;
+use ensnano_design::grid::{GridId, GridPosition, GridTypeDescr};
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     Nucl,
 };
 use ensnano_interactor::{
     graphics::{Background3D, RenderingMode},
-    HyperboloidRequest, RigidBodyConstants,
+    HyperboloidRequest, RigidBodyConstants, SuggestionParameters,
 };
 
 use std::collections::VecDeque;
@@ -65,6 +65,7 @@ pub struct Requests {
     pub operation_update: Option<Arc<dyn Operation>>,
     pub toggle_persistent_helices: Option<bool>,
     pub new_grid: Option<GridTypeDescr>,
+    pub new_bezier_plane: Option<()>,
     pub camera_rotation: Option<(f32, f32, f32)>,
     pub camera_target: Option<(Vec3, Vec3)>,
     pub small_spheres: Option<bool>,
@@ -87,7 +88,7 @@ pub struct Requests {
     pub rigid_body_parameters: Option<RigidBodyConstants>,
     pub keep_proceed: VecDeque<Action>,
     pub new_shift_hyperboloid: Option<f32>,
-    pub organizer_selection: Option<(Vec<DnaElementKey>, Option<ensnano_organizer::GroupId>)>,
+    pub organizer_selection: Option<(Vec<DnaElementKey>, Option<ensnano_organizer::GroupId>, bool)>,
     pub organizer_candidates: Option<Vec<DnaElementKey>>,
     pub new_attribute: Option<(DnaAttribute, Vec<DnaElementKey>)>,
     pub new_tree: Option<OrganizerTree<DnaElementKey>>,
@@ -115,6 +116,17 @@ pub struct Requests {
     pub toggle_widget_basis: Option<()>,
     pub stop_roll: Option<()>,
     pub new_paste_candiate: Option<Option<Nucl>>,
+    pub new_grid_paste_candidate: Option<GridPosition>,
     pub new_double_strand_parameters: Option<Option<(isize, usize)>>,
     pub new_center_of_selection: Option<Option<CenterOfSelection>>,
+    pub new_suggestion_parameters: Option<SuggestionParameters>,
+    pub check_xover_parameters: Option<CheckXoversParameter>,
+    pub follow_stereographic_camera: Option<bool>,
+    pub set_show_stereographic_camera: Option<bool>,
+    pub set_show_h_bonds: Option<bool>,
+    pub set_show_bezier_paths: Option<bool>,
+    pub set_invert_y_scroll: Option<bool>,
+    pub set_thick_helices: Option<bool>,
+    pub twist_simulation: Option<GridId>,
+    pub horizon_targeted: Option<()>,
 }

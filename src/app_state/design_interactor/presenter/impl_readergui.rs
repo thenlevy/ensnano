@@ -16,22 +16,28 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ensnano_design::{elements::DnaElement, CameraId};
+use ensnano_design::{elements::DnaElement, CameraId, Collection};
 
 use super::*;
 use crate::gui::DesignReader as ReaderGui;
+use ensnano_interactor::InsertionPoint;
+use ultraviolet::Rotor3;
 
 impl ReaderGui for DesignReader {
-    fn grid_has_small_spheres(&self, g_id: usize) -> bool {
+    fn grid_has_small_spheres(&self, g_id: GridId) -> bool {
         self.presenter.content.grid_has_small_spheres(g_id)
     }
 
-    fn grid_has_persistent_phantom(&self, g_id: usize) -> bool {
+    fn grid_has_persistent_phantom(&self, g_id: GridId) -> bool {
         self.presenter.content.grid_has_persistent_phantom(g_id)
     }
 
-    fn get_grid_shift(&self, g_id: usize) -> Option<f32> {
+    fn get_grid_shift(&self, g_id: GridId) -> Option<f32> {
         self.presenter.content.get_grid_shift(g_id)
+    }
+
+    fn get_grid_nb_turn(&self, g_id: GridId) -> Option<f32> {
+        self.presenter.content.get_grid_nb_turn(g_id)
     }
 
     fn get_strand_length(&self, s_id: usize) -> Option<usize> {
@@ -85,5 +91,143 @@ impl ReaderGui for DesignReader {
 
     fn get_favourite_camera(&self) -> Option<CameraId> {
         self.presenter.current_design.get_favourite_camera_id()
+    }
+
+    fn get_grid_position_and_orientation(&self, g_id: GridId) -> Option<(Vec3, Rotor3)> {
+        self.presenter
+            .current_design
+            .free_grids
+            .get_from_g_id(&g_id)
+            .map(|g| (g.position, g.orientation))
+    }
+
+    fn xover_length(&self, xover_id: usize) -> Option<(f32, Option<f32>)> {
+        let (n1, n2) = self.presenter.junctions_ids.get_element(xover_id)?;
+        let len_self = self.presenter.get_xover_len(xover_id)?;
+        let neighbour_id = self
+            .presenter
+            .junctions_ids
+            .get_id(&(n1.prime3(), n2.prime5()))
+            .or_else(|| {
+                self.presenter
+                    .junctions_ids
+                    .get_id(&(n1.prime5(), n2.prime3()))
+            })
+            .or_else(|| {
+                self.presenter
+                    .junctions_ids
+                    .get_id(&(n2.prime5(), n1.prime3()))
+            })
+            .or_else(|| {
+                self.presenter
+                    .junctions_ids
+                    .get_id(&(n2.prime5(), n1.prime3()))
+            });
+
+        let neighbour_len = neighbour_id.and_then(|id| self.presenter.get_xover_len(id));
+
+        Some((len_self, neighbour_len))
+    }
+
+    fn get_id_of_xover_involving_nucl(&self, nucl: Nucl) -> Option<usize> {
+        self.presenter.get_id_of_xover_involving_nucl(nucl)
+    }
+
+    fn rainbow_scaffold(&self) -> bool {
+        self.presenter.current_design.rainbow_scaffold
+    }
+
+    fn get_insertion_length(&self, selection: &Selection) -> Option<usize> {
+        match selection {
+            Selection::Bound(_, n1, n2) => {
+                let bond_id = self
+                    .presenter
+                    .content
+                    .identifier_bound
+                    .get(&(*n1, *n2))
+                    .or(self.presenter.content.identifier_bound.get(&(*n2, *n1)))?;
+                self.presenter
+                    .content
+                    .insertion_length
+                    .get(&bond_id)
+                    .cloned()
+                    .or(Some(0))
+            }
+            Selection::Xover(_, xover_id) => {
+                let (n1, n2) = self.presenter.junctions_ids.get_element(*xover_id)?;
+                let bond_id = self
+                    .presenter
+                    .content
+                    .identifier_bound
+                    .get(&(n1, n2))
+                    .or(self.presenter.content.identifier_bound.get(&(n2, n1)))?;
+                self.presenter
+                    .content
+                    .insertion_length
+                    .get(&bond_id)
+                    .cloned()
+                    .or(Some(0))
+            }
+            Selection::Nucleotide(_, nucl) => {
+                let nucl_id = self
+                    .presenter
+                    .content
+                    .nucl_collection
+                    .get_identifier(nucl)?;
+                if self.prime5_of_which_strand(*nucl).is_some()
+                    || self.prime3_of_which_strand(*nucl).is_some()
+                {
+                    self.presenter
+                        .content
+                        .insertion_length
+                        .get(&nucl_id)
+                        .cloned()
+                        .or(Some(0))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn get_insertion_point(&self, selection: &Selection) -> Option<InsertionPoint> {
+        match selection {
+            Selection::Bound(_, n1, _n2) => Some(InsertionPoint {
+                nucl: *n1,
+                nucl_is_prime5_of_insertion: true,
+            }),
+            Selection::Xover(_, xover_id) => {
+                let (n1, _n2) = self.presenter.junctions_ids.get_element(*xover_id)?;
+                Some(InsertionPoint {
+                    nucl: n1,
+                    nucl_is_prime5_of_insertion: true,
+                })
+            }
+            Selection::Nucleotide(_, nucl) => {
+                if let Some(_s_id) = self.prime5_of_which_strand(*nucl) {
+                    Some(InsertionPoint {
+                        nucl: *nucl,
+                        nucl_is_prime5_of_insertion: false,
+                    })
+                } else if let Some(_s_id) = self.prime3_of_which_strand(*nucl) {
+                    Some(InsertionPoint {
+                        nucl: *nucl,
+                        nucl_is_prime5_of_insertion: true,
+                    })
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn is_bezier_path_cyclic(&self, path_id: ensnano_design::BezierPathId) -> Option<bool> {
+        self.presenter
+            .current_design
+            .bezier_paths
+            .get(&path_id)
+            .map(|p| p.cyclic)
     }
 }

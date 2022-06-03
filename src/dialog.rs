@@ -27,6 +27,7 @@ macro_rules! log_err {
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::thread;
+pub type Filters = &'static [(&'static str, &'static [&'static str])];
 
 use std::borrow::Cow;
 /// A question to which the user must answer yes or no
@@ -71,7 +72,7 @@ pub fn blocking_message(message: Cow<'static, str>, level: rfd::MessageLevel) ->
     let (snd, rcv) = mpsc::channel();
     thread::spawn(move || {
         futures::executor::block_on(msg);
-        snd.send(()).unwrap();
+        log_err!(snd.send(()))
     });
     MustAckMessage(rcv)
 }
@@ -83,10 +84,46 @@ impl PathInput {
     }
 }
 
-pub fn save<P: AsRef<Path>>(target_extension: &'static str, starting_path: Option<P>) -> PathInput {
+fn filter_has_extension(filter: &Filters, extension: &str) -> bool {
+    for f in filter.iter() {
+        if f.1.contains(&extension) {
+            return true;
+        }
+    }
+    false
+}
+
+pub fn get_file_to_write<P1: AsRef<Path>, P2: AsRef<Path>>(
+    extension_filter: &'static Filters,
+    starting_path: Option<P1>,
+    starting_name: Option<P2>,
+) -> PathInput {
+    log::info!(
+        "starting path {:?}",
+        starting_path.as_ref().map(|p| p.as_ref().to_str())
+    );
+    log::info!(
+        "starting name {:?}",
+        starting_name.as_ref().map(|p| p.as_ref().to_str())
+    );
     let mut dialog = rfd::AsyncFileDialog::new();
+
+    let default_extenstion = extension_filter.get(0).and_then(|f| f.1.get(0));
+
+    let starting_name = starting_name.and_then(|p| {
+        p.as_ref()
+            .to_path_buf()
+            .file_name()
+            .map(|s| s.to_os_string())
+    });
+    for filter in extension_filter.iter() {
+        dialog = dialog.add_filter(filter.0, filter.1);
+    }
     if let Some(path) = starting_path {
         dialog = dialog.set_directory(path);
+    }
+    if let Some(name) = starting_name {
+        dialog = dialog.set_file_name(&name.to_string_lossy());
     }
     let future_file = dialog.save_file();
     let (snd, rcv) = mpsc::channel();
@@ -96,12 +133,16 @@ pub fn save<P: AsRef<Path>>(target_extension: &'static str, starting_path: Optio
             if let Some(handle) = file {
                 let mut path_buf: std::path::PathBuf = handle.path().clone().into();
                 let extension = path_buf.extension().clone();
-                if extension.is_none() {
-                    path_buf.set_extension(target_extension);
-                } else if extension.and_then(|e| e.to_str()) != Some(target_extension.into()) {
-                    let extension = extension.unwrap();
-                    let new_extension =
-                        format!("{}.{}", extension.to_str().unwrap(), target_extension);
+                if extension.is_none() && default_extenstion.is_some() {
+                    path_buf.set_extension(default_extenstion.unwrap());
+                } else if let Some(current_extension) = extension.filter(|ext| {
+                    !filter_has_extension(extension_filter, ext.to_str().unwrap_or(""))
+                }) {
+                    let new_extension = format!(
+                        "{}.{}",
+                        current_extension.to_str().unwrap(),
+                        default_extenstion.unwrap_or(&"")
+                    );
                     path_buf.set_extension(new_extension);
                 }
                 log_err![snd.send(Some(path_buf))];
@@ -114,6 +155,7 @@ pub fn save<P: AsRef<Path>>(target_extension: &'static str, starting_path: Optio
     PathInput(rcv)
 }
 
+#[allow(dead_code)]
 pub fn get_dir() -> PathInput {
     let dialog = rfd::AsyncFileDialog::new().pick_folder();
     let (snd, rcv) = mpsc::channel();
@@ -132,12 +174,11 @@ pub fn get_dir() -> PathInput {
     PathInput(rcv)
 }
 
-pub fn load<P: AsRef<Path>>(starting_path: Option<P>) -> PathInput {
-    let mut dialog = rfd::AsyncFileDialog::new()
-        .add_filter("All supported files", &["ens", "json", "sc"])
-        .add_filter("ENSnano files", &["ens"])
-        .add_filter("json files", &["json"])
-        .add_filter("scadnano files", &["sc"]);
+pub fn load<P: AsRef<Path>>(starting_path: Option<P>, filters: Filters) -> PathInput {
+    let mut dialog = rfd::AsyncFileDialog::new();
+    for filter in filters.iter() {
+        dialog = dialog.add_filter(filter.0, filter.1);
+    }
     if let Some(path) = starting_path {
         dialog = dialog.set_directory(path);
     }
