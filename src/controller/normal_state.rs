@@ -101,7 +101,17 @@ impl State for NormalState {
                 Action::ToggleSmallSphere(small) => self.toggle_small_spheres(main_state, small),
                 Action::LoadDesign(Some(path)) => Box::new(Load::known_path(path)),
                 Action::LoadDesign(None) => Load::load(main_state.need_save(), LoadType::Design),
-                Action::Import3DObject => Load::load(false, LoadType::Object3D),
+                Action::Import3DObject => {
+                    if main_state.get_current_design_directory().is_some() {
+                        Load::load(false, LoadType::Object3D)
+                    } else {
+                        TransitionMessage::new(
+                            messages::SET_DESIGN_DIRECTORY_FIRST,
+                            rfd::MessageLevel::Error,
+                            Box::new(NormalState),
+                        )
+                    }
+                }
                 Action::SuspendOp => {
                     log::info!("Suspending operation");
                     main_state.finish_operation();
