@@ -385,7 +385,7 @@ pub struct DesignReader {
 use crate::controller::SaveDesignError;
 use std::path::PathBuf;
 impl DesignReader {
-    pub fn save_design(
+    pub (super) fn save_design(
         &self,
         path: &PathBuf,
         saving_info: ensnano_design::SavingInformation,

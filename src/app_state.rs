@@ -38,9 +38,9 @@ mod address_pointer;
 mod design_interactor;
 mod transitions;
 use crate::apply_update;
-use crate::controller::{LoadDesignError, SimulationRequest};
+use crate::controller::{LoadDesignError, SimulationRequest, SaveDesignError};
 use address_pointer::AddressPointer;
-use ensnano_design::Design;
+use ensnano_design::{Design, SavingInformation};
 use ensnano_interactor::consts::APP_NAME;
 use ensnano_interactor::{DesignOperation, RigidBodyConstants, SuggestionParameters};
 use ensnano_organizer::GroupId;
@@ -229,9 +229,20 @@ impl AppState {
         Ok(Self(AddressPointer::new(AppState_ {
             design: AddressPointer::new(design_interactor),
             parameters: confy::load(APP_NAME, APP_NAME).unwrap_or_default(),
+            path_to_current_design: Some(path.clone()),
             ..Default::default()
         }))
         .updated())
+    }
+
+    pub fn save_design(&mut self, path: &PathBuf, saving_info: SavingInformation) -> Result<(), SaveDesignError> {
+        self.get_design_reader().save_design(path, saving_info)?;
+        self.0.make_mut().path_to_current_design = Some(path.clone());
+        Ok(())
+    }
+
+    pub fn path_to_current_design(&self) -> Option<&PathBuf> {
+        self.0.path_to_current_design.as_ref()
     }
 
     pub(super) fn update(&mut self) {
@@ -649,6 +660,7 @@ struct AppState_ {
     parameters: AppStateParameters,
     show_insertion_representents: bool,
     exporting: bool,
+    path_to_current_design: Option<PathBuf>,
 }
 
 #[derive(Clone, Default)]

@@ -42,6 +42,11 @@ impl Object3DDrawer {
         }
     }
 
+    /// Update an existing object or store a new one if the id is unknown
+    pub fn update_object(&mut self, id: External3DObjectId, object: External3DObject) {
+        todo!()
+    }
+
     pub fn add_object(&mut self, id: External3DObjectId, object: External3DObject) {
         todo!()
 

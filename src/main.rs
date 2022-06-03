@@ -946,8 +946,13 @@ pub(crate) struct MainState {
     applications: HashMap<ElementType, Arc<Mutex<dyn Application<AppState = AppState>>>>,
     focussed_element: Option<ElementType>,
     last_saved_state: AppState,
-    path_to_current_design: Option<PathBuf>,
+
+    /// The name of the file containing the current design.
+    ///
+    /// For example, if the design is stored in `/home/alice/designs/origami.ens`, `file_name` is
+    /// `origami.ens`.
     file_name: Option<PathBuf>,
+
     wants_fit: bool,
     last_backup_date: Instant,
     last_backed_up_state: AppState,
@@ -981,7 +986,6 @@ impl MainState {
             applications: Default::default(),
             focussed_element: None,
             last_saved_state: app_state.clone(),
-            path_to_current_design: None,
             file_name: None,
             wants_fit: false,
             last_backup_date: Instant::now(),
@@ -1039,7 +1043,6 @@ impl MainState {
 
     fn new_design(&mut self) {
         self.clear_app_state(Default::default());
-        self.path_to_current_design = None;
         self.update_current_file_name();
     }
 
@@ -1339,13 +1342,11 @@ impl MainState {
             });
         let save_info = ensnano_design::SavingInformation { camera };
         self.app_state
-            .get_design_reader()
             .save_design(path, save_info)?;
 
         if self.app_state.is_in_stable_state() {
             self.last_saved_state = self.app_state.clone();
         }
-        self.path_to_current_design = Some(path.clone());
         self.update_current_file_name();
         Ok(())
     }
@@ -1363,7 +1364,7 @@ impl MainState {
                 pivot_position: camera.0.pivot_position,
             });
         let save_info = ensnano_design::SavingInformation { camera };
-        let path = if let Some(mut path) = self.path_to_current_design.clone() {
+        let path = if let Some(mut path) = self.app_state.path_to_current_design().cloned() {
             path.set_extension(crate::consts::ENS_BACKUP_EXTENSION);
             path
         } else {
@@ -1378,7 +1379,6 @@ impl MainState {
         };
         if self.app_state.is_in_stable_state() {
             self.app_state
-                .get_design_reader()
                 .save_design(&path, save_info)?;
             self.last_backed_up_state = self.app_state.clone();
             println!("Saved backup to {}", path.to_string_lossy());
@@ -1418,7 +1418,8 @@ impl MainState {
 
     fn update_current_file_name(&mut self) {
         self.file_name = self
-            .path_to_current_design
+            .app_state
+            .path_to_current_design()
             .as_ref()
             .filter(|p| p.is_file())
             .map(|p| p.into())
@@ -1569,7 +1570,6 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         {
             path.set_extension(crate::consts::ENS_EXTENSION);
         }
-        self.main_state.path_to_current_design = Some(path.clone());
         if let Some((position, orientation)) = self
             .main_state
             .app_state
@@ -1790,7 +1790,8 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     fn get_current_design_directory(&self) -> Option<&Path> {
         let mut ancestors = self
             .main_state
-            .path_to_current_design
+            .app_state
+            .path_to_current_design()
             .as_ref()
             .map(|p| p.ancestors())?;
         let first_ancestor = ancestors.next()?;
