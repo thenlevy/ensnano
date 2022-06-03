@@ -43,7 +43,7 @@ pub struct External3DObjectDescriptor<P1: AsRef<Path>, P2: AsRef<Path>> {
 }
 
 impl External3DObject {
-    pub fn get_source_file<P: AsRef<Path>>(&self, design_path: P) -> PathBuf {
+    pub fn get_path_to_source_file<P: AsRef<Path>>(&self, design_path: P) -> PathBuf {
         RelativePathBuf::from(&self.source_file).to_path(design_path)
     }
 
@@ -71,12 +71,13 @@ impl External3DObject {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct External3DObjectId(pub usize);
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct External3DObjects(Arc<HashMap<External3DObjectId, External3DObject>>);
 
+#[derive(Debug, Copy, Clone)]
 pub struct External3DObjectsStamp(*const HashMap<External3DObjectId, External3DObject>);
 
 impl Collection for External3DObjects {

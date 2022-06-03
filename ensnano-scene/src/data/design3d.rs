@@ -25,7 +25,7 @@ use ensnano_design::grid::{GridId, GridObject, GridPosition};
 use ensnano_design::{grid::HelixGridPosition, Nucl};
 use ensnano_design::{
     BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, Collection,
-    CubicBezierConstructor, CurveDescriptor, InstanciatedPath, Parameters,
+    CubicBezierConstructor, CurveDescriptor, External3DObjects, InstanciatedPath, Parameters,
 };
 use ensnano_interactor::consts::*;
 use ensnano_interactor::{
@@ -1209,4 +1209,5 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_corners_of_plane(&self, plane_id: BezierPlaneId) -> [Vec2; 4];
     fn get_optimal_xover_arround(&self, source: Nucl, target: Nucl) -> Option<(Nucl, Nucl)>;
     fn get_bezier_grid_used_by_helix(&self, h_id: usize) -> Vec<GridId>;
+    fn get_external_objects(&self) -> &External3DObjects;
 }

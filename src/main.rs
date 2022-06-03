@@ -1341,8 +1341,7 @@ impl MainState {
                 pivot_position: camera.0.pivot_position,
             });
         let save_info = ensnano_design::SavingInformation { camera };
-        self.app_state
-            .save_design(path, save_info)?;
+        self.app_state.save_design(path, save_info)?;
 
         if self.app_state.is_in_stable_state() {
             self.last_saved_state = self.app_state.clone();
@@ -1378,8 +1377,7 @@ impl MainState {
             ret
         };
         if self.app_state.is_in_stable_state() {
-            self.app_state
-                .save_design(&path, save_info)?;
+            self.app_state.save_design(&path, save_info)?;
             self.last_backed_up_state = self.app_state.clone();
             println!("Saved backup to {}", path.to_string_lossy());
         }
@@ -1562,14 +1560,9 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         ret
     }
 
-    fn load_design(&mut self, mut path: PathBuf) -> Result<(), LoadDesignError> {
-        let state = AppState::import_design(&path)?;
+    fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError> {
+        let state = AppState::import_design(path)?;
         self.main_state.clear_app_state(state);
-        if path.extension().map(|s| s.to_string_lossy())
-            == Some(crate::consts::ENS_BACKUP_EXTENSION.into())
-        {
-            path.set_extension(crate::consts::ENS_EXTENSION);
-        }
         if let Some((position, orientation)) = self
             .main_state
             .app_state

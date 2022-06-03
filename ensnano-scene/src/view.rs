@@ -18,6 +18,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! The view module handles the drawing of the scene on texture. The scene can be drawn on the next
 //! frame to be displayed, or on a "fake texture" that is used to map pixels to objects.
 
+use self::gltf_drawer::Object3DDrawer;
+
 use super::camera;
 use crate::{DrawArea, PhySize};
 use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
@@ -45,6 +47,7 @@ mod dna_obj;
 /// This modules defines a trait for drawing widget made of several meshes.
 mod drawable;
 mod gltf_drawer;
+pub use gltf_drawer::ExternalObjects;
 mod grid;
 mod grid_disc;
 /// A HandleDrawer draws the widget for translating objects
@@ -131,8 +134,7 @@ pub struct View {
     direction_cube: InstanceDrawer<DirectionCube>,
     skybox_cube: InstanceDrawer<SkyBox>,
     fog_parameters: FogParameters,
-    gltf_drawer: GltfDrawer,
-    stl_drawer: StlDrawer,
+    external_objects_drawer: Object3DDrawer,
     stereography: Stereography,
     sheets_drawer: InstanceDrawer<Sheet2D>,
 }
@@ -302,10 +304,8 @@ impl View {
         );
         skybox_cube.new_instances(vec![SkyBox::new(500.)]);
 
-        log::info!("Create gltf drawer");
-        let gltf_drawer = GltfDrawer::new(&device, &viewer.get_layout_desc());
-        log::info!("Create stl drawer");
-        let stl_drawer = StlDrawer::new(&device, &viewer.get_layout_desc());
+        log::info!("Create external objects drawer");
+        let external_objects_drawer = Object3DDrawer::new(device.clone());
         let sheets_drawer = InstanceDrawer::new(
             device.clone(),
             queue.clone(),
@@ -341,8 +341,7 @@ impl View {
             direction_cube,
             skybox_cube,
             fog_parameters: FogParameters::new(),
-            gltf_drawer,
-            stl_drawer,
+            external_objects_drawer,
             stereography,
             sheets_drawer,
         }
@@ -445,6 +444,9 @@ impl View {
             ViewUpdate::BezierSheets(sheets) => {
                 self.sheets_drawer.new_instances(sheets);
             }
+            ViewUpdate::External3DObjects(objects) => self
+                .external_objects_drawer
+                .update_objects(objects, &self.viewer.get_layout_desc()),
         }
     }
 
@@ -708,8 +710,8 @@ impl View {
             }
 
             if !fake_color {
-                self.gltf_drawer.draw(&mut render_pass, viewer_bind_group);
-                self.stl_drawer.draw(&mut render_pass, viewer_bind_group);
+                self.external_objects_drawer
+                    .draw(&mut render_pass, viewer_bind_group);
             }
 
             if fake_color {
@@ -1014,6 +1016,7 @@ pub enum ViewUpdate {
     Fog(FogParameters),
     FogCenter(Option<Vec3>),
     BezierSheets(Vec<Sheet2D>),
+    External3DObjects(ExternalObjects),
 }
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone, Hash)]

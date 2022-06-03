@@ -16,6 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use std::path::Path;
+
 use super::wgpu;
 
 const OBJ_VERTEX_ARRAY: [wgpu::VertexAttribute; 3] =
@@ -85,7 +87,7 @@ fn read_mesh(mesh_data: &gltf::Mesh, datas: &[gltf::buffer::Data]) -> Result<Glt
     Ok(GltfMesh { vertices, indices })
 }
 
-pub fn load_gltf(path: &'static str) -> Result<GltfFile, ErrGltf> {
+pub fn load_gltf<P: AsRef<Path>>(path: P) -> Result<GltfFile, ErrGltf> {
     let (doc, datas, _) = gltf::import(path).ok().ok_or(ErrGltf::CannotReadFile)?;
     let mesh_data = doc.meshes();
     let mut meshes = Vec::new();
@@ -109,7 +111,7 @@ pub struct StlMesh {
     pub vertices: Vec<ModelVertex>,
 }
 
-pub fn load_stl(path: &'static str) -> Result<StlMesh, ErrStl> {
+pub fn load_stl<P: AsRef<Path>>(path: P) -> Result<StlMesh, ErrStl> {
     use std::fs::File;
     use std::io::BufReader;
     use ultraviolet::Vec3;

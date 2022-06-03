@@ -31,7 +31,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use ensnano_design::grid::GridObject;
-use ensnano_design::BezierVertexId;
+use ensnano_design::{BezierVertexId, Collection};
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
@@ -53,6 +53,7 @@ type ViewPtr = Rc<RefCell<View>>;
 mod design3d;
 use design3d::Design3D;
 pub use design3d::{DesignReader, HBond, HalfHBond};
+use ensnano_design::External3DObjectsStamp;
 
 pub struct Data<R: DesignReader> {
     view: ViewPtr,
@@ -80,6 +81,7 @@ pub struct Data<R: DesignReader> {
     handle_colors: HandleColors,
     stereographic_camera: Arc<(Camera3D, f32)>,
     stereographic_camera_need_update: bool,
+    external_3d_objects_stamps: Option<External3DObjectsStamp>,
 }
 
 impl<R: DesignReader> Data<R> {
@@ -101,6 +103,7 @@ impl<R: DesignReader> Data<R> {
             handle_colors: HandleColors::Rgb,
             stereographic_camera: Arc::new((Default::default(), 1.)),
             stereographic_camera_need_update: false,
+            external_3d_objects_stamps: None,
         }
     }
 
@@ -182,6 +185,8 @@ impl<R: DesignReader> Data<R> {
         if app_state.design_model_matrix_was_updated(older_app_state) {
             self.update_matrices();
         }
+
+        self.update_external_3d_objects(app_state);
     }
 
     fn update_stereographic_sphere(&self) {
@@ -194,6 +199,30 @@ impl<R: DesignReader> Data<R> {
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::StereographicSphere, instances));
+    }
+
+    fn update_external_3d_objects<S: AppState>(&mut self, app_state: &S) {
+        use crate::view::ExternalObjects;
+        let reader = app_state.get_design_reader();
+        let external_objects = reader.get_external_objects();
+        if let Some(new_stamp) =
+            external_objects.was_updated(self.external_3d_objects_stamps.clone())
+        {
+            self.external_3d_objects_stamps = Some(new_stamp);
+            let objects: Vec<_> = external_objects
+                .iter()
+                .map(|(id, obj)| (id.clone(), obj.clone()))
+                .collect();
+            if let Some(mut path_base) = app_state.get_design_path() {
+                path_base.pop();
+                self.view
+                    .borrow_mut()
+                    .update(ViewUpdate::External3DObjects(ExternalObjects {
+                        objects,
+                        path_base,
+                    }))
+            }
+        }
     }
 
     pub fn get_aligned_camera(&self) -> Camera3D {

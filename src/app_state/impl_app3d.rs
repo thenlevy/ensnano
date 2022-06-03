@@ -140,6 +140,10 @@ impl App3D for AppState {
     fn show_bezier_paths(&self) -> bool {
         self.0.parameters.show_bezier_paths
     }
+
+    fn get_design_path(&self) -> Option<PathBuf> {
+        self.0.path_to_current_design.clone()
+    }
 }
 
 #[cfg(test)]

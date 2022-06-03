@@ -1,4 +1,3 @@
-
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -17,15 +16,35 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::wgpu;
+use ensnano_design::{External3DObject, External3DObjectId};
 use ensnano_interactor::consts;
 use ensnano_utils::{create_buffer_with_data, obj_loader::*, texture::Texture, TEXTURE_FORMAT};
-use ensnano_design::{External3DObjectId, External3DObject};
-use std::collections::BTreeMap;
+use std::ffi::OsStr;
+use std::path::PathBuf;
+use std::rc::Rc;
+use std::{collections::BTreeMap, path::Path};
+use wgpu::{BindGroupLayoutDescriptor, Device};
 
-#[derive(Default)]
 pub struct Object3DDrawer {
     gltf_drawers: BTreeMap<External3DObjectId, GltfDrawer>,
     stl_drawers: BTreeMap<External3DObjectId, StlDrawer>,
+    device: Rc<Device>,
+}
+
+impl Object3DDrawer {
+    pub fn new(device: Rc<Device>) -> Self {
+        Self {
+            gltf_drawers: Default::default(),
+            stl_drawers: Default::default(),
+            device,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ExternalObjects {
+    pub path_base: PathBuf,
+    pub objects: Vec<(External3DObjectId, External3DObject)>,
 }
 
 impl Object3DDrawer {
@@ -42,16 +61,41 @@ impl Object3DDrawer {
         }
     }
 
-    /// Update an existing object or store a new one if the id is unknown
-    pub fn update_object(&mut self, id: External3DObjectId, object: External3DObject) {
-        todo!()
+    pub fn update_objects(
+        &mut self,
+        objects: ExternalObjects,
+        bg_desc: &BindGroupLayoutDescriptor,
+    ) {
+        for (obj_id, object) in objects.objects.into_iter() {
+            if !self.stl_drawers.contains_key(&obj_id) && !self.gltf_drawers.contains_key(&obj_id) {
+                self.add_object(obj_id, object, &objects.path_base, bg_desc);
+            }
+        }
     }
 
-    pub fn add_object(&mut self, id: External3DObjectId, object: External3DObject) {
-        todo!()
-
+    fn update_object(&mut self, id: External3DObjectId, object: External3DObject) {
+        //TODO update object attributes
     }
 
+    fn add_object(
+        &mut self,
+        id: External3DObjectId,
+        object: External3DObject,
+        base_path: &PathBuf,
+        bg_desc: &BindGroupLayoutDescriptor,
+    ) {
+        let path = object.get_path_to_source_file(base_path);
+        println!("{:?}", path);
+        if path.extension() == Some(OsStr::new("stl")) {
+            let mut drawer = StlDrawer::new(self.device.as_ref(), bg_desc);
+            drawer.add_stl(self.device.as_ref(), path);
+            self.stl_drawers.insert(id, drawer);
+        } else if path.extension() == Some(OsStr::new("gltf")) {
+            let mut drawer = GltfDrawer::new(self.device.as_ref(), bg_desc);
+            drawer.add_gltf(self.device.as_ref(), path);
+            self.gltf_drawers.insert(id, drawer);
+        }
+    }
 }
 
 pub struct GltfDrawer {
@@ -92,7 +136,7 @@ impl GltfDrawer {
         }
     }
 
-    pub fn add_gltf(&mut self, device: &wgpu::Device, path: &'static str) {
+    pub fn add_gltf<P: AsRef<Path>>(&mut self, device: &wgpu::Device, path: P) {
         match load_gltf(path) {
             Ok(file) => {
                 for mesh in file.meshes {
@@ -151,7 +195,7 @@ impl StlDrawer {
         }
     }
 
-    pub fn add_stl(&mut self, device: &wgpu::Device, path: &'static str) {
+    pub fn add_stl<P: AsRef<Path>>(&mut self, device: &wgpu::Device, path: P) {
         match load_stl(path) {
             Ok(mesh) => {
                 self.nb_idx.push(mesh.vertices.len() as u32);

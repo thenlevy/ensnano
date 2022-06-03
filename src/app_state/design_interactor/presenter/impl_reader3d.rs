@@ -542,6 +542,10 @@ impl Reader3D for DesignReader {
             vec![]
         }
     }
+
+    fn get_external_objects(&self) -> &ensnano_design::External3DObjects {
+        &self.presenter.current_design.external_3d_objects
+    }
 }
 
 #[cfg(test)]

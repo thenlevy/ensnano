@@ -23,6 +23,7 @@ use ensnano_interactor::NewBezierTengentVector;
 use ensnano_utils::wgpu;
 use ensnano_utils::winit;
 use std::cell::RefCell;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -1327,6 +1328,8 @@ pub trait AppState: Clone + 'static {
     }
 
     fn show_bezier_paths(&self) -> bool;
+
+    fn get_design_path(&self) -> Option<PathBuf>;
 }
 
 pub trait Requests {

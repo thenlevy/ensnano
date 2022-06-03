@@ -38,7 +38,7 @@ mod address_pointer;
 mod design_interactor;
 mod transitions;
 use crate::apply_update;
-use crate::controller::{LoadDesignError, SimulationRequest, SaveDesignError};
+use crate::controller::{LoadDesignError, SaveDesignError, SimulationRequest};
 use address_pointer::AddressPointer;
 use ensnano_design::{Design, SavingInformation};
 use ensnano_interactor::consts::APP_NAME;
@@ -224,8 +224,13 @@ impl AppState {
         Self(AddressPointer::new(new_state))
     }
 
-    pub fn import_design(path: &PathBuf) -> Result<Self, LoadDesignError> {
-        let design_interactor = DesignInteractor::new_with_path(path)?;
+    pub fn import_design(mut path: PathBuf) -> Result<Self, LoadDesignError> {
+        let design_interactor = DesignInteractor::new_with_path(&path)?;
+        if path.extension().map(|s| s.to_string_lossy())
+            != Some(crate::consts::ENS_BACKUP_EXTENSION.into())
+        {
+            path.set_extension(crate::consts::ENS_EXTENSION);
+        }
         Ok(Self(AddressPointer::new(AppState_ {
             design: AddressPointer::new(design_interactor),
             parameters: confy::load(APP_NAME, APP_NAME).unwrap_or_default(),
@@ -235,7 +240,11 @@ impl AppState {
         .updated())
     }
 
-    pub fn save_design(&mut self, path: &PathBuf, saving_info: SavingInformation) -> Result<(), SaveDesignError> {
+    pub fn save_design(
+        &mut self,
+        path: &PathBuf,
+        saving_info: SavingInformation,
+    ) -> Result<(), SaveDesignError> {
         self.get_design_reader().save_design(path, saving_info)?;
         self.0.make_mut().path_to_current_design = Some(path.clone());
         Ok(())
