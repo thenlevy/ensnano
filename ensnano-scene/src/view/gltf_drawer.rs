@@ -1,3 +1,4 @@
+
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -18,6 +19,35 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::wgpu;
 use ensnano_interactor::consts;
 use ensnano_utils::{create_buffer_with_data, obj_loader::*, texture::Texture, TEXTURE_FORMAT};
+use ensnano_design::{External3DObjectId, External3DObject};
+use std::collections::BTreeMap;
+
+#[derive(Default)]
+pub struct Object3DDrawer {
+    gltf_drawers: BTreeMap<External3DObjectId, GltfDrawer>,
+    stl_drawers: BTreeMap<External3DObjectId, StlDrawer>,
+}
+
+impl Object3DDrawer {
+    pub fn draw<'a>(
+        &'a mut self,
+        render_pass: &mut wgpu::RenderPass<'a>,
+        viewer_bind_group: &'a wgpu::BindGroup,
+    ) {
+        for d in self.gltf_drawers.values_mut() {
+            d.draw(render_pass, viewer_bind_group)
+        }
+        for d in self.stl_drawers.values_mut() {
+            d.draw(render_pass, viewer_bind_group)
+        }
+    }
+
+    pub fn add_object(&mut self, id: External3DObjectId, object: External3DObject) {
+        todo!()
+
+    }
+
+}
 
 pub struct GltfDrawer {
     vbos: Vec<wgpu::Buffer>,
