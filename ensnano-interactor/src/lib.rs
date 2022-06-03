@@ -19,6 +19,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! This modules defines types and operation used  by the graphical component of ENSnano to
 //! interract with the design.
 
+use std::path::PathBuf;
+
 use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{GridDescriptor, GridId, GridObject, GridTypeDescr, HelixGridPosition, Hyperboloid},
@@ -301,6 +303,10 @@ pub enum DesignOperation {
     },
     RmFreeGrids {
         grid_ids: Vec<usize>,
+    },
+    Add3DObject {
+        file_path: PathBuf,
+        design_path: PathBuf,
     },
 }
 

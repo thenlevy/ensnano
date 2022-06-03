@@ -19,6 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! All other format supported by ensnano are converted into this format and run-time manipulation
 //! of designs are performed on an `ensnano::Design` structure
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[macro_use]
@@ -59,9 +60,11 @@ pub use parameters::*;
 pub use ultraviolet::*;
 
 mod bezier_plane;
+mod external_3d_objects;
 mod insertions;
 #[cfg(test)]
 mod tests;
+pub use external_3d_objects::*;
 
 /// The `ensnano` Design structure.
 #[derive(Serialize, Deserialize, Clone)]
@@ -164,6 +167,9 @@ pub struct Design {
 
     #[serde(skip)]
     instanciated_paths: Option<BezierPathData>,
+
+    #[serde(default)]
+    pub external_3d_objects: External3DObjects,
 }
 
 /// An immuatable reference to a design whose helices pahts and grid data are guaranteed to be up-to
@@ -342,6 +348,7 @@ impl Design {
             bezier_paths: Default::default(),
             old_grids: Vec::new(),
             instanciated_paths: None,
+            external_3d_objects: Default::default(),
         }
     }
 

@@ -375,12 +375,12 @@ impl SceneReader {
             a
         );
         let color = r + g + b;
-        if a == ObjType::None.into() {
+        if a == u32::from(ObjType::None) {
             None
         } else {
             match self.draw_type {
                 DrawType::Grid => {
-                    if a == ObjType::BezierVertex.into() {
+                    if a == u32::from(ObjType::BezierVertex) {
                         let vertex = BezierVertexId {
                             path_id: BezierPathId(r >> 16),
                             vertex_id: (g + b) as usize,
@@ -391,23 +391,23 @@ impl SceneReader {
                     }
                 }
                 DrawType::Design => {
-                    if a == ObjType::BezierVertex.into() {
+                    if a == u32::from(ObjType::BezierVertex) {
                         Some(SceneElement::BezierVertex {
                             path_id: BezierPathId(r >> 16),
                             vertex_id: (g + b) as usize,
                         })
-                    } else if a == ObjType::BezierPlaneCorner.into() {
+                    } else if a == u32::from(ObjType::BezierPlaneCorner) {
                         Some(SceneElement::PlaneCorner {
                             plane_id: BezierPlaneId(g + b),
                             corner_type: CornerType::from_u32(r >> 16),
                         })
-                    } else if a == ObjType::BezierTengentIn.into() {
+                    } else if a == u32::from(ObjType::BezierTengentIn) {
                         Some(SceneElement::BezierTengent {
                             path_id: BezierPathId(r >> 16),
                             vertex_id: (g + b) as usize,
                             tengent_in: true,
                         })
-                    } else if a == ObjType::BezierTengentOut.into() {
+                    } else if a == u32::from(ObjType::BezierTengentOut) {
                         Some(SceneElement::BezierTengent {
                             path_id: BezierPathId(r >> 16),
                             vertex_id: (g + b) as usize,

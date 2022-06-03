@@ -305,8 +305,7 @@ impl View {
         log::info!("Create gltf drawer");
         let gltf_drawer = GltfDrawer::new(&device, &viewer.get_layout_desc());
         log::info!("Create stl drawer");
-        let mut stl_drawer = StlDrawer::new(&device, &viewer.get_layout_desc());
-        stl_drawer.add_stl(&device, "test_stl.stl");
+        let stl_drawer = StlDrawer::new(&device, &viewer.get_layout_desc());
         let sheets_drawer = InstanceDrawer::new(
             device.clone(),
             queue.clone(),

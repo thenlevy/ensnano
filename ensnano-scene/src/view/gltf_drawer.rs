@@ -16,8 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::wgpu;
-use ensnano_utils::{create_buffer_with_data, obj_loader::*, texture::Texture, TEXTURE_FORMAT};
 use ensnano_interactor::consts;
+use ensnano_utils::{create_buffer_with_data, obj_loader::*, texture::Texture, TEXTURE_FORMAT};
 
 pub struct GltfDrawer {
     vbos: Vec<wgpu::Buffer>,
@@ -127,7 +127,7 @@ impl StlDrawer {
                 ));
             }
             Err(err) => {
-                log::error!("Could not read gltf file: {:?}", err);
+                log::error!("Could not read stl file: {:?}", err);
             }
         }
     }

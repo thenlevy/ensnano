@@ -38,9 +38,9 @@ use ensnano_interactor::{
     IsometryTarget, NeighbourDescriptor, NeighbourDescriptorGiver, Selection, StrandBuilder,
 };
 use ensnano_organizer::GroupId;
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
+use std::{borrow::Cow, path::PathBuf};
 
 use clipboard::{PastedStrand, StrandClipboard};
 
@@ -347,6 +347,10 @@ impl Controller {
             DesignOperation::RmFreeGrids { grid_ids } => {
                 self.apply(|c, d| c.delete_free_grids(d, grid_ids), design)
             }
+            DesignOperation::Add3DObject {
+                file_path,
+                design_path,
+            } => self.apply(|c, d| c.add_3d_object(d, file_path, design_path), design),
         };
 
         if let Ok(ret) = &mut ret {
@@ -1782,6 +1786,7 @@ pub enum ErrOperation {
     PathDoesNotExist(BezierPathId),
     VertexDoesNotExist(BezierPathId, usize),
     GridIsNotEmpty(GridId),
+    CouldNotMake3DObject,
 }
 
 impl From<ensnano_design::design_operations::ErrOperation> for ErrOperation {
@@ -3154,6 +3159,24 @@ impl Controller {
             log::error!("Setting nb turn of bezier path grids is not yet implemented");
             Err(ErrOperation::NotImplemented)
         }
+    }
+
+    fn add_3d_object(
+        &mut self,
+        mut design: Design,
+        object_path: PathBuf,
+        design_path: PathBuf,
+    ) -> Result<Design, ErrOperation> {
+        use ensnano_design::{External3DObject, External3DObjectDescriptor};
+        let object = External3DObject::new(External3DObjectDescriptor {
+            object_path,
+            design_path,
+        })
+        .ok_or(ErrOperation::CouldNotMake3DObject)?;
+
+        design.external_3d_objects.add_object(object);
+
+        Ok(design)
     }
 }
 
