@@ -38,8 +38,8 @@ pub struct External3DObject {
 }
 
 pub struct External3DObjectDescriptor<P1: AsRef<Path>, P2: AsRef<Path>> {
-    object_path: P1,
-    design_path: P2,
+    pub object_path: P1,
+    pub design_path: P2,
 }
 
 impl External3DObject {

@@ -208,6 +208,7 @@ pub trait Requests: 'static + Send {
     fn set_show_bezier_paths(&mut self, show: bool);
     fn make_bezier_path_cyclic(&mut self, path_id: BezierPathId, cyclic: bool);
     fn set_exporting(&mut self, exporting: bool);
+    fn import_3d_object(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]

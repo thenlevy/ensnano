@@ -457,6 +457,10 @@ impl GuiRequests for Requests {
     fn set_exporting(&mut self, exporting: bool) {
         self.keep_proceed.push_back(Action::SetExporting(exporting))
     }
+
+    fn import_3d_object(&mut self) {
+        self.keep_proceed.push_back(Action::Import3DObject)
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

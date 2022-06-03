@@ -232,6 +232,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn start_twist(&mut self, g_id: GridId);
     fn set_expand_insertions(&mut self, expand: bool);
     fn set_exporting(&mut self, exporting: bool);
+    fn load_3d_object(&mut self, path: PathBuf);
 }
 
 pub enum LoadDesignError {

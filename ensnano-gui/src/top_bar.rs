@@ -48,6 +48,7 @@ pub struct TopBar<R: Requests, S: AppState> {
     button_new_empty_design: button::State,
     button_thick_helices: button::State,
     horizon_button: button::State,
+    button_3d_object: button::State,
     requests: Arc<Mutex<R>>,
     logical_size: LogicalSize<f64>,
     action_mode_state: ActionModeState,
@@ -92,6 +93,7 @@ pub enum Message<S: AppState> {
     Reload,
     FlipSplitViews,
     ThickHelices(bool),
+    Import3D,
 }
 
 impl<R: Requests, S: AppState> TopBar<R, S> {
@@ -120,6 +122,7 @@ impl<R: Requests, S: AppState> TopBar<R, S> {
             button_reload: Default::default(),
             button_toggle_2d: Default::default(),
             button_thick_helices: Default::default(),
+            button_3d_object: Default::default(),
             requests,
             logical_size,
             action_mode_state: Default::default(),
@@ -197,6 +200,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             Message::FlipSplitViews => self.requests.lock().unwrap().flip_split_views(),
             Message::ThickHelices(b) => self.requests.lock().unwrap().set_thick_helices(b),
             Message::AlignHorizon => self.requests.lock().unwrap().align_horizon(),
+            Message::Import3D => self.requests.lock().unwrap().import_3d_object(),
         };
         Command::none()
     }
@@ -328,6 +332,13 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
         .on_press(Message::ExportRequested);
         let oxdna_tooltip = button_oxdna;
 
+        let button_3d_import = Button::new(
+            &mut self.button_3d_object,
+            light_icon(LightIcon::Coronavirus, self.ui_size),
+        )
+        .height(Length::Units(self.ui_size.button()))
+        .on_press(Message::Import3D);
+
         let split_icon = if self.application_state.splited_2d {
             LightIcon::BorderOuter
         } else {
@@ -417,6 +428,7 @@ impl<R: Requests, S: AppState> Program for TopBar<R, S> {
             .push(button_save)
             .push(button_save_as)
             .push(oxdna_tooltip)
+            .push(button_3d_import)
             .push(iced::Space::with_width(Length::Units(10)))
             .push(button_3d)
             .push(button_thick_helices)

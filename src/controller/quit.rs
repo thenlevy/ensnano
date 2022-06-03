@@ -81,12 +81,14 @@ fn save_before_quit() -> Box<dyn State> {
 
 pub(super) struct Load {
     step: LoadStep,
+    load_type: LoadType,
 }
 
 impl Load {
     pub(super) fn known_path(path: PathBuf) -> Self {
         Self {
             step: LoadStep::GotPath(path),
+            load_type: LoadType::Design,
         }
     }
 
@@ -108,16 +110,24 @@ enum LoadStep {
     GotPath(PathBuf),
 }
 
+#[derive(Copy, Clone)]
+pub(super) enum LoadType {
+    Design,
+    Object3D,
+}
+
 impl Load {
-    fn ask_path() -> Box<Self> {
+    fn ask_path(load_type: LoadType) -> Box<Self> {
         Box::new(Self {
             step: LoadStep::AskPath { path_input: None },
+            load_type,
         })
     }
 
-    pub fn load(need_save: bool) -> Box<Self> {
+    pub fn load(need_save: bool, load_type: LoadType) -> Box<Self> {
         Box::new(Self {
             step: LoadStep::Init { need_save },
+            load_type,
         })
     }
 }
@@ -125,27 +135,32 @@ impl Load {
 impl State for Load {
     fn make_progress(self: Box<Self>, state: &mut dyn MainState) -> Box<dyn State> {
         match self.step {
-            LoadStep::Init { need_save } => init_load(need_save),
-            LoadStep::AskPath { path_input } => {
-                ask_path(path_input, state.get_current_design_directory())
-            }
-            LoadStep::GotPath(path) => load(path, state),
+            LoadStep::Init { need_save } => init_load(need_save, self.load_type),
+            LoadStep::AskPath { path_input } => ask_path(
+                path_input,
+                state.get_current_design_directory(),
+                self.load_type,
+            ),
+            LoadStep::GotPath(path) => match self.load_type {
+                LoadType::Design => load_design(path, state),
+                LoadType::Object3D => load_3d_object(path, state),
+            },
         }
     }
 }
 
-fn init_load(need_save: bool) -> Box<dyn State> {
+fn init_load(need_save: bool, load_type: LoadType) -> Box<dyn State> {
     if need_save {
-        let yes = save_before_load();
-        let no = Load::ask_path();
+        let yes = save_before_load(load_type);
+        let no = Load::ask_path(load_type);
         Box::new(YesNo::new(messages::SAVE_BEFORE_LOAD, yes, no))
     } else {
-        Load::ask_path()
+        Load::ask_path(load_type)
     }
 }
 
-fn save_before_load() -> Box<dyn State> {
-    let on_success = Load::ask_path();
+fn save_before_load(load_type: LoadType) -> Box<dyn State> {
+    let on_success = Load::ask_path(load_type);
     let on_error = Box::new(super::NormalState);
     Box::new(SaveAs::new(on_success, on_error))
 }
@@ -159,12 +174,14 @@ fn save_before_known_path(path: PathBuf) -> Box<dyn State> {
 fn ask_path<P: AsRef<Path>>(
     path_input: Option<PathInput>,
     starting_directory: Option<P>,
+    load_type: LoadType,
 ) -> Box<dyn State> {
     if let Some(path_input) = path_input {
         if let Some(result) = path_input.get() {
             if let Some(path) = result {
                 Box::new(Load {
                     step: LoadStep::GotPath(path),
+                    load_type,
                 })
             } else {
                 TransitionMessage::new(
@@ -178,19 +195,25 @@ fn ask_path<P: AsRef<Path>>(
                 step: LoadStep::AskPath {
                     path_input: Some(path_input),
                 },
+                load_type,
             })
         }
     } else {
-        let path_input = dialog::load(starting_directory, messages::DESIGN_LOAD_FILTER);
+        let filters = match load_type {
+            LoadType::Object3D => messages::OBJECT3D_FILTERS,
+            LoadType::Design => messages::DESIGN_LOAD_FILTER,
+        };
+        let path_input = dialog::load(starting_directory, filters);
         Box::new(Load {
             step: LoadStep::AskPath {
                 path_input: Some(path_input),
             },
+            load_type,
         })
     }
 }
 
-fn load(path: PathBuf, state: &mut dyn MainState) -> Box<dyn State> {
+fn load_design(path: PathBuf, state: &mut dyn MainState) -> Box<dyn State> {
     if let Err(err) = state.load_design(path) {
         TransitionMessage::new(
             format!("Error when loading design:\n{err}"),
@@ -200,6 +223,11 @@ fn load(path: PathBuf, state: &mut dyn MainState) -> Box<dyn State> {
     } else {
         Box::new(super::NormalState)
     }
+}
+
+fn load_3d_object(path: PathBuf, state: &mut dyn MainState) -> Box<dyn State> {
+    state.load_3d_object(path);
+    Box::new(super::NormalState)
 }
 
 pub(super) struct NewDesign {

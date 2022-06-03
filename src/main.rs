@@ -1929,6 +1929,18 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state
             .modify_state(|app| app.exporting(exporting), None)
     }
+
+    fn load_3d_object(&mut self, path: PathBuf) {
+        let design_path = self
+            .get_current_design_directory()
+            .map(Path::to_path_buf)
+            .or(dirs::home_dir())
+            .unwrap();
+        self.apply_operation(DesignOperation::Add3DObject {
+            file_path: path,
+            design_path,
+        })
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};
