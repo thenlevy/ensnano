@@ -16,6 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::Parameters;
+
 use super::Curved;
 use std::sync::Arc;
 use ultraviolet::{DVec2, DVec3};
@@ -314,6 +316,7 @@ pub(super) struct TwistedTorus {
     /// The unscaled perimeter of the revolving curve
     perimeter: f64,
     nb_turn_per_helix: usize,
+    parameters: Parameters,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -332,10 +335,11 @@ pub struct TwistedTorusDescriptor {
 }
 
 impl TwistedTorus {
-    pub fn new(descriptor: TwistedTorusDescriptor) -> Self {
+    pub fn new(descriptor: TwistedTorusDescriptor, parameters: &Parameters) -> Self {
         let instanciated_curve = descriptor.curve.clone().instanciate();
-        let scale = 2. * INTER_HELIX_GAP * descriptor.number_of_helix_per_section as f64
-            / instanciated_curve.perimeter();
+        let scale =
+            2. * Self::inter_helix_gap(parameters) * descriptor.number_of_helix_per_section as f64
+                / instanciated_curve.perimeter();
         let shift_per_turn = descriptor.helix_index_shift_per_turn;
         let nb_helices = descriptor.number_of_helix_per_section;
         let nb_symetry_per_turn = descriptor.symetry_per_turn;
@@ -369,6 +373,7 @@ impl TwistedTorus {
             perimeter: instanciated_curve.perimeter(),
             instanciated_curve,
             nb_turn_per_helix,
+            parameters: parameters.clone(),
         }
     }
 }
@@ -398,9 +403,17 @@ impl TwistedTorus {
     /// the revolving shape.
     fn objective_s(&self, theta: f64) -> f64 {
         *self.descriptor.initial_curvilinear_abscissa
-            + 2. * INTER_HELIX_GAP
+            + 2. * self.get_inter_helix_gap()
                 * (self.descriptor.helix_index_shift_per_turn as f64 * theta / TAU
                     + self.descriptor.initial_index_shift as f64)
+    }
+
+    fn get_inter_helix_gap(&self) -> f64 {
+        Self::inter_helix_gap(&self.parameters)
+    }
+
+    fn inter_helix_gap(parameters: &Parameters) -> f64 {
+        parameters.helix_radius as f64 + parameters.inter_helix_gap as f64 / 2.
     }
 }
 

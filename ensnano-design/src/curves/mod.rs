@@ -1109,7 +1109,10 @@ impl InstanciatedCurveDescriptor_ {
                 if let Some(curve) = cache.0.get(desc) {
                     curve.clone()
                 } else {
-                    let ret = Arc::new(Curve::new(TwistedTorus::new(desc.clone()), parameters));
+                    let ret = Arc::new(Curve::new(
+                        TwistedTorus::new(desc.clone(), parameters),
+                        parameters,
+                    ));
                     println!("Number of nucleotides {}", ret.nb_points());
                     cache.0.insert(desc.clone(), ret.clone());
                     ret
