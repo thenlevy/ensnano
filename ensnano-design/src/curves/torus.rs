@@ -435,6 +435,10 @@ impl Curved for TwistedTorus {
     fn bounds(&self) -> super::CurveBounds {
         super::CurveBounds::Finite
     }
+
+    fn full_turn_at_t(&self) -> Option<f64> {
+        Some(1.)
+    }
 }
 
 impl crate::Helix {
