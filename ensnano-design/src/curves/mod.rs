@@ -165,6 +165,13 @@ pub(super) trait Curved {
     fn subdivision_for_t(&self, _t: f64) -> Option<usize> {
         None
     }
+
+    /// This method can be overriden to express the fact that a curve will be the only member of
+    /// its synchornization group.
+    /// In that case, the abscissa converter can be storred dirrectly in the curve.
+    fn is_time_maps_singleton(&self) -> bool {
+        false
+    }
 }
 
 /// The bounds of the curve. This describe the interval in which t can be taken
@@ -201,6 +208,7 @@ pub(super) struct Curve {
     nucl_pos_full_turn: Option<f64>,
     /// The first nucleotide of each additional helix segment needed to represent the curve.
     additional_segment_left: Vec<usize>,
+    pub abscissa_converter: Option<AbscissaConverter>,
 }
 
 impl Curve {
@@ -216,6 +224,7 @@ impl Curve {
             t_nucl: Arc::new(Vec::new()),
             nucl_pos_full_turn: None,
             additional_segment_left: Vec::new(),
+            abscissa_converter: None,
         };
         let len_segment = ret.geometry.z_step_ratio().unwrap_or(1.0) * parameters.z_step as f64;
         ret.discretize(

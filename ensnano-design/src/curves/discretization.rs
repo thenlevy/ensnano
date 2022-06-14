@@ -20,7 +20,8 @@ use super::*;
 
 impl Curve {
     pub(super) fn discretize(&mut self, mut len_segment: f64, nb_step: usize, inclination: f64) {
-        let len = self.length_by_descretisation(self.geometry.t_min(), self.geometry.t_max(), nb_step);
+        let len =
+            self.length_by_descretisation(self.geometry.t_min(), self.geometry.t_max(), nb_step);
         let nb_points = (len / len_segment) as usize;
         let small_step = 1. / (nb_step as f64 * nb_points as f64);
 
@@ -162,6 +163,9 @@ impl Curve {
         self.positions_forward = points_forward;
         self.curvature = curvature;
         self.t_nucl = Arc::new(t_nucl);
+        if self.geometry.is_time_maps_singleton() {
+            self.abscissa_converter = AbscissaConverter::from_single_map(self.t_nucl.clone());
+        }
     }
 
     pub fn length_by_descretisation(&self, t0: f64, t1: f64, nb_step: usize) -> f64 {

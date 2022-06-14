@@ -116,6 +116,10 @@ impl Curved for SphereLikeSpiral {
     }
 
     fn subdivision_for_t(&self, t: f64) -> Option<usize> {
-        Some((self.nb_turn() * t) as usize)
+        Some((self.nb_turn() * t * PI + self.theta_0 / TAU) as usize)
+    }
+
+    fn is_time_maps_singleton(&self) -> bool {
+        true
     }
 }
