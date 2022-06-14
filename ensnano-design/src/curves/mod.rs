@@ -44,7 +44,7 @@ pub use bezier::{
     BezierControlPoint, BezierEnd, BezierEndCoordinates, CubicBezierConstructor,
     CubicBezierControlPoint,
 };
-pub use sphere_like_spiral::SphereLikeSpiral;
+pub use sphere_like_spiral::SphereLikeSpiralDescriptor;
 use std::collections::HashMap;
 pub use supertwist::SuperTwist;
 pub use time_nucl_map::AbscissaConverter;
@@ -677,7 +677,7 @@ fn perpendicular_basis(point: DVec3) -> DMat3 {
 /// A descriptor of the curve that can be serialized
 pub enum CurveDescriptor {
     Bezier(CubicBezierConstructor),
-    SphereLikeSpiral(SphereLikeSpiral),
+    SphereLikeSpiral(SphereLikeSpiralDescriptor),
     Twist(Twist),
     Torus(Torus),
     TwistedTorus(TwistedTorusDescriptor),
@@ -985,7 +985,7 @@ impl InstanciatedCurveDescriptor {
 #[derive(Clone, Debug)]
 enum InstanciatedCurveDescriptor_ {
     Bezier(CubicBezierConstructor),
-    SphereLikeSpiral(SphereLikeSpiral),
+    SphereLikeSpiral(SphereLikeSpiralDescriptor),
     Twist(Twist),
     Torus(Torus),
     SuperTwist(SuperTwist),
@@ -1101,7 +1101,10 @@ impl InstanciatedCurveDescriptor_ {
             Self::Bezier(constructor) => {
                 Arc::new(Curve::new(constructor.into_bezier(), parameters))
             }
-            Self::SphereLikeSpiral(spiral) => Arc::new(Curve::new(spiral, parameters)),
+            Self::SphereLikeSpiral(spiral) => Arc::new(Curve::new(
+                spiral.with_parameters(parameters.clone()),
+                parameters,
+            )),
             Self::Twist(twist) => Arc::new(Curve::new(twist, parameters)),
             Self::Torus(torus) => Arc::new(Curve::new(torus, parameters)),
             Self::SuperTwist(twist) => Arc::new(Curve::new(twist, parameters)),
@@ -1143,9 +1146,10 @@ impl InstanciatedCurveDescriptor_ {
                 constructor.clone().into_bezier(),
                 parameters,
             ))),
-            Self::SphereLikeSpiral(spiral) => {
-                Some(Arc::new(Curve::new(spiral.clone(), parameters)))
-            }
+            Self::SphereLikeSpiral(spiral) => Some(Arc::new(Curve::new(
+                spiral.clone().with_parameters(parameters.clone()),
+                parameters,
+            ))),
             Self::Twist(twist) => Some(Arc::new(Curve::new(twist.clone(), parameters))),
             Self::Torus(torus) => Some(Arc::new(Curve::new(torus.clone(), parameters))),
             Self::SuperTwist(twist) => Some(Arc::new(Curve::new(twist.clone(), parameters))),
