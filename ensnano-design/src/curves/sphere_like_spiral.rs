@@ -26,6 +26,8 @@ use ultraviolet::DVec3;
 pub struct SphereLikeSpiralDescriptor {
     pub theta_0: f64,
     pub radius: f64,
+    #[serde(default)]
+    pub minimum_diameter: Option<f64>,
 }
 
 impl SphereLikeSpiralDescriptor {
@@ -34,6 +36,7 @@ impl SphereLikeSpiralDescriptor {
             theta_0: self.theta_0,
             radius: self.radius,
             parameters,
+            minimum_diameter: self.minimum_diameter,
         }
     }
 }
@@ -42,6 +45,7 @@ pub(super) struct SphereLikeSpiral {
     pub theta_0: f64,
     pub radius: f64,
     pub parameters: Parameters,
+    pub minimum_diameter: Option<f64>,
 }
 
 impl SphereLikeSpiral {
@@ -121,5 +125,20 @@ impl Curved for SphereLikeSpiral {
 
     fn is_time_maps_singleton(&self) -> bool {
         true
+    }
+
+    fn t_min(&self) -> f64 {
+        // ϕ = πt 
+        // ⌀ = 2r*sin(ϕ) = 2r*sin(πt)
+        // t = arcsin(⌀/2r)/π
+        self.minimum_diameter
+            .map(|d| d / self.radius)
+            .filter(|normalized_diameter| normalized_diameter <= &2.0)
+            .map(|normalized_diamter| (normalized_diamter / 2.).asin() / PI)
+            .unwrap_or(0.)
+    }
+
+    fn t_max(&self) -> f64 {
+        1. - self.t_min()
     }
 }
