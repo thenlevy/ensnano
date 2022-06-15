@@ -29,8 +29,9 @@ use crate::{
 };
 
 use super::{Helix, Parameters};
-use std::{ops::Deref, sync::Arc};
+use std::sync::Arc;
 mod bezier;
+mod discretization;
 mod sphere_like_spiral;
 mod supertwist;
 mod time_nucl_map;
@@ -44,7 +45,7 @@ pub use bezier::{
     BezierControlPoint, BezierEnd, BezierEndCoordinates, CubicBezierConstructor,
     CubicBezierControlPoint,
 };
-pub use sphere_like_spiral::SphereLikeSpiral;
+pub use sphere_like_spiral::SphereLikeSpiralDescriptor;
 use std::collections::HashMap;
 pub use supertwist::SuperTwist;
 pub use time_nucl_map::AbscissaConverter;
@@ -164,6 +165,13 @@ pub trait Curved {
     fn subdivision_for_t(&self, _t: f64) -> Option<usize> {
         None
     }
+
+    /// This method can be overriden to express the fact that a curve will be the only member of
+    /// its synchornization group.
+    /// In that case, the abscissa converter can be storred dirrectly in the curve.
+    fn is_time_maps_singleton(&self) -> bool {
+        false
+    }
 }
 
 /// The bounds of the curve. This describe the interval in which t can be taken
@@ -200,6 +208,7 @@ pub struct Curve {
     nucl_pos_full_turn: Option<f64>,
     /// The first nucleotide of each additional helix segment needed to represent the curve.
     additional_segment_left: Vec<usize>,
+    pub abscissa_converter: Option<AbscissaConverter>,
 }
 
 impl Curve {
@@ -215,6 +224,7 @@ impl Curve {
             t_nucl: Arc::new(Vec::new()),
             nucl_pos_full_turn: None,
             additional_segment_left: Vec::new(),
+            abscissa_converter: None,
         };
         let len_segment = ret.geometry.z_step_ratio().unwrap_or(1.0) * parameters.z_step as f64;
         ret.discretize(
@@ -223,229 +233,6 @@ impl Curve {
             parameters.inclination as f64,
         );
         ret
-    }
-
-    pub fn length_by_descretisation(&self, t0: f64, t1: f64, nb_step: usize) -> f64 {
-        if t0 > t1 {
-            log::error!(
-                "Bad parameters ofr length by descritisation: \n t0 {} \n t1 {} \n nb_step {}",
-                t0,
-                t1,
-                nb_step
-            );
-        }
-        if let Some((x0, x1)) = self
-            .geometry
-            .curvilinear_abscissa(t0)
-            .zip(self.geometry.curvilinear_abscissa(t1))
-        {
-            return x1 - x0;
-        }
-        let mut p = self.geometry.position(t0);
-        let mut len = 0f64;
-        for i in 1..=nb_step {
-            let t = t0 + (i as f64) / (nb_step as f64) * (t1 - t0);
-            let q = self.geometry.position(t);
-            len += (q - p).mag();
-            p = q;
-        }
-        len
-    }
-
-    fn discretize(&mut self, len_segment: f64, nb_step: usize, inclination: f64) {
-        let len = self.length_by_descretisation(0., 1., nb_step);
-        let nb_points = (len / len_segment) as usize * 10;
-        let small_step = 1. / (nb_step as f64 * nb_points as f64);
-
-        let mut points_forward = Vec::with_capacity(nb_points + 1);
-        let mut points_backward = Vec::with_capacity(nb_points + 1);
-        let mut axis_forward = Vec::with_capacity(nb_points + 1);
-        let mut axis_backward = Vec::with_capacity(nb_points + 1);
-        let mut curvature = Vec::with_capacity(nb_points + 1);
-        let mut t = self.geometry.t_min();
-        let mut current_axis = self.itterative_axis(t, None);
-        let mut translation_axis = current_axis;
-
-        let mut current_segment = 0;
-
-        if let Some(frame) = self.geometry.initial_frame() {
-            let up = frame[1];
-            translation_axis[1] = up;
-            translation_axis[0] = up.cross(self.geometry.speed(t).normalized());
-            translation_axis[2] = translation_axis[0].cross(translation_axis[1]);
-        }
-        let point = self.geometry.position(t)
-            + translation_axis * self.geometry.translation().unwrap_or_else(DVec3::zero);
-
-        let mut t_nucl = Vec::new();
-        let mut abscissa_forward;
-        let mut abscissa_backward;
-
-        if inclination >= 0. {
-            // The forward strand is behind
-            points_forward.push(point);
-            axis_forward.push(current_axis);
-            curvature.push(self.geometry.curvature(t));
-            t_nucl.push(t);
-            abscissa_forward = len_segment;
-            abscissa_backward = inclination;
-        } else {
-            // The backward strand is behind
-            points_backward.push(point);
-            axis_backward.push(current_axis);
-            abscissa_backward = len_segment;
-            abscissa_forward = -inclination;
-        }
-
-        let mut current_abcissa = 0.0;
-        let mut first_non_negative = t < 0.0;
-
-        let mut synchronization_length = 0.;
-
-        while t < self.geometry.t_max() {
-            if first_non_negative && t >= 0.0 {
-                first_non_negative = false;
-                self.nucl_t0 = points_forward.len();
-            }
-            let (objective, forward) = (
-                abscissa_forward.min(abscissa_backward),
-                abscissa_forward <= abscissa_backward,
-            );
-            let mut translation_axis = current_axis;
-            if let Some(frame) = self.geometry.initial_frame() {
-                let up = frame[1];
-                translation_axis[1] = up;
-                translation_axis[0] = up.cross(self.geometry.speed(t).normalized());
-                translation_axis[2] = translation_axis[0].cross(translation_axis[1]);
-            }
-            let mut p = self.geometry.position(t)
-                + translation_axis * self.geometry.translation().unwrap_or_else(DVec3::zero);
-
-            if let Some(t_x) = self.geometry.inverse_curvilinear_abscissa(objective) {
-                t = t_x;
-                current_abcissa = objective;
-                p = self.geometry.position(t);
-                current_axis = self.itterative_axis(t, Some(&current_axis));
-                if let Some(t) = self.geometry.translation() {
-                    p += current_axis * t;
-                }
-            } else {
-                while current_abcissa < objective {
-                    t += small_step;
-                    let mut q = self.geometry.position(t);
-                    current_axis = self.itterative_axis(t, Some(&current_axis));
-                    let mut translation_axis = current_axis;
-                    if let Some(frame) = self.geometry.initial_frame() {
-                        let up = frame[1];
-                        translation_axis[1] = up;
-                        translation_axis[0] = up.cross(self.geometry.speed(t).normalized());
-                        translation_axis[2] = translation_axis[0].cross(translation_axis[1]);
-                    }
-
-                    if let Some(t) = self.geometry.translation() {
-                        q += translation_axis * t;
-                    }
-                    current_abcissa += (q - p).mag();
-                    if let Some(t_obj) = self.geometry.full_turn_at_t() {
-                        if t >= 0. && t < t_obj {
-                            synchronization_length += (q - p).mag();
-                        }
-                    }
-                    p = q;
-                }
-            }
-            if t < self.geometry.t_max() {
-                if forward {
-                    t_nucl.push(t);
-                    let segment_idx = self.geometry.subdivision_for_t(t).unwrap_or(0);
-                    if segment_idx != current_segment {
-                        current_segment = segment_idx;
-                        self.additional_segment_left.push(points_forward.len())
-                    }
-                    points_forward.push(p);
-                    axis_forward.push(current_axis);
-                    curvature.push(self.geometry.curvature(t));
-                    abscissa_forward = current_abcissa + len_segment;
-                } else {
-                    points_backward.push(p);
-                    axis_backward.push(current_axis);
-                    abscissa_backward = current_abcissa + len_segment;
-                }
-
-                /*
-                    if forward_first_nucl == forward && self.nucl_pos_full_turn.is_none() {
-                        if let Some(t_obj) = self.geometry.full_turn_at_t().filter(|t_obj| t > *t_obj)
-                        {
-                            /*
-                            self.nucl_pos_full_turn = if forward {
-                                println!("first axis {:?}", axis_forward[0]);
-                                println!("current axis {:?}", current_axis);
-                                Some(points_forward.len() as isize - self.nucl_t0 as isize + 1)
-                            } else {
-                                println!("first axis {:?}", axis_backward[0]);
-                                println!("current axis {:?}", current_axis);
-                                Some(points_backward.len() as isize - self.nucl_t0 as isize + 1)
-                            };
-                            println!("pos full turn {:?}", self.nucl_pos_full_turn);
-                            */
-                            let epsilon_left = t_obj - last_time_on_synchronized_strand;
-                            let epsilon_right = t - t_obj;
-                            log::info!("epsilon_left = {epsilon_left}");
-                            log::info!("epsilon_right = {epsilon_right}");
-                            log::info!("extra frac = {}", epsilon_left / (epsilon_left + epsilon_right));
-
-                            let idx_left = if forward {
-                                points_forward.len() - 2
-                            } else {
-                                points_forward.len() - 2
-                            };
-                            self.nucl_pos_full_turn = Some(idx_left as f64 + epsilon_left / (epsilon_left + epsilon_right));
-                        }
-                        last_time_on_synchronized_strand = t;
-                    }
-                */
-            }
-        }
-        /*
-        if self.nucl_pos_full_turn.is_none() && self.geometry.full_turn_at_t().is_some() {
-            // We want to make a full turn just after the last nucl
-            log::error!("Could not synchronize path ends");
-        }
-        */
-
-        self.nucl_pos_full_turn = self
-            .geometry
-            .full_turn_at_t()
-            .map(|_| synchronization_length / len_segment);
-        if let Some(n) = self.nucl_pos_full_turn {
-            log::info!("nucl_pos_full_turn = {n}");
-        }
-
-        self.axis_backward = axis_backward;
-        self.positions_backward = points_backward;
-        self.axis_forward = axis_forward;
-        self.positions_forward = points_forward;
-        self.curvature = curvature;
-        self.t_nucl = Arc::new(t_nucl);
-    }
-
-    fn itterative_axis(&self, t: f64, previous: Option<&DMat3>) -> DMat3 {
-        let speed = self.geometry.speed(t);
-        if speed.mag_sq() < EPSILON {
-            let acceleration = self.geometry.acceleration(t);
-            let mat = perpendicular_basis(acceleration);
-            return DMat3::new(mat.cols[2], mat.cols[1], mat.cols[0]);
-        }
-
-        if let Some(previous) = previous {
-            let forward = speed.normalized();
-            let up = forward.cross(previous.cols[0]).normalized();
-            let right = up.cross(forward);
-
-            DMat3::new(right, up, forward)
-        } else {
-            perpendicular_basis(speed)
-        }
     }
 
     pub fn nb_points(&self) -> usize {
@@ -677,7 +464,7 @@ fn perpendicular_basis(point: DVec3) -> DMat3 {
 /// A descriptor of the curve that can be serialized
 pub enum CurveDescriptor {
     Bezier(CubicBezierConstructor),
-    SphereLikeSpiral(SphereLikeSpiral),
+    SphereLikeSpiral(SphereLikeSpiralDescriptor),
     Twist(Twist),
     Torus(Torus),
     TwistedTorus(TwistedTorusDescriptor),
@@ -985,7 +772,7 @@ impl InstanciatedCurveDescriptor {
 #[derive(Clone, Debug)]
 enum InstanciatedCurveDescriptor_ {
     Bezier(CubicBezierConstructor),
-    SphereLikeSpiral(SphereLikeSpiral),
+    SphereLikeSpiral(SphereLikeSpiralDescriptor),
     Twist(Twist),
     Torus(Torus),
     SuperTwist(SuperTwist),
@@ -1101,7 +888,10 @@ impl InstanciatedCurveDescriptor_ {
             Self::Bezier(constructor) => {
                 Arc::new(Curve::new(constructor.into_bezier(), parameters))
             }
-            Self::SphereLikeSpiral(spiral) => Arc::new(Curve::new(spiral, parameters)),
+            Self::SphereLikeSpiral(spiral) => Arc::new(Curve::new(
+                spiral.with_parameters(parameters.clone()),
+                parameters,
+            )),
             Self::Twist(twist) => Arc::new(Curve::new(twist, parameters)),
             Self::Torus(torus) => Arc::new(Curve::new(torus, parameters)),
             Self::SuperTwist(twist) => Arc::new(Curve::new(twist, parameters)),
@@ -1143,9 +933,10 @@ impl InstanciatedCurveDescriptor_ {
                 constructor.clone().into_bezier(),
                 parameters,
             ))),
-            Self::SphereLikeSpiral(spiral) => {
-                Some(Arc::new(Curve::new(spiral.clone(), parameters)))
-            }
+            Self::SphereLikeSpiral(spiral) => Some(Arc::new(Curve::new(
+                spiral.clone().with_parameters(parameters.clone()),
+                parameters,
+            ))),
             Self::Twist(twist) => Some(Arc::new(Curve::new(twist.clone(), parameters))),
             Self::Torus(torus) => Some(Arc::new(Curve::new(torus.clone(), parameters))),
             Self::SuperTwist(twist) => Some(Arc::new(Curve::new(twist.clone(), parameters))),

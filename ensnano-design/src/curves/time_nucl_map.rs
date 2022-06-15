@@ -137,6 +137,21 @@ impl AbscissaConverter {
             AbscissaConverter_::Fake(normalisation_time) => x / normalisation_time,
         }
     }
+
+    pub(super) fn from_single_map(time_points: Arc<Vec<f64>>) -> Option<Self> {
+        if time_points.len() < 2 {
+            return None;
+        }
+
+        let x_per_time = (time_points.len() as f64 - 1.)
+            / (time_points.last().unwrap() - time_points.first().unwrap());
+        let length_normalisation = x_per_time;
+        Some(Self(AbscissaConverter_::Real(HelixTimeMap {
+            length_normalisation,
+            nb_negative_nucl: 0,
+            nucl_time: time_points,
+        })))
+    }
 }
 
 #[derive(Debug)]

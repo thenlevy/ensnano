@@ -436,7 +436,7 @@ impl Helix {
     }
 
     pub fn new_sphere_like_spiral(radius: f64, theta_0: f64) -> Self {
-        let constructor = SphereLikeSpiral { radius, theta_0 };
+        let constructor = SphereLikeSpiralDescriptor { radius, theta_0 };
         Self {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),

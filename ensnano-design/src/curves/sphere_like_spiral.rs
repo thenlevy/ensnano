@@ -16,23 +16,49 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::Parameters;
+
 use super::Curved;
 use std::f64::consts::{PI, TAU};
 use ultraviolet::DVec3;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct SphereLikeSpiral {
+pub struct SphereLikeSpiralDescriptor {
     pub theta_0: f64,
     pub radius: f64,
 }
 
-const DIST_TURN: f64 = 2. * 2.65;
+impl SphereLikeSpiralDescriptor {
+    pub(super) fn with_parameters(self, parameters: Parameters) -> SphereLikeSpiral {
+        SphereLikeSpiral {
+            theta_0: self.theta_0,
+            radius: self.radius,
+            parameters,
+        }
+    }
+}
+
+pub(super) struct SphereLikeSpiral {
+    pub theta_0: f64,
+    pub radius: f64,
+    pub parameters: Parameters,
+}
+
+impl SphereLikeSpiral {
+    fn dist_turn(&self) -> f64 {
+        4. * self.parameters.helix_radius as f64 + 2. * self.parameters.inter_helix_gap as f64
+    }
+
+    fn nb_turn(&self) -> f64 {
+        self.radius / self.dist_turn()
+    }
+}
 
 impl Curved for SphereLikeSpiral {
     fn position(&self, t: f64) -> DVec3 {
         let phi = t * PI;
 
-        let nb_turn = self.radius / DIST_TURN;
+        let nb_turn = self.nb_turn();
         let theta = nb_turn * TAU * phi + self.theta_0;
         DVec3 {
             x: self.radius * phi.sin() * theta.cos(),
@@ -43,7 +69,7 @@ impl Curved for SphereLikeSpiral {
 
     fn speed(&self, t: f64) -> DVec3 {
         let phi = t * PI;
-        let nb_turn = self.radius / DIST_TURN;
+        let nb_turn = self.nb_turn();
         let theta = nb_turn * TAU * phi + self.theta_0;
 
         let x =
@@ -59,7 +85,7 @@ impl Curved for SphereLikeSpiral {
 
     fn acceleration(&self, t: f64) -> DVec3 {
         let phi = t * PI;
-        let nb_turn = self.radius / DIST_TURN;
+        let nb_turn = self.nb_turn();
         let theta = nb_turn * TAU * phi + self.theta_0;
 
         let x = self.radius
@@ -87,5 +113,13 @@ impl Curved for SphereLikeSpiral {
 
     fn bounds(&self) -> super::CurveBounds {
         super::CurveBounds::Finite
+    }
+
+    fn subdivision_for_t(&self, t: f64) -> Option<usize> {
+        Some((self.nb_turn() * t * PI + self.theta_0 / TAU) as usize)
+    }
+
+    fn is_time_maps_singleton(&self) -> bool {
+        true
     }
 }

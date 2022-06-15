@@ -1205,6 +1205,12 @@ impl GridData {
                         .map(|m| m.get_abscissa_converter(h_id))
                 })
             })
+            .or_else(|| {
+                helix
+                    .instanciated_curve
+                    .as_ref()
+                    .and_then(|c| c.curve.as_ref().abscissa_converter.clone())
+            })
     }
 }
 
