@@ -8,6 +8,10 @@ license = "GPL-3.0-or-later"
 [[bin]]
 name = "torus_radius"
 path = "src/torus_radius.rs"
+
+[[bin]]
+name = "cocentric_spheres"
+path = "src/cocentric_spheres.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

@@ -1,14 +1,15 @@
-
-use ensnano_design::*;
 use ensnano_design::Curve;
+use ensnano_design::*;
 use std::sync::Arc;
-
 
 const LEN_SCAFFOLD: usize = 8064 / 2;
 
 fn main() {
-    let curve = CurveDescriptor2D::Ellipse { semi_minor_axis: 1f64.into(), semi_major_axis: 2f64.into() };
-    
+    let curve = CurveDescriptor2D::Ellipse {
+        semi_minor_axis: 1f64.into(),
+        semi_major_axis: 2f64.into(),
+    };
+
     let mut lower_bound_radius = 10.0;
     let mut upper_bound_raidus = 40.0;
 
@@ -33,13 +34,16 @@ fn main() {
         println!("lower bound {lower_bound_radius}");
         println!("radius {big_radius}");
         let mut cache = Default::default();
-        let curve = InstanciatedCurveDescriptor::try_instanciate(Arc::new(CurveDescriptor::TwistedTorus(desc))).unwrap().make_curve(&parameters, &mut cache);
+        let curve = InstanciatedCurveDescriptor::try_instanciate(Arc::new(
+            CurveDescriptor::TwistedTorus(desc),
+        ))
+        .unwrap()
+        .make_curve(&parameters, &mut cache);
 
         let nb_points = curve.nb_points();
 
         println!("nb point {nb_points}");
         println!("objective {LEN_SCAFFOLD}");
-
 
         if nb_points < LEN_SCAFFOLD {
             lower_bound_radius = big_radius;
@@ -49,5 +53,4 @@ fn main() {
             found = true
         }
     }
-
 }
