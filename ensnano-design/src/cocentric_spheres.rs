@@ -1,3 +1,4 @@
+use ensnano_design::grid::{GridDescriptor, GridTypeDescr, Hyperboloid};
 use ensnano_design::Curve;
 use ensnano_design::*;
 use std::sync::Arc;
@@ -126,30 +127,105 @@ fn main() {
         }
     }
 
+    let (north, south) = nanotubes(big_radius);
+    add_hyperboloid_helices(&mut design, north);
+    add_hyperboloid_helices(&mut design, south);
+
     use std::io::Write;
     let json_content = serde_json::to_string_pretty(&design).ok().unwrap();
     let mut f = std::fs::File::create("two_spheres_hole.ens").ok().unwrap();
     f.write_all(json_content.as_bytes());
 }
 
+// let r1 be the radius of the big sphere, and phi1 be the smallest latitude on the big sphere.
+// let r2 be the radius of the small sphere and phi2 the smallest latitude on the small sphere.
+// let d be the smallest radius of both spheres
+//
+// We have h1 = r1 cos(phi1)
+// By definition, h2 = h1 - delta
+// Also, h2 = r2 cos(ph2)
+// This gives r1 cos(phi1) - delta = r2 cos(phi2) (A)
+//
+// We also have d = r1 sin(phi1) = r2 sin(phi 2) (B)
+
+// (B) gives phi1
+fn get_phi1(big_radius: f64) -> f64 {
+    (MIN_DIAMETER / (2. * big_radius)).asin()
+}
+
+// (A)^2 + (B)^2 gives r2
+// r2^2 = r1^2 + delta^2 - 2delta*r1 cos(phi1)
+// r2 = sqrt(r1^2 + delta^2 - 2delta * r1 cos(phi1)
 fn compute_small_radius(big_radius: f64) -> f64 {
-    // let r1 be the radius of the big sphere, and phi1 be the smallest latitude on the big sphere.
-    // let r2 be the radius of the small sphere and phi2 the smallest latitude on the small sphere.
-    // let d be the smallest radius of both spheres
-    //
-    // We have h1 = r1 cos(phi1)
-    // By definition, h2 = h1 - delta
-    // Also, h2 = r2 cos(ph2)
-    // This gives r1 cos(phi1) - delta = r2 cos(phi2) (A)
-    //
-    // We also have d = r1 sin(phi1) = r2 sin(phi 2) (B)
-
-    // (B) gives phi1
-    let phi1 = (MIN_DIAMETER / (2. * big_radius)).asin();
-
-    // (A)^2 + (B)^2 gives r2
-    // r2^2 = r1^2 + delta^2 - 2delta*r1 cos(phi1)
-    // r2 = sqrt(r1^2 + delta^2 - 2delta * r1 cos(phi1)
-
+    let phi1 = get_phi1(big_radius);
     (big_radius.powi(2) + DELTA_RADIUS.powi(2) - 2. * DELTA_RADIUS * big_radius * phi1.cos()).sqrt()
+}
+
+fn nanotubes(big_radius: f64) -> (GridDescriptor, GridDescriptor) {
+    use ultraviolet::{Rotor3, Vec3};
+
+    let phi1 = get_phi1(big_radius);
+    let north_position = (big_radius * phi1.cos()) as f32 * Vec3::unit_z();
+    let hyperboloid = Hyperboloid {
+        forced_radius: None,
+        radius: 10,
+        shift: 0.,
+        nb_turn_per_100_nt: 0.,
+        radius_shift: 0.,
+        length: DELTA_RADIUS as f32,
+    };
+    let north_grid = GridDescriptor::hyperboloid(
+        north_position,
+        Rotor3::from_rotation_xz(-std::f32::consts::FRAC_PI_2),
+        hyperboloid.clone(),
+    );
+
+    let south_position = -north_position;
+    let south_grid = GridDescriptor::hyperboloid(
+        south_position,
+        Rotor3::from_rotation_xz(std::f32::consts::FRAC_PI_2),
+        hyperboloid.clone(),
+    );
+
+    (north_grid, south_grid)
+}
+
+fn add_hyperboloid_helices(design: &mut Design, desc: GridDescriptor) {
+    let mut grids = design.free_grids.make_mut();
+    grids.push(desc);
+    drop(grids);
+
+    let grid_id = design.free_grids.keys().max().unwrap().clone();
+    let grids = design.get_updated_grid_data();
+
+    let grid = grids.grids.get(&grid_id.to_grid_id()).unwrap().clone();
+
+    let mut helix_ids = vec![];
+    for i in 0..NB_NANOTUBE {
+        let helix = Helix::new_on_grid(&grid, i as isize, 0, grid_id.to_grid_id());
+        let mut helices = design.helices.make_mut();
+        helix_ids.push(helices.push_helix(helix));
+    }
+
+    for helix in helix_ids {
+        for forward in [true, false] {
+            {
+                let big_strand = Strand {
+                    cyclic: false,
+                    junctions: vec![],
+                    sequence: None,
+                    color: 0xeb4034,
+                    domains: vec![Domain::HelixDomain(HelixInterval {
+                        helix: helix,
+                        start: 0,
+                        end: NANOTUBE_LENGTH as isize,
+                        forward,
+                        sequence: None,
+                    })],
+                    name: None,
+                };
+                design.strands.push(big_strand);
+            }
+        }
+    }
 }
