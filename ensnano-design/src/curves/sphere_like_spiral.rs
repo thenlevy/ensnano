@@ -128,7 +128,7 @@ impl Curved for SphereLikeSpiral {
     }
 
     fn t_min(&self) -> f64 {
-        // ϕ = πt 
+        // ϕ = πt
         // ⌀ = 2r*sin(ϕ) = 2r*sin(πt)
         // t = arcsin(⌀/2r)/π
         self.minimum_diameter

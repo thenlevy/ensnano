@@ -12,7 +12,6 @@ const DELTA_RADIUS: f64 = NANOTUBE_LENGTH as f64 * PARAMETERS.z_step as f64;
 /// Volume exclusion radius
 const H: f32 = PARAMETERS.helix_radius + PARAMETERS.inter_helix_gap / 2.;
 
-
 use std::f64::consts::PI;
 const MIN_DIAMETER: f64 = (2. * H as f64 * NB_NANOTUBE as f64) / PI;
 
@@ -29,6 +28,7 @@ fn main() {
 
     while !found {
         let big_radius = (lower_bound_radius + upper_bound_raidus) / 2.;
+        let small_radius = compute_small_radius(big_radius);
         let big_desc = SphereLikeSpiralDescriptor {
             theta_0: 0.,
             radius: big_radius,
@@ -36,7 +36,7 @@ fn main() {
         };
         let small_desc = SphereLikeSpiralDescriptor {
             theta_0: 0.,
-            radius: big_radius - DELTA_RADIUS,
+            radius: small_radius,
             minimum_diameter: Some(MIN_DIAMETER),
         };
         println!("upper bound {upper_bound_raidus}");
@@ -55,7 +55,9 @@ fn main() {
         .unwrap()
         .make_curve(&PARAMETERS, &mut cache);
 
-        let nb_points = 2 * big_curve.nb_points() + 2 * small_curve.nb_points() + 2 * NANOTUBE_LENGTH * NB_NANOTUBE;
+        let nb_points = 2 * big_curve.nb_points()
+            + 2 * small_curve.nb_points()
+            + 2 * NANOTUBE_LENGTH * NB_NANOTUBE;
 
         println!("nb point {nb_points}");
         println!("objective {LEN_SCAFFOLD}");
@@ -72,24 +74,43 @@ fn main() {
     }
 
     let big_radius = (lower_bound_radius + upper_bound_raidus) / 2.;
+    let small_radius = compute_small_radius(big_radius);
 
     let mut design = Design::new();
     let mut helices = design.helices.make_mut();
 
-    helices.insert(0, Helix::new_sphere_like_spiral(big_radius, 0., Some(MIN_DIAMETER)));
-    helices.insert(1, Helix::new_sphere_like_spiral(big_radius, PI, Some(MIN_DIAMETER)));
-    helices.insert(2, Helix::new_sphere_like_spiral(big_radius - DELTA_RADIUS, 0., Some(MIN_DIAMETER)));
-    helices.insert(3, Helix::new_sphere_like_spiral(big_radius - DELTA_RADIUS, PI, Some(MIN_DIAMETER)));
+    helices.insert(
+        0,
+        Helix::new_sphere_like_spiral(big_radius, 0., Some(MIN_DIAMETER)),
+    );
+    helices.insert(
+        1,
+        Helix::new_sphere_like_spiral(big_radius, PI, Some(MIN_DIAMETER)),
+    );
+    helices.insert(
+        2,
+        Helix::new_sphere_like_spiral(small_radius, 0., Some(MIN_DIAMETER)),
+    );
+    helices.insert(
+        3,
+        Helix::new_sphere_like_spiral(small_radius, PI, Some(MIN_DIAMETER)),
+    );
 
     drop(helices);
 
     for helix in [0, 1] {
         for forward in [true, false] {
-            for (set, len) in [len_big_sphere.unwrap() as isize, len_small_sphere.unwrap() as isize].into_iter().enumerate() {
+            for (set, len) in [
+                len_big_sphere.unwrap() as isize,
+                len_small_sphere.unwrap() as isize,
+            ]
+            .into_iter()
+            .enumerate()
+            {
                 let big_strand = Strand {
                     cyclic: false,
                     junctions: vec![],
-                    sequence:  None,
+                    sequence: None,
                     color: 0xeb4034,
                     domains: vec![Domain::HelixDomain(HelixInterval {
                         helix: helix + 2 * set,
@@ -109,4 +130,26 @@ fn main() {
     let json_content = serde_json::to_string_pretty(&design).ok().unwrap();
     let mut f = std::fs::File::create("two_spheres_hole.ens").ok().unwrap();
     f.write_all(json_content.as_bytes());
+}
+
+fn compute_small_radius(big_radius: f64) -> f64 {
+    // let r1 be the radius of the big sphere, and phi1 be the smallest latitude on the big sphere.
+    // let r2 be the radius of the small sphere and phi2 the smallest latitude on the small sphere.
+    // let d be the smallest radius of both spheres
+    //
+    // We have h1 = r1 cos(phi1)
+    // By definition, h2 = h1 - delta
+    // Also, h2 = r2 cos(ph2)
+    // This gives r1 cos(phi1) - delta = r2 cos(phi2) (A)
+    //
+    // We also have d = r1 sin(phi1) = r2 sin(phi 2) (B)
+
+    // (B) gives phi1
+    let phi1 = (MIN_DIAMETER / (2. * big_radius)).asin();
+
+    // (A)^2 + (B)^2 gives r2
+    // r2^2 = r1^2 + delta^2 - 2delta*r1 cos(phi1)
+    // r2 = sqrt(r1^2 + delta^2 - 2delta * r1 cos(phi1)
+
+    (big_radius.powi(2) + DELTA_RADIUS.powi(2) - 2. * DELTA_RADIUS * big_radius * phi1.cos()).sqrt()
 }
