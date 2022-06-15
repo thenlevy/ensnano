@@ -608,7 +608,10 @@ pub(super) trait GridPositionProvider {
 
 impl InstanciatedCurveDescriptor {
     /// Reads the design data to resolve the reference to elements of the design
-    pub fn instanciate(desc: Arc<CurveDescriptor>, grid_reader: &dyn GridPositionProvider) -> Self {
+    pub(crate) fn instanciate(
+        desc: Arc<CurveDescriptor>,
+        grid_reader: &dyn GridPositionProvider,
+    ) -> Self {
         let instance = match desc.as_ref() {
             CurveDescriptor::Bezier(b) => InstanciatedCurveDescriptor_::Bezier(b.clone()),
             CurveDescriptor::SphereLikeSpiral(s) => {
