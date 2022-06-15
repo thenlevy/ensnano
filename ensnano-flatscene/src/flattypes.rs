@@ -147,6 +147,10 @@ impl FlatHelixMaps {
     pub fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&(usize, usize), &FlatIdx)> + 'a> {
         Box::new(self.real_to_flat.iter())
     }
+
+    pub fn len(&self) -> usize {
+        self.flat_to_real.len()
+    }
 }
 
 impl Eq for FlatHelix {}

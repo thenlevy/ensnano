@@ -230,14 +230,14 @@ impl<R: DesignReader> Design2d<R> {
         let isometry = if let Some(iso) = iso_opt {
             iso
         } else if let Some(mut iso) = self.design.get_isometry(h_id, 0) {
-            iso.prepend_translation(10. * segment_idx as f32 * Vec2::unit_y());
+            iso.prepend_translation(5. * self.id_map.len() as f32 * Vec2::unit_y());
             self.requests
                 .lock()
                 .unwrap()
                 .set_isometry(h_id, segment_idx, iso);
             iso
         } else {
-            let iso = Isometry2::new((5. * h_id as f32 - 1.) * Vec2::unit_y(), Rotor2::identity());
+            let iso = Isometry2::new((5. * self.id_map.len() as f32 - 1.) * Vec2::unit_y(), Rotor2::identity());
             self.requests
                 .lock()
                 .unwrap()
