@@ -14,7 +14,7 @@ const DELTA_RADIUS: f64 = NANOTUBE_LENGTH as f64 * PARAMETERS.z_step as f64;
 const H: f32 = PARAMETERS.helix_radius + PARAMETERS.inter_helix_gap / 2.;
 
 use std::f64::consts::PI;
-const MIN_DIAMETER: f64 = (2. * H as f64 * NB_NANOTUBE as f64) / PI;
+const MIN_DIAMETER: f64 = (2. * H as f64 * NB_NANOTUBE as f64) / PI + H as f64;
 
 const LOWER_BOUND_RADIUS: f64 = DELTA_RADIUS + 1.1 * MIN_DIAMETER / 2.;
 
