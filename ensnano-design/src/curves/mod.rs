@@ -36,6 +36,7 @@ mod sphere_like_spiral;
 mod supertwist;
 mod time_nucl_map;
 mod torus;
+mod tube_spiral;
 mod twist;
 use super::GridId;
 use crate::grid::*;
@@ -53,6 +54,7 @@ pub(crate) use time_nucl_map::{PathTimeMaps, RevolutionCurveTimeMaps};
 pub use torus::Torus;
 use torus::TwistedTorus;
 pub use torus::{CurveDescriptor2D, TwistedTorusDescriptor};
+pub use tube_spiral::TubeSpiralDescritor;
 pub use twist::{nb_turn_per_100_nt_to_omega, twist_to_omega, Twist};
 
 const EPSILON_DERIVATIVE: f64 = 1e-6;
@@ -465,6 +467,7 @@ fn perpendicular_basis(point: DVec3) -> DMat3 {
 pub enum CurveDescriptor {
     Bezier(CubicBezierConstructor),
     SphereLikeSpiral(SphereLikeSpiralDescriptor),
+    TubeSpiral(TubeSpiralDescritor),
     Twist(Twist),
     Torus(Torus),
     TwistedTorus(TwistedTorusDescriptor),
@@ -617,6 +620,7 @@ impl InstanciatedCurveDescriptor {
             CurveDescriptor::SphereLikeSpiral(s) => {
                 InstanciatedCurveDescriptor_::SphereLikeSpiral(s.clone())
             }
+            CurveDescriptor::TubeSpiral(t) => InstanciatedCurveDescriptor_::TubeSpiral(t.clone()),
             CurveDescriptor::Twist(t) => InstanciatedCurveDescriptor_::Twist(t.clone()),
             CurveDescriptor::Torus(t) => InstanciatedCurveDescriptor_::Torus(t.clone()),
             CurveDescriptor::SuperTwist(t) => InstanciatedCurveDescriptor_::SuperTwist(t.clone()),
@@ -682,6 +686,9 @@ impl InstanciatedCurveDescriptor {
             CurveDescriptor::Bezier(b) => Some(InstanciatedCurveDescriptor_::Bezier(b.clone())),
             CurveDescriptor::SphereLikeSpiral(s) => {
                 Some(InstanciatedCurveDescriptor_::SphereLikeSpiral(s.clone()))
+            }
+            CurveDescriptor::TubeSpiral(s) => {
+                Some(InstanciatedCurveDescriptor_::TubeSpiral(s.clone()))
             }
             CurveDescriptor::Twist(t) => Some(InstanciatedCurveDescriptor_::Twist(t.clone())),
             CurveDescriptor::Torus(t) => Some(InstanciatedCurveDescriptor_::Torus(t.clone())),
@@ -776,6 +783,7 @@ impl InstanciatedCurveDescriptor {
 enum InstanciatedCurveDescriptor_ {
     Bezier(CubicBezierConstructor),
     SphereLikeSpiral(SphereLikeSpiralDescriptor),
+    TubeSpiral(TubeSpiralDescritor),
     Twist(Twist),
     Torus(Torus),
     SuperTwist(SuperTwist),
@@ -895,6 +903,10 @@ impl InstanciatedCurveDescriptor_ {
                 spiral.with_parameters(parameters.clone()),
                 parameters,
             )),
+            Self::TubeSpiral(spiral) => Arc::new(Curve::new(
+                spiral.with_parameters(parameters.clone()),
+                parameters,
+            )),
             Self::Twist(twist) => Arc::new(Curve::new(twist, parameters)),
             Self::Torus(torus) => Arc::new(Curve::new(torus, parameters)),
             Self::SuperTwist(twist) => Arc::new(Curve::new(twist, parameters)),
@@ -937,6 +949,10 @@ impl InstanciatedCurveDescriptor_ {
                 parameters,
             ))),
             Self::SphereLikeSpiral(spiral) => Some(Arc::new(Curve::new(
+                spiral.clone().with_parameters(parameters.clone()),
+                parameters,
+            ))),
+            Self::TubeSpiral(spiral) => Some(Arc::new(Curve::new(
                 spiral.clone().with_parameters(parameters.clone()),
                 parameters,
             ))),
