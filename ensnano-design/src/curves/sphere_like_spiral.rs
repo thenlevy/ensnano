@@ -28,6 +28,12 @@ pub struct SphereLikeSpiralDescriptor {
     pub radius: f64,
     #[serde(default)]
     pub minimum_diameter: Option<f64>,
+    #[serde(default = "default_number_of_helices")]
+    pub number_of_helices: usize,
+}
+
+fn default_number_of_helices() -> usize {
+    2
 }
 
 impl SphereLikeSpiralDescriptor {
@@ -37,6 +43,7 @@ impl SphereLikeSpiralDescriptor {
             radius: self.radius,
             parameters,
             minimum_diameter: self.minimum_diameter,
+            number_of_helices: self.number_of_helices,
         }
     }
 }
@@ -46,11 +53,14 @@ pub(super) struct SphereLikeSpiral {
     pub radius: f64,
     pub parameters: Parameters,
     pub minimum_diameter: Option<f64>,
+    pub number_of_helices: usize,
 }
 
 impl SphereLikeSpiral {
     fn dist_turn(&self) -> f64 {
-        4. * self.parameters.helix_radius as f64 + 2. * self.parameters.inter_helix_gap as f64
+        let nb_helices = self.number_of_helices as f64;
+        nb_helices
+            * (2. * self.parameters.helix_radius as f64 + self.parameters.inter_helix_gap as f64)
     }
 
     fn nb_turn(&self) -> f64 {
