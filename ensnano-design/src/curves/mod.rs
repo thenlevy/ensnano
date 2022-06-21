@@ -46,7 +46,7 @@ pub use bezier::{
     BezierControlPoint, BezierEnd, BezierEndCoordinates, CubicBezierConstructor,
     CubicBezierControlPoint,
 };
-pub use sphere_like_spiral::SphereLikeSpiralDescriptor;
+pub use sphere_like_spiral::{SphereLikeSpiralDescriptor, SphereOrientation};
 use std::collections::HashMap;
 pub use supertwist::SuperTwist;
 pub use time_nucl_map::AbscissaConverter;
@@ -59,7 +59,7 @@ pub use twist::{nb_turn_per_100_nt_to_omega, twist_to_omega, Twist};
 
 const EPSILON_DERIVATIVE: f64 = 1e-6;
 /// Types that implements this trait represents curves.
-pub(super) trait Curved {
+pub trait Curved {
     /// A function that maps a `0.0 <= t <= Self::t_max` to a point in Space.
     fn position(&self, t: f64) -> DVec3;
 
@@ -174,10 +174,18 @@ pub(super) trait Curved {
     fn is_time_maps_singleton(&self) -> bool {
         false
     }
+
+    fn first_theta(&self) -> Option<f64> {
+        None
+    }
+
+    fn last_theta(&self) -> Option<f64> {
+        None
+    }
 }
 
 /// The bounds of the curve. This describe the interval in which t can be taken
-pub(super) enum CurveBounds {
+pub enum CurveBounds {
     /// t ∈ [t_min, t_max]
     Finite,
     #[allow(dead_code)]
@@ -190,7 +198,7 @@ pub(super) enum CurveBounds {
 #[derive(Clone)]
 /// A discretized Curve, with precomputed curve position, and an orthogonal frame moving along the
 /// curve.
-pub(super) struct Curve {
+pub struct Curve {
     /// The object describing the curve.
     geometry: Arc<dyn Curved + Sync + Send>,
     /// The precomputed points along the curve for the forward strand
@@ -442,6 +450,14 @@ impl Curve {
         }
         segments.extend(iter);
     }
+
+    pub fn first_theta(&self) -> Option<f64> {
+        self.geometry.first_theta()
+    }
+
+    pub fn last_theta(&self) -> Option<f64> {
+        self.geometry.last_theta()
+    }
 }
 
 fn perpendicular_basis(point: DVec3) -> DMat3 {
@@ -591,7 +607,7 @@ impl CurveDescriptor {
 #[derive(Clone, Debug)]
 /// A descriptor of the the cruve where all reference to design element have been resolved.
 /// For example, GridPosition are replaced by their actual position in space.
-pub(super) struct InstanciatedCurveDescriptor {
+pub struct InstanciatedCurveDescriptor {
     pub source: Arc<CurveDescriptor>,
     instance: InstanciatedCurveDescriptor_,
 }
@@ -681,7 +697,7 @@ impl InstanciatedCurveDescriptor {
             )
     }
 
-    fn try_instanciate(desc: Arc<CurveDescriptor>) -> Option<Self> {
+    pub fn try_instanciate(desc: Arc<CurveDescriptor>) -> Option<Self> {
         let instance = match desc.as_ref() {
             CurveDescriptor::Bezier(b) => Some(InstanciatedCurveDescriptor_::Bezier(b.clone())),
             CurveDescriptor::SphereLikeSpiral(s) => {

@@ -30,6 +30,18 @@ pub struct SphereLikeSpiralDescriptor {
     pub minimum_diameter: Option<f64>,
     #[serde(default = "default_number_of_helices")]
     pub number_of_helices: usize,
+    #[serde(default = "default_orientation")]
+    pub orientation: SphereOrientation,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum SphereOrientation {
+    Clockwise,
+    CounterClockwise,
+}
+
+fn default_orientation() -> SphereOrientation {
+    SphereOrientation::CounterClockwise
 }
 
 fn default_number_of_helices() -> usize {
@@ -44,6 +56,7 @@ impl SphereLikeSpiralDescriptor {
             parameters,
             minimum_diameter: self.minimum_diameter,
             number_of_helices: self.number_of_helices,
+            orientation: self.orientation,
         }
     }
 }
@@ -54,6 +67,7 @@ pub(super) struct SphereLikeSpiral {
     pub parameters: Parameters,
     pub minimum_diameter: Option<f64>,
     pub number_of_helices: usize,
+    pub orientation: SphereOrientation,
 }
 
 impl SphereLikeSpiral {
@@ -64,7 +78,24 @@ impl SphereLikeSpiral {
     }
 
     fn nb_turn(&self) -> f64 {
-        self.radius / self.dist_turn()
+        std::f64::consts::PI * self.radius / self.dist_turn()
+    }
+
+    fn orientation(&self) -> f64 {
+        match self.orientation {
+            SphereOrientation::CounterClockwise => 1.,
+            SphereOrientation::Clockwise => -1.,
+        }
+    }
+
+    pub(super) fn first_theta(&self) -> f64 {
+        let nb_turn = self.nb_turn() * self.orientation();
+        nb_turn * TAU * self.t_min() + self.theta_0
+    }
+
+    pub(super) fn last_theta(&self) -> f64 {
+        let nb_turn = self.nb_turn() * self.orientation();
+        nb_turn * TAU * self.t_max() + self.theta_0
     }
 }
 
@@ -72,19 +103,19 @@ impl Curved for SphereLikeSpiral {
     fn position(&self, t: f64) -> DVec3 {
         let phi = t * PI;
 
-        let nb_turn = self.nb_turn();
-        let theta = nb_turn * TAU * phi + self.theta_0;
+        let nb_turn = self.nb_turn() * self.orientation();
+        let theta = nb_turn * TAU * t + self.theta_0;
         DVec3 {
-            x: self.radius * phi.sin() * theta.cos(),
-            y: self.radius * phi.sin() * theta.sin(),
+            x: self.radius * theta.cos() * phi.sin(),
+            y: self.radius * theta.sin() * phi.sin(),
             z: self.radius * phi.cos(),
         }
     }
 
     fn speed(&self, t: f64) -> DVec3 {
         let phi = t * PI;
-        let nb_turn = self.nb_turn();
-        let theta = nb_turn * TAU * phi + self.theta_0;
+        let nb_turn = self.nb_turn() * self.orientation();
+        let theta = nb_turn * TAU * t + self.theta_0;
 
         let x =
             self.radius * PI * (phi.cos() * theta.cos() - nb_turn * TAU * phi.sin() * theta.sin());
@@ -99,8 +130,8 @@ impl Curved for SphereLikeSpiral {
 
     fn acceleration(&self, t: f64) -> DVec3 {
         let phi = t * PI;
-        let nb_turn = self.nb_turn();
-        let theta = nb_turn * TAU * phi + self.theta_0;
+        let nb_turn = self.nb_turn() * self.orientation();
+        let theta = nb_turn * TAU * t + self.theta_0;
 
         let x = self.radius
             * PI
@@ -150,5 +181,13 @@ impl Curved for SphereLikeSpiral {
 
     fn t_max(&self) -> f64 {
         1. - self.t_min()
+    }
+
+    fn first_theta(&self) -> Option<f64> {
+        Some(self.first_theta())
+    }
+
+    fn last_theta(&self) -> Option<f64> {
+        Some(self.last_theta())
     }
 }

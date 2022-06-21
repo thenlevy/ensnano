@@ -435,18 +435,7 @@ impl Helix {
         }
     }
 
-    pub fn new_sphere_like_spiral(
-        radius: f64,
-        theta_0: f64,
-        minimum_diameter: Option<f64>,
-        number_of_helices: usize,
-    ) -> Self {
-        let constructor = SphereLikeSpiralDescriptor {
-            radius,
-            theta_0,
-            minimum_diameter,
-            number_of_helices,
-        };
+    pub fn new_sphere_like_spiral(desc: SphereLikeSpiralDescriptor) -> Self {
         Self {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
@@ -457,7 +446,28 @@ impl Helix {
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
-            curve: Some(Arc::new(CurveDescriptor::SphereLikeSpiral(constructor))),
+            curve: Some(Arc::new(CurveDescriptor::SphereLikeSpiral(desc))),
+            instanciated_curve: None,
+            instanciated_descriptor: None,
+            delta_bbpt: 0.,
+            initial_nt_index: 0,
+            support_helix: None,
+            path_id: None,
+        }
+    }
+
+    pub fn new_tube_spiral(desc: TubeSpiralDescritor) -> Self {
+        Self {
+            position: Vec3::zero(),
+            orientation: Rotor3::identity(),
+            isometry2d: None,
+            additonal_isometries: Vec::new(),
+            symmetry: Vec2::one(),
+            grid_position: None,
+            visible: true,
+            roll: 0f32,
+            locked_for_simulations: false,
+            curve: Some(Arc::new(CurveDescriptor::TubeSpiral(desc))),
             instanciated_curve: None,
             instanciated_descriptor: None,
             delta_bbpt: 0.,
@@ -652,17 +662,26 @@ impl Helix {
     }
 
     fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32, forward: bool) -> Vec3 {
+        let mut ret;
         if let Some(curve) = self.instanciated_curve.as_ref() {
             if let Some(point) = curve.as_ref().nucl_pos(n, forward, theta as f64, p) {
-                return dvec_to_vec(point);
+                ret = dvec_to_vec(point);
+            } else {
+                let delta_inclination = if forward { 0.0 } else { p.inclination };
+                ret = Vec3::new(
+                    n as f32 * p.z_step + delta_inclination,
+                    theta.sin() * p.helix_radius,
+                    theta.cos() * p.helix_radius,
+                );
             }
+        } else {
+            let delta_inclination = if forward { 0.0 } else { p.inclination };
+            ret = Vec3::new(
+                n as f32 * p.z_step + delta_inclination,
+                theta.sin() * p.helix_radius,
+                theta.cos() * p.helix_radius,
+            );
         }
-        let delta_inclination = if forward { 0.0 } else { p.inclination };
-        let mut ret = Vec3::new(
-            n as f32 * p.z_step + delta_inclination,
-            theta.sin() * p.helix_radius,
-            theta.cos() * p.helix_radius,
-        );
 
         ret = self.rotate_point(ret);
         ret += self.position;
@@ -745,7 +764,7 @@ impl Helix {
         let n = n + self.initial_nt_index;
         if let Some(curve) = self.instanciated_curve.as_ref().map(|s| &s.curve) {
             if let Some(point) = curve.axis_pos(n) {
-                return dvec_to_vec(point);
+                return self.rotate_point(dvec_to_vec(point)) + self.position;
             }
         }
         let mut ret = Vec3::new(n as f32 * p.z_step, 0., 0.);
