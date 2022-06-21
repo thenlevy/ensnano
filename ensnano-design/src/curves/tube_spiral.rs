@@ -50,7 +50,7 @@ impl TubeSpiralDescritor {
         }
     }
 
-    fn perimeter(&self) -> f64 {
+    pub fn perimeter(&self) -> f64 {
         let lambda = (self.big_axis - self.small_axis) / (self.big_axis + self.small_axis);
 
         PI * (self.big_axis + self.small_axis)
@@ -83,9 +83,9 @@ impl TubeSpiral {
 
         // FIXME: this is wrong when nb_helices > 2 and small_axis < big axis
         // the correct result is the perimeter of the polygon inscribed in the helix
-        let slice_width = self.small_axis * (PI / nb_helices).sin();
+        let slice_width = self.perimeter / 2. / PI * (PI / nb_helices).sin();
 
-        (Parameters::INTER_CENTER_GAP as f64 / slice_width).asin()
+        (Parameters::INTER_CENTER_GAP as f64 / 2. / slice_width).asin()
     }
 
     fn theta(&self, t: f64) -> f64 {
@@ -140,7 +140,7 @@ impl Curved for TubeSpiral {
     }
 
     fn subdivision_for_t(&self, t: f64) -> Option<usize> {
-        Some(((self.nb_turn() * t * TAU + self.theta_0) / TAU) as usize)
+        Some(((self.nb_turn() * t * TAU + self.theta_0 + 1e-3) / TAU) as usize)
     }
 
     fn is_time_maps_singleton(&self) -> bool {
@@ -153,5 +153,9 @@ impl Curved for TubeSpiral {
 
     fn last_theta(&self) -> Option<f64> {
         Some(self.last_theta())
+    }
+
+    fn full_turn_at_t(&self) -> Option<f64> {
+        Some(self.t_max())
     }
 }

@@ -190,4 +190,8 @@ impl Curved for SphereLikeSpiral {
     fn last_theta(&self) -> Option<f64> {
         Some(self.last_theta())
     }
+
+    fn full_turn_at_t(&self) -> Option<f64> {
+        Some(self.t_max())
+    }
 }
