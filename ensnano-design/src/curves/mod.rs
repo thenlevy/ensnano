@@ -458,6 +458,10 @@ impl Curve {
     pub fn last_theta(&self) -> Option<f64> {
         self.geometry.last_theta()
     }
+
+    pub fn has_its_own_encoded_frame(&self) -> bool {
+        self.geometry.translation().is_some()
+    }
 }
 
 fn perpendicular_basis(point: DVec3) -> DMat3 {

@@ -664,8 +664,13 @@ impl Helix {
     fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32, forward: bool) -> Vec3 {
         let mut ret;
         if let Some(curve) = self.instanciated_curve.as_ref() {
-            if let Some(point) = curve.as_ref().nucl_pos(n, forward, theta as f64, p) {
-                ret = dvec_to_vec(point);
+            if let Some(point) = curve.as_ref().nucl_pos(n, forward, theta as f64, p).map(dvec_to_vec) {
+            let (position, orientation) = if curve.as_ref().has_its_own_encoded_frame() {
+                (Vec3::zero(), Rotor3::identity())
+            } else {
+                (self.position, self.orientation)
+            };
+                return point.rotated_by(orientation) + position
             } else {
                 let delta_inclination = if forward { 0.0 } else { p.inclination };
                 ret = Vec3::new(
@@ -747,12 +752,18 @@ impl Helix {
         if let Some(curve) = self.instanciated_curve.as_ref() {
             let shift = self.initial_nt_index;
             let points = curve.as_ref().points();
+            let (position, orientation) = if curve.as_ref().has_its_own_encoded_frame() {
+                (DVec3::zero(), DRotor3::identity())
+            } else {
+                (vec_to_dvec(self.position), 
+                 rotor_to_drotor(self.orientation))
+            };
             Axis::Curve {
                 shift,
                 points,
                 nucl_t0: curve.as_ref().nucl_t0(),
-                position: vec_to_dvec(self.position),
-                orientation: rotor_to_drotor(self.orientation),
+                position,
+                orientation,
             }
         } else {
             Axis::Line {
@@ -765,8 +776,13 @@ impl Helix {
     pub fn axis_position(&self, p: &Parameters, n: isize) -> Vec3 {
         let n = n + self.initial_nt_index;
         if let Some(curve) = self.instanciated_curve.as_ref().map(|s| &s.curve) {
-            if let Some(point) = curve.axis_pos(n) {
-                return self.rotate_point(dvec_to_vec(point)) + self.position;
+            if let Some(point) = curve.axis_pos(n).map(dvec_to_vec) {
+                let (position, orientation) = if curve.as_ref().has_its_own_encoded_frame() {
+                    (Vec3::zero(), Rotor3::identity())
+                } else {
+                    (self.position,self.orientation)
+                };
+                return point.rotated_by(orientation) + position;
             }
         }
         let mut ret = Vec3::new(n as f32 * p.z_step, 0., 0.);
