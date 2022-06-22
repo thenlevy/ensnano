@@ -913,12 +913,15 @@ impl View {
                 shift,
                 points,
                 nucl_t0,
+                position,
+                orientation,
             } => {
                 let mut ret = 0;
                 let mut opt = f32::INFINITY;
                 for (i, point) in points.iter().enumerate() {
+                    let point = point.rotated_by(orientation) + position;
                     let d = distance_to_cursor_with_penalty(
-                        ensnano_design::utils::dvec_to_vec(*point),
+                        ensnano_design::utils::dvec_to_vec(point),
                         self.camera.clone(),
                         self.projection.clone(),
                         mouse_x as f32,

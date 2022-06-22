@@ -29,7 +29,7 @@ use super::{
 };
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use ultraviolet::{DVec3, Isometry2, Mat4, Rotor3, Vec2, Vec3};
+use ultraviolet::{DVec3, Isometry2, Mat4, Rotor3, Vec2, Vec3, DRotor3};
 
 /// A structure maping helices identifier to `Helix` objects
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
@@ -751,6 +751,8 @@ impl Helix {
                 shift,
                 points,
                 nucl_t0: curve.as_ref().nucl_t0(),
+                position: vec_to_dvec(self.position),
+                orientation: rotor_to_drotor(self.orientation),
             }
         } else {
             Axis::Line {
@@ -861,6 +863,8 @@ pub enum Axis<'a> {
         shift: isize,
         points: &'a [DVec3],
         nucl_t0: usize,
+        position: DVec3,
+        orientation: DRotor3,
     },
 }
 
@@ -874,6 +878,8 @@ pub enum OwnedAxis {
         shift: isize,
         points: Vec<DVec3>,
         nucl_t0: usize,
+        position: DVec3,
+        orientation: DRotor3,
     },
 }
 
@@ -885,10 +891,14 @@ impl<'a> Axis<'a> {
                 shift,
                 points,
                 nucl_t0,
+                orientation,
+                position,
             } => OwnedAxis::Curve {
                 shift,
                 points: points.to_vec(),
                 nucl_t0,
+                orientation,
+                position,
             },
         }
     }
@@ -905,10 +915,14 @@ impl OwnedAxis {
                 shift,
                 points,
                 nucl_t0,
+                orientation,
+                position,
             } => Axis::Curve {
                 shift: *shift,
                 points: &points[..],
                 nucl_t0: *nucl_t0,
+                orientation: *orientation,
+                position: *position,
             },
         }
     }

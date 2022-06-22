@@ -31,6 +31,8 @@ pub struct TubeSpiralDescritor {
     #[serde(default = "default_number_of_helices")]
     pub number_of_helices: usize,
     pub small_axis: f64,
+    pub t_min: f64,
+    pub t_max: f64,
 }
 
 fn default_number_of_helices() -> usize {
@@ -47,6 +49,8 @@ impl TubeSpiralDescritor {
             number_of_helices: self.number_of_helices,
             small_axis: self.small_axis,
             perimeter: self.perimeter(),
+            t_min: self.t_min,
+            t_max: self.t_max,
         }
     }
 
@@ -66,6 +70,8 @@ pub(super) struct TubeSpiral {
     pub number_of_helices: usize,
     pub small_axis: f64,
     pub perimeter: f64,
+    pub t_min: f64,
+    pub t_max: f64,
 }
 
 impl TubeSpiral {
@@ -93,7 +99,7 @@ impl TubeSpiral {
     }
 
     pub(super) fn last_theta(&self) -> f64 {
-        self.theta(self.t_max())
+        self.theta(1.)
     }
 }
 
@@ -140,7 +146,7 @@ impl Curved for TubeSpiral {
     }
 
     fn subdivision_for_t(&self, t: f64) -> Option<usize> {
-        Some(((self.nb_turn() * t * TAU + self.theta_0 + 1e-3) / TAU) as usize)
+        Some((((self.nb_turn() * t * TAU + self.theta_0 + 1e-3) / TAU) +self.nb_turn()) as usize)
     }
 
     fn is_time_maps_singleton(&self) -> bool {
@@ -157,5 +163,13 @@ impl Curved for TubeSpiral {
 
     fn full_turn_at_t(&self) -> Option<f64> {
         Some(self.t_max())
+    }
+
+    fn t_max(&self) -> f64 {
+        self.t_max
+    }
+
+    fn t_min(&self) -> f64 {
+        self.t_min
     }
 }
