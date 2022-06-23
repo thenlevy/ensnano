@@ -29,7 +29,7 @@ use super::{
 };
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use ultraviolet::{DVec3, Isometry2, Mat4, Rotor3, Vec2, Vec3};
+use ultraviolet::{DRotor3, DVec3, Isometry2, Mat4, Rotor3, Vec2, Vec3};
 
 /// A structure maping helices identifier to `Helix` objects
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
@@ -435,16 +435,7 @@ impl Helix {
         }
     }
 
-    pub fn new_sphere_like_spiral(
-        radius: f64,
-        theta_0: f64,
-        minimum_diameter: Option<f64>,
-    ) -> Self {
-        let constructor = SphereLikeSpiralDescriptor {
-            radius,
-            theta_0,
-            minimum_diameter,
-        };
+    pub fn new_sphere_like_spiral(desc: SphereLikeSpiralDescriptor) -> Self {
         Self {
             position: Vec3::zero(),
             orientation: Rotor3::identity(),
@@ -455,7 +446,28 @@ impl Helix {
             visible: true,
             roll: 0f32,
             locked_for_simulations: false,
-            curve: Some(Arc::new(CurveDescriptor::SphereLikeSpiral(constructor))),
+            curve: Some(Arc::new(CurveDescriptor::SphereLikeSpiral(desc))),
+            instanciated_curve: None,
+            instanciated_descriptor: None,
+            delta_bbpt: 0.,
+            initial_nt_index: 0,
+            support_helix: None,
+            path_id: None,
+        }
+    }
+
+    pub fn new_tube_spiral(desc: TubeSpiralDescritor) -> Self {
+        Self {
+            position: Vec3::zero(),
+            orientation: Rotor3::identity(),
+            isometry2d: None,
+            additonal_isometries: Vec::new(),
+            symmetry: Vec2::one(),
+            grid_position: None,
+            visible: true,
+            roll: 0f32,
+            locked_for_simulations: false,
+            curve: Some(Arc::new(CurveDescriptor::TubeSpiral(desc))),
             instanciated_curve: None,
             instanciated_descriptor: None,
             delta_bbpt: 0.,
@@ -650,17 +662,35 @@ impl Helix {
     }
 
     fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32, forward: bool) -> Vec3 {
+        let mut ret;
         if let Some(curve) = self.instanciated_curve.as_ref() {
-            if let Some(point) = curve.as_ref().nucl_pos(n, forward, theta as f64, p) {
-                return dvec_to_vec(point);
+            if let Some(point) = curve
+                .as_ref()
+                .nucl_pos(n, forward, theta as f64, p)
+                .map(dvec_to_vec)
+            {
+                let (position, orientation) = if curve.as_ref().has_its_own_encoded_frame() {
+                    (Vec3::zero(), Rotor3::identity())
+                } else {
+                    (self.position, self.orientation)
+                };
+                return point.rotated_by(orientation) + position;
+            } else {
+                let delta_inclination = if forward { 0.0 } else { p.inclination };
+                ret = Vec3::new(
+                    n as f32 * p.z_step + delta_inclination,
+                    theta.sin() * p.helix_radius,
+                    theta.cos() * p.helix_radius,
+                );
             }
+        } else {
+            let delta_inclination = if forward { 0.0 } else { p.inclination };
+            ret = Vec3::new(
+                n as f32 * p.z_step + delta_inclination,
+                theta.sin() * p.helix_radius,
+                theta.cos() * p.helix_radius,
+            );
         }
-        let delta_inclination = if forward { 0.0 } else { p.inclination };
-        let mut ret = Vec3::new(
-            n as f32 * p.z_step + delta_inclination,
-            theta.sin() * p.helix_radius,
-            theta.cos() * p.helix_radius,
-        );
 
         ret = self.rotate_point(ret);
         ret += self.position;
@@ -726,10 +756,20 @@ impl Helix {
         if let Some(curve) = self.instanciated_curve.as_ref() {
             let shift = self.initial_nt_index;
             let points = curve.as_ref().points();
+            let (position, orientation) = if curve.as_ref().has_its_own_encoded_frame() {
+                (DVec3::zero(), DRotor3::identity())
+            } else {
+                (
+                    vec_to_dvec(self.position),
+                    rotor_to_drotor(self.orientation),
+                )
+            };
             Axis::Curve {
                 shift,
                 points,
                 nucl_t0: curve.as_ref().nucl_t0(),
+                position,
+                orientation,
             }
         } else {
             Axis::Line {
@@ -742,8 +782,13 @@ impl Helix {
     pub fn axis_position(&self, p: &Parameters, n: isize) -> Vec3 {
         let n = n + self.initial_nt_index;
         if let Some(curve) = self.instanciated_curve.as_ref().map(|s| &s.curve) {
-            if let Some(point) = curve.axis_pos(n) {
-                return dvec_to_vec(point);
+            if let Some(point) = curve.axis_pos(n).map(dvec_to_vec) {
+                let (position, orientation) = if curve.as_ref().has_its_own_encoded_frame() {
+                    (Vec3::zero(), Rotor3::identity())
+                } else {
+                    (self.position, self.orientation)
+                };
+                return point.rotated_by(orientation) + position;
             }
         }
         let mut ret = Vec3::new(n as f32 * p.z_step, 0., 0.);
@@ -840,6 +885,8 @@ pub enum Axis<'a> {
         shift: isize,
         points: &'a [DVec3],
         nucl_t0: usize,
+        position: DVec3,
+        orientation: DRotor3,
     },
 }
 
@@ -853,6 +900,8 @@ pub enum OwnedAxis {
         shift: isize,
         points: Vec<DVec3>,
         nucl_t0: usize,
+        position: DVec3,
+        orientation: DRotor3,
     },
 }
 
@@ -864,10 +913,14 @@ impl<'a> Axis<'a> {
                 shift,
                 points,
                 nucl_t0,
+                orientation,
+                position,
             } => OwnedAxis::Curve {
                 shift,
                 points: points.to_vec(),
                 nucl_t0,
+                orientation,
+                position,
             },
         }
     }
@@ -884,10 +937,14 @@ impl OwnedAxis {
                 shift,
                 points,
                 nucl_t0,
+                orientation,
+                position,
             } => Axis::Curve {
                 shift: *shift,
                 points: &points[..],
                 nucl_t0: *nucl_t0,
+                orientation: *orientation,
+                position: *position,
             },
         }
     }

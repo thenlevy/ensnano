@@ -49,10 +49,10 @@ pub struct Parameters {
     pub inclination: f32,
 }
 
-const INTER_CENTER_GAP: f32 =
-    Parameters::OLD_ENSNANO.helix_radius * 2. + Parameters::OLD_ENSNANO.inter_helix_gap;
-
 impl Parameters {
+    pub const INTER_CENTER_GAP: f32 =
+        Parameters::OLD_ENSNANO.helix_radius * 2. + Parameters::OLD_ENSNANO.inter_helix_gap;
+
     /// Value used for versions >= 0.4.1.
     /// Taken from "Design Principles for Single-Stranded RNA Origami Structures, Geary & Andersen
     /// 2014
@@ -65,7 +65,7 @@ impl Parameters {
             groove_angle: 170.4 / 180.0 * std::f32::consts::PI,
             inclination: 0.375,
             // From Paul's paper.
-            inter_helix_gap: INTER_CENTER_GAP - 2. * helix_radius,
+            inter_helix_gap: Self::INTER_CENTER_GAP - 2. * helix_radius,
         }
     };
 
@@ -80,7 +80,7 @@ impl Parameters {
             inclination: -0.745,
             groove_angle: 139.9 / 180.0 * std::f32::consts::PI,
             bases_per_turn: 11.0,
-            inter_helix_gap: INTER_CENTER_GAP - 2. * helix_radius,
+            inter_helix_gap: Self::INTER_CENTER_GAP - 2. * helix_radius,
         }
     };
 

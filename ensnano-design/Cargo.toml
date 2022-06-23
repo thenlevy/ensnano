@@ -40,3 +40,4 @@ log = "0.4"
 version-compare = "0.1.0"
 relative-path = "1.7.0"
 pathdiff = "0.2.1"
+chebyshev_polynomials = { git = "https://github.com/thenlevy/chebyshev_polynomials" }

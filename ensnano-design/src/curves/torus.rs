@@ -144,6 +144,26 @@ pub enum CurveDescriptor2D {
     },
 }
 
+impl CurveDescriptor2D {
+    pub fn point(&self, t: f64) -> DVec2 {
+        match self {
+            Self::Ellipse {
+                semi_minor_axis,
+                semi_major_axis,
+            } => {
+                let a = f64::from(*semi_minor_axis);
+                let b = f64::from(*semi_major_axis);
+                let u = TAU * t;
+
+                DVec2 {
+                    x: a * u.cos(),
+                    y: b * u.sin(),
+                }
+            }
+        }
+    }
+}
+
 struct InstanciatedEllipse {
     semi_major_axis: f64,
     semi_minor_axis: f64,

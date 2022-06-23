@@ -28,14 +28,18 @@ use crate::{
     BezierPathData, BezierPathId,
 };
 
+pub use self::revolution::InterpolatedCurveDescriptor;
+
 use super::{Helix, Parameters};
 use std::sync::Arc;
 mod bezier;
 mod discretization;
+mod revolution;
 mod sphere_like_spiral;
 mod supertwist;
 mod time_nucl_map;
 mod torus;
+mod tube_spiral;
 mod twist;
 use super::GridId;
 use crate::grid::*;
@@ -45,7 +49,7 @@ pub use bezier::{
     BezierControlPoint, BezierEnd, BezierEndCoordinates, CubicBezierConstructor,
     CubicBezierControlPoint,
 };
-pub use sphere_like_spiral::SphereLikeSpiralDescriptor;
+pub use sphere_like_spiral::{SphereLikeSpiralDescriptor, SphereOrientation};
 use std::collections::HashMap;
 pub use supertwist::SuperTwist;
 pub use time_nucl_map::AbscissaConverter;
@@ -53,6 +57,7 @@ pub(crate) use time_nucl_map::{PathTimeMaps, RevolutionCurveTimeMaps};
 pub use torus::Torus;
 use torus::TwistedTorus;
 pub use torus::{CurveDescriptor2D, TwistedTorusDescriptor};
+pub use tube_spiral::TubeSpiralDescritor;
 pub use twist::{nb_turn_per_100_nt_to_omega, twist_to_omega, Twist};
 
 const EPSILON_DERIVATIVE: f64 = 1e-6;
@@ -171,6 +176,14 @@ pub trait Curved {
     /// In that case, the abscissa converter can be storred dirrectly in the curve.
     fn is_time_maps_singleton(&self) -> bool {
         false
+    }
+
+    fn first_theta(&self) -> Option<f64> {
+        None
+    }
+
+    fn last_theta(&self) -> Option<f64> {
+        None
     }
 }
 
@@ -440,6 +453,18 @@ impl Curve {
         }
         segments.extend(iter);
     }
+
+    pub fn first_theta(&self) -> Option<f64> {
+        self.geometry.first_theta()
+    }
+
+    pub fn last_theta(&self) -> Option<f64> {
+        self.geometry.last_theta()
+    }
+
+    pub fn has_its_own_encoded_frame(&self) -> bool {
+        self.geometry.translation().is_some()
+    }
 }
 
 fn perpendicular_basis(point: DVec3) -> DMat3 {
@@ -465,6 +490,7 @@ fn perpendicular_basis(point: DVec3) -> DMat3 {
 pub enum CurveDescriptor {
     Bezier(CubicBezierConstructor),
     SphereLikeSpiral(SphereLikeSpiralDescriptor),
+    TubeSpiral(TubeSpiralDescritor),
     Twist(Twist),
     Torus(Torus),
     TwistedTorus(TwistedTorusDescriptor),
@@ -480,6 +506,7 @@ pub enum CurveDescriptor {
         translation: Vec3,
     },
     SuperTwist(SuperTwist),
+    InterpolatedCurve(InterpolatedCurveDescriptor),
 }
 
 const NO_BEZIER: &[BezierEnd] = &[];
@@ -617,6 +644,7 @@ impl InstanciatedCurveDescriptor {
             CurveDescriptor::SphereLikeSpiral(s) => {
                 InstanciatedCurveDescriptor_::SphereLikeSpiral(s.clone())
             }
+            CurveDescriptor::TubeSpiral(t) => InstanciatedCurveDescriptor_::TubeSpiral(t.clone()),
             CurveDescriptor::Twist(t) => InstanciatedCurveDescriptor_::Twist(t.clone()),
             CurveDescriptor::Torus(t) => InstanciatedCurveDescriptor_::Torus(t.clone()),
             CurveDescriptor::SuperTwist(t) => InstanciatedCurveDescriptor_::SuperTwist(t.clone()),
@@ -651,6 +679,9 @@ impl InstanciatedCurveDescriptor {
                     );
                     InstanciatedCurveDescriptor_::PiecewiseBezier(instanciated)
                 }),
+            CurveDescriptor::InterpolatedCurve(desc) => {
+                InstanciatedCurveDescriptor_::InterpolatedCurve(desc.clone())
+            }
         };
         Self {
             source: desc,
@@ -683,6 +714,9 @@ impl InstanciatedCurveDescriptor {
             CurveDescriptor::SphereLikeSpiral(s) => {
                 Some(InstanciatedCurveDescriptor_::SphereLikeSpiral(s.clone()))
             }
+            CurveDescriptor::TubeSpiral(s) => {
+                Some(InstanciatedCurveDescriptor_::TubeSpiral(s.clone()))
+            }
             CurveDescriptor::Twist(t) => Some(InstanciatedCurveDescriptor_::Twist(t.clone())),
             CurveDescriptor::Torus(t) => Some(InstanciatedCurveDescriptor_::Torus(t.clone())),
             CurveDescriptor::SuperTwist(t) => {
@@ -693,6 +727,9 @@ impl InstanciatedCurveDescriptor {
             }
             CurveDescriptor::PiecewiseBezier { .. } => None,
             CurveDescriptor::TranslatedPath { .. } => None,
+            CurveDescriptor::InterpolatedCurve(desc) => Some(
+                InstanciatedCurveDescriptor_::InterpolatedCurve(desc.clone()),
+            ),
         };
         instance.map(|instance| Self {
             source: desc.clone(),
@@ -776,6 +813,7 @@ impl InstanciatedCurveDescriptor {
 enum InstanciatedCurveDescriptor_ {
     Bezier(CubicBezierConstructor),
     SphereLikeSpiral(SphereLikeSpiralDescriptor),
+    TubeSpiral(TubeSpiralDescritor),
     Twist(Twist),
     Torus(Torus),
     SuperTwist(SuperTwist),
@@ -787,6 +825,7 @@ enum InstanciatedCurveDescriptor_ {
         initial_frame: DMat3,
         paths_data: BezierPathData,
     },
+    InterpolatedCurve(InterpolatedCurveDescriptor),
 }
 
 /// An instanciation of a PiecewiseBezier descriptor where reference to grid positions in the
@@ -895,6 +934,10 @@ impl InstanciatedCurveDescriptor_ {
                 spiral.with_parameters(parameters.clone()),
                 parameters,
             )),
+            Self::TubeSpiral(spiral) => Arc::new(Curve::new(
+                spiral.with_parameters(parameters.clone()),
+                parameters,
+            )),
             Self::Twist(twist) => Arc::new(Curve::new(twist, parameters)),
             Self::Torus(torus) => Arc::new(Curve::new(torus, parameters)),
             Self::SuperTwist(twist) => Arc::new(Curve::new(twist, parameters)),
@@ -927,6 +970,7 @@ impl InstanciatedCurveDescriptor_ {
                 },
                 parameters,
             )),
+            Self::InterpolatedCurve(desc) => Arc::new(Curve::new(desc.instanciate(), parameters)),
         }
     }
 
@@ -937,6 +981,10 @@ impl InstanciatedCurveDescriptor_ {
                 parameters,
             ))),
             Self::SphereLikeSpiral(spiral) => Some(Arc::new(Curve::new(
+                spiral.clone().with_parameters(parameters.clone()),
+                parameters,
+            ))),
+            Self::TubeSpiral(spiral) => Some(Arc::new(Curve::new(
                 spiral.clone().with_parameters(parameters.clone()),
                 parameters,
             ))),
@@ -958,6 +1006,9 @@ impl InstanciatedCurveDescriptor_ {
                 },
                 parameters,
             ))),
+            Self::InterpolatedCurve(desc) => {
+                Some(Arc::new(Curve::new(desc.clone().instanciate(), parameters)))
+            }
         }
     }
 
