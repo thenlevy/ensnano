@@ -36,6 +36,13 @@ pub struct InterpolatedCurveDescriptor {
 impl InterpolatedCurveDescriptor {
     pub(super) fn instanciate(self) -> Revolution {
         let curve = self.curve.clone();
+        let mut discontinuities = vec![0.];
+        for i in 0..self.interpolation.len() {
+            for d in curve.discontinuities() {
+                discontinuities.push(i as f64 + d);
+            }
+            discontinuities.push(i as f64 + 1.);
+        }
         let curves: Vec<_> = self
             .interpolation
             .into_iter()
@@ -137,7 +144,6 @@ impl Revolution {
 
 impl Curved for Revolution {
     fn position(&self, t: f64) -> DVec3 {
-        let curve_idx = (t.floor() as usize).min(self.curves.len() - 1);
         for x in self.discontinuities.iter() {
             if (t - x).abs() < self.smoothening_ceil {
                 let v = (t - x + self.smoothening_ceil) / 2. / self.smoothening_ceil;

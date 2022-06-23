@@ -142,6 +142,11 @@ pub enum CurveDescriptor2D {
         semi_minor_axis: OrderedFloat<f64>,
         semi_major_axis: OrderedFloat<f64>,
     },
+    TwoBalls {
+        radius_extern: OrderedFloat<f64>,
+        radius_intern: OrderedFloat<f64>,
+        radius_tube: OrderedFloat<f64>,
+    },
 }
 
 impl CurveDescriptor2D {
@@ -160,11 +165,88 @@ impl CurveDescriptor2D {
                     y: b * u.sin(),
                 }
             }
+            Self::TwoBalls {
+                radius_tube,
+                radius_extern,
+                radius_intern,
+            } => {
+                use std::f64::consts::PI;
+                let radius_intern = f64::from(*radius_intern);
+                let radius_tube = f64::from(*radius_tube);
+                let radius_extern = f64::from(*radius_extern);
+                let a1 = (radius_tube / radius_extern).asin();
+                let a2 = (radius_tube / radius_intern).asin();
+
+                let l1 = radius_extern * (PI - 2. * a1);
+                let l2 = radius_intern * (PI - 2. * a2);
+                let l3 = radius_extern * a1.cos() - radius_intern * a2.cos();
+
+                let p = l1 + l3 + l2 + l3;
+
+                let mut u = p * t;
+
+                if u < l1 {
+                    u /= l1;
+                    let a = -PI / 2. + a1 + (PI - 2. * a1) * u;
+                    return DVec2 {
+                        x: radius_extern * a.cos() - radius_tube,
+                        y: radius_extern * a.sin(),
+                    };
+                }
+                u -= l1;
+                if u < l3 {
+                    u /= l3;
+                    return DVec2 {
+                        x: 0.,
+                        y: radius_extern * a1.cos() - u * l3,
+                    };
+                }
+                u -= l3;
+                if u < l2 {
+                    u /= l2;
+                    let a = PI / 2. - a2 - (PI - 2. * a2) * u;
+                    return DVec2 {
+                        x: radius_intern * a.cos() - radius_tube,
+                        y: radius_intern * a.sin(),
+                    };
+                }
+                u -= l2;
+                u /= l3;
+                DVec2 {
+                    x: 0.,
+                    y: -radius_intern * a2.cos() - u * l3,
+                }
+            }
         }
     }
 
-    pub fn discontinuities(&self, t: f64) -> Vec<f64> {
+    pub fn discontinuities(&self) -> Vec<f64> {
         match self {
+            Self::TwoBalls {
+                radius_tube,
+                radius_extern,
+                radius_intern,
+            } => {
+                use std::f64::consts::PI;
+                let radius_intern = f64::from(*radius_intern);
+                let radius_tube = f64::from(*radius_tube);
+                let radius_extern = f64::from(*radius_extern);
+                let a1 = (radius_tube / radius_extern).asin();
+                let a2 = (radius_tube / radius_intern).asin();
+
+                let l1 = radius_extern * (PI - 2. * a1);
+                let l2 = radius_intern * (PI - 2. * a2);
+                let l3 = radius_extern * a1.cos() - radius_intern * a2.cos();
+
+                let p = l1 + l3 + l2 + l3;
+
+                let u1 = l1 / p;
+                let u2 = l2 / p;
+                let u3 = l3 / p;
+                let x2 = u1 + u3;
+                let x3 = x2 + u2;
+                vec![0.0, u1, x2, x3]
+            }
             _ => Vec::new(),
         }
     }
@@ -217,6 +299,7 @@ impl CurveDescriptor2D {
                 semi_minor_axis,
                 semi_major_axis,
             } => Arc::new(InstanciatedEllipse::new(*semi_minor_axis, *semi_major_axis)),
+            _ => todo!(),
         }
     }
 }
