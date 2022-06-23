@@ -36,16 +36,18 @@ pub struct InterpolatedCurveDescriptor {
 impl InterpolatedCurveDescriptor {
     pub(super) fn instanciate(self) -> Revolution {
         let curve = self.curve.clone();
-        let curves = self
+        let curves: Vec<_> = self
             .interpolation
             .into_iter()
             .map(|i| InstanciatedInterpolatedCurve::from_curve_interpolation(curve.clone(), i))
             .collect();
         Revolution {
+            discontinuities: (0..=curves.len()).map(|x| x as f64).collect(),
             curves,
             revolution_radius: self.revolution_radius,
             curve_scale_factor: self.curve_scale_factor,
             half_turns_count: self.half_turns_count,
+            smoothening_ceil: 0.01,
         }
     }
 }
@@ -104,10 +106,14 @@ pub(super) struct Revolution {
     revolution_radius: f64,
     curve_scale_factor: f64,
     half_turns_count: usize,
+    discontinuities: Vec<f64>,
+    smoothening_ceil: f64,
 }
 
 impl Revolution {
-    fn position_(&self, t: f64, curve_idx: usize) -> DVec3 {
+    fn position_(&self, t: f64) -> DVec3 {
+        // (-0.1).floor = -1. that's what we want
+        let curve_idx = (t.floor() as isize).rem_euclid(self.curves.len() as isize) as usize;
         let t = t.fract();
         let revolution_angle = TAU * t;
 
@@ -132,23 +138,17 @@ impl Revolution {
 impl Curved for Revolution {
     fn position(&self, t: f64) -> DVec3 {
         let curve_idx = (t.floor() as usize).min(self.curves.len() - 1);
-        self.position_(t, curve_idx)
-    }
-
-    // By using
-    fn speed(&self, t: f64) -> DVec3 {
-        let curve_idx = (t.floor() as usize).min(self.curves.len() - 1);
-        (self.position_(t + EPSILON_DERIVATIVE / 2., curve_idx)
-            - self.position_(t - EPSILON_DERIVATIVE / 2., curve_idx))
-            / EPSILON_DERIVATIVE
-    }
-
-    fn acceleration(&self, t: f64) -> DVec3 {
-        let curve_idx = (t.floor() as usize).min(self.curves.len() - 1);
-        ((self.position_(t + EPSILON_DERIVATIVE, curve_idx)
-            + self.position_(t - EPSILON_DERIVATIVE, curve_idx))
-            - 2. * self.position_(t, curve_idx))
-            / (EPSILON_DERIVATIVE * EPSILON_DERIVATIVE)
+        for x in self.discontinuities.iter() {
+            if (t - x).abs() < self.smoothening_ceil {
+                let v = (t - x + self.smoothening_ceil) / 2. / self.smoothening_ceil;
+                let left = x - self.smoothening_ceil + self.smoothening_ceil * v;
+                let right = x + self.smoothening_ceil * v;
+                let p_left = self.position_(left);
+                let p_right = self.position_(right);
+                return (1. - v) * p_left + v * p_right;
+            }
+        }
+        self.position_(t)
     }
 
     fn bounds(&self) -> CurveBounds {

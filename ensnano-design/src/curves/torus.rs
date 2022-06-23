@@ -162,6 +162,12 @@ impl CurveDescriptor2D {
             }
         }
     }
+
+    pub fn discontinuities(&self, t: f64) -> Vec<f64> {
+        match self {
+            _ => Vec::new(),
+        }
+    }
 }
 
 struct InstanciatedEllipse {
