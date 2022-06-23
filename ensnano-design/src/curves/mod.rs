@@ -28,8 +28,6 @@ use crate::{
     BezierPathData, BezierPathId,
 };
 
-pub use self::revolution::InterpolatedCurveDescriptor;
-
 use super::{Helix, Parameters};
 use std::sync::Arc;
 mod bezier;
@@ -49,6 +47,7 @@ pub use bezier::{
     BezierControlPoint, BezierEnd, BezierEndCoordinates, CubicBezierConstructor,
     CubicBezierControlPoint,
 };
+pub use revolution::{InterpolatedCurveDescriptor, InterpolationDescriptor};
 pub use sphere_like_spiral::{SphereLikeSpiralDescriptor, SphereOrientation};
 use std::collections::HashMap;
 pub use supertwist::SuperTwist;

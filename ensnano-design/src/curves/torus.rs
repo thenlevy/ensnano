@@ -151,8 +151,8 @@ impl CurveDescriptor2D {
                 semi_minor_axis,
                 semi_major_axis,
             } => {
-                let a = f64::from(*semi_minor_axis);
-                let b = f64::from(*semi_major_axis);
+                let a = f64::from(*semi_major_axis);
+                let b = f64::from(*semi_minor_axis);
                 let u = TAU * t;
 
                 DVec2 {

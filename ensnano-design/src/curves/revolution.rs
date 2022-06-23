@@ -24,13 +24,13 @@ use chebyshev_polynomials::ChebyshevPolynomial;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InterpolatedCurveDescriptor {
-    curve: CurveDescriptor2D,
-    half_turns_count: usize,
+    pub curve: CurveDescriptor2D,
+    pub half_turns_count: usize,
     /// Radius of the revolution trajectory
-    revolution_radius: f64,
+    pub revolution_radius: f64,
     /// Scale factor of the section
-    curve_scale_factor: f64,
-    interpolation: Vec<InterpolationDescriptor>,
+    pub curve_scale_factor: f64,
+    pub interpolation: Vec<InterpolationDescriptor>,
 }
 
 impl InterpolatedCurveDescriptor {
@@ -52,8 +52,14 @@ impl InterpolatedCurveDescriptor {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum InterpolationDescriptor {
-    PointsValues { points: Vec<f64>, values: Vec<f64> },
-    Chebyshev { coeffs: Vec<f64> },
+    PointsValues {
+        points: Vec<f64>,
+        values: Vec<f64>,
+    },
+    Chebyshev {
+        coeffs: Vec<f64>,
+        interval: [f64; 2],
+    },
 }
 
 struct InstanciatedInterpolatedCurve {
@@ -75,8 +81,14 @@ impl InstanciatedInterpolatedCurve {
                     interpolator,
                 }
             }
-            _ => {
-                todo!("need a public inerface to create a Chebyshev Polynomials from coefficients")
+            InterpolationDescriptor::Chebyshev { coeffs, interval } => {
+                let interpolator = chebyshev_polynomials::ChebyshevPolynomial::from_coeffs_interval(
+                    coeffs, interval,
+                );
+                Self {
+                    curve,
+                    interpolator,
+                }
             }
         }
     }
@@ -94,9 +106,8 @@ pub(super) struct Revolution {
     half_turns_count: usize,
 }
 
-impl Curved for Revolution {
-    fn position(&self, t: f64) -> DVec3 {
-        let curve_idx = t.floor() as usize;
+impl Revolution {
+    fn position_(&self, t: f64, curve_idx: usize) -> DVec3 {
         let t = t.fract();
         let revolution_angle = TAU * t;
 
@@ -116,9 +127,44 @@ impl Curved for Revolution {
             z: y,
         }
     }
+}
+
+impl Curved for Revolution {
+    fn position(&self, t: f64) -> DVec3 {
+        let curve_idx = (t.floor() as usize).min(self.curves.len() - 1);
+        self.position_(t, curve_idx)
+    }
+
+    // By using
+    fn speed(&self, t: f64) -> DVec3 {
+        let curve_idx = (t.floor() as usize).min(self.curves.len() - 1);
+        (self.position_(t + EPSILON_DERIVATIVE / 2., curve_idx)
+            - self.position_(t - EPSILON_DERIVATIVE / 2., curve_idx))
+            / EPSILON_DERIVATIVE
+    }
+
+    fn acceleration(&self, t: f64) -> DVec3 {
+        let curve_idx = (t.floor() as usize).min(self.curves.len() - 1);
+        ((self.position_(t + EPSILON_DERIVATIVE, curve_idx)
+            + self.position_(t - EPSILON_DERIVATIVE, curve_idx))
+            - 2. * self.position_(t, curve_idx))
+            / (EPSILON_DERIVATIVE * EPSILON_DERIVATIVE)
+    }
 
     fn bounds(&self) -> CurveBounds {
         CurveBounds::Finite
+    }
+
+    fn t_max(&self) -> f64 {
+        self.curves.len() as f64
+    }
+
+    fn subdivision_for_t(&self, t: f64) -> Option<usize> {
+        Some(t.floor() as usize)
+    }
+
+    fn is_time_maps_singleton(&self) -> bool {
+        true
     }
 }
 

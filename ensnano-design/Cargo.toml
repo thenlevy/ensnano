@@ -12,6 +12,10 @@ path = "src/torus_radius.rs"
 [[bin]]
 name = "cocentric_spheres"
 path = "src/cocentric_spheres.rs"
+
+[[bin]]
+name = "interpolated_torus"
+path = "src/interpolated_torus.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
