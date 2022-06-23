@@ -38,9 +38,6 @@ impl InterpolatedCurveDescriptor {
         let curve = self.curve.clone();
         let mut discontinuities = vec![0.];
         for i in 0..self.interpolation.len() {
-            for d in curve.discontinuities() {
-                discontinuities.push(i as f64 + d);
-            }
             discontinuities.push(i as f64 + 1.);
         }
         let curves: Vec<_> = self
@@ -54,7 +51,7 @@ impl InterpolatedCurveDescriptor {
             revolution_radius: self.revolution_radius,
             curve_scale_factor: self.curve_scale_factor,
             half_turns_count: self.half_turns_count,
-            smoothening_ceil: 0.01,
+            smoothening_ceil: 0.001,
         }
     }
 }
@@ -104,7 +101,7 @@ impl InstanciatedInterpolatedCurve {
 
     fn point(&self, t: f64) -> DVec2 {
         let s = self.interpolator.evaluate(t);
-        self.curve.point(s)
+        self.curve.point(s.rem_euclid(1.))
     }
 }
 
@@ -149,8 +146,8 @@ impl Curved for Revolution {
                 let v = (t - x + self.smoothening_ceil) / 2. / self.smoothening_ceil;
                 let left = x - self.smoothening_ceil + self.smoothening_ceil * v;
                 let right = x + self.smoothening_ceil * v;
-                let p_left = self.position_(left);
-                let p_right = self.position_(right);
+                let p_left = self.position_(left.rem_euclid(self.t_max()));
+                let p_right = self.position_(right.rem_euclid(self.t_max()));
                 return (1. - v) * p_left + v * p_right;
             }
         }

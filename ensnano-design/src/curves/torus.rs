@@ -146,6 +146,7 @@ pub enum CurveDescriptor2D {
         radius_extern: OrderedFloat<f64>,
         radius_intern: OrderedFloat<f64>,
         radius_tube: OrderedFloat<f64>,
+        smooth_ceil: OrderedFloat<f64>,
     },
 }
 
@@ -169,6 +170,7 @@ impl CurveDescriptor2D {
                 radius_tube,
                 radius_extern,
                 radius_intern,
+                smooth_ceil,
             } => {
                 use std::f64::consts::PI;
                 let radius_intern = f64::from(*radius_intern);
@@ -183,39 +185,64 @@ impl CurveDescriptor2D {
 
                 let p = l1 + l3 + l2 + l3;
 
-                let mut u = p * t;
+                let position = |t: f64| {
+                    let mut u = p * t.rem_euclid(1.);
 
-                if u < l1 {
-                    u /= l1;
-                    let a = -PI / 2. + a1 + (PI - 2. * a1) * u;
-                    return DVec2 {
-                        x: radius_extern * a.cos() - radius_tube,
-                        y: radius_extern * a.sin(),
-                    };
-                }
-                u -= l1;
-                if u < l3 {
+                    if u < l1 {
+                        u /= l1;
+                        let a: f64 = -PI / 2. + a1 + (PI - 2. * a1) * u;
+                        return DVec2 {
+                            x: radius_extern * a.cos() - radius_tube,
+                            y: radius_extern * a.sin(),
+                        };
+                    }
+                    u -= l1;
+                    if u < l3 {
+                        u /= l3;
+                        return DVec2 {
+                            x: 0.,
+                            y: radius_extern * a1.cos() - u * l3,
+                        };
+                    }
+                    u -= l3;
+                    if u < l2 {
+                        u /= l2;
+                        let a: f64 = PI / 2. - a2 - (PI - 2. * a2) * u;
+                        return DVec2 {
+                            x: radius_intern * a.cos() - radius_tube,
+                            y: radius_intern * a.sin(),
+                        };
+                    }
+                    u -= l2;
                     u /= l3;
-                    return DVec2 {
+                    DVec2 {
                         x: 0.,
-                        y: radius_extern * a1.cos() - u * l3,
-                    };
+                        y: -radius_intern * a2.cos() - u * l3,
+                    }
+                };
+
+                let discontinuities = {
+                    let u1 = l1 / p;
+                    let u2 = l2 / p;
+                    let u3 = l3 / p;
+                    let x2 = u1 + u3;
+                    let x3 = x2 + u2;
+                    [x3 - 1., 0., u1, x2, x3, 1.]
+                };
+                let smoothening_ceil = f64::from(*smooth_ceil);
+
+                let t = t.rem_euclid(1.);
+                for x in discontinuities.iter() {
+                    if (t - x).abs() < smoothening_ceil {
+                        let v = (t - x + smoothening_ceil) / 2. / smoothening_ceil;
+                        let left = x - smoothening_ceil + smoothening_ceil * v;
+                        let right = x + smoothening_ceil * v;
+                        let p_left = position(left);
+                        let p_right = position(right);
+                        return (1. - v) * p_left + v * p_right;
+                    }
                 }
-                u -= l3;
-                if u < l2 {
-                    u /= l2;
-                    let a = PI / 2. - a2 - (PI - 2. * a2) * u;
-                    return DVec2 {
-                        x: radius_intern * a.cos() - radius_tube,
-                        y: radius_intern * a.sin(),
-                    };
-                }
-                u -= l2;
-                u /= l3;
-                DVec2 {
-                    x: 0.,
-                    y: -radius_intern * a2.cos() - u * l3,
-                }
+                position(t)
             }
         }
     }
@@ -226,6 +253,7 @@ impl CurveDescriptor2D {
                 radius_tube,
                 radius_extern,
                 radius_intern,
+                smooth_ceil,
             } => {
                 use std::f64::consts::PI;
                 let radius_intern = f64::from(*radius_intern);

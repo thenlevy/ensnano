@@ -9,6 +9,7 @@ fn main() {
         radius_extern: ordered_float::OrderedFloat(2.0),
         radius_intern: ordered_float::OrderedFloat(1.0),
         radius_tube: ordered_float::OrderedFloat(0.4),
+        smooth_ceil: 0.04.into(),
     };
 
     let mut design = Design::new();
