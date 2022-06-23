@@ -28,10 +28,13 @@ use crate::{
     BezierPathData, BezierPathId,
 };
 
+pub use self::revolution::InterpolatedCurveDescriptor;
+
 use super::{Helix, Parameters};
 use std::sync::Arc;
 mod bezier;
 mod discretization;
+mod revolution;
 mod sphere_like_spiral;
 mod supertwist;
 mod time_nucl_map;
@@ -503,6 +506,7 @@ pub enum CurveDescriptor {
         translation: Vec3,
     },
     SuperTwist(SuperTwist),
+    InterpolatedCurve(InterpolatedCurveDescriptor),
 }
 
 const NO_BEZIER: &[BezierEnd] = &[];
@@ -675,6 +679,9 @@ impl InstanciatedCurveDescriptor {
                     );
                     InstanciatedCurveDescriptor_::PiecewiseBezier(instanciated)
                 }),
+            CurveDescriptor::InterpolatedCurve(desc) => {
+                InstanciatedCurveDescriptor_::InterpolatedCurve(desc.clone())
+            }
         };
         Self {
             source: desc,
@@ -720,6 +727,9 @@ impl InstanciatedCurveDescriptor {
             }
             CurveDescriptor::PiecewiseBezier { .. } => None,
             CurveDescriptor::TranslatedPath { .. } => None,
+            CurveDescriptor::InterpolatedCurve(desc) => Some(
+                InstanciatedCurveDescriptor_::InterpolatedCurve(desc.clone()),
+            ),
         };
         instance.map(|instance| Self {
             source: desc.clone(),
@@ -815,6 +825,7 @@ enum InstanciatedCurveDescriptor_ {
         initial_frame: DMat3,
         paths_data: BezierPathData,
     },
+    InterpolatedCurve(InterpolatedCurveDescriptor),
 }
 
 /// An instanciation of a PiecewiseBezier descriptor where reference to grid positions in the
@@ -959,6 +970,7 @@ impl InstanciatedCurveDescriptor_ {
                 },
                 parameters,
             )),
+            Self::InterpolatedCurve(desc) => Arc::new(Curve::new(desc.instanciate(), parameters)),
         }
     }
 
@@ -994,6 +1006,9 @@ impl InstanciatedCurveDescriptor_ {
                 },
                 parameters,
             ))),
+            Self::InterpolatedCurve(desc) => {
+                Some(Arc::new(Curve::new(desc.clone().instanciate(), parameters)))
+            }
         }
     }
 

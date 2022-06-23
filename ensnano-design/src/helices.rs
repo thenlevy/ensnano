@@ -29,7 +29,7 @@ use super::{
 };
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use ultraviolet::{DVec3, Isometry2, Mat4, Rotor3, Vec2, Vec3, DRotor3};
+use ultraviolet::{DRotor3, DVec3, Isometry2, Mat4, Rotor3, Vec2, Vec3};
 
 /// A structure maping helices identifier to `Helix` objects
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
@@ -664,13 +664,17 @@ impl Helix {
     fn theta_n_to_space_pos(&self, p: &Parameters, n: isize, theta: f32, forward: bool) -> Vec3 {
         let mut ret;
         if let Some(curve) = self.instanciated_curve.as_ref() {
-            if let Some(point) = curve.as_ref().nucl_pos(n, forward, theta as f64, p).map(dvec_to_vec) {
-            let (position, orientation) = if curve.as_ref().has_its_own_encoded_frame() {
-                (Vec3::zero(), Rotor3::identity())
-            } else {
-                (self.position, self.orientation)
-            };
-                return point.rotated_by(orientation) + position
+            if let Some(point) = curve
+                .as_ref()
+                .nucl_pos(n, forward, theta as f64, p)
+                .map(dvec_to_vec)
+            {
+                let (position, orientation) = if curve.as_ref().has_its_own_encoded_frame() {
+                    (Vec3::zero(), Rotor3::identity())
+                } else {
+                    (self.position, self.orientation)
+                };
+                return point.rotated_by(orientation) + position;
             } else {
                 let delta_inclination = if forward { 0.0 } else { p.inclination };
                 ret = Vec3::new(
@@ -755,8 +759,10 @@ impl Helix {
             let (position, orientation) = if curve.as_ref().has_its_own_encoded_frame() {
                 (DVec3::zero(), DRotor3::identity())
             } else {
-                (vec_to_dvec(self.position), 
-                 rotor_to_drotor(self.orientation))
+                (
+                    vec_to_dvec(self.position),
+                    rotor_to_drotor(self.orientation),
+                )
             };
             Axis::Curve {
                 shift,
@@ -780,7 +786,7 @@ impl Helix {
                 let (position, orientation) = if curve.as_ref().has_its_own_encoded_frame() {
                     (Vec3::zero(), Rotor3::identity())
                 } else {
-                    (self.position,self.orientation)
+                    (self.position, self.orientation)
                 };
                 return point.rotated_by(orientation) + position;
             }

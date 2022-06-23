@@ -31,3 +31,4 @@ num_enum = "0.5.1"
 cadnano-format = "0.1.0"
 log = "0.4"
 version-compare = "0.1.0"
+chebyshev_polynomials = { git = "https://github.com/thenlevy/chebyshev_polynomials" }

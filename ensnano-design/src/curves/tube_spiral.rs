@@ -146,7 +146,7 @@ impl Curved for TubeSpiral {
     }
 
     fn subdivision_for_t(&self, t: f64) -> Option<usize> {
-        Some((((self.nb_turn() * t * TAU + self.theta_0 + 1e-3) / TAU) +self.nb_turn()) as usize)
+        Some((((self.nb_turn() * t * TAU + self.theta_0 + 1e-3) / TAU) + self.nb_turn()) as usize)
     }
 
     fn is_time_maps_singleton(&self) -> bool {
