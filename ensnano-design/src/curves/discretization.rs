@@ -48,7 +48,7 @@ impl Curve {
                 let n: f64 = synchronization_length.div_euclid(len_segment) + 1.;
                 len_segment = len_segment + epsilon / n;
             }
-            self.nucl_pos_full_turn = Some(synchronization_length / len_segment);
+            self.nucl_pos_full_turn = Some(synchronization_length / len_segment + 1.);
         }
         if let Some(n) = self.nucl_pos_full_turn {
             log::info!("nucl_pos_full_turn = {n}");
@@ -91,7 +91,7 @@ impl Curve {
 
         let mut synchronization_length = 0.;
 
-        while t < self.geometry.t_max() {
+        while t <= self.geometry.t_max() {
             if first_non_negative && t >= 0.0 {
                 first_non_negative = false;
                 self.nucl_t0 = points_forward.len();
@@ -136,7 +136,7 @@ impl Curve {
                     p = q;
                 }
             }
-            if t < self.geometry.t_max() {
+            if t <= self.geometry.t_max() || self.geometry.bounds() != CurveBounds::Finite {
                 if forward {
                     t_nucl.push(t);
                     let segment_idx = self.geometry.subdivision_for_t(t).unwrap_or(0);

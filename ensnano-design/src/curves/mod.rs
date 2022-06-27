@@ -187,6 +187,7 @@ pub trait Curved {
 }
 
 /// The bounds of the curve. This describe the interval in which t can be taken
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CurveBounds {
     /// t ∈ [t_min, t_max]
     Finite,
