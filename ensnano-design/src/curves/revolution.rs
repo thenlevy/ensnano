@@ -170,7 +170,7 @@ impl Curved for Revolution {
     fn position(&self, t: f64) -> DVec3 {
         let revolution_angle = TAU * t;
 
-        let section_rotation = PI * self.half_turns_count as f64 * t;
+        let section_rotation = PI * self.half_turns_count as f64 * t.rem_euclid(1.);
 
         let section_point = self.curve.point(t);
         let x = self.revolution_radius

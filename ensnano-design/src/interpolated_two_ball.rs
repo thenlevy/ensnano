@@ -10,7 +10,7 @@ fn main() {
     let mut helix_ids = Vec::new();
     let mut helices_length = Vec::new();
 
-    let s = "toto";
+    let s = include_str!("../pentagonal_2x14.json");
     let input: EmbeddedHelixStructre = serde_json::from_str(s).unwrap();
 
     for cycle in input.cycles.iter() {
@@ -35,6 +35,12 @@ fn main() {
         ))
         .unwrap()
         .make_curve(&Parameters::GEARY_2014_DNA, &mut cache);
+        let len = curve.length_by_descretisation(0., input.nb_helices as f64 / 2., 100_000);
+        println!("length = {len}");
+        for i in 0..input.nb_helices / 2 {
+            let len = curve.length_by_descretisation(i as f64, i as f64 + 1., 100_000);
+            println!("length segment {i} = {len}");
+        }
         let mut helix = Helix::new(Vec3::zero(), Rotor3::identity());
         helix.curve = Some(Arc::new(
             ensnano_design::CurveDescriptor::InterpolatedCurve(desc),
@@ -81,7 +87,7 @@ fn main() {
 
     use std::io::Write;
     let json_content = serde_json::to_string_pretty(&design).ok().unwrap();
-    let mut f = std::fs::File::create("two_balls.ens").ok().unwrap();
+    let mut f = std::fs::File::create("pentagonal.ens").ok().unwrap();
     f.write_all(json_content.as_bytes()).unwrap();
 
     /*
@@ -141,7 +147,6 @@ struct TwistedRevolutionSurface {
 struct EmbeddedHelixStructre {
     surface: TwistedRevolutionSurface,
     cycles: Vec<Vec<usize>>,
-    #[allow(dead_code)]
     nb_helices: usize,
     chebyshev_coeffs: Vec<Vec<f64>>,
     chebyshev_smoothening: f64,
