@@ -25,12 +25,13 @@ use chebyshev_polynomials::ChebyshevPolynomial;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InterpolatedCurveDescriptor {
     pub curve: CurveDescriptor2D,
-    pub half_turns_count: usize,
+    pub half_turns_count: isize,
     /// Radius of the revolution trajectory
     pub revolution_radius: f64,
     /// Scale factor of the section
     pub curve_scale_factor: f64,
     pub interpolation: Vec<InterpolationDescriptor>,
+    pub chevyshev_smoothening: f64,
 }
 
 impl InterpolatedCurveDescriptor {
@@ -40,18 +41,17 @@ impl InterpolatedCurveDescriptor {
         for i in 0..self.interpolation.len() {
             discontinuities.push(i as f64 + 1.);
         }
-        let curves: Vec<_> = self
-            .interpolation
-            .into_iter()
-            .map(|i| InstanciatedInterpolatedCurve::from_curve_interpolation(curve.clone(), i))
-            .collect();
+        let curve = SmoothInterpolatedCurve::from_curve_interpolation(
+            curve,
+            self.interpolation,
+            self.chevyshev_smoothening,
+            self.half_turns_count,
+        );
         Revolution {
-            discontinuities: (0..=curves.len()).map(|x| x as f64).collect(),
-            curves,
+            curve,
             revolution_radius: self.revolution_radius,
             curve_scale_factor: self.curve_scale_factor,
             half_turns_count: self.half_turns_count,
-            smoothening_ceil: 0.001,
         }
     }
 }
@@ -68,62 +68,111 @@ pub enum InterpolationDescriptor {
     },
 }
 
-struct InstanciatedInterpolatedCurve {
-    interpolator: ChebyshevPolynomial,
+struct SmoothInterpolatedCurve {
+    interpolators: Vec<ChebyshevPolynomial>,
     curve: CurveDescriptor2D,
+    smoothening_coeff: f64,
+    half_turn: bool,
 }
 
-impl InstanciatedInterpolatedCurve {
+impl SmoothInterpolatedCurve {
     fn from_curve_interpolation(
         curve: CurveDescriptor2D,
-        interpolation: InterpolationDescriptor,
+        interpolations: Vec<InterpolationDescriptor>,
+        smoothening_coeff: f64,
+        nb_half_turn: isize,
     ) -> Self {
-        match interpolation {
-            InterpolationDescriptor::PointsValues { points, values } => {
-                let points_values = points.into_iter().zip(values.into_iter()).collect();
-                let interpolator = chebyshev_polynomials::interpolate_points(points_values, 1e-4);
-                Self {
-                    curve,
-                    interpolator,
+        let mut interpolators = Vec::with_capacity(interpolations.len());
+        for interpolation in interpolations.into_iter() {
+            let interpolator = match interpolation {
+                InterpolationDescriptor::PointsValues { points, values } => {
+                    let points_values = points.into_iter().zip(values.into_iter()).collect();
+                    chebyshev_polynomials::interpolate_points(points_values, 1e-4)
                 }
-            }
-            InterpolationDescriptor::Chebyshev { coeffs, interval } => {
-                let interpolator = chebyshev_polynomials::ChebyshevPolynomial::from_coeffs_interval(
-                    coeffs, interval,
-                );
-                Self {
-                    curve,
-                    interpolator,
+                InterpolationDescriptor::Chebyshev { coeffs, interval } => {
+                    chebyshev_polynomials::ChebyshevPolynomial::from_coeffs_interval(
+                        coeffs, interval,
+                    )
                 }
+            };
+            interpolators.push(interpolator);
+        }
+        Self {
+            curve,
+            interpolators,
+            smoothening_coeff,
+            half_turn: nb_half_turn.rem_euclid(2) != 0,
+        }
+    }
+
+    fn smooth_chebyshev(&self, s: f64) -> f64 {
+        let u = s.rem_euclid(1.);
+        let helix_idx = (s.div_euclid(1.) as usize).rem_euclid(self.interpolators.len());
+        let prev_idx =
+            (helix_idx as isize - 1).rem_euclid(self.interpolators.len() as isize) as usize;
+        let next_idx = (helix_idx + 1).rem_euclid(self.interpolators.len());
+
+        let a = self.smoothening_coeff;
+
+        let shift = if self.half_turn { 0.5 } else { 0. };
+
+        if u < a {
+            // second half of the interpolation region, v = 0.5 + 1/2 ( u / a)
+            let v = (1. + u / a) / 2.;
+            let mut v1 =
+                (self.interpolators[prev_idx].evaluate(1. - a + v * a) + shift).rem_euclid(1.);
+            let v2 = (self.interpolators[helix_idx].evaluate(v * a)).rem_euclid(1.);
+
+            while v1 > v2 + 0.5 {
+                v1 -= 1.
             }
+            while v1 < v2 - 0.5 {
+                v1 += 1.
+            }
+            (1. - v) * v1 + v * v2
+        } else if u > 1. - a {
+            // first half of the interpolation region
+            let v = (u - (1. - a)) / a / 2.;
+            let v1 = (self.interpolators[helix_idx].evaluate(1. - a + v * a)).rem_euclid(1.);
+            let mut v2 = (self.interpolators[next_idx].evaluate(v * a) - shift).rem_euclid(1.);
+
+            while v2 > v1 + 0.5 {
+                v2 -= 1.
+            }
+            while v2 < v1 - 0.5 {
+                v2 += 1.
+            }
+
+            (1. - v) * v1 + v * v2
+        } else {
+            self.interpolators[helix_idx].evaluate(u)
         }
     }
 
     fn point(&self, t: f64) -> DVec2 {
-        let s = self.interpolator.evaluate(t);
+        let s = self.smooth_chebyshev(t);
         self.curve.point(s.rem_euclid(1.))
+    }
+
+    fn t_max(&self) -> f64 {
+        self.interpolators.len() as f64
     }
 }
 
 pub(super) struct Revolution {
-    curves: Vec<InstanciatedInterpolatedCurve>,
+    curve: SmoothInterpolatedCurve,
     revolution_radius: f64,
     curve_scale_factor: f64,
-    half_turns_count: usize,
-    discontinuities: Vec<f64>,
-    smoothening_ceil: f64,
+    half_turns_count: isize,
 }
 
-impl Revolution {
-    fn position_(&self, t: f64) -> DVec3 {
-        // (-0.1).floor = -1. that's what we want
-        let curve_idx = (t.floor() as isize).rem_euclid(self.curves.len() as isize) as usize;
-        let t = t.fract();
+impl Curved for Revolution {
+    fn position(&self, t: f64) -> DVec3 {
         let revolution_angle = TAU * t;
 
         let section_rotation = PI * self.half_turns_count as f64 * t;
 
-        let section_point = self.curves[curve_idx].point(t);
+        let section_point = self.curve.point(t);
         let x = self.revolution_radius
             + self.curve_scale_factor
                 * (section_point.x * section_rotation.cos()
@@ -137,29 +186,13 @@ impl Revolution {
             z: y,
         }
     }
-}
-
-impl Curved for Revolution {
-    fn position(&self, t: f64) -> DVec3 {
-        for x in self.discontinuities.iter() {
-            if (t - x).abs() < self.smoothening_ceil {
-                let v = (t - x + self.smoothening_ceil) / 2. / self.smoothening_ceil;
-                let left = x - self.smoothening_ceil + self.smoothening_ceil * v;
-                let right = x + self.smoothening_ceil * v;
-                let p_left = self.position_(left.rem_euclid(self.t_max()));
-                let p_right = self.position_(right.rem_euclid(self.t_max()));
-                return (1. - v) * p_left + v * p_right;
-            }
-        }
-        self.position_(t)
-    }
 
     fn bounds(&self) -> CurveBounds {
         CurveBounds::Finite
     }
 
     fn t_max(&self) -> f64 {
-        self.curves.len() as f64
+        self.curve.t_max()
     }
 
     fn subdivision_for_t(&self, t: f64) -> Option<usize> {
@@ -170,21 +203,3 @@ impl Curved for Revolution {
         true
     }
 }
-
-/*
-    func point(s: Double, t: Double) -> Point3D {
-        let α = 2 * Double.pi * s
-        let cα = cos(α)
-        let sα = sin(α)
-
-        let β = Double.pi * s * Double(half_turns_count)
-        let cβ = cos(β)
-        let sβ = sin(β)
-
-        let p = curve.point(t)
-        let x = radius + scale * (cβ * p.x - sβ * p.y)
-        let y = scale * (sβ * p.x + cβ * p.y)
-
-        return Point3D(x: x * cα, y: x * sα, z: y)
-    }
-*/
