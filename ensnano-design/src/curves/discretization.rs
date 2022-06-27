@@ -232,7 +232,8 @@ impl Curve {
 
             DMat3::new(right, up, forward)
         } else {
-            perpendicular_basis(speed)
+            let previous = perpendicular_basis(speed);
+            self.itterative_axis(t, Some(&previous))
         }
     }
 }

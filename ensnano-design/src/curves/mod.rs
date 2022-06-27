@@ -202,7 +202,7 @@ pub enum CurveBounds {
 /// curve.
 pub struct Curve {
     /// The object describing the curve.
-    geometry: Arc<dyn Curved + Sync + Send>,
+    pub geometry: Arc<dyn Curved + Sync + Send>,
     /// The precomputed points along the curve for the forward strand
     pub(crate) positions_forward: Vec<DVec3>,
     /// The procomputed points along the curve for the backward strand
@@ -253,6 +253,14 @@ impl Curve {
             .min(self.positions_backward.len())
     }
 
+    pub fn nb_points_forwards(&self) -> usize {
+        self.positions_forward.len()
+    }
+
+    pub fn nb_points_backwards(&self) -> usize {
+        self.positions_backward.len()
+    }
+
     pub fn axis_pos(&self, n: isize) -> Option<DVec3> {
         let idx = self.idx_convertsion(n)?;
         self.positions_forward.get(idx).cloned()
@@ -294,7 +302,18 @@ impl Curve {
             let base_theta = TAU / parameters.bases_per_turn as f64;
             (base_theta - real_theta) * n as f64 + theta
         } else if let Some(pos_full_turn) = self.nucl_pos_full_turn {
-            let final_angle = pos_full_turn as f64 * TAU / -parameters.bases_per_turn as f64;
+            let additional_angle = self
+                .axis_forward
+                .last()
+                .zip(self.axis_forward.first())
+                .map(|(f1, f2)| {
+                    let y = f2[0].dot(f1[0]);
+                    let x = f2[1].dot(f1[0]);
+                    y.atan2(x)
+                })
+                .unwrap_or(0.);
+            let final_angle =
+                pos_full_turn as f64 * TAU / -parameters.bases_per_turn as f64 + additional_angle;
             let rem = final_angle.rem_euclid(TAU);
             /*
             let mut full_delta = if rem > PI { TAU - rem } else { -rem } + FRAC_PI_2;
@@ -476,12 +495,13 @@ fn perpendicular_basis(point: DVec3) -> DMat3 {
     let axis_z = point.normalized();
 
     let mut axis_x = DVec3::unit_x();
-    if axis_z.x >= 1. - EPSILON {
+    if axis_z.x.abs() >= 0.9 {
         axis_x = DVec3::unit_y();
     }
-    axis_x = (axis_x.cross(axis_z)).normalized();
+    let axis_y = axis_z.cross(axis_x).normalized();
+    axis_x = axis_y.cross(axis_z).normalized();
 
-    DMat3::new(axis_x, axis_x.cross(-axis_z), axis_z)
+    DMat3::new(axis_x, axis_y, axis_z)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -107,7 +107,8 @@ impl SmoothInterpolatedCurve {
 
     fn smooth_chebyshev(&self, s: f64) -> f64 {
         let u = s.rem_euclid(1.);
-        let helix_idx = (s.div_euclid(1.) as usize).rem_euclid(self.interpolators.len());
+        let helix_idx =
+            (s.div_euclid(1.) as isize).rem_euclid(self.interpolators.len() as isize) as usize;
         let prev_idx =
             (helix_idx as isize - 1).rem_euclid(self.interpolators.len() as isize) as usize;
         let next_idx = (helix_idx + 1).rem_euclid(self.interpolators.len());
@@ -188,11 +189,15 @@ impl Curved for Revolution {
     }
 
     fn bounds(&self) -> CurveBounds {
-        CurveBounds::Finite
+        CurveBounds::PositiveInfinite
     }
 
     fn t_max(&self) -> f64 {
         self.curve.t_max()
+    }
+
+    fn t_min(&self) -> f64 {
+        0.
     }
 
     fn subdivision_for_t(&self, t: f64) -> Option<usize> {
@@ -201,5 +206,9 @@ impl Curved for Revolution {
 
     fn is_time_maps_singleton(&self) -> bool {
         true
+    }
+
+    fn full_turn_at_t(&self) -> Option<f64> {
+        Some(self.curve.t_max())
     }
 }

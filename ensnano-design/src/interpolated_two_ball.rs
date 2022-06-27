@@ -8,9 +8,10 @@ fn main() {
     let mut design = Design::new();
     let mut helices = design.helices.make_mut();
     let mut helix_ids = Vec::new();
-    let mut helices_length = Vec::new();
+    let mut helices_length_forward = Vec::new();
+    let mut helices_length_backward = Vec::new();
 
-    let s = include_str!("../pentagonal_2x14.json");
+    let s = include_str!("../two_balls_2x36.json");
     let input: EmbeddedHelixStructre = serde_json::from_str(s).unwrap();
 
     for cycle in input.cycles.iter() {
@@ -38,21 +39,25 @@ fn main() {
         let len = curve.length_by_descretisation(0., input.nb_helices as f64 / 2., 100_000);
         println!("length = {len}");
         for i in 0..input.nb_helices / 2 {
-            let len = curve.length_by_descretisation(i as f64, i as f64 + 1., 100_000);
-            println!("length segment {i} = {len}");
+            println!("HELIX {}", cycle[i]);
+            for t in TS {
+                let point = curve.geometry.position(*t + i as f64);
+                println!("{t}:\t {}\t {}\t {}", point.x, point.y, point.z)
+            }
         }
         let mut helix = Helix::new(Vec3::zero(), Rotor3::identity());
         helix.curve = Some(Arc::new(
             ensnano_design::CurveDescriptor::InterpolatedCurve(desc),
         ));
         helix_ids.push(helices.push_helix(helix));
-        helices_length.push(curve.nb_points());
+        helices_length_forward.push(curve.nb_points_forwards());
+        helices_length_backward.push(curve.nb_points_backwards());
     }
     drop(helices);
     design.get_updated_grid_data();
 
     for (len_idx, h_id) in helix_ids.iter().enumerate() {
-        let len = helices_length[len_idx];
+        let len = helices_length_forward[len_idx];
         let forward_strand = Strand {
             cyclic: false,
             junctions: vec![],
@@ -67,6 +72,7 @@ fn main() {
             })],
             name: None,
         };
+        let len = helices_length_backward[len_idx];
         let backward_strand = Strand {
             cyclic: false,
             junctions: vec![],
@@ -87,7 +93,7 @@ fn main() {
 
     use std::io::Write;
     let json_content = serde_json::to_string_pretty(&design).ok().unwrap();
-    let mut f = std::fs::File::create("pentagonal.ens").ok().unwrap();
+    let mut f = std::fs::File::create("two_balls.ens").ok().unwrap();
     f.write_all(json_content.as_bytes()).unwrap();
 
     /*
@@ -151,3 +157,19 @@ struct EmbeddedHelixStructre {
     chebyshev_coeffs: Vec<Vec<f64>>,
     chebyshev_smoothening: f64,
 }
+
+const TS: &[f64] = &[
+    0.,
+    1e-4,
+    1e-3,
+    1e-2,
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    0.9,
+    1. - 1e-2,
+    1. - 1e-3,
+    1. - 1e-4,
+    1.,
+];
