@@ -95,7 +95,7 @@ impl Curve {
         let mut synchronization_length = 0.;
 
         while t <= self.geometry.t_max() || abscissa_backward < abscissa_forward + inclination {
-            println!("backward {abscissa_backward}, forward {abscissa_forward}");
+            log::debug!("backward {abscissa_backward}, forward {abscissa_forward}");
             if first_non_negative && t >= 0.0 {
                 first_non_negative = false;
                 self.nucl_t0 = points_forward.len();

@@ -260,7 +260,7 @@ impl Curved for Revolution {
     }
 
     fn subdivision_for_t(&self, t: f64) -> Option<usize> {
-        Some(t.floor() as usize)
+        Some(self.t_max().min(t).floor() as usize)
     }
 
     fn is_time_maps_singleton(&self) -> bool {
