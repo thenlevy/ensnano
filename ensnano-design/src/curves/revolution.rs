@@ -189,7 +189,7 @@ impl Curved for Revolution {
     }
 
     fn bounds(&self) -> CurveBounds {
-        CurveBounds::PositiveInfinite
+        CurveBounds::Finite
     }
 
     fn t_max(&self) -> f64 {
