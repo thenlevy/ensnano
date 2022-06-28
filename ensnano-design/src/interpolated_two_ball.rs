@@ -1,5 +1,8 @@
 use ensnano_design::Curve;
 use ensnano_design::*;
+use std::env;
+use std::path::{Path, PathBuf};
+use std::process;
 use std::sync::Arc;
 
 use ultraviolet::{Rotor3, Vec3};
@@ -7,15 +10,39 @@ use ultraviolet::{Rotor3, Vec3};
 const HEIGHT_BETWEEN_HELICES_2D: f32 = 5.;
 
 fn main() {
+    env_logger::init();
+
+    let mut args = env::args();
+    if args.len() < 2 {
+        println!("Usage: {} JSON-filename(s)", args.nth(0).unwrap());
+        process::exit(0);
+    } else {
+        for f in args.skip(1) {
+            println!(
+                "Converting {}...",
+                PathBuf::from(&f).file_stem().unwrap().to_string_lossy()
+            );
+            json_to_ens(Path::new(&f));
+            println!(
+                "Converting {}... DONE\n",
+                PathBuf::from(&f).file_stem().unwrap().to_string_lossy()
+            );
+        }
+    }
+}
+
+fn json_to_ens(path: &Path) {
     let mut design = Design::new();
     let mut helices = design.helices.make_mut();
     let mut helix_ids = Vec::new();
     let mut helices_length_forward = Vec::new();
     let mut helices_length_backward = Vec::new();
-    env_logger::init();
 
-    let s = include_str!("../two_balls_6x36.json");
-    let input: EmbeddedHelixStructre = serde_json::from_str(s).unwrap();
+    let mut path_out = PathBuf::from(path);
+    path_out.set_extension("ens");
+
+    let s = std::fs::read_to_string(path).unwrap();
+    let input: EmbeddedHelixStructre = serde_json::from_str(&s).unwrap();
 
     for cycle in input.cycles.iter() {
         let interpolators = cycle
@@ -113,7 +140,7 @@ fn main() {
 
     use std::io::Write;
     let json_content = serde_json::to_string_pretty(&design).ok().unwrap();
-    let mut f = std::fs::File::create("two_balls_6x36.ens").ok().unwrap();
+    let mut f = std::fs::File::create(path_out).ok().unwrap();
     f.write_all(json_content.as_bytes()).unwrap();
 
     /*
