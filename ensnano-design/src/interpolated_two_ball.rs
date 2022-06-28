@@ -10,8 +10,9 @@ fn main() {
     let mut helix_ids = Vec::new();
     let mut helices_length_forward = Vec::new();
     let mut helices_length_backward = Vec::new();
+    env_logger::init();
 
-    let s = include_str!("../two_balls_2x36.json");
+    let s = include_str!("../two_balls_6x36.json");
     let input: EmbeddedHelixStructre = serde_json::from_str(s).unwrap();
 
     for cycle in input.cycles.iter() {
@@ -36,13 +37,13 @@ fn main() {
         ))
         .unwrap()
         .make_curve(&Parameters::GEARY_2014_DNA, &mut cache);
-        let len = curve.length_by_descretisation(0., input.nb_helices as f64 / 2., 100_000);
+        let len = curve.length_by_descretisation(0., curve.geometry.t_max(), 10_000_000);
         println!("length = {len}");
         for i in 0..input.nb_helices / 2 {
-            println!("HELIX {}", cycle[i]);
+            //log::info!("HELIX {}", cycle[i]);
             for t in TS {
                 let point = curve.geometry.position(*t + i as f64);
-                println!("{t}:\t {}\t {}\t {}", point.x, point.y, point.z)
+                log::info!("{t}:\t {}\t {}\t {}", point.x, point.y, point.z)
             }
         }
         let mut helix = Helix::new(Vec3::zero(), Rotor3::identity());
@@ -93,7 +94,7 @@ fn main() {
 
     use std::io::Write;
     let json_content = serde_json::to_string_pretty(&design).ok().unwrap();
-    let mut f = std::fs::File::create("two_balls.ens").ok().unwrap();
+    let mut f = std::fs::File::create("two_balls_6x36.ens").ok().unwrap();
     f.write_all(json_content.as_bytes()).unwrap();
 
     /*

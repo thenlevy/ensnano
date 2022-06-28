@@ -308,8 +308,8 @@ impl Curve {
                 .last()
                 .zip(self.axis_forward.first())
                 .map(|(f1, f2)| {
-                    let y = f2[0].dot(f1[0]);
-                    let x = f2[1].dot(f1[0]);
+                    let y = f2[0].dot(f1[1]);
+                    let x = f2[0].dot(f1[0]);
                     y.atan2(x)
                 })
                 .unwrap_or(0.);

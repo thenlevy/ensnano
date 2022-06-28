@@ -47,12 +47,16 @@ impl InterpolatedCurveDescriptor {
             self.chevyshev_smoothening,
             self.half_turns_count,
         );
-        Revolution {
+        let mut ret = Revolution {
             curve,
             revolution_radius: self.revolution_radius,
             curve_scale_factor: self.curve_scale_factor,
             half_turns_count: self.half_turns_count,
-        }
+            inverse_curvilinear_abscissa: vec![],
+            curvilinear_abscissa: vec![],
+        };
+        ret.init_interpolators();
+        ret
     }
 }
 
@@ -165,6 +169,61 @@ pub(super) struct Revolution {
     revolution_radius: f64,
     curve_scale_factor: f64,
     half_turns_count: isize,
+    inverse_curvilinear_abscissa: Vec<ChebyshevPolynomial>,
+    curvilinear_abscissa: Vec<ChebyshevPolynomial>,
+}
+
+const NB_POINT_INTERPOLATION: usize = 100_000;
+const INTERPOLATION_ERROR: f64 = 1e-4;
+impl Revolution {
+    fn init_interpolators(&mut self) {
+        let mut abscissa = 0.;
+
+        let mut point = self.position(0.);
+        let mut t0 = 0.;
+        while t0 < self.t_max() {
+            let mut ts = Vec::with_capacity(NB_POINT_INTERPOLATION);
+            let mut abscissas = Vec::with_capacity(NB_POINT_INTERPOLATION);
+            ts.push(t0);
+            abscissas.push(abscissa);
+            for n in 1..=NB_POINT_INTERPOLATION {
+                let t = t0 + n as f64 / NB_POINT_INTERPOLATION as f64;
+                let next_point = self.position(t);
+                abscissa += (point - next_point).mag();
+                abscissas.push(abscissa);
+                point = next_point;
+                ts.push(t);
+            }
+            log::info!("Interpolating inverse...");
+            let abscissa_t = abscissas.iter().cloned().zip(ts.iter().cloned()).collect();
+            self.inverse_curvilinear_abscissa
+                .push(chebyshev_polynomials::interpolate_points(
+                    abscissa_t,
+                    INTERPOLATION_ERROR,
+                ));
+            log::info!(
+                "OK, deg = {}",
+                self.inverse_curvilinear_abscissa
+                    .last()
+                    .unwrap()
+                    .coeffs
+                    .len()
+            );
+
+            let t_abscissa = ts.into_iter().zip(abscissas.into_iter()).collect();
+            log::info!("Interpolating abscissa...");
+            self.curvilinear_abscissa
+                .push(chebyshev_polynomials::interpolate_points(
+                    t_abscissa,
+                    10. * INTERPOLATION_ERROR,
+                ));
+            log::info!(
+                "OK, deg = {}",
+                self.curvilinear_abscissa.last().unwrap().coeffs.len()
+            );
+            t0 += 1.;
+        }
+    }
 }
 
 impl Curved for Revolution {
@@ -210,5 +269,31 @@ impl Curved for Revolution {
 
     fn full_turn_at_t(&self) -> Option<f64> {
         Some(self.curve.t_max())
+    }
+
+    fn curvilinear_abscissa(&self, t: f64) -> Option<f64> {
+        if t == self.t_max() {
+            self.curvilinear_abscissa.last().map(|p| p.evaluate(t))
+        } else {
+            self.curvilinear_abscissa
+                .get(t.floor() as usize)
+                .map(|p| p.evaluate(t))
+        }
+    }
+
+    fn inverse_curvilinear_abscissa(&self, x: f64) -> Option<f64> {
+        for t in 0..self.curvilinear_abscissa.len() {
+            if self
+                .curvilinear_abscissa(t as f64 + 1.)
+                .filter(|y| y > &x)
+                .is_some()
+            {
+                return self
+                    .inverse_curvilinear_abscissa
+                    .get(t)
+                    .map(|p| p.evaluate(x));
+            }
+        }
+        None
     }
 }

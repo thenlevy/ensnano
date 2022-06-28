@@ -48,7 +48,7 @@ impl Curve {
                 let n: f64 = synchronization_length.div_euclid(len_segment) + 1.;
                 len_segment = len_segment + epsilon / n;
             }
-            self.nucl_pos_full_turn = Some(synchronization_length / len_segment + 1.);
+            self.nucl_pos_full_turn = Some(synchronization_length / len_segment);
         }
         if let Some(n) = self.nucl_pos_full_turn {
             log::info!("nucl_pos_full_turn = {n}");
@@ -70,6 +70,7 @@ impl Curve {
         let mut abscissa_forward;
         let mut abscissa_backward;
 
+        let first_forward;
         if inclination >= 0. {
             // The forward strand is behind
             points_forward.push(point);
@@ -78,12 +79,14 @@ impl Curve {
             t_nucl.push(t);
             abscissa_forward = len_segment;
             abscissa_backward = inclination;
+            first_forward = true;
         } else {
             // The backward strand is behind
             points_backward.push(point);
             axis_backward.push(current_axis);
             abscissa_backward = len_segment;
             abscissa_forward = -inclination;
+            first_forward = false;
         }
 
         let mut current_abcissa = 0.0;
@@ -91,15 +94,24 @@ impl Curve {
 
         let mut synchronization_length = 0.;
 
-        while t <= self.geometry.t_max() {
+        while t <= self.geometry.t_max() || abscissa_backward < abscissa_forward + inclination {
+            println!("backward {abscissa_backward}, forward {abscissa_forward}");
             if first_non_negative && t >= 0.0 {
                 first_non_negative = false;
                 self.nucl_t0 = points_forward.len();
             }
-            let (objective, forward) = (
-                abscissa_forward.min(abscissa_backward),
-                abscissa_forward <= abscissa_backward,
-            );
+            let (objective, forward) = if t <= self.geometry.t_max() {
+                (
+                    abscissa_forward.min(abscissa_backward),
+                    abscissa_forward <= abscissa_backward,
+                )
+            } else {
+                if first_forward {
+                    (abscissa_backward, false)
+                } else {
+                    (abscissa_forward, true)
+                }
+            };
             let mut translation_axis = current_axis;
             if let Some(frame) = self.geometry.initial_frame() {
                 let up = frame[1];
@@ -136,8 +148,9 @@ impl Curve {
                     p = q;
                 }
             }
-            if t <= self.geometry.t_max() || self.geometry.bounds() != CurveBounds::Finite {
-                if forward {
+            //if t <= self.geometry.t_max() || forward != first_forward {
+            if forward {
+                if t <= self.geometry.t_max() {
                     t_nucl.push(t);
                     let segment_idx = self.geometry.subdivision_for_t(t).unwrap_or(0);
                     if segment_idx != current_segment {
@@ -148,12 +161,13 @@ impl Curve {
                     axis_forward.push(current_axis);
                     curvature.push(self.geometry.curvature(t));
                     abscissa_forward = current_abcissa + len_segment;
-                } else {
-                    points_backward.push(p);
-                    axis_backward.push(current_axis);
-                    abscissa_backward = current_abcissa + len_segment;
                 }
+            } else {
+                points_backward.push(p);
+                axis_backward.push(current_axis);
+                abscissa_backward = current_abcissa + len_segment;
             }
+            //}
         }
         log::info!("Synchronization length by old method {synchronization_length}");
 
@@ -182,6 +196,8 @@ impl Curve {
             .curvilinear_abscissa(t0)
             .zip(self.geometry.curvilinear_abscissa(t1))
         {
+            let ret = x1 - x0;
+            println!("length by curvilinear_abscissa = {ret}");
             return x1 - x0;
         }
         let mut current_axis = self.itterative_axis(t0, None);
@@ -194,6 +210,9 @@ impl Curve {
             len += (q - p).mag();
             p = q;
         }
+        let quad = quadrature::integrate(|x| self.geometry.speed(x).mag(), t0, t1, 1e-7).integral;
+        println!("by quadrature {}", quad);
+        //println!("by summation {}", len);
         len
     }
 
