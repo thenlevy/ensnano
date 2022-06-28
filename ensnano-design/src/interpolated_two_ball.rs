@@ -4,6 +4,8 @@ use std::sync::Arc;
 
 use ultraviolet::{Rotor3, Vec3};
 
+const HEIGHT_BETWEEN_HELICES_2D: f32 = 5.;
+
 fn main() {
     let mut design = Design::new();
     let mut helices = design.helices.make_mut();
@@ -39,7 +41,7 @@ fn main() {
         .make_curve(&Parameters::GEARY_2014_DNA, &mut cache);
         let len = curve.length_by_descretisation(0., curve.geometry.t_max(), 10_000_000);
         println!("length = {len}");
-        for i in 0..input.nb_helices / 2 {
+        for i in 0..cycle.len() {
             //log::info!("HELIX {}", cycle[i]);
             for t in TS {
                 let point = curve.geometry.position(*t + i as f64);
@@ -47,6 +49,11 @@ fn main() {
             }
         }
         let mut helix = Helix::new(Vec3::zero(), Rotor3::identity());
+        let isometry = Isometry2::new(
+            Vec2::unit_y() * HEIGHT_BETWEEN_HELICES_2D * helix_ids.len() as f32,
+            Rotor2::identity(),
+        );
+        helix.isometry2d = Some(isometry);
         helix.curve = Some(Arc::new(
             ensnano_design::CurveDescriptor::InterpolatedCurve(desc),
         ));
@@ -56,6 +63,18 @@ fn main() {
     }
     drop(helices);
     design.get_updated_grid_data();
+    let mut helices = design.helices.make_mut();
+    for h in helices.values_mut() {
+        let mut isometry = h.isometry2d.unwrap();
+        for i in h.additonal_isometries.iter_mut() {
+            isometry.append_translation(
+                Vec2::unit_y() * HEIGHT_BETWEEN_HELICES_2D * helix_ids.len() as f32,
+            );
+            i.additional_isometry = Some(isometry);
+        }
+    }
+
+    drop(helices);
 
     for (len_idx, h_id) in helix_ids.iter().enumerate() {
         let len = helices_length_forward[len_idx];
