@@ -475,7 +475,12 @@ impl<S: AppState> Scene<S> {
                     .unwrap()
                     .apply_design_operation(DesignOperation::RequestStrandBuilders { nucls });
             }
-            Consequence::PivotCenter => self.data.borrow_mut().set_pivot_position(Vec3::zero()),
+            Consequence::PivotCenter => {
+                self.data.borrow_mut().set_pivot_position(Vec3::zero());
+                self.view
+                    .borrow_mut()
+                    .update(ViewUpdate::FogCenter(Some(Vec3::zero())));
+            }
             Consequence::CheckXovers => {
                 let xovers = ensnano_interactor::list_of_xover_ids(
                     app_state.get_selection(),
