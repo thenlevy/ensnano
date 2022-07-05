@@ -342,6 +342,7 @@ macro_rules! attributes {
     };
 }
 
+#[derive(Debug)]
 struct MainXoverDescriptor {
     origin: Vec2,
     target: Vec2,
@@ -421,6 +422,7 @@ impl<'a> StrandVertexBuilder<'a> {
                 } else {
                     let origin = self.last_point.expect("last point");
                     if self.can_see(to) || self.can_see(origin) {
+                        self.start_drawing_on(origin);
                         self.draw_xover_with_main_builder(MainXoverDescriptor {
                             target: to,
                             origin,
@@ -552,6 +554,8 @@ impl<'a> StrandTopologyReader<'a> {
                 self.nb_point_helix = 0;
             }
             if self.nb_point_helix % 2 == 0 {
+                // we are drawing two consecutives xovers on the same helix, link them with a
+                // crossover
                 self.xover_instruction(last_nucl, nucl)
             } else {
                 self.domain_instruction(nucl)
