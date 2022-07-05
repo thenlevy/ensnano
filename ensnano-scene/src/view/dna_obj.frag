@@ -71,7 +71,11 @@ void main() {
         visibility = 1.;
     }
 
-    if (visibility < 0.1 && u_make_fog == 1) {
+    if (u_make_fog == 3) {
+       visibility = 1. - visibility;
+    }
+
+    if (visibility < 0.1 && (u_make_fog == 1 || u_make_fog == 3) ) {
      discard;
     }
 

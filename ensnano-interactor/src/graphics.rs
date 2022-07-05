@@ -72,6 +72,7 @@ pub mod fog_kind {
     pub const NO_FOG: u32 = 0;
     pub const TRANSPARENT_FOG: u32 = 1;
     pub const DARK_FOG: u32 = 2;
+    pub const REVERSED_FOG: u32 = 3;
 }
 
 #[derive(Debug, Clone)]

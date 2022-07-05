@@ -144,6 +144,10 @@ impl CameraTab {
         self.fog.dark = dark
     }
 
+    pub fn fog_reversed(&mut self, reversed: bool) {
+        self.fog.reversed = reversed
+    }
+
     pub fn fog_length(&mut self, length: f32) {
         self.fog.length = length
     }
@@ -170,6 +174,7 @@ struct FogParameters {
     length: f32,
     length_slider: slider::State,
     picklist: pick_list::State<FogChoice>,
+    reversed: bool,
 }
 
 impl FogParameters {
@@ -183,6 +188,7 @@ impl FogParameters {
                     self.visible,
                     self.from_camera,
                     self.dark,
+                    self.reversed,
                 )),
                 Message::FogChoice,
             ));
@@ -241,7 +247,13 @@ impl FogParameters {
     fn request(&self) -> Fog {
         Fog {
             radius: self.radius,
-            fog_kind: FogChoice::from_param(self.visible, self.from_camera, self.dark).fog_kind(),
+            fog_kind: FogChoice::from_param(
+                self.visible,
+                self.from_camera,
+                self.dark,
+                self.reversed,
+            )
+            .fog_kind(),
             length: self.length,
             from_camera: self.from_camera,
             alt_fog_center: None,
@@ -260,6 +272,7 @@ impl Default for FogParameters {
             radius_slider: Default::default(),
             from_camera: true,
             picklist: Default::default(),
+            reversed: false,
         }
     }
 }
@@ -271,6 +284,7 @@ pub enum FogChoice {
     FromPivot,
     DarkFromCamera,
     DarkFromPivot,
+    ReversedFromPivot,
 }
 
 impl Default for FogChoice {
@@ -285,6 +299,7 @@ const ALL_FOG_CHOICE: &'static [FogChoice] = &[
     FogChoice::FromPivot,
     FogChoice::DarkFromCamera,
     FogChoice::DarkFromPivot,
+    FogChoice::ReversedFromPivot,
 ];
 
 impl std::fmt::Display for FogChoice {
@@ -295,21 +310,28 @@ impl std::fmt::Display for FogChoice {
             Self::FromPivot => "From Pivot",
             Self::DarkFromCamera => "Dark from Camera",
             Self::DarkFromPivot => "Dark from Pivot",
+            Self::ReversedFromPivot => "Reversed from Pivot",
         };
         write!(f, "{}", ret)
     }
 }
 
 impl FogChoice {
-    fn from_param(visible: bool, from_camera: bool, dark: bool) -> Self {
+    fn from_param(visible: bool, from_camera: bool, dark: bool, reversed: bool) -> Self {
         Self::None
             .visible(visible)
             .dark(dark)
             .from_camera(from_camera)
+            .reversed(reversed)
     }
 
-    pub fn to_param(&self) -> (bool, bool, bool) {
-        (self.is_visible(), self.is_from_camera(), self.is_dark())
+    pub fn to_param(&self) -> (bool, bool, bool, bool) {
+        (
+            self.is_visible(),
+            self.is_from_camera(),
+            self.is_dark(),
+            self.is_reversed(),
+        )
     }
 
     fn visible(self, visible: bool) -> Self {
@@ -337,6 +359,14 @@ impl FogChoice {
                 Self::DarkFromCamera => Self::DarkFromPivot,
                 _ => self,
             }
+        }
+    }
+
+    fn reversed(self, reversed: bool) -> Self {
+        match (self, reversed) {
+            (Self::FromPivot, true) => Self::ReversedFromPivot,
+            (Self::ReversedFromPivot, false) => Self::FromPivot,
+            _ => self,
         }
     }
 
@@ -368,12 +398,17 @@ impl FogChoice {
         matches!(self, Self::DarkFromCamera | Self::DarkFromPivot)
     }
 
+    fn is_reversed(&self) -> bool {
+        matches!(self, Self::ReversedFromPivot)
+    }
+
     fn fog_kind(&self) -> u32 {
         use ensnano_interactor::graphics::fog_kind;
         match self {
             Self::None => fog_kind::NO_FOG,
             Self::FromCamera | Self::FromPivot => fog_kind::TRANSPARENT_FOG,
             Self::DarkFromPivot | Self::DarkFromCamera => fog_kind::DARK_FOG,
+            Self::ReversedFromPivot => fog_kind::REVERSED_FOG,
         }
     }
 }
