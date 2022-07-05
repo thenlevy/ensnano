@@ -35,6 +35,10 @@ void main() {
         visibility = 1.;
     }
 
+    if (u_make_fog == 3) {
+        visibility = 1. - visibility;
+    }
+
     if (visibility < 0.9) {
      discard;
     }
