@@ -290,7 +290,11 @@ impl BezierEnd {
 
 impl super::Curved for InstanciatedPiecewiseBeizer {
     fn t_max(&self) -> f64 {
-        let n = self.ends.len() as f64 - 1.0;
+        let n = if self.cyclic {
+            self.ends.len() as f64
+        } else {
+            self.ends.len() as f64 - 1.0
+        };
         if let Some(tmax) = self.t_max {
             tmax.max(n)
         } else {
