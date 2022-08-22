@@ -228,7 +228,8 @@ fn insertion_pipeline(
             mask: !0,
             alpha_to_coverage_enabled: false,
         },
-        label: None,
+        label: Some("Insertion render pipeline"),
+        multiview: None,
     };
 
     device.create_render_pipeline(&desc)

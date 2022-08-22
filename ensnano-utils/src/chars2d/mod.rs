@@ -171,7 +171,8 @@ impl CharDrawer {
                     mask: !0,
                     alpha_to_coverage_enabled: false,
                 },
-                label: Some("render pipeline"),
+                multiview: None,
+                label: Some("Char drawer render pipeline"),
             })
     }
 }

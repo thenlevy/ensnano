@@ -117,11 +117,11 @@ impl ColorPicker {
 mod hue_column {
     use iced_graphics::{
         triangle::{Mesh2D, Vertex2D},
-        Backend, Defaults, Primitive, Rectangle, Renderer,
+        Backend, Primitive, Rectangle, Renderer,
     };
     use iced_native::{
-        layout, mouse, Clipboard, Element, Event, Hasher, Layout, Length, Point, Size, Vector,
-        Widget,
+        layout, mouse, renderer::Style, Clipboard, Element, Event, Layout, Length, Point,
+        Renderer as RendererTrait, Shell, Size, Vector, Widget,
     };
 
     use color_space::{Hsv, Rgb};
@@ -156,7 +156,7 @@ mod hue_column {
         }
     }
 
-    impl<'a, Message, B> Widget<Message, Renderer<B>> for HueColumn<'a, Message>
+    impl<'a, B, Message> Widget<Message, Renderer<B>> for HueColumn<'a, Message>
     where
         B: Backend,
     {
@@ -177,16 +177,14 @@ mod hue_column {
             layout::Node::new(Size::new(size.width, 4. * size.width))
         }
 
-        fn hash_layout(&self, _state: &mut Hasher) {}
-
         fn draw(
             &self,
-            _renderer: &mut Renderer<B>,
-            _defaults: &Defaults,
+            renderer: &mut Renderer<B>,
+            style: &Style,
             layout: Layout<'_>,
             _cursor_position: Point,
             _viewport: &Rectangle,
-        ) -> (Primitive, mouse::Interaction) {
+        ) {
             let b = layout.bounds();
 
             let x_max = b.width;
@@ -223,16 +221,12 @@ mod hue_column {
                 }
             }
 
-            (
-                Primitive::Translate {
-                    translation: Vector::new(b.x, b.y),
-                    content: Box::new(Primitive::Mesh2D {
-                        size: b.size(),
-                        buffers: Mesh2D { vertices, indices },
-                    }),
-                },
-                mouse::Interaction::default(),
-            )
+            renderer.with_translation(Vector::new(b.x, b.y), |renderer| {
+                renderer.draw_primitive(Primitive::Mesh2D {
+                    size: b.size(),
+                    buffers: Mesh2D { vertices, indices },
+                })
+            });
         }
 
         fn on_event(
@@ -242,18 +236,18 @@ mod hue_column {
             cursor_position: Point,
             _renderer: &Renderer<B>,
             _clipboard: &mut dyn Clipboard,
-            messages: &mut Vec<Message>,
+            shell: &mut Shell<'_, Message>,
         ) -> iced_native::event::Status {
             let mut change = || {
                 let bounds = layout.bounds();
                 if cursor_position.y <= bounds.y {
-                    messages.push((self.on_slide)(0.));
+                    shell.publish((self.on_slide)(0.));
                 } else if cursor_position.y >= bounds.y + bounds.height {
-                    messages.push((self.on_slide)(360.));
+                    shell.publish((self.on_slide)(360.));
                 } else {
                     let percent = (cursor_position.y - bounds.y) / bounds.height;
                     let value = percent * 360.;
-                    messages.push((self.on_slide)(value.into()));
+                    shell.publish((self.on_slide)(value.into()));
                 }
             };
 
@@ -302,11 +296,11 @@ mod hue_column {
 mod light_sat_square {
     use iced_graphics::{
         triangle::{Mesh2D, Vertex2D},
-        Backend, Defaults, Primitive, Rectangle, Renderer,
+        Backend, Primitive, Rectangle, Renderer,
     };
     use iced_native::{
-        layout, mouse, Clipboard, Element, Event, Hasher, Layout, Length, Point, Size, Vector,
-        Widget,
+        layout, mouse, renderer::Style, Clipboard, Element, Event, Hasher, Layout, Length, Point,
+        Renderer as RendererTrait, Shell, Size, Vector, Widget,
     };
 
     use color_space::{Hsv, Rgb};
@@ -369,16 +363,14 @@ mod light_sat_square {
             layout::Node::new(Size::new(size.width, size.width))
         }
 
-        fn hash_layout(&self, _state: &mut Hasher) {}
-
         fn draw(
             &self,
-            _renderer: &mut Renderer<B>,
-            _defaults: &Defaults,
+            renderer: &mut Renderer<B>,
+            style: &Style,
             layout: Layout<'_>,
             _cursor_position: Point,
             _viewport: &Rectangle,
-        ) -> (Primitive, mouse::Interaction) {
+        ) {
             let b = layout.bounds();
 
             let x_max = b.width;
@@ -412,16 +404,12 @@ mod light_sat_square {
                 }
             }
 
-            (
-                Primitive::Translate {
-                    translation: Vector::new(b.x, b.y),
-                    content: Box::new(Primitive::Mesh2D {
-                        size: b.size(),
-                        buffers: Mesh2D { vertices, indices },
-                    }),
-                },
-                mouse::Interaction::default(),
-            )
+            renderer.with_translation(Vector::new(b.x, b.y), |renderer| {
+                renderer.draw_primitive(Primitive::Mesh2D {
+                    size: b.size(),
+                    buffers: Mesh2D { vertices, indices },
+                })
+            });
         }
 
         fn on_event(
@@ -431,7 +419,7 @@ mod light_sat_square {
             cursor_position: Point,
             _renderer: &Renderer<B>,
             _clipboard: &mut dyn Clipboard,
-            messages: &mut Vec<Message>,
+            shell: &mut Shell<'_, Message>,
         ) -> iced_native::event::Status {
             let mut change = || {
                 let bounds = layout.bounds();
@@ -453,7 +441,7 @@ mod light_sat_square {
 
                 let saturation = 1. - percent_x;
                 let value = 1. - percent_y;
-                messages.push((self.on_slide)(saturation, value));
+                shell.publish((self.on_slide)(saturation, value));
             };
 
             if let Event::Mouse(mouse_event) = event {
@@ -471,7 +459,7 @@ mod light_sat_square {
                         if self.state.is_dragging {
                             self.state.is_dragging = false;
                         }
-                        messages.push(self.on_finish.clone());
+                        shell.publish(self.on_finish.clone());
                         iced_native::event::Status::Captured
                     }
                     mouse::Event::CursorMoved { .. } => {
@@ -507,11 +495,11 @@ mod color_square {
     use super::Color;
     use iced_graphics::{
         triangle::{Mesh2D, Vertex2D},
-        Backend, Defaults, Primitive, Rectangle, Renderer,
+        Backend, Primitive, Rectangle, Renderer,
     };
     use iced_native::{
-        layout, mouse, Clipboard, Element, Event, Hasher, Layout, Length, Point, Size, Vector,
-        Widget,
+        layout, mouse, renderer::Style, Clipboard, Element, Event, Hasher, Layout, Length, Point,
+        Renderer as RendererTrait, Shell, Size, Vector, Widget,
     };
 
     pub struct ColorSquare<'a, Message: Clone> {
@@ -556,16 +544,14 @@ mod color_square {
             layout::Node::new(Size::new(size.width, size.width))
         }
 
-        fn hash_layout(&self, _state: &mut Hasher) {}
-
         fn draw(
             &self,
-            _renderer: &mut Renderer<B>,
-            _defaults: &Defaults,
+            renderer: &mut Renderer<B>,
+            style: &Style,
             layout: Layout<'_>,
             _cursor_position: Point,
             _viewport: &Rectangle,
-        ) -> (Primitive, mouse::Interaction) {
+        ) {
             let b = layout.bounds();
             let x_max = b.width;
             let y_max = b.height;
@@ -589,16 +575,13 @@ mod color_square {
                 },
             ];
             let indices = vec![0, 1, 2, 1, 2, 3];
-            (
-                Primitive::Translate {
-                    translation: Vector::new(b.x, b.y),
-                    content: Box::new(Primitive::Mesh2D {
-                        size: b.size(),
-                        buffers: Mesh2D { vertices, indices },
-                    }),
-                },
-                mouse::Interaction::default(),
-            )
+
+            renderer.with_translation(Vector::new(b.x, b.y), |renderer| {
+                renderer.draw_primitive(Primitive::Mesh2D {
+                    size: b.size(),
+                    buffers: Mesh2D { vertices, indices },
+                })
+            });
         }
 
         fn on_event(
@@ -608,14 +591,14 @@ mod color_square {
             cursor_position: Point,
             _renderer: &Renderer<B>,
             _clipboard: &mut dyn Clipboard,
-            messages: &mut Vec<Message>,
+            shell: &mut Shell<'_, Message>,
         ) -> iced_native::event::Status {
             if let Event::Mouse(mouse_event) = event {
                 match mouse_event {
                     mouse::Event::ButtonPressed(mouse::Button::Left) => {
                         if layout.bounds().contains(cursor_position) {
                             self.state.clicked = true;
-                            messages.push((self.on_click)(self.color));
+                            shell.publish((self.on_click)(self.color));
                             iced_native::event::Status::Captured
                         } else {
                             iced_native::event::Status::Ignored
@@ -624,7 +607,7 @@ mod color_square {
                     mouse::Event::ButtonReleased(mouse::Button::Left) if self.state.clicked => {
                         if layout.bounds().contains(cursor_position) {
                             self.state.clicked = false;
-                            messages.push(self.on_release.clone());
+                            shell.publish(self.on_release.clone());
                             iced_native::event::Status::Captured
                         } else {
                             iced_native::event::Status::Ignored
@@ -635,7 +618,7 @@ mod color_square {
                             iced_native::event::Status::Ignored
                         } else {
                             self.state.clicked = false;
-                            messages.push(self.on_release.clone());
+                            shell.publish(self.on_release.clone());
                             iced_native::event::Status::Captured
                         }
                     }

@@ -158,7 +158,7 @@ impl CircleDrawer {
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     bind_group_layouts: &[globals_layout, &self.instances_bg.get_layout()],
                     push_constant_ranges: &[],
-                    label: Some("render_pipeline_layout"),
+                    label: Some("Circle drawer pipeline layout"),
                 });
 
         let format = wgpu::TextureFormat::Bgra8UnormSrgb;
@@ -203,7 +203,8 @@ impl CircleDrawer {
                     mask: !0,
                     alpha_to_coverage_enabled: false,
                 },
-                label: Some("render pipeline"),
+                multiview: None,
+                label: Some("CircleDrawer render pipeline"),
             })
     }
 }

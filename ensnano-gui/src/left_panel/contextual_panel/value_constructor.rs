@@ -18,7 +18,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::{Selection, UiSize};
 
-use iced_native::{slider, text_input, Column, Element, Row, Slider, Text, TextInput};
+use iced_native::{
+    widget::{slider, text_input, Column, Row, Slider, Text, TextInput},
+    Element,
+};
 use iced_wgpu::Renderer;
 
 pub trait BuilderMessage: Clone + 'static {

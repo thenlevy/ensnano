@@ -20,7 +20,10 @@ use ensnano_interactor::{ActionMode, SelectionMode};
 use iced::{container, Background, Container};
 use iced_wgpu::Renderer;
 use iced_winit::winit::dpi::LogicalSize;
-use iced_winit::{button, Button, Color, Command, Element, Length, Program, Row};
+use iced_winit::{
+    widget::{button, Button, Row},
+    Color, Command, Element, Length, Program,
+};
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
@@ -550,9 +553,9 @@ impl ActionModeState {
 
 struct ButtonStyle(bool);
 
-impl iced_wgpu::button::StyleSheet for ButtonStyle {
-    fn active(&self) -> iced_wgpu::button::Style {
-        iced_wgpu::button::Style {
+impl iced_native::widget::button::StyleSheet for ButtonStyle {
+    fn active(&self) -> iced_native::widget::button::Style {
+        iced_native::widget::button::Style {
             border_width: if self.0 { 3_f32 } else { 1_f32 },
             border_radius: if self.0 { 3_f32 } else { 2_f32 },
             border_color: if self.0 {

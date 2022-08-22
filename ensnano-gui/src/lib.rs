@@ -327,42 +327,27 @@ impl<R: Requests, S: AppState> GuiState<R, S> {
         debug: &Debug,
         mouse_interaction: &mut iced::mouse::Interaction,
     ) {
+        renderer.with_primitives(|backend, primitives| {
+            backend.present(
+                device,
+                staging_belt,
+                encoder,
+                target,
+                primitives,
+                viewport,
+                &debug.overlay(),
+            )
+        });
         match self {
-            GuiState::TopBar(ref state) => {
-                *mouse_interaction = renderer.backend_mut().draw(
-                    device,
-                    staging_belt,
-                    encoder,
-                    target,
-                    viewport,
-                    state.primitive(),
-                    &debug.overlay(),
-                );
-            }
+            GuiState::TopBar(ref state) => *mouse_interaction = state.mouse_interaction(),
             GuiState::LeftPanel(ref state) => {
-                let icon = renderer.backend_mut().draw(
-                    device,
-                    staging_belt,
-                    encoder,
-                    target,
-                    viewport,
-                    state.primitive(),
-                    &debug.overlay(),
-                );
+                let icon = state.mouse_interaction();
                 if icon > *mouse_interaction {
                     *mouse_interaction = icon;
                 }
             }
             GuiState::StatusBar(ref state) => {
-                let icon = renderer.backend_mut().draw(
-                    device,
-                    staging_belt,
-                    encoder,
-                    target,
-                    viewport,
-                    state.primitive(),
-                    &debug.overlay(),
-                );
+                let icon = state.mouse_interaction();
                 if icon > *mouse_interaction {
                     *mouse_interaction = icon;
                 }
@@ -407,7 +392,6 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         let top_bar_state = program::State::new(
             top_bar,
             convert_size(top_bar_area.size),
-            conversion::cursor_position(cursor_position, window.scale_factor()),
             renderer,
             &mut top_bar_debug,
         );
@@ -441,7 +425,6 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         let left_panel_state = program::State::new(
             left_panel,
             convert_size(left_panel_area.size),
-            conversion::cursor_position(cursor_position, window.scale_factor()),
             renderer,
             &mut left_panel_debug,
         );
@@ -467,7 +450,6 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         let status_bar_state = program::State::new(
             status_bar,
             convert_size(status_bar_area.size),
-            conversion::cursor_position(cursor_position, window.scale_factor()),
             renderer,
             &mut status_bar_debug,
         );

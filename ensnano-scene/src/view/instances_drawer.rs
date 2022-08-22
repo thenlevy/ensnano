@@ -531,6 +531,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
                 alpha_to_coverage_enabled: !fake,
             },
             label: Some(label.as_ref()),
+            multiview: None,
         })
     }
 }

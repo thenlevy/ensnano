@@ -1069,9 +1069,9 @@ impl container::StyleSheet for FloatingStyle {
 
 struct ButtonStyle(bool);
 
-impl iced_wgpu::button::StyleSheet for ButtonStyle {
-    fn active(&self) -> iced_wgpu::button::Style {
-        iced_wgpu::button::Style {
+impl iced_native::widget::button::StyleSheet for ButtonStyle {
+    fn active(&self) -> iced_native::widget::button::Style {
+        iced_native::widget::button::Style {
             border_width: if self.0 { 3_f32 } else { 1_f32 },
             border_radius: if self.0 { 3_f32 } else { 2_f32 },
             border_color: if self.0 {
@@ -1098,9 +1098,9 @@ impl ButtonColor {
     }
 }
 
-impl iced_wgpu::button::StyleSheet for ButtonColor {
-    fn active(&self) -> iced_wgpu::button::Style {
-        iced_wgpu::button::Style {
+impl iced_native::widget::button::StyleSheet for ButtonColor {
+    fn active(&self) -> iced_native::widget::button::Style {
+        iced_native::widget::button::Style {
             background: Some(Background::Color(self.0)),
             //background: Some(Background::Color(BACKGROUND)),
             border_radius: 2.0,
@@ -1111,9 +1111,9 @@ impl iced_wgpu::button::StyleSheet for ButtonColor {
         }
     }
 
-    fn hovered(&self) -> iced_wgpu::button::Style {
+    fn hovered(&self) -> iced_native::widget::button::Style {
         let active = self.active();
-        iced_wgpu::button::Style {
+        iced_native::widget::button::Style {
             background: active.background.map(|background| match background {
                 Background::Color(color) => Background::Color(Color {
                     a: color.a * 0.75,
@@ -1157,9 +1157,9 @@ fn rotation_text(i: usize, ui_size: UiSize) -> Text {
 
 mod text_input_style {
     use iced::{Background, Color};
-    use iced_wgpu::text_input::*;
+    use iced_native::widget::text_input::*;
     pub struct BadValue(pub bool);
-    impl iced_wgpu::text_input::StyleSheet for BadValue {
+    impl iced_native::widget::text_input::StyleSheet for BadValue {
         fn active(&self) -> Style {
             Style {
                 background: Background::Color(Color::WHITE),

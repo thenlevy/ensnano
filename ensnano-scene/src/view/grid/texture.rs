@@ -382,6 +382,7 @@ fn pipeline(device: &Device) -> wgpu::RenderPipeline {
             alpha_to_coverage_enabled: false,
         },
         label: None,
+        multiview: None,
     };
 
     device.create_render_pipeline(&desc)

@@ -12,11 +12,6 @@ resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-iced = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3", features=["image"] }
-iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3", features = ["spirv"] }
-iced_graphics = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
-iced_winit = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
-iced_native = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
 ultraviolet = { git = "https://github.com/termhn/ultraviolet", rev = "b2fb29e" , features = ["bytemuck", "f64", "serde"] }
 failure = "0.1.8"
 env_logger = "0.7"

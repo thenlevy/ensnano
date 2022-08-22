@@ -1,9 +1,8 @@
 use iced::{Container, Element};
 use iced_native::{
-    event, layout, overlay, Alignment, Clipboard, Event, Hasher, Layout, Length, Point, Rectangle,
-    Widget,
+    event, layout, overlay, renderer::Style, Alignment, Clipboard, Event, Layout, Length, Point,
+    Rectangle, Shell, Widget,
 };
-use std::hash::Hash;
 
 #[derive(Debug, Clone, PartialOrd, PartialEq, Eq, Ord)]
 pub(super) enum Identifier<K> {
@@ -91,7 +90,7 @@ impl<'a, E: super::OrganizerElement> Widget<OrganizerMessage<E>, Renderer>
         cursor_position: Point,
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
-        messages: &mut Vec<OrganizerMessage<E>>,
+        shell: &mut Shell<OrganizerMessage<E>>,
     ) -> event::Status {
         use iced::mouse;
         use iced::mouse::Event as MouseEvent;
@@ -101,17 +100,17 @@ impl<'a, E: super::OrganizerElement> Widget<OrganizerMessage<E>, Renderer>
             cursor_position,
             renderer,
             clipboard,
-            messages,
+            shell,
         );
         match event {
             Event::Mouse(MouseEvent::ButtonReleased(mouse::Button::Left)) => {
                 if layout.bounds().contains(cursor_position) {
-                    messages.push(OrganizerMessage::drag_dropped(self.identifier.clone()))
+                    shell.publish(OrganizerMessage::drag_dropped(self.identifier.clone()))
                 }
             }
             Event::Mouse(MouseEvent::ButtonPressed(mouse::Button::Left)) => {
                 if layout.bounds().contains(cursor_position) {
-                    messages.push(OrganizerMessage::dragging(self.identifier.clone()))
+                    shell.publish(OrganizerMessage::dragging(self.identifier.clone()))
                 }
                 return event::Status::Captured;
             }
@@ -123,37 +122,26 @@ impl<'a, E: super::OrganizerElement> Widget<OrganizerMessage<E>, Renderer>
     fn draw(
         &self,
         renderer: &mut Renderer,
-        defaults: &<Renderer as iced_native::Renderer>::Defaults,
+        style: &Style,
         layout: Layout<'_>,
         cursor_position: Point,
         viewport: &Rectangle,
-    ) -> <Renderer as iced_native::Renderer>::Output {
+    ) {
         self.content.draw(
             renderer,
-            defaults,
+            style,
             layout.children().next().unwrap(),
             cursor_position,
             viewport,
         )
     }
 
-    fn hash_layout(&self, state: &mut Hasher) {
-        struct Marker;
-        std::any::TypeId::of::<Marker>().hash(state);
-
-        self.padding.hash(state);
-        self.width.hash(state);
-        self.height.hash(state);
-        self.max_width.hash(state);
-        self.max_height.hash(state);
-
-        self.content.hash_layout(state);
-    }
-
     fn overlay(
         &mut self,
         layout: Layout<'_>,
+        renderer: &Renderer,
     ) -> Option<overlay::Element<'_, OrganizerMessage<E>, Renderer>> {
-        self.content.overlay(layout.children().next().unwrap())
+        self.content
+            .overlay(layout.children().next().unwrap(), renderer)
     }
 }

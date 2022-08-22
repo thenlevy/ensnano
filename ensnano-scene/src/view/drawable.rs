@@ -222,6 +222,7 @@ impl<D: Drawable> Drawer<D> {
                     alpha_to_coverage_enabled: false,
                 },
                 label: Some("render pipeline"),
+                multiview: None,
             })
     }
 }

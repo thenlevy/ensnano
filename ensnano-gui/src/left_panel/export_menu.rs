@@ -17,8 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
-use iced::mouse::ScrollDelta;
-use iced_native::scrollable;
+use iced_native::widget::scrollable;
 
 #[derive(Default)]
 pub struct ExportMenu {

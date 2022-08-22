@@ -73,7 +73,7 @@ impl Rectangle {
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
+                label: Some("Rectangle Render Pipeline Layout"),
                 bind_group_layouts: &[],
                 push_constant_ranges: &[],
             });
@@ -101,7 +101,7 @@ impl Rectangle {
         };
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some("Rectangle pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &vs_module,
@@ -120,6 +120,7 @@ impl Rectangle {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            multiview: None,
         });
 
         Self {

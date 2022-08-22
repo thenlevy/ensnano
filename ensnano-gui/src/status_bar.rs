@@ -19,8 +19,14 @@ use super::{AppState, Requests, UiSize};
 use ensnano_interactor::operation::{Operation, ParameterField};
 pub use ensnano_interactor::StrandBuildingStatus;
 use iced::{container, slider, Background, Container, Length};
-use iced_native::{pick_list, text_input, Color, PickList, TextInput};
-use iced_winit::{Column, Command, Element, Program, Row, Space, Text};
+use iced_native::{
+    widget::{pick_list, text_input, PickList, TextInput},
+    Color,
+};
+use iced_winit::{
+    widget::{Column, Row, Space, Text},
+    Command, Element, Program,
+};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -448,14 +454,14 @@ impl OperationInput {
 
 mod input_color {
     use iced::{Background, Color};
-    use iced_wgpu::text_input::*;
+    use iced_native::widget::text_input::*;
     pub enum InputValueState {
         Normal,
         BeingTyped,
         Invalid,
     }
 
-    impl iced_wgpu::text_input::StyleSheet for InputValueState {
+    impl iced_native::widget::text_input::StyleSheet for InputValueState {
         fn active(&self) -> Style {
             Style {
                 background: Background::Color(Color::WHITE),

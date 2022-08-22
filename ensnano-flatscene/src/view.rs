@@ -1308,7 +1308,8 @@ fn helices_pipeline_descr(
             mask: !0,
             alpha_to_coverage_enabled: false,
         },
-        label: None,
+        label: Some("2D helices pipeline"),
+        multiview: None,
     };
 
     device.create_render_pipeline(&desc)
@@ -1362,7 +1363,8 @@ fn strand_pipeline_descr(
             mask: !0,
             alpha_to_coverage_enabled: false,
         },
-        label: None,
+        label: Some("2D strand pipeline"),
+        multiview: None,
     };
 
     device.create_render_pipeline(&desc)

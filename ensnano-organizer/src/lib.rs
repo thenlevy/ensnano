@@ -4,7 +4,7 @@ use iced::{
 };
 pub use iced_aw::Icon;
 use iced_native::keyboard::Modifiers;
-use iced_wgpu::Text;
+use iced_native::{text::Renderer, widget::Text};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::convert::TryInto;
 
@@ -25,7 +25,7 @@ pub use tree::{GroupId, OrganizerTree};
 
 use drag_drop_target::*;
 
-type HoverableButton<'a, Message> = hoverable_button::Button<'a, Message, iced_wgpu::Renderer>;
+use hoverable_button::HoverableContainer;
 
 const LEVEL0_SPACING: u16 = 3;
 const LEVELS_SPACING: u16 = 2;
@@ -832,7 +832,8 @@ impl<E: OrganizerElement> Section<E> {
 /// A data structure whose view displays information about an element.
 struct ElementView<E: OrganizerElement + 'static> {
     attribute_displayers: Vec<AttributeDisplayer<E::Attribute>>,
-    button_state: hoverable_button::State,
+    hovering_state: hoverable_button::State,
+    button_state: button::State,
     delete_button_state: button::State,
 }
 
@@ -840,6 +841,7 @@ impl<E: OrganizerElement> ElementView<E> {
     fn new() -> Self {
         Self {
             attribute_displayers: vec![AttributeDisplayer::new(); E::all_repr().len()],
+            hovering_state: Default::default(),
             button_state: Default::default(),
             delete_button_state: Default::default(),
         }
@@ -877,10 +879,13 @@ impl<E: OrganizerElement> ElementView<E> {
                     .on_press(OrganizerMessage::delete(id)),
             );
         }
-        let mut button = HoverableButton::new(&mut self.button_state, content)
-            .on_press(OrganizerMessage::element_selected(element.key().clone()))
-            .width(iced::Length::Fill)
-            .style(theme.selected(selected));
+        let mut button = HoverableContainer::new(
+            &mut self.hovering_state,
+            Button::new(&mut self.button_state, content)
+                .on_press(OrganizerMessage::element_selected(element.key().clone()))
+                .width(iced::Length::Fill)
+                .style(theme.selected(selected)),
+        );
         if let Some(id) = deletable {
             button = button
                 .on_hovered_in(OrganizerMessage::node_hovered(id.clone(), true))
@@ -909,7 +914,8 @@ impl<E: OrganizerElement> ElementView<E> {
 /// A data structure whose view is a "title bar" for a group or a section
 struct NodeView<E: OrganizerElement> {
     expansion_btn_state: button::State,
-    title_button_state: hoverable_button::State,
+    title_button_hovering_state: hoverable_button::State,
+    title_button_state: button::State,
     state: GroupState,
     attribute_displayers: Vec<AttributeDisplayer<E::Attribute>>,
 }
@@ -919,6 +925,7 @@ impl<E: OrganizerElement> NodeView<E> {
         Self {
             expansion_btn_state: Default::default(),
             title_button_state: Default::default(),
+            title_button_hovering_state: Default::default(),
             state: GroupState::Iddle {
                 eddit_button: Default::default(),
                 delete_button: Default::default(),
@@ -931,6 +938,7 @@ impl<E: OrganizerElement> NodeView<E> {
         Self {
             expansion_btn_state: Default::default(),
             title_button_state: Default::default(),
+            title_button_hovering_state: Default::default(),
             state: GroupState::NotEdditable,
             attribute_displayers: vec![],
         }
@@ -1045,11 +1053,14 @@ impl<E: OrganizerElement> NodeView<E> {
                 row
             }
         };
-        let mut button = HoverableButton::new(&mut self.title_button_state, title_row)
-            .on_press(OrganizerMessage::node_selected(id.clone()))
-            .on_hovered_in(OrganizerMessage::node_hovered(id.clone(), true))
-            .on_hovered_out(OrganizerMessage::node_hovered(id.clone(), false))
-            .width(iced::Length::Fill);
+        let mut button = HoverableContainer::new(
+            &mut self.title_button_hovering_state,
+            Button::new(&mut self.title_button_state, title_row)
+                .on_press(OrganizerMessage::node_selected(id.clone())),
+        )
+        .on_hovered_in(OrganizerMessage::node_hovered(id.clone(), true))
+        .on_hovered_out(OrganizerMessage::node_hovered(id.clone(), false))
+        .width(iced::Length::Fill);
         if selected {
             button = button.style(theme.level_selected(level));
         } else {
@@ -1603,7 +1614,10 @@ impl<E: OrganizerElement> GroupContent<E> {
     }
 }
 
-fn icon(unicode: char) -> Text {
+fn icon<R: Renderer>(unicode: char) -> Text<R>
+where
+    <R as iced_native::text::Renderer>::Font: From<iced::Font>,
+{
     use iced::alignment::Horizontal as HorizontalAlignment;
     Text::new(&unicode.to_string())
         .font(ICONS)
@@ -1611,7 +1625,10 @@ fn icon(unicode: char) -> Text {
         .horizontal_alignment(HorizontalAlignment::Center)
 }
 
-fn expand_icon(expanded: bool) -> Text {
+fn expand_icon<R: Renderer>(expanded: bool) -> Text<R>
+where
+    <R as iced_native::text::Renderer>::Font: From<iced::Font>,
+{
     if expanded {
         icon(Icon::CaretDown.into())
     } else {
@@ -1619,11 +1636,17 @@ fn expand_icon(expanded: bool) -> Text {
     }
 }
 
-fn eddit_icon() -> Text {
+fn eddit_icon<R: Renderer>() -> Text<R>
+where
+    <R as iced_native::text::Renderer>::Font: From<iced::Font>,
+{
     icon(Icon::VectorPen.into())
 }
 
-fn _delete_icon() -> Text {
+fn _delete_icon<R: Renderer>() -> Text<R>
+where
+    <R as iced_native::text::Renderer>::Font: From<iced::Font>,
+{
     icon('\u{E806}')
 }
 

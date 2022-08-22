@@ -6,12 +6,12 @@ edition = "2018"
 license = "GPL-3.0-or-later"
 
 [dependencies]
-iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3", features = ["spirv"] }
-iced = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3", features=["image"] }
-iced_graphics = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
-iced_winit = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
-iced_native = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
-iced_aw = { git = "https://github.com/thenlevy/iced_aw", rev = "4ee0a6ac70633" , features = ["tab_bar"]}
+iced_wgpu = { version = "0.5.1", features = ["spirv"] }
+iced = { version = "0.4.2", features=["image"] }
+iced_graphics = "0.3.1"
+iced_winit = "0.4.0"
+iced_native = "0.5.1"
+iced_aw = { version = "0.2.0", features = ["tab_bar"]}
 ensnano_design = { path = "../ensnano-design" }
 ensnano_interactor = { path = "../ensnano-interactor" }
 ensnano_organizer = { path = "../ensnano-organizer" }

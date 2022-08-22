@@ -280,5 +280,6 @@ fn build_render_pipeline(
             alpha_to_coverage_enabled: true,
         },
         label: Some("Gltf drawer pipeline"),
+        multiview: None,
     })
 }

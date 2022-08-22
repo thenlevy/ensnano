@@ -6,8 +6,8 @@ edition = "2018"
 license = "GPL-3.0-or-later"
 
 [dependencies]
-iced_wgpu = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3", features = ["spirv"] }
-iced_winit = { git = "https://github.com/hecrj/iced", rev = "61c747b53589d98f477fea95f85d2ea5349666d3" }
+iced_wgpu = "0.5.1"
+iced_winit = "0.4.0"
 bytemuck = "1.2.0"
 color_space = "0.5.2"
 ultraviolet = { git = "https://github.com/termhn/ultraviolet", rev = "b2fb29e" , features = ["bytemuck", "f64", "serde"] }

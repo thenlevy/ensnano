@@ -114,7 +114,8 @@ impl Background {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: None,
+            label: Some("2D background pipeline"),
+            multiview: None,
         });
         let border_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: Some(&pipeline_layout),
@@ -139,7 +140,8 @@ impl Background {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: None,
+            label: Some("2D border pipeline"),
+            multiview: None,
         });
 
         Self {
