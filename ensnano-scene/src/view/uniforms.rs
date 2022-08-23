@@ -38,6 +38,7 @@ pub struct Uniforms {
     pub stereography_view: Mat4,  // 0
     pub aspect_ratio: f32,        // 1
     pub stereography_zoom: f32,
+    pub _padding: [f32; 2],
 }
 
 #[derive(Clone, Debug)]
@@ -97,6 +98,7 @@ impl Uniforms {
             stereography_view,
             aspect_ratio: projection.borrow().get_ratio(),
             stereography_zoom: projection.borrow().stereographic_zoom,
+            _padding: Default::default(),
         }
     }
 
@@ -131,6 +133,7 @@ impl Uniforms {
             stereography_radius,
             aspect_ratio: projection.borrow().get_ratio(),
             stereography_zoom: projection.borrow().stereographic_zoom,
+            _padding: Default::default(),
         }
     }
 }

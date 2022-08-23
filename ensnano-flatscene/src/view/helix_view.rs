@@ -34,8 +34,14 @@ impl HelixView {
                 device.clone(),
                 queue.clone(),
                 wgpu::BufferUsages::VERTEX,
+                "helix vertex buffer",
             ),
-            index_buffer: DynamicBuffer::new(device, queue, wgpu::BufferUsages::INDEX),
+            index_buffer: DynamicBuffer::new(
+                device,
+                queue,
+                wgpu::BufferUsages::INDEX,
+                "helix index buffer",
+            ),
             num_instance: 0,
             background,
         }
@@ -84,38 +90,50 @@ impl StrandView {
                 device.clone(),
                 queue.clone(),
                 wgpu::BufferUsages::VERTEX,
+                "vertex buffer top",
             ),
             index_buffer_top: DynamicBuffer::new(
                 device.clone(),
                 queue.clone(),
                 wgpu::BufferUsages::INDEX,
+                "index buffer top",
             ),
             split_vbo_top: DynamicBuffer::new(
                 device.clone(),
                 queue.clone(),
                 wgpu::BufferUsages::VERTEX,
+                "split vbo top",
             ),
             split_ibo_top: DynamicBuffer::new(
                 device.clone(),
                 queue.clone(),
                 wgpu::BufferUsages::INDEX,
+                "split ibo top",
             ),
             split_vbo_bottom: DynamicBuffer::new(
                 device.clone(),
                 queue.clone(),
                 wgpu::BufferUsages::VERTEX,
+                "split vbo bottom",
             ),
             split_ibo_bottom: DynamicBuffer::new(
                 device.clone(),
                 queue.clone(),
                 wgpu::BufferUsages::INDEX,
+                "split ibo bottom",
             ),
             vertex_buffer_bottom: DynamicBuffer::new(
                 device.clone(),
                 queue.clone(),
                 wgpu::BufferUsages::VERTEX,
+                "vertex buffer bottom",
             ),
-            index_buffer_bottom: DynamicBuffer::new(device, queue, wgpu::BufferUsages::INDEX),
+            index_buffer_bottom: DynamicBuffer::new(
+                device,
+                queue,
+                wgpu::BufferUsages::INDEX,
+                "index buffer bottom",
+            ),
             num_instance_top: 0,
             num_instance_bottom: 0,
             num_instance_split_top: 0,
@@ -226,9 +244,14 @@ struct DynamicBuffer {
 }
 
 impl DynamicBuffer {
-    pub fn new(device: Rc<Device>, queue: Rc<Queue>, usage: wgpu::BufferUsages) -> Self {
+    pub fn new(
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+        usage: wgpu::BufferUsages,
+        label: &str,
+    ) -> Self {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
+            label: Some(label),
             size: 0,
             usage: usage | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,

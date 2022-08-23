@@ -100,7 +100,8 @@ impl CircleDrawer {
         globals_layout: &BindGroupLayout,
         circle_kind: CircleKind,
     ) -> Self {
-        let instances_bg = DynamicBindGroup::new(device.clone(), queue.clone());
+        let instances_bg =
+            DynamicBindGroup::new(device.clone(), queue.clone(), "circles instances");
 
         let mut ret = Self {
             device,
@@ -116,9 +117,11 @@ impl CircleDrawer {
 
     pub fn draw<'a>(&'a mut self, render_pass: &mut RenderPass<'a>) {
         self.update_instances();
-        render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
-        render_pass.set_bind_group(1, self.instances_bg.get_bindgroup(), &[]);
-        render_pass.draw(0..4, 0..self.number_instances as u32);
+        if self.number_instances > 0 {
+            render_pass.set_pipeline(self.pipeline.as_ref().unwrap());
+            render_pass.set_bind_group(1, self.instances_bg.get_bindgroup(), &[]);
+            render_pass.draw(0..4, 0..self.number_instances as u32);
+        }
     }
 
     pub fn new_instances(&mut self, instances: Rc<Vec<CircleInstance>>) {

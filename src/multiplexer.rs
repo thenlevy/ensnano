@@ -232,7 +232,7 @@ impl Multiplexer {
         };
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: None,
+            label: Some("Multiplexer render pass"),
             color_attachments: &[wgpu::RenderPassColorAttachment {
                 view: attachment,
                 resolve_target,
@@ -255,6 +255,7 @@ impl Multiplexer {
             ]
             .iter()
             {
+                log::trace!("Draw {:?}", element);
                 if let Some(area) = self.get_texture_size(*element) {
                     render_pass.set_bind_group(0, self.get_bind_group(element), &[]);
 
@@ -780,7 +781,7 @@ fn create_pipeline(device: &Device, bg_layout: &wgpu::BindGroupLayout) -> wgpu::
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         bind_group_layouts: &[bg_layout],
         push_constant_ranges: &[],
-        label: None,
+        label: Some("multiplexer pipeline layout"),
     });
 
     let targets = &[wgpu::ColorTargetState {
@@ -816,7 +817,8 @@ fn create_pipeline(device: &Device, bg_layout: &wgpu::BindGroupLayout) -> wgpu::
             mask: !0,
             alpha_to_coverage_enabled: false,
         },
-        label: None,
+        label: Some("multiplexer pipeline"),
+        multiview: None,
     };
 
     device.create_render_pipeline(&desc)

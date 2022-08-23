@@ -48,6 +48,7 @@ pub fn create_light(device: &Device) -> (BindGroup, BindGroupLayout) {
         device,
         bytemuck::cast_slice(&[light]),
         wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        "light buffer",
     );
 
     let light_bind_group_layout =

@@ -36,6 +36,8 @@ mod material_icons_light;
 pub use ensnano_design::{grid::GridId, Camera, CameraId};
 pub use status_bar::{CurentOpState, StrandBuildingStatus};
 mod consts;
+pub use iced;
+pub use iced_graphics;
 
 #[macro_use]
 extern crate paste;
@@ -772,7 +774,8 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         mouse_interaction: &mut iced::mouse::Interaction,
     ) {
         *mouse_interaction = Default::default();
-        for element in self.elements.values_mut() {
+        for (element_key, element) in self.elements.iter_mut() {
+            log::trace!("render {:?}", element_key);
             element.render(
                 &mut self.renderer,
                 encoder,

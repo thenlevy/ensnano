@@ -271,7 +271,7 @@ impl PlaneDrawer {
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
-            label: Some("render pipeline"),
+            label: Some("plane drawer"),
         })
     }
 }

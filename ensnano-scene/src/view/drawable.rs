@@ -43,6 +43,7 @@ pub trait Drawable {
             device.as_ref(),
             bytemuck::cast_slice(self.raw_vertices(fake).as_slice()),
             wgpu::BufferUsages::VERTEX,
+            "drawable vertex",
         ));
     }
     fn raw_vertices(&self, fake: bool) -> Vec<VertexRaw> {
@@ -76,6 +77,7 @@ impl<D: Drawable> Drawer<D> {
             device.as_ref(),
             bytemuck::cast_slice(D::indices().as_slice()),
             wgpu::BufferUsages::INDEX,
+            "drawable index",
         );
 
         Self {

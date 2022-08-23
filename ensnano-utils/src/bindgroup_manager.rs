@@ -33,12 +33,12 @@ pub struct DynamicBindGroup {
     queue: Rc<Queue>,
 }
 
-const INITIAL_CAPACITY: u64 = 4;
+const INITIAL_CAPACITY: u64 = 1024;
 
 impl DynamicBindGroup {
-    pub fn new(device: Rc<Device>, queue: Rc<Queue>) -> Self {
+    pub fn new(device: Rc<Device>, queue: Rc<Queue>, label: &str) -> Self {
         let buffer = device.create_buffer(&BufferDescriptor {
-            label: None,
+            label: Some(label),
             size: INITIAL_CAPACITY,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
@@ -166,11 +166,17 @@ static UNIFORM_BG_ENTRY: &'static [wgpu::BindGroupLayoutEntry] = &[wgpu::BindGro
 }];
 
 impl UniformBindGroup {
-    pub fn new<I: bytemuck::Pod>(device: Rc<Device>, queue: Rc<Queue>, viewer_data: &I) -> Self {
+    pub fn new<I: bytemuck::Pod>(
+        device: Rc<Device>,
+        queue: Rc<Queue>,
+        viewer_data: &I,
+        label: &str,
+    ) -> Self {
         let buffer = create_buffer_with_data(
             &device,
             bytemuck::cast_slice(&[*viewer_data]),
             wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            label,
         );
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: UNIFORM_BG_ENTRY,

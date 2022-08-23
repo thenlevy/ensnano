@@ -15,7 +15,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+pub use iced_wgpu;
 pub use iced_wgpu::wgpu;
+pub use iced_winit;
 pub use iced_winit::winit;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 pub use winit::dpi::{PhysicalPosition, PhysicalSize, Pixel};
@@ -40,9 +42,10 @@ pub fn create_buffer_with_data(
     device: &wgpu::Device,
     data: &[u8],
     usage: wgpu::BufferUsages,
+    label: &str,
 ) -> wgpu::Buffer {
     let descriptor = BufferInitDescriptor {
-        label: Some("descriptor"),
+        label: Some(label),
         contents: data,
         usage,
     };

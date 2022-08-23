@@ -254,7 +254,7 @@ fn main() {
             .await
             .expect("Request device")
     });
-    device.on_uncaptured_error(|e| log::error!("wgpu error {:?}", e));
+    //device.on_uncaptured_error(|e| log::error!("wgpu error {:?}", e));
 
     {
         let size = window.inner_size();
@@ -756,7 +756,6 @@ impl OverlayManager {
         let color_state = program::State::new(
             color,
             convert_size(PhysicalSize::new(250, 250)),
-            conversion::cursor_position(PhysicalPosition::new(-1f64, -1f64), window.scale_factor()),
             renderer,
             &mut color_debug,
         );
@@ -839,15 +838,17 @@ impl OverlayManager {
                         convert_size_u32(multiplexer.window_size),
                         window.scale_factor(),
                     );
-                    let _color_interaction = renderer.backend_mut().draw(
-                        &device,
-                        staging_belt,
-                        encoder,
-                        &target,
-                        &color_viewport,
-                        self.color_state.primitive(),
-                        &self.color_debug.overlay(),
-                    );
+                    renderer.with_primitives(|backend, primitives| {
+                        backend.present(
+                            device,
+                            staging_belt,
+                            encoder,
+                            target,
+                            primitives,
+                            &color_viewport,
+                            &self.color_debug.overlay(),
+                        )
+                    });
                 }
             }
         }

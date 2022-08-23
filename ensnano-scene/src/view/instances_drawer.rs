@@ -213,6 +213,7 @@ pub struct InstanceDrawer<D: Instanciable + ?Sized> {
     nb_indices: u32,
     ressource: D::Ressource,
     device: Rc<Device>,
+    label: String,
 }
 
 impl<D: Instanciable> InstanceDrawer<D> {
@@ -296,11 +297,13 @@ impl<D: Instanciable> InstanceDrawer<D> {
             device.as_ref(),
             bytemuck::cast_slice(D::indices().as_slice()),
             wgpu::BufferUsages::INDEX,
+            format!("{} index buffer", label.as_ref()).as_str(),
         );
         let vertex_buffer = create_buffer_with_data(
             device.as_ref(),
             bytemuck::cast_slice(D::raw_vertices().as_slice()),
             wgpu::BufferUsages::VERTEX,
+            format!("{} vertex buffer", label.as_ref()).as_str(),
         );
 
         let vertex_module = if fake {
@@ -328,6 +331,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
         } else {
             D::primitive_topology()
         };
+        let label_string = label.as_ref().to_string();
 
         let pipeline = Self::create_pipeline(
             &device,
@@ -340,7 +344,11 @@ impl<D: Instanciable> InstanceDrawer<D> {
             outliner,
             label,
         );
-        let instances = DynamicBindGroup::new(device.clone(), queue);
+        let instances = DynamicBindGroup::new(
+            device.clone(),
+            queue,
+            format!("{label_string} instances").as_str(),
+        );
 
         let additional_ressources_layout = D::Ressource::ressources_layout();
         let additional_bind_group = if additional_ressources_layout.len() > 0 {
@@ -369,6 +377,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
             additional_bind_group,
             ressource,
             device,
+            label: label_string,
         }
     }
 
@@ -383,6 +392,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
                 self.device.as_ref(),
                 bytemuck::cast_slice(indices.as_slice()),
                 wgpu::BufferUsages::INDEX,
+                format!("{} index buffer", self.label).as_str(),
             );
         }
         if let Some(vertices) = instances.get(0).and_then(D::custom_raw_vertices) {
@@ -390,6 +400,7 @@ impl<D: Instanciable> InstanceDrawer<D> {
                 self.device.as_ref(),
                 bytemuck::cast_slice(vertices.as_slice()),
                 wgpu::BufferUsages::VERTEX,
+                format!("{} vertex buffer", self.label).as_str(),
             );
         }
     }
@@ -563,27 +574,31 @@ impl<D: Instanciable> RawDrawer for InstanceDrawer<D> {
         viewer_bind_group: &'a wgpu::BindGroup,
         model_bind_group: &'a wgpu::BindGroup,
     ) {
-        let pipeline = &self.pipeline;
-        render_pass.set_pipeline(pipeline);
-        let vbo = if let Some(ref vbo) = self.ressource.vertex_buffer() {
-            vbo.slice(..)
-        } else {
-            self.vertex_buffer.slice(..)
-        };
-        render_pass.set_vertex_buffer(0, vbo);
-        let ibo = if let Some(ref ibo) = self.ressource.index_buffer() {
-            ibo.slice(..)
-        } else {
-            self.index_buffer.slice(..)
-        };
-        render_pass.set_index_buffer(ibo, wgpu::IndexFormat::Uint16);
-        render_pass.set_bind_group(0, viewer_bind_group, &[]);
-        render_pass.set_bind_group(1, model_bind_group, &[]);
-        render_pass.set_bind_group(2, self.instances.get_bindgroup(), &[]);
-        if let Some(ref additional_bind_group) = self.additional_bind_group {
-            render_pass.set_bind_group(3, additional_bind_group, &[]);
-        }
+        if self.nb_instances > 0 {
+            let pipeline = &self.pipeline;
+            render_pass.set_pipeline(pipeline);
+            let vbo = if let Some(ref vbo) = self.ressource.vertex_buffer() {
+                vbo.slice(..)
+            } else {
+                self.vertex_buffer.slice(..)
+            };
+            render_pass.set_vertex_buffer(0, vbo);
+            let ibo = if let Some(ref ibo) = self.ressource.index_buffer() {
+                ibo.slice(..)
+            } else {
+                self.index_buffer.slice(..)
+            };
+            render_pass.set_index_buffer(ibo, wgpu::IndexFormat::Uint16);
+            render_pass.set_bind_group(0, viewer_bind_group, &[]);
+            render_pass.set_bind_group(1, model_bind_group, &[]);
+            render_pass.set_bind_group(2, self.instances.get_bindgroup(), &[]);
+            if let Some(ref additional_bind_group) = self.additional_bind_group {
+                render_pass.set_bind_group(3, additional_bind_group, &[]);
+            }
 
-        render_pass.draw_indexed(0..self.nb_indices, 0, 0..self.nb_instances);
+            log::trace!("Drawing {}..", self.label);
+            render_pass.draw_indexed(0..self.nb_indices, 0, 0..self.nb_instances);
+            log::trace!("..Done");
+        }
     }
 }

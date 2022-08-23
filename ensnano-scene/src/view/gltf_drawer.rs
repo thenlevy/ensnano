@@ -145,11 +145,13 @@ impl GltfDrawer {
                         device,
                         bytemuck::cast_slice(mesh.vertices.as_slice()),
                         wgpu::BufferUsages::VERTEX,
+                        "gltf vertex",
                     ));
                     self.ibos.push(create_buffer_with_data(
                         device,
                         bytemuck::cast_slice(mesh.indices.as_slice()),
                         wgpu::BufferUsages::INDEX,
+                        "gltf index",
                     ));
                 }
             }
@@ -203,6 +205,7 @@ impl StlDrawer {
                     device,
                     bytemuck::cast_slice(mesh.vertices.as_slice()),
                     wgpu::BufferUsages::VERTEX,
+                    "std vertex",
                 ));
             }
             Err(err) => {

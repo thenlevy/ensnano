@@ -177,11 +177,13 @@ impl View {
             device.clone(),
             queue.clone(),
             &Uniforms::from_view_proj(camera.clone(), projection.clone(), None),
+            "3d viewer",
         );
         let stereographic_viewer = UniformBindGroup::new(
             device.clone(),
             queue.clone(),
             &Uniforms::from_view_proj(camera.clone(), projection.clone(), Some(&stereography)),
+            "stereographic viewer",
         );
         let model_bg_desc = wgpu::BindGroupLayoutDescriptor {
             entries: MODEL_BG_ENTRY,
@@ -199,7 +201,7 @@ impl View {
                     &model_bg_desc,
                     letter,
                     false,
-                    "letters",
+                    format!("letter {c}"),
                 )
             })
             .collect();
@@ -215,7 +217,7 @@ impl View {
                     &model_bg_desc,
                     letter,
                     false,
-                    "helix letters",
+                    format!("helix letter {c}"),
                 )
             })
             .collect();
@@ -234,7 +236,7 @@ impl View {
         } else {
             None
         };
-        let models = DynamicBindGroup::new(device.clone(), queue.clone());
+        let models = DynamicBindGroup::new(device.clone(), queue.clone(), "models");
 
         let grid_textures = GridTextures::new(device.as_ref(), encoder);
         log::info!("Create grid drawer");
@@ -610,6 +612,7 @@ impl View {
                     )
                 }
             } else if draw_type == DrawType::Scene {
+                log::trace!("Draw sky..");
                 if draw_options.background3d == Background3D::Sky {
                     self.skybox_cube.draw(
                         &mut render_pass,
@@ -617,6 +620,7 @@ impl View {
                         self.models.get_bindgroup(),
                     );
                 }
+                log::trace!("..Done");
                 for drawer in self.dna_drawers.reals(&draw_options) {
                     drawer.draw(
                         &mut render_pass,
@@ -694,12 +698,15 @@ impl View {
             }
 
             if draw_type.wants_widget() && !stereographic {
+                log::trace!("draw handles...");
                 self.handle_drawers.draw(
                     &mut render_pass,
                     viewer_bind_group,
                     viewer_bind_group_layout,
                     fake_color,
                 );
+                log::trace!("..Done");
+                log::trace!("draw rotation widget...");
 
                 self.rotation_widget.draw(
                     &mut render_pass,
@@ -707,11 +714,14 @@ impl View {
                     viewer_bind_group_layout,
                     fake_color,
                 );
+                log::trace!("..Done");
             }
 
             if !fake_color {
+                log::trace!("draw external objects...");
                 self.external_objects_drawer
                     .draw(&mut render_pass, viewer_bind_group);
+                log::trace!("..Done");
             }
 
             if fake_color {
@@ -759,11 +769,13 @@ impl View {
                 0.0,
                 1.0,
             );
+            log::trace!("draw direction cube...");
             self.direction_cube.draw(
                 &mut render_pass,
                 viewer_bind_group,
                 self.models.get_bindgroup(),
-            )
+            );
+            log::trace!("..Done");
         } else if draw_type == DrawType::Grid {
             // render pass to draw the grids
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

@@ -858,6 +858,7 @@ impl<S: AppState> Scene<S> {
         app_state: &S,
     ) {
         let is_stereographic = matches!(self.scene_kind, SceneKind::Stereographic);
+        log::trace!("draw scene");
         self.view.borrow_mut().draw(
             encoder,
             target,

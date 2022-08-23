@@ -133,16 +133,18 @@ impl View {
             &area.size,
             SAMPLE_COUNT,
         ));
-        let models = DynamicBindGroup::new(device.clone(), queue.clone());
+        let models = DynamicBindGroup::new(device.clone(), queue.clone(), "2d models");
         let globals_top = UniformBindGroup::new(
             device.clone(),
             queue.clone(),
             camera_top.borrow().get_globals(),
+            "global top",
         );
         let globals_bottom = UniformBindGroup::new(
             device.clone(),
             queue.clone(),
             camera_bottom.borrow().get_globals(),
+            "global bottom",
         );
 
         let depth_stencil_state = Some(wgpu::DepthStencilState {
@@ -595,6 +597,7 @@ impl View {
                 self.device.clone(),
                 self.queue.clone(),
                 &globals,
+                "global png",
             ))
         } else {
             None
@@ -715,14 +718,20 @@ impl View {
 
         render_pass.set_pipeline(&self.helices_pipeline);
 
+        log::trace!("Draw helices background..");
         for background in self.helices_background.iter() {
             background.draw(&mut render_pass);
         }
+        log::trace!("Done..");
+        log::trace!("Draw helices..");
         for helix in self.helices_view.iter() {
             helix.draw(&mut render_pass);
         }
+        log::trace!("Done..");
         if !exporting_png {
+            log::trace!("Draw rotation widget..");
             self.rotation_widget.draw(&mut render_pass);
+            log::trace!("Done..");
         }
         drop(render_pass);
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -768,21 +777,31 @@ impl View {
         self.text_drawer_top.draw(&mut render_pass);
         self.insertion_drawer.draw(&mut render_pass);
         render_pass.set_pipeline(&self.strand_pipeline);
+        log::trace!("Draw strands..");
         for strand in self.strands.iter() {
             strand.draw(&mut render_pass, bottom);
         }
+        log::trace!("..OK");
+        log::trace!("Draw pasted strands..");
         for strand in self.pasted_strands.iter() {
             strand.draw(&mut render_pass, bottom);
         }
+        log::trace!("..OK");
+        log::trace!("Draw suggestion..");
         for suggestion in self.suggestions_view.iter() {
             suggestion.draw(&mut render_pass, bottom);
         }
+        log::trace!("..OK");
+        log::trace!("Draw selected strands..");
         for highlight in self.selected_strands.iter() {
             highlight.draw(&mut render_pass, bottom);
         }
+        log::trace!("..OK");
+        log::trace!("Draw candidate strands..");
         for highlight in self.candidate_strands.iter() {
             highlight.draw(&mut render_pass, bottom);
         }
+        log::trace!("..OK");
         render_pass.set_pipeline(&self.helices_pipeline);
         self.nucl_highlighter_top.draw(&mut render_pass);
         drop(render_pass);

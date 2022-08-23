@@ -159,6 +159,7 @@ impl<S: AppState> FlatScene<S> {
     /// Draw the view of the currently selected design
     fn draw_view(&mut self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
         if let Some(view) = self.view.get(self.selected_design) {
+            log::trace!("draw flatscene");
             view.borrow_mut().draw(encoder, target, None, None);
         }
     }
