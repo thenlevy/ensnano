@@ -372,12 +372,13 @@ struct GuiElement<R: Requests, S: AppState> {
     debug: Debug,
     redraw: bool,
     element_type: ElementType,
+    renderer: Renderer,
 }
 
 impl<R: Requests, S: AppState> GuiElement<R, S> {
     /// Initialize the top bar gui component
     fn top_bar(
-        renderer: &mut Renderer,
+        mut renderer: Renderer,
         window: &Window,
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
@@ -394,7 +395,7 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         let top_bar_state = program::State::new(
             top_bar,
             convert_size(top_bar_area.size),
-            renderer,
+            &mut renderer,
             &mut top_bar_debug,
         );
         Self {
@@ -402,12 +403,13 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
             debug: top_bar_debug,
             redraw: true,
             element_type: ElementType::TopBar,
+            renderer,
         }
     }
 
     /// Initialize the left panel gui component
     fn left_panel(
-        renderer: &mut Renderer,
+        mut renderer: Renderer,
         window: &Window,
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
@@ -427,7 +429,7 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         let left_panel_state = program::State::new(
             left_panel,
             convert_size(left_panel_area.size),
-            renderer,
+            &mut renderer,
             &mut left_panel_debug,
         );
         Self {
@@ -435,11 +437,12 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
             debug: left_panel_debug,
             redraw: true,
             element_type: ElementType::LeftPanel,
+            renderer,
         }
     }
 
     fn status_bar(
-        renderer: &mut Renderer,
+        mut renderer: Renderer,
         window: &Window,
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
@@ -452,7 +455,7 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         let status_bar_state = program::State::new(
             status_bar,
             convert_size(status_bar_area.size),
-            renderer,
+            &mut renderer,
             &mut status_bar_debug,
         );
         Self {
@@ -460,6 +463,7 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
             debug: status_bar_debug,
             redraw: true,
             element_type: ElementType::StatusBar,
+            renderer,
         }
     }
 
@@ -486,7 +490,6 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         &mut self,
         window: &Window,
         multiplexer: &dyn Multiplexer,
-        renderer: &mut Renderer,
         resized: bool,
     ) -> bool {
         let area = multiplexer.get_draw_area(self.element_type).unwrap();
@@ -501,7 +504,7 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
             let _ = self.state.update(
                 convert_size(area.size),
                 conversion::cursor_position(cursor, window.scale_factor()),
-                renderer,
+                &mut self.renderer,
                 &mut self.debug,
             );
             log::debug!("GUI request redraw");
@@ -513,7 +516,6 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
 
     pub fn render(
         &mut self,
-        renderer: &mut Renderer,
         encoder: &mut wgpu::CommandEncoder,
         device: &Device,
         window: &Window,
@@ -528,7 +530,7 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
             );
             let target = multiplexer.get_texture_view(self.element_type).unwrap();
             self.state.render(
-                renderer,
+                &mut self.renderer,
                 device,
                 staging_belt,
                 encoder,
@@ -546,7 +548,6 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
 pub struct Gui<R: Requests, S: AppState> {
     /// HashMap mapping [ElementType](ElementType) to a GuiElement
     elements: HashMap<ElementType, GuiElement<R, S>>,
-    renderer: iced_wgpu::Renderer,
     settings: Settings,
     device: Rc<Device>,
     resized: bool,
@@ -564,27 +565,33 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         state: &S,
         main_state: MainState,
     ) -> Self {
-        let mut renderer = Renderer::new(Backend::new(
+        let mut elements = HashMap::new();
+
+        let top_bar_renderer = Renderer::new(Backend::new(
             device.as_ref(),
             settings.clone(),
             ensnano_utils::TEXTURE_FORMAT,
         ));
-        let mut elements = HashMap::new();
         let top_bar_state = top_bar_main_state(state, main_state);
         elements.insert(
             ElementType::TopBar,
             GuiElement::top_bar(
-                &mut renderer,
+                top_bar_renderer,
                 window,
                 multiplexer,
                 requests.clone(),
                 top_bar_state,
             ),
         );
+        let left_panel_renderer = Renderer::new(Backend::new(
+            device.as_ref(),
+            settings.clone(),
+            ensnano_utils::TEXTURE_FORMAT,
+        ));
         elements.insert(
             ElementType::LeftPanel,
             GuiElement::left_panel(
-                &mut renderer,
+                left_panel_renderer,
                 window,
                 multiplexer,
                 requests.clone(),
@@ -592,16 +599,27 @@ impl<R: Requests, S: AppState> Gui<R, S> {
                 state,
             ),
         );
+        let status_bar_renderer = Renderer::new(Backend::new(
+            device.as_ref(),
+            settings.clone(),
+            ensnano_utils::TEXTURE_FORMAT,
+        ));
+
         elements.insert(
             ElementType::StatusBar,
-            GuiElement::status_bar(&mut renderer, window, multiplexer, requests.clone(), state),
+            GuiElement::status_bar(
+                status_bar_renderer,
+                window,
+                multiplexer,
+                requests.clone(),
+                state,
+            ),
         );
 
         Self {
             settings,
             requests,
             elements,
-            renderer,
             device,
             resized: true,
             ui_size: Default::default(),
@@ -673,7 +691,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
     pub fn fetch_change(&mut self, window: &Window, multiplexer: &dyn Multiplexer) -> bool {
         let mut ret = false;
         for elements in self.elements.values_mut() {
-            ret |= elements.fetch_change(window, multiplexer, &mut self.renderer, false);
+            ret |= elements.fetch_change(window, multiplexer, false);
         }
         ret
     }
@@ -681,7 +699,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
     /// Ask the gui component to process the event and messages that they that they have recieved.
     pub fn update(&mut self, multiplexer: &dyn Multiplexer, window: &Window) {
         for elements in self.elements.values_mut() {
-            elements.fetch_change(window, multiplexer, &mut self.renderer, self.resized);
+            elements.fetch_change(window, multiplexer, self.resized);
         }
         self.resized = false;
     }
@@ -718,20 +736,30 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         state: &S,
         main_state: MainState,
     ) {
+        let top_bar_renderer = Renderer::new(Backend::new(
+            self.device.as_ref(),
+            self.settings.clone(),
+            ensnano_utils::TEXTURE_FORMAT,
+        ));
         self.elements.insert(
             ElementType::TopBar,
             GuiElement::top_bar(
-                &mut self.renderer,
+                top_bar_renderer,
                 window,
                 multiplexer,
                 self.requests.clone(),
                 top_bar_main_state(state, main_state),
             ),
         );
+        let left_panel_renderer = Renderer::new(Backend::new(
+            self.device.as_ref(),
+            self.settings.clone(),
+            ensnano_utils::TEXTURE_FORMAT,
+        ));
         self.elements.insert(
             ElementType::LeftPanel,
             GuiElement::left_panel(
-                &mut self.renderer,
+                left_panel_renderer,
                 window,
                 multiplexer,
                 self.requests.clone(),
@@ -739,10 +767,15 @@ impl<R: Requests, S: AppState> Gui<R, S> {
                 state,
             ),
         );
+        let status_bar_renderer = Renderer::new(Backend::new(
+            self.device.as_ref(),
+            self.settings.clone(),
+            ensnano_utils::TEXTURE_FORMAT,
+        ));
         self.elements.insert(
             ElementType::StatusBar,
             GuiElement::status_bar(
-                &mut self.renderer,
+                status_bar_renderer,
                 window,
                 multiplexer,
                 self.requests.clone(),
@@ -762,7 +795,6 @@ impl<R: Requests, S: AppState> Gui<R, S> {
             ensnano_utils::TEXTURE_FORMAT,
         ));
         self.settings = settings;
-        self.renderer = renderer;
     }
 
     pub fn render(
@@ -777,7 +809,6 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         for (element_key, element) in self.elements.iter_mut() {
             log::trace!("render {:?}", element_key);
             element.render(
-                &mut self.renderer,
                 encoder,
                 self.device.as_ref(),
                 window,
