@@ -23,16 +23,6 @@ pub const NO_FILE_RECIEVED_OXDNA: &'static str = "OxDNA export canceled";
 pub const NO_FILE_RECIEVED_SCAFFOLD: &'static str = "Scaffold setting canceled";
 pub const NO_FILE_RECIEVED_STAPPLE: &'static str = "Staple export canceled";
 
-pub fn succesfull_oxdna_export_msg<P: AsRef<Path>>(config: P, topo: P) -> String {
-    format!(
-        "Successfully exported to\n\
-             {}\n\
-             {}",
-        config.as_ref().to_string_lossy(),
-        topo.as_ref().to_string_lossy()
-    )
-}
-
 pub fn failed_to_save_msg<D: std::fmt::Debug>(reason: &D) -> String {
     format!("Failed to save {:?}", reason)
 }

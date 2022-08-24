@@ -1763,7 +1763,6 @@ pub enum ErrOperation {
     HelixHasNoGridPosition(usize),
     CouldNotMakeEdge(HelixGridPosition, HelixGridPosition),
     MergingSameStrand,
-    XoverOnSameHelix,
     NuclDoesNotExist(Nucl),
     XoverBetweenTwoPrime5,
     XoverBetweenTwoPrime3,

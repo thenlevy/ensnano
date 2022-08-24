@@ -44,7 +44,7 @@ impl TubeSpiralDescritor {
         TubeSpiral {
             theta_0: self.theta_0,
             big_axis: self.big_axis,
-            parameters,
+            _parameters: parameters,
             height: self.height,
             number_of_helices: self.number_of_helices,
             small_axis: self.small_axis,
@@ -65,7 +65,7 @@ impl TubeSpiralDescritor {
 pub(super) struct TubeSpiral {
     pub theta_0: f64,
     pub big_axis: f64,
-    pub parameters: Parameters,
+    pub _parameters: Parameters,
     pub height: f64,
     pub number_of_helices: usize,
     pub small_axis: f64,

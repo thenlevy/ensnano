@@ -35,7 +35,6 @@ use ensnano_interactor::{
 };
 use ensnano_utils::instance::Instance;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 use ultraviolet::{Mat4, Rotor3, Vec2, Vec3};
@@ -245,7 +244,6 @@ impl<R: DesignReader> Design3D<R> {
     ) -> Vec<RawDnaInstance> {
         let kind = self.get_object_type(id);
 
-        let referential = Referential::Model;
         let mut ret = Vec::new();
         if expand_with.is_none()
             || self.design.get_insertion_length(id) == 0
@@ -888,10 +886,6 @@ impl<R: DesignReader> Design3D<R> {
 
     pub fn get_helix_basis(&self, h_id: u32) -> Option<Rotor3> {
         self.design.get_helix_basis(h_id)
-    }
-
-    pub fn get_basis(&self) -> Rotor3 {
-        self.design.get_basis()
     }
 
     pub fn get_identifier_nucl(&self, nucl: &Nucl) -> Option<u32> {

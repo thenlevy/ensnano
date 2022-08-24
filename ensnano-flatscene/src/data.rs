@@ -34,7 +34,6 @@ use crate::FlatHelixMaps;
 use ahash::RandomState;
 use design::{Design2d, Helix2d};
 pub use design::{DesignReader, FlatTorsion, NuclCollection};
-use ensnano_design::Strand as DesignStrand;
 use ensnano_interactor::consts::*;
 use ensnano_utils::camera2d::FitRectangle;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -1087,19 +1086,6 @@ pub enum ClickResult {
         handle: HelixHandle,
     },
     Nothing,
-}
-
-#[derive(Debug)]
-pub(super) struct Xover {
-    pub source: DesignStrand,
-    pub target: DesignStrand,
-    pub source_id: usize,
-    pub target_id: usize,
-    pub source_nucl: Nucl,
-    pub target_nucl: Nucl,
-    pub design_id: usize,
-    pub target_end: Option<bool>,
-    pub source_end: Option<bool>,
 }
 
 /// A selection made by interacting with the 2D scene.

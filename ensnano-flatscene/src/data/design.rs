@@ -128,7 +128,7 @@ impl<R: DesignReader> Design2d<R> {
             })
             .collect();
 
-        for ((h_id, segment_id), flat_idx) in self.id_map.iter() {
+        for ((h_id, _segment_id), flat_idx) in self.id_map.iter() {
             let visibility = self.design.get_visibility_helix(*h_id);
             self.helices
                 .get_mut(*flat_idx)
@@ -187,7 +187,6 @@ impl<R: DesignReader> Design2d<R> {
 
     /// Add a nucleotide to self and increase the left/right bond the the 2d segment representation
     fn read_nucl(&mut self, nucl: &Nucl) {
-        let helix = nucl.helix;
         if let Some(flat_nucl) = FlatNucl::from_real(nucl, &self.id_map) {
             let helix2d = &mut self.helices[flat_nucl.helix.flat];
             helix2d.left = helix2d.left.min(nucl.position - 1);

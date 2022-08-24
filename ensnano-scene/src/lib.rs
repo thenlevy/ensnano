@@ -17,7 +17,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use ensnano_design::grid::HelixGridPosition;
 use ensnano_design::ultraviolet;
-use ensnano_interactor::consts::SAMPLE_COUNT;
 use ensnano_interactor::graphics::RenderingMode;
 use ensnano_interactor::NewBezierTengentVector;
 use ensnano_utils::wgpu;
@@ -89,7 +88,6 @@ pub struct Scene<S: AppState> {
     requests: Arc<Mutex<dyn Requests>>,
     scene_kind: SceneKind,
     current_camera: Arc<(Camera3D, f32)>,
-    export_view: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -154,15 +152,8 @@ impl<S: AppState> Scene<S> {
                 Default::default(),
                 area.size.width as f32 / area.size.height as f32,
             )),
-            export_view: None,
         }
     }
-
-    /*
-    /// Add a design to be rendered.
-    fn add_design(&mut self, design: Arc<RwLock<Design>>) {
-        self.data.borrow_mut().add_design(design)
-    }*/
 
     /// Remove all designs
     fn clear_design(&mut self) {
@@ -833,7 +824,7 @@ impl<S: AppState> Scene<S> {
         }
         self.controller.update_data();
         if self.update.need_update {
-            self.perform_update(dt, &new_state);
+            self.perform_update(dt);
         }
         self.data
             .borrow_mut()
@@ -869,9 +860,9 @@ impl<S: AppState> Scene<S> {
         );
     }
 
-    fn perform_update(&mut self, dt: Duration, app_state: &S) {
+    fn perform_update(&mut self, dt: Duration) {
         if self.update.camera_update {
-            self.controller.update_camera(dt, app_state);
+            self.controller.update_camera(dt);
             self.view.borrow_mut().update(ViewUpdate::Camera);
             self.update.camera_update = false;
             self.current_camera = Arc::new((

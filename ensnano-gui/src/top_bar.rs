@@ -496,12 +496,6 @@ pub const BACKGROUND: Color = Color::from_rgb(
     0x3F as f32 / 255.0,
 );
 
-#[derive(Clone)]
-struct TopSizeInfo {
-    ui_size: UiSize,
-    height: iced::Length,
-}
-
 struct ToolTipStyle;
 impl iced::container::StyleSheet for ToolTipStyle {
     fn style(&self) -> iced::container::Style {

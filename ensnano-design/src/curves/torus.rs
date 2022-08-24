@@ -253,7 +253,7 @@ impl CurveDescriptor2D {
                 radius_tube,
                 radius_extern,
                 radius_intern,
-                smooth_ceil,
+                ..
             } => {
                 use std::f64::consts::PI;
                 let radius_intern = f64::from(*radius_intern);

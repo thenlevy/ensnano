@@ -23,7 +23,7 @@ use super::{
 
 use crate::dialog;
 use dialog::{MustAckMessage, PathInput};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Default)]
 pub(super) struct DownloadIntervals {

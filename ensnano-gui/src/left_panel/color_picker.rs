@@ -180,7 +180,7 @@ mod hue_column {
         fn draw(
             &self,
             renderer: &mut Renderer<B>,
-            style: &Style,
+            _style: &Style,
             layout: Layout<'_>,
             _cursor_position: Point,
             _viewport: &Rectangle,
@@ -299,7 +299,7 @@ mod light_sat_square {
         Backend, Primitive, Rectangle, Renderer,
     };
     use iced_native::{
-        layout, mouse, renderer::Style, Clipboard, Element, Event, Hasher, Layout, Length, Point,
+        layout, mouse, renderer::Style, Clipboard, Element, Event, Layout, Length, Point,
         Renderer as RendererTrait, Shell, Size, Vector, Widget,
     };
 
@@ -366,7 +366,7 @@ mod light_sat_square {
         fn draw(
             &self,
             renderer: &mut Renderer<B>,
-            style: &Style,
+            _style: &Style,
             layout: Layout<'_>,
             _cursor_position: Point,
             _viewport: &Rectangle,
@@ -498,7 +498,7 @@ mod color_square {
         Backend, Primitive, Rectangle, Renderer,
     };
     use iced_native::{
-        layout, mouse, renderer::Style, Clipboard, Element, Event, Hasher, Layout, Length, Point,
+        layout, mouse, renderer::Style, Clipboard, Element, Event, Layout, Length, Point,
         Renderer as RendererTrait, Shell, Size, Vector, Widget,
     };
 
@@ -547,7 +547,7 @@ mod color_square {
         fn draw(
             &self,
             renderer: &mut Renderer<B>,
-            style: &Style,
+            _style: &Style,
             layout: Layout<'_>,
             _cursor_position: Point,
             _viewport: &Rectangle,

@@ -73,7 +73,7 @@ impl Object3DDrawer {
         }
     }
 
-    fn update_object(&mut self, id: External3DObjectId, object: External3DObject) {
+    fn update_object(&mut self, _id: External3DObjectId, _object: External3DObject) {
         //TODO update object attributes
     }
 

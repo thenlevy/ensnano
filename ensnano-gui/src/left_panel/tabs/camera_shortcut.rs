@@ -289,12 +289,10 @@ struct CameraWidget {
 
 #[derive(Debug, Clone, Default)]
 struct CameraWidgetState {
-    favourite_btn: button::State,
     select_camera_btn: button::State,
     edit_name_btn: button::State,
     delete_btn: button::State,
     name_input: text_input::State,
-    update_camera_btn: button::State,
 }
 
 impl CameraWidget {

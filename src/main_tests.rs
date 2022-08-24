@@ -19,6 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! Test suite for the `MainState` structure
 
 use super::*;
+use ensnano_design::Nucl;
 
 struct DummyScene {}
 impl Application for DummyScene {
@@ -135,7 +136,7 @@ fn recolor_stapple_undoable() {
 /// helices 4, 5 and 6
 fn pastable_design() -> AppState {
     let path = test_path("pastable.json");
-    AppState::import_design(&path).ok().unwrap()
+    AppState::import_design(path).ok().unwrap()
 }
 
 fn test_path(design_name: &'static str) -> PathBuf {

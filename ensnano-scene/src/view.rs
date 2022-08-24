@@ -29,7 +29,6 @@ use ensnano_design::{grid::GridId, Axis};
 use ensnano_interactor::consts::*;
 use ensnano_utils::wgpu;
 use ensnano_utils::{bindgroup_manager, text, texture};
-use image::png;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -66,7 +65,6 @@ pub use dna_obj::{
     StereographicSphereAndPlane, TubeInstance,
 };
 use drawable::{Drawable, Drawer, Vertex};
-use gltf_drawer::{GltfDrawer, StlDrawer};
 pub use grid::{GridInstance, GridIntersection};
 use grid::{GridManager, GridTextures};
 pub use grid_disc::GridDisc;

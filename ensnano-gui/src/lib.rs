@@ -384,7 +384,6 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         requests: Arc<Mutex<R>>,
         app_state: top_bar::MainState<S>,
     ) -> Self {
-        let cursor_position = PhysicalPosition::new(-1., -1.);
         let top_bar_area = multiplexer.get_draw_area(ElementType::TopBar).unwrap();
         let top_bar = TopBar::new(
             requests.clone(),
@@ -416,7 +415,6 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         first_time: bool,
         state: &S,
     ) -> Self {
-        let cursor_position = PhysicalPosition::new(-1., -1.);
         let left_panel_area = multiplexer.get_draw_area(ElementType::LeftPanel).unwrap();
         let left_panel = LeftPanel::new(
             requests.clone(),
@@ -443,12 +441,11 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
 
     fn status_bar(
         mut renderer: Renderer,
-        window: &Window,
+        _window: &Window,
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
         state: &S,
     ) -> Self {
-        let cursor_position = PhysicalPosition::new(-1., -1.);
         let status_bar_area = multiplexer.get_draw_area(ElementType::StatusBar).unwrap();
         let status_bar = StatusBar::new(requests, state);
         let mut status_bar_debug = Debug::new();
@@ -789,11 +786,6 @@ impl<R: Requests, S: AppState> Gui<R, S> {
             default_text_size: text_size,
             ..self.settings.clone()
         };
-        let renderer = Renderer::new(Backend::new(
-            self.device.as_ref(),
-            settings.clone(),
-            ensnano_utils::TEXTURE_FORMAT,
-        ));
         self.settings = settings;
     }
 

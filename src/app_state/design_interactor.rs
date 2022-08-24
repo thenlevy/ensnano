@@ -423,7 +423,6 @@ mod tests {
     use super::controller::CopyOperation;
     use super::file_parsing::StrandJunction;
     use super::*;
-    use crate::app_state;
     use crate::scene::DesignReader as Reader3d;
     use ensnano_design::grid::HelixGridPosition;
     use ensnano_design::HelixCollection;
@@ -446,7 +445,7 @@ mod tests {
 
     fn design_for_sequence_testing() -> AppState {
         let path = test_path("test_sequence.json");
-        AppState::import_design(&path).ok().unwrap()
+        AppState::import_design(path).ok().unwrap()
     }
 
     fn assert_good_strand<S: std::ops::Deref<Target = str>>(strand: &Strand, objective: S) {
@@ -480,21 +479,21 @@ mod tests {
     /// A design with one strand h1: 0 -> 5 ; h2: 0 <- 5
     fn one_xover() -> AppState {
         let path = test_path("one_xover.json");
-        AppState::import_design(&path).ok().unwrap()
+        AppState::import_design(path).ok().unwrap()
     }
 
     /// A design with one strand h1: -1 -> 7 ; h2: -1 <- 7 ; h3: 0 -> 9 that can be pasted on
     /// helices 4, 5 and 6
     fn pastable_design() -> AppState {
         let path = test_path("pastable.json");
-        AppState::import_design(&path).ok().unwrap()
+        AppState::import_design(path).ok().unwrap()
     }
 
     /// A design with one cyclic strand h1: -1 -> 7 ; h2: -1 <- 7 ; h3: 0 -> 9 that can be pasted on
     /// helices 4, 5 and 6
     fn pastable_cyclic() -> AppState {
         let path = test_path("pastable_cyclic.json");
-        AppState::import_design(&path).ok().unwrap()
+        AppState::import_design(path).ok().unwrap()
     }
 
     fn fake_design_update(state: &mut AppState) {
@@ -516,7 +515,7 @@ mod tests {
     #[test]
     fn first_update_has_effect() {
         let path = one_helix_path();
-        let mut app_state = AppState::import_design(&path).ok().unwrap();
+        let mut app_state = AppState::import_design(path).ok().unwrap();
         let old_app_state = app_state.clone();
         fake_design_update(&mut app_state);
         let app_state = app_state.updated();
@@ -526,7 +525,7 @@ mod tests {
     #[test]
     fn second_update_has_no_effect() {
         let path = one_helix_path();
-        let mut app_state = AppState::import_design(&path).ok().unwrap();
+        let mut app_state = AppState::import_design(path).ok().unwrap();
         fake_design_update(&mut app_state);
         app_state = app_state.updated();
         let old_app_state = app_state.clone();
@@ -1677,7 +1676,7 @@ mod tests {
     /// A design with two strands h1: 0 -> 5 and h1: 6 -> 10
     fn two_neighbour_one_helix() -> AppState {
         let path = test_path("two_neighbour_strands.ens");
-        AppState::import_design(&path).ok().unwrap()
+        AppState::import_design(path).ok().unwrap()
     }
 
     #[test]
@@ -1763,7 +1762,7 @@ mod tests {
     /// A design with two strands [h1: 0 -> 10] and [@10] [h2: 0 <- 10]
     fn loopout_5prime_end() -> AppState {
         let path = test_path("loopout_5prime.ens");
-        AppState::import_design(&path).ok().unwrap()
+        AppState::import_design(path).ok().unwrap()
     }
 
     #[test]
@@ -1808,7 +1807,7 @@ mod tests {
     /// A design with two strands [h1: 0 -> 10] and [@20] [h2: 0 <- 10]
     fn loopout_5prime_and_3prime_ends() -> AppState {
         let path = test_path("loopout_5prime_and_3prime.ens");
-        AppState::import_design(&path).ok().unwrap()
+        AppState::import_design(path).ok().unwrap()
     }
 
     #[test]

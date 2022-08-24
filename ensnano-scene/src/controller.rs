@@ -24,7 +24,6 @@ use crate::{PhySize, PhysicalPosition, WindowEvent};
 use ensnano_design::grid::{GridId, GridObject, GridPosition, HelixGridPosition};
 use ensnano_design::{BezierPathId, BezierPlaneId, BezierVertex, BezierVertexId, Nucl};
 use ensnano_interactor::consts::*;
-use ensnano_interactor::DesignReader;
 use ensnano_interactor::Selection;
 use ensnano_utils::winit::event::*;
 use std::cell::RefCell;
@@ -400,13 +399,9 @@ impl<S: AppState> Controller<S> {
     }
 
     /// Moves the camera according to its speed and the time elapsed since previous frame
-    pub fn update_camera(&mut self, dt: Duration, app_state: &S) {
-        self.camera_controller.update_camera(
-            dt,
-            self.click_mode,
-            &self.current_modifiers,
-            app_state,
-        );
+    pub fn update_camera(&mut self, dt: Duration) {
+        self.camera_controller
+            .update_camera(dt, self.click_mode, &self.current_modifiers);
     }
 
     /// Handles a resizing of the window and/or drawing area

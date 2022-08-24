@@ -116,7 +116,6 @@ struct RigidHelix {
     pub center_of_mass: Vec3,
     pub center_to_origin: Vec3,
     pub mass: f32,
-    pub id: usize,
     pub locked: bool,
     interval: (isize, isize),
 }
@@ -583,8 +582,6 @@ impl RigidHelix {
             center_to_origin: -(x_min + x_max) / 2. * Vec3::unit_x(),
             mass: x_max - x_min,
             inertia_inverse: inertia_helix(x_max - x_min, 1.).inversed(),
-            // at the moment we do not care for the id when creating a rigid helix for a grid
-            id: 0,
             interval,
             locked: false,
         }
@@ -598,7 +595,6 @@ impl RigidHelix {
         mass: f32,
         roll: f32,
         orientation: Rotor3,
-        id: usize,
         interval: (isize, isize),
     ) -> RigidHelix {
         Self {
@@ -608,7 +604,6 @@ impl RigidHelix {
             center_to_origin: delta,
             mass,
             inertia_inverse: inertia_helix(mass, 1.).inversed(),
-            id,
             interval,
             locked: false,
         }
@@ -847,7 +842,6 @@ pub struct RigidHelixState {
     positions: Vec<Vec3>,
     orientations: Vec<Rotor3>,
     center_of_mass_from_helix: Vec<Vec3>,
-    ids: Vec<usize>,
     constants: Arc<RigidHelixConstants>,
 }
 
@@ -920,7 +914,6 @@ impl HelixSystemThread {
     fn get_state(&self) -> RigidHelixState {
         let state = self.helix_system.init_cond();
         let (positions, orientations, _, _) = self.helix_system.read_state(&state);
-        let ids = self.helix_system.helices.iter().map(|g| g.id).collect();
         let center_of_mass_from_helix = self
             .helix_system
             .helices
@@ -931,7 +924,6 @@ impl HelixSystemThread {
             positions,
             orientations,
             center_of_mass_from_helix,
-            ids,
             constants: self.constants.clone(),
         }
     }
@@ -1157,7 +1149,6 @@ fn make_rigid_helix_world_pov_interval(
         (right - left).mag(),
         helix.roll,
         helix.orientation,
-        h_id,
         interval,
     )
 }
@@ -1431,7 +1422,6 @@ struct RigidGrid {
     inertia_inverse: Mat3,
     mass: f32,
     id: GridId,
-    helices: Vec<RigidHelix>,
 }
 
 impl RigidGrid {
@@ -1456,7 +1446,6 @@ impl RigidGrid {
             orientation,
             mass,
             id,
-            helices,
         }
     }
 }

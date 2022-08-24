@@ -504,12 +504,7 @@ impl CameraController {
     }
 
     /// Move the camera according to the keyboard input
-    fn move_camera<S: super::AppState>(
-        &mut self,
-        dt: Duration,
-        modifier: &ModifiersState,
-        app_state: &S,
-    ) {
+    fn move_camera(&mut self, dt: Duration, modifier: &ModifiersState) {
         let dt = dt.as_secs_f32();
 
         // Move forward/backward and left/right
@@ -616,12 +611,11 @@ impl CameraController {
         self.scroll = 0.;
     }
 
-    pub fn update_camera<S: super::AppState>(
+    pub fn update_camera(
         &mut self,
         dt: Duration,
         click_mode: ClickMode,
         modifier: &ModifiersState,
-        app_state: &S,
     ) {
         if self.processed_move {
             match click_mode {
@@ -630,7 +624,7 @@ impl CameraController {
             }
         }
         if self.is_moving() {
-            self.move_camera(dt, modifier, app_state);
+            self.move_camera(dt, modifier);
         }
     }
 

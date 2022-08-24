@@ -19,7 +19,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! All other format supported by ensnano are converted into this format and run-time manipulation
 //! of designs are performed on an `ensnano::Design` structure
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[macro_use]
@@ -31,7 +30,7 @@ use ultraviolet::{Rotor3, Vec3};
 
 pub mod codenano;
 pub mod grid;
-use grid::{FreeGridId, FreeGrids, GridData, GridDescriptor, GridId};
+use grid::{FreeGrids, GridData, GridDescriptor, GridId};
 pub mod scadnano;
 pub use ensnano_organizer::{GroupId, OrganizerTree};
 use scadnano::*;

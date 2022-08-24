@@ -396,7 +396,7 @@ impl<S: AppState> PointAndClicking<S> {
 
 fn making_xover_maker<'a, S: AppState>(
     context: &mut EventContext<'a, S>,
-    click: ClickInfo,
+    _click: ClickInfo,
 ) -> Box<dyn OptionalTransition<S>> {
     let origin = context.get_xover_origin_under_cursor();
     Box::new(move |click: ClickInfo| making_xover(click, &origin))
