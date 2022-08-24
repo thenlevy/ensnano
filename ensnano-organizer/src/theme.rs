@@ -1,7 +1,7 @@
 use iced::button::Style as ButtonStyle;
 use iced::Color;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 struct ColorGradient {
     left: Color,
     middle: Option<Color>,
@@ -72,6 +72,7 @@ pub struct Theme {
     max_level: usize,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub(super) struct ThemeLevel {
     gradient: ColorGradient,
     text_color: Color,

@@ -1053,19 +1053,22 @@ impl<E: OrganizerElement> NodeView<E> {
                 row
             }
         };
-        let mut button = HoverableContainer::new(
+        let theme = if selected {
+            theme.level_selected(level)
+        } else {
+            theme.level(level)
+        };
+        let button = HoverableContainer::new(
             &mut self.title_button_hovering_state,
             Button::new(&mut self.title_button_state, title_row)
-                .on_press(OrganizerMessage::node_selected(id.clone())),
+                .on_press(OrganizerMessage::node_selected(id.clone()))
+                .width(iced::Length::Fill)
+                .style(theme),
         )
         .on_hovered_in(OrganizerMessage::node_hovered(id.clone(), true))
         .on_hovered_out(OrganizerMessage::node_hovered(id.clone(), false))
-        .width(iced::Length::Fill);
-        if selected {
-            button = button.style(theme.level_selected(level));
-        } else {
-            button = button.style(theme.level(level));
-        }
+        .width(iced::Length::Fill)
+        .style(theme);
         DragDropTarget::new(button, Identifier::Group { id: id.clone() }).width(iced::Length::Fill)
     }
 

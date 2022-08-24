@@ -82,7 +82,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
-use ensnano_design::{grid::GridId, Camera, Nucl};
+use ensnano_design::{grid::GridId, Camera};
 use ensnano_exports::{ExportResult, ExportType};
 use ensnano_interactor::application::{Application, Notification};
 use ensnano_interactor::{
@@ -1381,6 +1381,8 @@ impl MainState {
             self.app_state.save_design(&path, save_info)?;
             self.last_backed_up_state = self.app_state.clone();
             println!("Saved backup to {}", path.to_string_lossy());
+        } else {
+            // Do nothing. We do not want to save backup in transitory states.
         }
 
         Ok(())
@@ -1533,7 +1535,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             .main_state
             .last_backed_up_state
             .design_was_modified(&self.main_state.app_state)
-            && !self
+            || !self
                 .main_state
                 .last_saved_state
                 .design_was_modified(&self.main_state.app_state)
