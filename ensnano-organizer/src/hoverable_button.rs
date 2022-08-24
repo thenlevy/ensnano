@@ -31,7 +31,7 @@ impl State {
 
 /// An `iced_native::Container` that emits a message when hovered.
 #[allow(missing_debug_implementations)]
-pub struct HoverableContainer<'a, Message, Renderer> {
+pub struct HoverableContainer<'a, Message: Clone, Renderer> {
     padding: Padding,
     width: Length,
     height: Length,
@@ -43,15 +43,15 @@ pub struct HoverableContainer<'a, Message, Renderer> {
     content: Element<'a, Message, Renderer>,
     on_hovered_in: Option<Message>,
     on_hovered_out: Option<Message>,
-    state: &'a State,
+    state: &'a mut State,
 }
 
-impl<'a, Message, Renderer> HoverableContainer<'a, Message, Renderer>
+impl<'a, Message: Clone, Renderer> HoverableContainer<'a, Message, Renderer>
 where
     Renderer: iced_native::Renderer,
 {
     /// Creates an empty [`Container`].
-    pub fn new<T>(state: &'a State, content: T) -> Self
+    pub fn new<T>(state: &'a mut State, content: T) -> Self
     where
         T: Into<Element<'a, Message, Renderer>>,
     {
@@ -168,7 +168,8 @@ pub fn layout<Renderer>(
     layout::Node::with_children(size.pad(padding), vec![content])
 }
 
-impl<'a, Message, Renderer> Widget<Message, Renderer> for HoverableContainer<'a, Message, Renderer>
+impl<'a, Message: Clone, Renderer> Widget<Message, Renderer>
+    for HoverableContainer<'a, Message, Renderer>
 where
     Renderer: iced_native::Renderer,
 {
@@ -202,14 +203,36 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) -> event::Status {
-        self.content.on_event(
-            event,
+        if let event::Status::Captured = self.content.on_event(
+            event.clone(),
             layout.children().next().unwrap(),
             cursor_position,
             renderer,
             clipboard,
             shell,
-        )
+        ) {
+            event::Status::Captured
+        } else {
+            if let Event::Mouse(mouse::Event::CursorMoved { .. }) = event {
+                let bounds = layout.bounds();
+                if bounds.contains(cursor_position) {
+                    if !self.state.is_hovered {
+                        if let Some(on_hovered_in) = self.on_hovered_in.clone() {
+                            shell.publish(on_hovered_in)
+                        }
+                        self.state.is_hovered = true;
+                    }
+                } else {
+                    if self.state.is_hovered {
+                        if let Some(on_hovered_out) = self.on_hovered_out.clone() {
+                            shell.publish(on_hovered_out)
+                        }
+                        self.state.is_hovered = false;
+                    }
+                }
+            }
+            event::Status::Ignored
+        }
     }
 
     fn mouse_interaction(
@@ -280,7 +303,7 @@ where
     }
 }
 
-impl<'a, Message, Renderer> From<HoverableContainer<'a, Message, Renderer>>
+impl<'a, Message: Clone, Renderer> From<HoverableContainer<'a, Message, Renderer>>
     for Element<'a, Message, Renderer>
 where
     Renderer: 'a + iced_native::Renderer,
