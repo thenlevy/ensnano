@@ -16,16 +16,15 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::collection::HasMap;
-use super::curves::{BezierEndCoordinates, Curve, InstanciatedPiecewiseBeizer};
+use super::curves::{BezierEndCoordinates, Curve, InstanciatedPiecewiseBezier};
 use super::Collection;
 use super::Parameters;
 use crate::grid::*;
 use crate::utils::rotor_to_drotor;
+use crate::PieceWiseBezierInstantiator;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use ultraviolet::{DMat3, DVec3, Mat3, Rotor3, Vec2, Vec3};
-
-const DEFAULT_BEZIER_TENGENT_NORM: f32 = 1. / 3.;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BezierPlaneDescriptor {
@@ -280,168 +279,72 @@ impl BezierVertex {
 pub struct InstanciatedPath {
     source_planes: BezierPlanes,
     source_path: Arc<BezierPath>,
-    pub(crate) curve_descriptor: Option<Arc<InstanciatedPiecewiseBeizer>>,
-    curve_descriptor_2d: Option<Arc<InstanciatedPiecewiseBeizer>>,
+    pub(crate) curve_descriptor: Option<Arc<InstanciatedPiecewiseBezier>>,
+    curve_descriptor_2d: Option<Arc<InstanciatedPiecewiseBezier>>,
     curve_2d: Option<Curve>,
     pub(crate) frames: Option<Vec<(Vec3, Rotor3)>>,
+}
+
+struct BezierInstantiator {
+    source_planes: BezierPlanes,
+    source_path: Arc<BezierPath>,
+    path_3d: bool,
+}
+
+impl PieceWiseBezierInstantiator for BezierInstantiator {
+    fn vector_in(&self, i: usize) -> Option<Vec3> {
+        let vertex = self.source_path.vertices().get(i)?;
+        let pos = self.position(i)?;
+        vertex.position_in.and_then(|position_in| {
+            let plane = self.source_planes.get(&vertex.plane_id)?;
+            Some(pos - plane.space_position_of_point2d(position_in))
+        })
+    }
+
+    fn vector_out(&self, i: usize) -> Option<Vec3> {
+        let vertex = self.source_path.vertices().get(i)?;
+        let pos = self.position(i)?;
+        vertex.position_out.and_then(|position_in| {
+            let plane = self.source_planes.get(&vertex.plane_id)?;
+            Some(plane.space_position_of_point2d(position_in) - pos)
+        })
+    }
+
+    fn position(&self, i: usize) -> Option<Vec3> {
+        let vertex = self.source_path.vertices().get(i)?;
+        if self.path_3d {
+            vertex.grid_position(&self.source_planes)
+        } else {
+            vertex.space_position(&self.source_planes)
+        }
+    }
+
+    fn nb_vertices(&self) -> usize {
+        self.source_path.vertices.len()
+    }
+
+    fn cyclic(&self) -> bool {
+        self.source_path.cyclic
+    }
 }
 
 fn path_to_curve_descriptor(
     source_planes: BezierPlanes,
     source_path: Arc<BezierPath>,
     path_3d: bool,
-) -> Option<InstanciatedPiecewiseBeizer> {
-    let position = |vertex: &BezierVertex| {
-        if path_3d {
-            vertex.grid_position(&source_planes)
-        } else {
-            vertex.space_position(&source_planes)
-        }
+) -> Option<InstanciatedPiecewiseBezier> {
+    let instanciator = BezierInstantiator {
+        source_planes,
+        source_path,
+        path_3d,
     };
-    let descriptor = if source_path.vertices.len() > 2 {
-        let iterator: Box<dyn Iterator<Item = ((&BezierVertex, &BezierVertex), &BezierVertex)>> =
-            if source_path.cyclic {
-                let n = source_path.vertices().len();
-                Box::new(
-                    source_path
-                        .vertices()
-                        .iter()
-                        .cycle()
-                        .skip(n - 1)
-                        .zip(source_path.vertices.iter().cycle().take(n + 1))
-                        .zip(source_path.vertices().iter().cycle().skip(1)),
-                )
-            } else {
-                Box::new(
-                    source_path
-                        .vertices()
-                        .iter()
-                        .zip(source_path.vertices.iter().skip(1))
-                        .zip(source_path.vertices().iter().skip(2)),
-                )
-            };
-        let mut bezier_points: Vec<_> = iterator
-            .filter_map(|((v_from, v), v_to)| {
-                let pos_from = position(v_from)?;
-                let pos = position(v)?;
-                let pos_to = position(v_to)?;
-                let vector_in = if let Some(position_in) = v.position_in {
-                    let plane = source_planes.get(&v.plane_id)?;
-                    pos - plane.space_position_of_point2d(position_in)
-                } else {
-                    (pos_to - pos_from) * DEFAULT_BEZIER_TENGENT_NORM
-                };
-                let vector_out = if let Some(position_out) = v.position_out {
-                    let plane = source_planes.get(&v.plane_id)?;
-                    plane.space_position_of_point2d(position_out) - pos
-                } else {
-                    (pos_to - pos_from) * DEFAULT_BEZIER_TENGENT_NORM
-                };
-
-                Some(BezierEndCoordinates {
-                    position: pos,
-                    vector_in,
-                    vector_out,
-                })
-            })
-            .collect();
-        if !source_path.cyclic {
-            let first_point = {
-                let second_point = bezier_points.get(0)?;
-                let pos = position(&source_path.vertices[0])?;
-                let control = second_point.position - second_point.vector_in;
-                let vector_out = if let Some(position_out) = source_path.vertices[0].position_out {
-                    let plane = source_planes.get(&source_path.vertices[0].plane_id)?;
-                    plane.space_position_of_point2d(position_out) - pos
-                } else {
-                    (control - pos) / 2.
-                };
-
-                let vector_in = if let Some(position_in) = source_path.vertices[0].position_in {
-                    let plane = source_planes.get(&source_path.vertices[0].plane_id)?;
-                    pos - plane.space_position_of_point2d(position_in)
-                } else {
-                    (control - pos) / 2.
-                };
-
-                BezierEndCoordinates {
-                    position: pos,
-                    vector_out,
-                    vector_in,
-                }
-            };
-            bezier_points.insert(0, first_point);
-            let last_point = {
-                let second_to_last_point = bezier_points.last()?;
-                // Ok to unwrap because vertices has length > 2
-                let pos = position(source_path.vertices.last().unwrap())?;
-                let control = second_to_last_point.position + second_to_last_point.vector_out;
-                let vector_out =
-                    if let Some(position_out) = source_path.vertices.last().unwrap().position_out {
-                        let plane =
-                            source_planes.get(&source_path.vertices.last().unwrap().plane_id)?;
-                        plane.space_position_of_point2d(position_out) - pos
-                    } else {
-                        (control - pos) / 2.
-                    };
-
-                let vector_in =
-                    if let Some(position_in) = source_path.vertices.last().unwrap().position_in {
-                        let plane =
-                            source_planes.get(&source_path.vertices.last().unwrap().plane_id)?;
-                        pos - plane.space_position_of_point2d(position_in)
-                    } else {
-                        (control - pos) / 2.
-                    };
-                BezierEndCoordinates {
-                    position: pos,
-                    vector_out,
-                    vector_in,
-                }
-            };
-            bezier_points.push(last_point);
-        } else {
-            bezier_points.pop();
-        }
-        Some(bezier_points)
-    } else if source_path.vertices.len() == 2 {
-        let pos_first = position(&source_path.vertices[0])?;
-        let pos_last = position(&source_path.vertices[1])?;
-        let vec = (pos_last - pos_first) / 3.;
-        Some(vec![
-            BezierEndCoordinates {
-                position: pos_first,
-                vector_in: vec,
-                vector_out: vec,
-            },
-            BezierEndCoordinates {
-                position: pos_last,
-                vector_in: vec,
-                vector_out: vec,
-            },
-        ])
-    } else if source_path.vertices.len() == 1 {
-        let pos_first = position(&source_path.vertices[0])?;
-        Some(vec![BezierEndCoordinates {
-            position: pos_first,
-            vector_in: f32::NAN * Vec3::one(),
-            vector_out: f32::NAN * Vec3::one(),
-        }])
-    } else {
-        None
-    }?;
-    Some(InstanciatedPiecewiseBeizer {
-        t_min: None,
-        t_max: Some(descriptor.len() as f64 - 1.),
-        ends: descriptor,
-        cyclic: source_path.cyclic,
-    })
+    instanciator.instantiate()
 }
 
 fn curve_descriptor_to_frame(
     source_planes: BezierPlanes,
     source_path: Arc<BezierPath>,
-    desc: &InstanciatedPiecewiseBeizer,
+    desc: &InstanciatedPiecewiseBezier,
 ) -> Option<Vec<(Vec3, Rotor3)>> {
     source_path
         .vertices

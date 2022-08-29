@@ -18,12 +18,15 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use std::sync::Arc;
 
-use super::{Edge, GridPositionProvider};
+use super::{CurveInstantiator, Edge};
 use crate::grid::GridPosition;
 use crate::utils::vec_to_dvec;
 use ultraviolet::{DMat3, DVec3, Vec3};
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+
+mod instantiator;
+pub(crate) use instantiator::PieceWiseBezierInstantiator;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
 #[repr(usize)]
@@ -218,7 +221,7 @@ impl super::Curved for CubicBezier {
 ///
 /// The process to derive a curve from `ends` is decribed in [BezierEnd](The documentation on `BezierEnd`).
 #[derive(Clone, Debug)]
-pub(crate) struct InstanciatedPiecewiseBeizer {
+pub(crate) struct InstanciatedPiecewiseBezier {
     pub ends: Vec<BezierEndCoordinates>,
     pub t_min: Option<f64>,
     pub t_max: Option<f64>,
@@ -232,7 +235,8 @@ pub struct BezierEndCoordinates {
     pub vector_out: Vec3,
 }
 
-impl InstanciatedPiecewiseBeizer {
+impl InstanciatedPiecewiseBezier {
+    /// Return the index of the bezier curve that determines the position associated to time `t`.
     fn t_to_i(&self, t: f64) -> usize {
         if t < 0.0 {
             0
@@ -246,6 +250,7 @@ impl InstanciatedPiecewiseBeizer {
         }
     }
 
+    /// Return the CubicBezier with index i
     fn ith_cubic_bezier(&self, i: usize) -> CubicBezier {
         CubicBezier::new(CubicBezierConstructor {
             start: self.ends.iter().cycle().nth(i).unwrap().position,
@@ -280,7 +285,7 @@ impl BezierEnd {
     pub(super) fn translated_by(
         self,
         edge: Edge,
-        grid_reader: &dyn GridPositionProvider,
+        grid_reader: &dyn CurveInstantiator,
     ) -> Option<Self> {
         grid_reader
             .translate_by_edge(self.position, edge)
@@ -288,7 +293,7 @@ impl BezierEnd {
     }
 }
 
-impl super::Curved for InstanciatedPiecewiseBeizer {
+impl super::Curved for InstanciatedPiecewiseBezier {
     fn t_max(&self) -> f64 {
         let n = if self.cyclic {
             self.ends.len() as f64
@@ -334,7 +339,7 @@ impl super::Curved for InstanciatedPiecewiseBeizer {
 }
 
 pub(super) struct TranslatedPiecewiseBezier {
-    pub original_curve: Arc<InstanciatedPiecewiseBeizer>,
+    pub original_curve: Arc<InstanciatedPiecewiseBezier>,
     pub translation: DVec3,
     pub initial_frame: DMat3,
 }

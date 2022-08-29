@@ -29,7 +29,7 @@ use super::{
     Parameters, Twist,
 };
 use curves::{
-    CurveCache, GridPositionProvider, InstanciatedCurve, InstanciatedCurveDescriptor, PathTimeMaps,
+    CurveCache, CurveInstantiator, InstanciatedCurve, InstanciatedCurveDescriptor, PathTimeMaps,
     RevolutionCurveTimeMaps,
 };
 mod copy_grid;
@@ -1346,8 +1346,8 @@ impl<'a> HelicesTranslator<'a> {
     }
 }
 
-impl GridPositionProvider for GridData {
-    fn position(&self, position: GridPosition) -> Vec3 {
+impl CurveInstantiator for GridData {
+    fn concrete_grid_position(&self, position: GridPosition) -> Vec3 {
         if let Some(grid) = self.grids.get(&position.grid) {
             grid.position_helix(position.x, position.y)
         } else {
