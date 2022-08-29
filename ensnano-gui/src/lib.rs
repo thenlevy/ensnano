@@ -50,7 +50,7 @@ use ensnano_design::{
     grid::GridTypeDescr,
     ultraviolet, BezierPathId, Nucl, Parameters,
 };
-use ensnano_interactor::graphics::FogParameters;
+use ensnano_interactor::graphics::{FogParameters, HBoundDisplay};
 use ensnano_interactor::{
     graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
     CheckXoversParameter, InsertionPoint, Selection, SimulationState, SuggestionParameters,
@@ -196,7 +196,7 @@ pub trait Requests: 'static + Send {
     fn set_check_xover_parameters(&mut self, paramters: CheckXoversParameter);
     fn follow_stereographic_camera(&mut self, follow: bool);
     fn set_show_stereographic_camera(&mut self, show: bool);
-    fn set_show_h_bonds(&mut self, show: bool);
+    fn set_show_h_bonds(&mut self, show: HBoundDisplay);
     fn flip_split_views(&mut self);
     fn set_rainbow_scaffold(&mut self, rainbow: bool);
     fn set_thick_helices(&mut self, thick: bool);
@@ -1004,7 +1004,7 @@ pub trait AppState:
     fn get_checked_xovers_parameters(&self) -> CheckXoversParameter;
     fn follow_stereographic_camera(&self) -> bool;
     fn show_stereographic_camera(&self) -> bool;
-    fn show_h_bonds(&self) -> bool;
+    fn get_h_bounds_display(&self) -> HBoundDisplay;
     fn get_scroll_sensitivity(&self) -> f32;
     fn get_invert_y_scroll(&self) -> bool;
     fn want_thick_helices(&self) -> bool;

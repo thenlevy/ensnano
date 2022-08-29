@@ -1,3 +1,4 @@
+use ensnano_interactor::graphics::HBoundDisplay;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -186,7 +187,7 @@ pub enum Message<S> {
     CheckXoversParameter(CheckXoversParameter),
     FollowStereographicCamera(bool),
     ShowStereographicCamera(bool),
-    ShowHBonds(bool),
+    ShowHBonds(HBoundDisplay),
     RainbowScaffold(bool),
     StopSimulation,
     StartTwist,

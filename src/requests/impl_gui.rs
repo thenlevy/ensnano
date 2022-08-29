@@ -396,7 +396,7 @@ impl GuiRequests for Requests {
         self.set_show_stereographic_camera = Some(show);
     }
 
-    fn set_show_h_bonds(&mut self, show: bool) {
+    fn set_show_h_bonds(&mut self, show: HBoundDisplay) {
         self.set_show_h_bonds = Some(show);
     }
 

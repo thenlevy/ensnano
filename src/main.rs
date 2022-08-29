@@ -1442,7 +1442,7 @@ impl MainState {
         self.modify_state(|s| s.with_show_stereographic_camera(show), None)
     }
 
-    fn set_show_h_bonds(&mut self, show: bool) {
+    fn set_show_h_bonds(&mut self, show: ensnano_interactor::graphics::HBoundDisplay) {
         self.modify_state(|s| s.with_show_h_bonds(show), None)
     }
 

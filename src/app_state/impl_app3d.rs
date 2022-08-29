@@ -115,7 +115,7 @@ impl App3D for AppState {
             rendering_mode: self.0.parameters.rendering_mode,
             show_stereographic_camera: self.0.parameters.show_stereography,
             thick_helices: self.0.parameters.thick_helices,
-            h_bonds: self.0.parameters.show_h_bonds,
+            h_bonds: self.0.parameters.show_h_bonds != HBoundDisplay::No,
             show_bezier_planes: self.0.parameters.show_bezier_paths,
         }
     }

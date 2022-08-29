@@ -127,7 +127,7 @@ impl GuiState for AppState {
         self.0.parameters.show_stereography
     }
 
-    fn show_h_bonds(&self) -> bool {
+    fn get_h_bounds_display(&self) -> HBoundDisplay {
         self.0.parameters.show_h_bonds
     }
 

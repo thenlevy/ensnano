@@ -23,6 +23,7 @@ mod poll;
 
 use super::gui::UiSize;
 use super::*;
+use ensnano_interactor::graphics::HBoundDisplay;
 use ensnano_interactor::{application::AppId, RollRequest, Selection};
 use ensnano_interactor::{CenterOfSelection, CheckXoversParameter};
 pub(crate) use poll::poll_all;
@@ -123,7 +124,7 @@ pub struct Requests {
     pub check_xover_parameters: Option<CheckXoversParameter>,
     pub follow_stereographic_camera: Option<bool>,
     pub set_show_stereographic_camera: Option<bool>,
-    pub set_show_h_bonds: Option<bool>,
+    pub set_show_h_bonds: Option<HBoundDisplay>,
     pub set_show_bezier_paths: Option<bool>,
     pub set_invert_y_scroll: Option<bool>,
     pub set_thick_helices: Option<bool>,

@@ -68,6 +68,30 @@ impl std::fmt::Display for RenderingMode {
     }
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum HBoundDisplay {
+    No,
+    Stick,
+    Ellipsoid,
+}
+
+impl Default for HBoundDisplay {
+    fn default() -> Self {
+        Self::No
+    }
+}
+
+impl std::fmt::Display for HBoundDisplay {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ret = match self {
+            Self::No => "No",
+            Self::Stick => "Sticks",
+            Self::Ellipsoid => "Ellipsoid",
+        };
+        write!(f, "{}", ret)
+    }
+}
+
 pub mod fog_kind {
     pub const NO_FOG: u32 = 0;
     pub const TRANSPARENT_FOG: u32 = 1;

@@ -26,7 +26,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use ensnano_design::group_attributes::GroupPivot;
 use ensnano_exports::{ExportResult, ExportType};
-use ensnano_interactor::graphics::{Background3D, RenderingMode};
+use ensnano_interactor::graphics::{Background3D, HBoundDisplay, RenderingMode};
 use ensnano_interactor::{
     operation::Operation, ActionMode, CenterOfSelection, CheckXoversParameter, Selection,
     SelectionMode, WidgetBasis,
@@ -438,7 +438,7 @@ impl AppState {
         self.with_updated_parameters(|p| p.show_stereography = show)
     }
 
-    pub fn with_show_h_bonds(&self, show: bool) -> Self {
+    pub fn with_show_h_bonds(&self, show: HBoundDisplay) -> Self {
         self.with_updated_parameters(|p| p.show_h_bonds = show)
     }
 
@@ -628,7 +628,7 @@ struct AppStateParameters {
     thick_helices: bool,
     scroll_sensitivity: f32,
     inverted_y_scroll: bool,
-    show_h_bonds: bool,
+    show_h_bonds: HBoundDisplay,
     show_bezier_paths: bool,
 }
 
@@ -644,7 +644,7 @@ impl Default for AppStateParameters {
             thick_helices: true,
             scroll_sensitivity: 0.0,
             inverted_y_scroll: false,
-            show_h_bonds: false,
+            show_h_bonds: HBoundDisplay::No,
             show_bezier_paths: false,
         }
     }
