@@ -32,6 +32,7 @@ use std::sync::Arc;
 
 use ensnano_design::grid::GridObject;
 use ensnano_design::{BezierVertexId, Collection};
+use ensnano_interactor::graphics::HBoundDisplay;
 use ultraviolet::{Rotor3, Vec3};
 
 use super::view::Mesh;
@@ -1421,13 +1422,21 @@ impl<R: DesignReader> Data<R> {
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::Prime3Cone, Rc::new(cones)));
-        let (hbonds, ellipsoids) = self.designs[0].get_all_hbond();
-        self.view
-            .borrow_mut()
-            .update(ViewUpdate::RawDna(Mesh::HBond, Rc::new(hbonds)));
-        self.view
-            .borrow_mut()
-            .update(ViewUpdate::RawDna(Mesh::BaseEllipsoid, Rc::new(ellipsoids)));
+        let bonds = self.designs[0].get_all_hbond();
+        if app_state.get_draw_options().h_bonds == HBoundDisplay::Ellipsoid {
+            self.view.borrow_mut().update(ViewUpdate::RawDna(
+                Mesh::HBond,
+                Rc::new(bonds.partial_h_bonds),
+            ));
+        } else {
+            self.view
+                .borrow_mut()
+                .update(ViewUpdate::RawDna(Mesh::HBond, Rc::new(bonds.full_h_bonds)));
+        }
+        self.view.borrow_mut().update(ViewUpdate::RawDna(
+            Mesh::BaseEllipsoid,
+            Rc::new(bonds.ellipsoids),
+        ));
     }
 
     fn update_discs<S: AppState>(&mut self, app_state: &S) {

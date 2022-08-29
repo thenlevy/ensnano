@@ -92,7 +92,7 @@ static MODEL_BG_ENTRY: &'static [wgpu::BindGroupLayoutEntry] = &[wgpu::BindGroup
     count: None,
 }];
 
-use ensnano_interactor::graphics::{Background3D, RenderingMode};
+use ensnano_interactor::graphics::{Background3D, HBoundDisplay, RenderingMode};
 
 /// An object that handles the communication with the GPU to draw the scene.
 pub struct View {
@@ -143,7 +143,7 @@ pub struct DrawOptions {
     pub background3d: Background3D,
     pub show_stereographic_camera: bool,
     pub thick_helices: bool,
-    pub h_bonds: bool,
+    pub h_bonds: HBoundDisplay,
     pub show_bezier_planes: bool,
 }
 
@@ -1187,18 +1187,31 @@ impl DnaDrawers {
             &mut self.bezier_controll_points,
         ];
         let mut last_solid_item = 2;
-        if draw_options.h_bonds {
-            ret.insert(last_solid_item + 1, &mut self.hbond);
-            ret.insert(last_solid_item + 2, &mut self.base_ellipsoid);
-            last_solid_item = 4;
+        match draw_options.h_bonds {
+            HBoundDisplay::No => (),
+            HBoundDisplay::Stick => {
+                ret.insert(last_solid_item + 1, &mut self.hbond);
+                last_solid_item = 3;
+            }
+            HBoundDisplay::Ellipsoid => {
+                ret.insert(last_solid_item + 1, &mut self.hbond);
+                ret.insert(last_solid_item + 2, &mut self.base_ellipsoid);
+                last_solid_item = 4;
+            }
         }
         if draw_options.rendering_mode == RenderingMode::Cartoon {
             ret.insert(last_solid_item + 1, &mut self.outline_tube);
             ret.insert(last_solid_item + 2, &mut self.outline_sphere);
             ret.insert(last_solid_item + 3, &mut self.outline_prime3_cones);
-            if draw_options.h_bonds {
-                ret.insert(last_solid_item + 4, &mut self.outline_hbond);
-                ret.insert(last_solid_item + 5, &mut self.outline_base_ellipsoid);
+            match draw_options.h_bonds {
+                HBoundDisplay::No => (),
+                HBoundDisplay::Stick => {
+                    ret.insert(last_solid_item + 4, &mut self.outline_hbond);
+                }
+                HBoundDisplay::Ellipsoid => {
+                    ret.insert(last_solid_item + 4, &mut self.outline_hbond);
+                    ret.insert(last_solid_item + 5, &mut self.outline_base_ellipsoid);
+                }
             }
         }
         if draw_options.show_stereographic_camera {

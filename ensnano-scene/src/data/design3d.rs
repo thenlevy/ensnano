@@ -346,11 +346,11 @@ impl<R: DesignReader> Design3D<R> {
     }
 
     /// Return (h bonds instances, ellipoids instances)
-    pub fn get_all_hbond(&self) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
-        let mut hbonds = Vec::new();
+    pub(super) fn get_all_hbond(&self) -> HBoundsInstances {
+        let mut full_h_bonds = Vec::new();
+        let mut partial_h_bonds = Vec::new();
         let mut ellipsoids = Vec::new();
         for hbond in self.design.get_all_h_bonds() {
-            /*
             let forward_bond = create_dna_bound(
                 hbond.forward.backbone,
                 hbond.forward.center_of_mass,
@@ -358,15 +358,20 @@ impl<R: DesignReader> Design3D<R> {
                 0,
                 false,
             );
-            */
             let backward_bond = create_dna_bound(
+                hbond.backward.backbone,
+                hbond.backward.center_of_mass,
+                hbond.backward.backbone_color,
+                0,
+                false,
+            );
+            let full_bond = create_dna_bound(
                 hbond.backward.backbone,
                 hbond.forward.backbone,
                 REGULAR_H_BOND_COLOR,
                 0,
                 false,
             );
-            /*
             let forward_ellipsoid = Ellipsoid {
                 orientation: forward_bond.rotor,
                 scale: BASIS_SCALE,
@@ -389,14 +394,17 @@ impl<R: DesignReader> Design3D<R> {
                     id: 0,
                 },
             };
-            hbonds.push(forward_bond.to_raw_instance());
-            hbonds.push(backward_bond.to_raw_instance());
+            partial_h_bonds.push(forward_bond.to_raw_instance());
+            partial_h_bonds.push(backward_bond.to_raw_instance());
             ellipsoids.push(backward_ellipsoid.to_raw_instance());
             ellipsoids.push(forward_ellipsoid.to_raw_instance());
-            */
-            hbonds.push(backward_bond.to_raw_instance());
+            full_h_bonds.push(full_bond.to_raw_instance());
         }
-        (hbonds, ellipsoids)
+        HBoundsInstances {
+            partial_h_bonds,
+            full_h_bonds,
+            ellipsoids,
+        }
     }
 
     /// Convert return an instance representing the object with identifier `id`
@@ -1204,4 +1212,10 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_optimal_xover_arround(&self, source: Nucl, target: Nucl) -> Option<(Nucl, Nucl)>;
     fn get_bezier_grid_used_by_helix(&self, h_id: usize) -> Vec<GridId>;
     fn get_external_objects(&self) -> &External3DObjects;
+}
+
+pub(super) struct HBoundsInstances {
+    pub full_h_bonds: Vec<RawDnaInstance>,
+    pub partial_h_bonds: Vec<RawDnaInstance>,
+    pub ellipsoids: Vec<RawDnaInstance>,
 }
