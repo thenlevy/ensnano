@@ -281,7 +281,6 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                     new_state: Some(Box::new(DraggingSelection {
                                         mouse_position: self.mouse_position,
                                         fixed_corner: self.mouse_position,
-                                        adding: false,
                                     })),
                                     consequences: Consequence::Nothing,
                                 }
@@ -355,7 +354,6 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         new_state: Some(Box::new(DraggingSelection {
                             mouse_position: self.mouse_position,
                             fixed_corner: self.mouse_position,
-                            adding: false,
                         })),
                         consequences: Consequence::Nothing,
                     },
@@ -801,7 +799,6 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                                     new_state: Some(Box::new(DraggingSelection {
                                         mouse_position: self.mouse_position,
                                         fixed_corner: self.mouse_position,
-                                        adding: false,
                                     })),
                                     consequences: Consequence::Nothing,
                                 }
@@ -852,7 +849,6 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                             mouse_position: self.mouse_position,
                             translation_pivots: self.translation_pivots.clone(),
                             rotation_pivots: self.rotation_pivots.clone(),
-                            shift: controller.modifiers.shift(),
                         })),
                         consequences: Consequence::Nothing,
                     },
@@ -1016,7 +1012,6 @@ pub struct LeavingPivot {
     rotation_pivots: Vec<Vec2>,
     clicked_position_screen: PhysicalPosition<f64>,
     mouse_position: PhysicalPosition<f64>,
-    shift: bool,
 }
 
 impl<S: AppState> ControllerState<S> for LeavingPivot {
@@ -1102,7 +1097,6 @@ impl<S: AppState> ControllerState<S> for LeavingPivot {
                         new_state: Some(Box::new(DraggingSelection {
                             mouse_position: self.mouse_position,
                             fixed_corner: self.clicked_position_screen,
-                            adding: self.shift,
                         })),
                         consequences: Consequence::Nothing,
                     }
@@ -2606,12 +2600,11 @@ impl<S: AppState> ControllerState<S> for Pasting {
 struct DraggingSelection {
     pub mouse_position: PhysicalPosition<f64>,
     pub fixed_corner: PhysicalPosition<f64>,
-    pub adding: bool,
 }
 
 impl<S: AppState> ControllerState<S> for DraggingSelection {
     fn display(&self) -> String {
-        format!("Dragging Selection {}", self.adding)
+        format!("Dragging Selection")
     }
     fn input(
         &mut self,
@@ -2664,7 +2657,7 @@ impl<S: AppState> ControllerState<S> for DraggingSelection {
                         corner1_world.into(),
                         corner2_world.into(),
                         &controller.get_camera(position.y),
-                        self.adding,
+                        controller.modifiers.shift(),
                         app_state,
                     ))
                 } else {
