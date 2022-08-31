@@ -1,3 +1,4 @@
+use ensnano_design::BezierVertexId;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -1327,6 +1328,8 @@ pub trait AppState: Clone + 'static {
     fn show_bezier_paths(&self) -> bool;
 
     fn get_design_path(&self) -> Option<PathBuf>;
+
+    fn get_selected_bezier_vertex(&self) -> Option<BezierVertexId>;
 }
 
 pub trait Requests {

@@ -46,11 +46,7 @@ macro_rules! add_buttons {
 
 macro_rules! add_grid_buttons {
     ($ret: ident, $self: ident, $ui_size: ident, $app_state: ident) => {
-        if let ActionMode::EditBezierPath {
-            path_id: Some(path_id),
-            ..
-        } = $app_state.get_action_mode()
-        {
+        if let Some(path_id) = $app_state.get_selected_bezier_path() {
             let make_square_grid_btn =
                 icon_btn(&mut $self.make_square_grid_btn, ICON_SQUARE_GRID, $ui_size).on_press(
                     Message::TurnPathIntoGrid {
@@ -87,13 +83,7 @@ impl PenTab {
         section!(ret, ui_size, "Bezier Planes");
         add_buttons!(ret, self, ui_size);
         add_grid_buttons!(ret, self, ui_size, app_state);
-        let selected_path_id = app_state.get_selected_bezier_path().or_else(|| {
-            if let ActionMode::EditBezierPath { path_id, .. } = app_state.get_action_mode() {
-                path_id
-            } else {
-                None
-            }
-        });
+        let selected_path_id = app_state.get_selected_bezier_path();
         let path_txt = selected_path_id
             .map(|p| format!("{:?}", p))
             .unwrap_or_else(|| "None".to_string());

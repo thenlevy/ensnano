@@ -349,11 +349,11 @@ impl AppState {
                 interactor: mut design,
                 label,
             }) => {
-                let new_action_mode = design.get_new_action_mode();
+                let new_selection = design.get_next_selection();
                 let ret = Some(self.clone());
                 let mut new_state = self.clone().with_interactor(design);
-                if let Some(action_mode) = new_action_mode {
-                    new_state = new_state.with_action_mode(action_mode);
+                if let Some(selection) = new_selection {
+                    new_state = new_state.with_selection(selection, None);
                 }
                 *self = new_state;
                 if let Some(state) = ret {
@@ -366,10 +366,10 @@ impl AppState {
                 }
             }
             Ok(InteractorResult::Replace(mut design)) => {
-                let new_action_mode = design.get_new_action_mode();
+                let new_selection = design.get_next_selection();
                 let mut new_state = self.clone().with_interactor(design);
-                if let Some(action_mode) = new_action_mode {
-                    new_state = new_state.with_action_mode(action_mode);
+                if let Some(selection) = new_selection {
+                    new_state = new_state.with_selection(selection, None);
                 }
                 *self = new_state;
                 Ok(OkOperation::NotUndoable)

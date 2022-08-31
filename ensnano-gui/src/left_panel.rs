@@ -823,16 +823,11 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::NewBezierPlane => {
                 self.requests.lock().unwrap().create_bezier_plane();
             }
-            Message::StartBezierPath => {
-                let path_id = self.application_state.get_selected_bezier_path();
-                self.requests
-                    .lock()
-                    .unwrap()
-                    .change_action_mode(ActionMode::EditBezierPath {
-                        path_id,
-                        vertex_id: None,
-                    })
-            }
+            Message::StartBezierPath => self
+                .requests
+                .lock()
+                .unwrap()
+                .change_action_mode(ActionMode::EditBezierPath),
             Message::TurnPathIntoGrid { path_id, grid_type } => {
                 self.requests
                     .lock()

@@ -119,8 +119,12 @@ pub enum Consequence {
     PivotCenter,
     CheckXovers,
     AlignWithStereo,
+    /// Appen a vertex to a bezier path
     CreateBezierVertex {
+        /// The position of the created vertex
         vertex: BezierVertex,
+        /// The identifier of the path to which the vertex is beign appenend. If this is None, a
+        /// new path is being created
         path: Option<BezierPathId>,
     },
     MoveBezierVertex {

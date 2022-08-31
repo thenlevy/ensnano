@@ -173,22 +173,15 @@ impl<'a, S: AppState> EventContext<'a, S> {
         &self.controller.current_modifiers
     }
 
-    pub fn get_id_of_bezier_bath_being_eddited(&self) -> Option<Option<BezierPathId>> {
-        if let (ActionMode::EditBezierPath { path_id, .. }, _) = self.app_state.get_action_mode() {
-            Some(path_id)
-        } else {
-            None
-        }
+    pub fn is_editing_bezier_path(&self) -> bool {
+        matches!(
+            self.app_state.get_action_mode(),
+            (ActionMode::EditBezierPath, _)
+        )
     }
 
-    pub fn get_bezier_vertex_being_eddited(&self) -> Option<(BezierPathId, usize)> {
-        if let (ActionMode::EditBezierPath { path_id, vertex_id }, _) =
-            self.app_state.get_action_mode()
-        {
-            path_id.zip(vertex_id)
-        } else {
-            None
-        }
+    pub fn get_bezier_vertex_being_eddited(&self) -> Option<BezierVertexId> {
+        self.app_state.get_selected_bezier_vertex()
     }
 
     pub fn get_plane_of_bezier_vertex(

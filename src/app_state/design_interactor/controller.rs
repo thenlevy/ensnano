@@ -31,7 +31,7 @@ use ensnano_design::{
 };
 use ensnano_interactor::{
     operation::{Operation, TranslateBezierPathVertex},
-    ActionMode, BezierControlPoint, HyperboloidOperation, NewBezierTengentVector, SimulationState,
+    BezierControlPoint, HyperboloidOperation, NewBezierTengentVector, SimulationState,
 };
 use ensnano_interactor::{
     BezierPlaneHomothethy, DesignOperation, DesignRotation, DesignTranslation, DomainIdentifier,
@@ -71,7 +71,7 @@ pub(super) struct Controller {
     color_idx: usize,
     state: ControllerState,
     clipboard: AddressPointer<Clipboard>,
-    pub(super) next_action_mode: Option<ActionMode>,
+    pub(super) next_selection: Option<Vec<Selection>>,
 }
 
 impl Controller {
@@ -1208,10 +1208,10 @@ impl Controller {
                 y: first_vertex.position.y,
             })),
         };
-        self.next_action_mode = Some(ActionMode::EditBezierPath {
-            path_id: Some(path_id),
-            vertex_id: Some(0),
-        });
+        self.next_selection = Some(vec![Selection::BezierVertex(BezierVertexId {
+            path_id,
+            vertex_id: 0,
+        })]);
         design
     }
 
@@ -1237,10 +1237,10 @@ impl Controller {
                 y: vertex.position.y,
             })),
         };
-        self.next_action_mode = Some(ActionMode::EditBezierPath {
-            path_id: Some(path_id),
-            vertex_id: Some(vertex_id),
-        });
+        self.next_selection = Some(vec![Selection::BezierVertex(BezierVertexId {
+            path_id,
+            vertex_id,
+        })]);
         Ok(design)
     }
 

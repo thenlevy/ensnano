@@ -638,9 +638,8 @@ impl DraggingTransitionTable for MovingBezierVertex {
     ) -> Option<Consequence> {
         let (plane_id, vertex_id, path_id) = match self {
             Self::New { plane_id } => {
-                if let Some((path_id, vertex_id)) = cursor.context.get_bezier_vertex_being_eddited()
-                {
-                    (*plane_id, vertex_id, path_id)
+                if let Some(vertex) = cursor.context.get_bezier_vertex_being_eddited() {
+                    (*plane_id, vertex.vertex_id, vertex.path_id)
                 } else {
                     log::error!("Could not get id of bezier vertex being eddited");
                     return None;

@@ -110,7 +110,6 @@ impl<S: AppState> ControllerState<S> for NormalState {
         event: &WindowEvent,
         mut context: EventContext<'a, S>,
     ) -> Transition<S> {
-        let path_id = context.get_id_of_bezier_bath_being_eddited();
         match event {
             WindowEvent::CursorMoved { .. } if context.is_pasting() => {
                 self.mouse_position = context.cursor_position;
@@ -209,23 +208,6 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         };
                     } else {
                         log::error!("Could not get vertex {:?}, {vertex_id}", path_id)
-                    }
-                } else if path_id.is_some() {
-                    if let Some((plane_id, intersection)) = context.get_plane_under_cursor() {
-                        let click_info = ClickInfo::new(MouseButton::Left, context.cursor_position);
-                        return Transition {
-                            new_state: Some(Box::new(dragging_state::moving_bezier_vertex(
-                                click_info,
-                                MovingBezierVertex::New { plane_id },
-                            ))),
-                            consequences: Consequence::CreateBezierVertex {
-                                vertex: BezierVertex::new(
-                                    plane_id,
-                                    Vec2::new(intersection.x, intersection.y),
-                                ),
-                                path: path_id.unwrap(),
-                            },
-                        };
                     }
                 }
                 match element {
@@ -427,6 +409,44 @@ impl<S: AppState> ControllerState<S> for NormalState {
                             })
                         } else {
                             Transition::nothing()
+                        }
+                    }
+                    None if context.is_editing_bezier_path() => {
+                        // path_id is either:
+                        // - the id of the currently selected bezier vertex, in
+                        //   which case we are appening a new vertex to the path to which this vertex
+                        //   belong
+                        // - None, in which case we are creating a new bezier path
+                        let path_id = context.get_bezier_vertex_being_eddited().map(|v| v.path_id);
+
+                        if let Some((plane_id, intersection)) = context.get_plane_under_cursor() {
+                            let click_info =
+                                ClickInfo::new(MouseButton::Left, context.cursor_position);
+                            return Transition {
+                                new_state: Some(Box::new(dragging_state::moving_bezier_vertex(
+                                    click_info,
+                                    MovingBezierVertex::New { plane_id },
+                                ))),
+                                consequences: Consequence::CreateBezierVertex {
+                                    vertex: BezierVertex::new(
+                                        plane_id,
+                                        Vec2::new(intersection.x, intersection.y),
+                                    ),
+                                    path: path_id,
+                                },
+                            };
+                        } else {
+                            let adding =
+                                context.get_modifiers().shift() || ctrl(context.get_modifiers());
+                            let new_state = PointAndClicking::selecting(
+                                context.cursor_position,
+                                element,
+                                adding,
+                            );
+                            Transition {
+                                new_state: Some(Box::new(new_state)),
+                                consequences: Consequence::Nothing,
+                            }
                         }
                     }
                     _ => {

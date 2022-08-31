@@ -144,6 +144,14 @@ impl App3D for AppState {
     fn get_design_path(&self) -> Option<PathBuf> {
         self.0.path_to_current_design.clone()
     }
+
+    fn get_selected_bezier_vertex(&self) -> Option<ensnano_design::BezierVertexId> {
+        if let Some(Selection::BezierVertex(vertex)) = self.0.selection.selection.get(0) {
+            Some(vertex.clone())
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]

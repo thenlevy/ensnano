@@ -58,7 +58,7 @@ pub struct DesignInteractor {
     simulation_update: Option<Arc<dyn SimulationUpdate>>,
     current_operation: Option<Arc<dyn Operation>>,
     current_operation_id: usize,
-    new_action_mode: Option<ActionMode>,
+    new_selection: Option<Vec<Selection>>,
 }
 
 impl DesignInteractor {
@@ -182,7 +182,7 @@ impl DesignInteractor {
         match result {
             Ok((OkOperation::Replace(design), mut controller)) => {
                 let mut ret = self.clone();
-                ret.new_action_mode = controller.next_action_mode.take();
+                ret.new_selection = controller.next_selection.take();
                 ret.controller = AddressPointer::new(controller);
                 ret.design = AddressPointer::new(design);
                 Ok(InteractorResult::Replace(ret))
@@ -190,7 +190,7 @@ impl DesignInteractor {
             Ok((OkOperation::Push { design, label }, mut controller)) => {
                 let mut ret = self.clone();
                 ret.current_operation = None;
-                ret.new_action_mode = controller.next_action_mode.take();
+                ret.new_selection = controller.next_selection.take();
                 ret.controller = AddressPointer::new(controller);
                 ret.design = AddressPointer::new(design);
                 Ok(InteractorResult::Push {
@@ -200,7 +200,7 @@ impl DesignInteractor {
             }
             Ok((OkOperation::NoOp, mut controller)) => {
                 let mut ret = self.clone();
-                ret.new_action_mode = controller.next_action_mode.take();
+                ret.new_selection = controller.next_selection.take();
                 ret.controller = AddressPointer::new(controller);
                 Ok(InteractorResult::Replace(ret))
             }
@@ -345,8 +345,8 @@ impl DesignInteractor {
         self.controller.get_new_selection()
     }
 
-    pub fn get_new_action_mode(&mut self) -> Option<ActionMode> {
-        self.new_action_mode.take()
+    pub fn get_next_selection(&mut self) -> Option<Vec<Selection>> {
+        self.new_selection.take()
     }
 }
 
