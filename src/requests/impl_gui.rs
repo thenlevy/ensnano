@@ -461,6 +461,19 @@ impl GuiRequests for Requests {
     fn import_3d_object(&mut self) {
         self.keep_proceed.push_back(Action::Import3DObject)
     }
+
+    fn set_position_of_bezier_vertex(
+        &mut self,
+        vertex_id: ensnano_design::BezierVertexId,
+        position: ensnano_design::Vec2,
+    ) {
+        self.keep_proceed.push_back(Action::DesignOperation(
+            DesignOperation::SetBezierVertexPosition {
+                vertex_id,
+                position,
+            },
+        ))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

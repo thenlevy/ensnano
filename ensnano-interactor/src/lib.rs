@@ -289,6 +289,10 @@ pub enum DesignOperation {
         vertex_id: usize,
         position: Vec2,
     },
+    SetBezierVertexPosition {
+        vertex_id: BezierVertexId,
+        position: Vec2,
+    },
     TurnPathVerticesIntoGrid {
         path_id: BezierPathId,
         grid_type: GridTypeDescr,

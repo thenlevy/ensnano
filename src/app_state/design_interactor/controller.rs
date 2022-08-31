@@ -330,6 +330,13 @@ impl Controller {
                 |c, d| c.move_bezier_vertex(d, path_id, vertex_id, position),
                 design,
             ),
+            DesignOperation::SetBezierVertexPosition {
+                vertex_id,
+                position,
+            } => self.apply(
+                |c, d| c.set_bezier_vertex_position(d, vertex_id, position),
+                design,
+            ),
             DesignOperation::TurnPathVerticesIntoGrid { path_id, grid_type } => self.apply(
                 |c, d| c.turn_bezier_path_into_grids(d, path_id, grid_type),
                 design,
@@ -1244,6 +1251,7 @@ impl Controller {
         Ok(design)
     }
 
+    /// Move a bezier vertex to a given position and transition to a transitory state.
     fn move_bezier_vertex(
         &mut self,
         mut design: Design,
@@ -1270,6 +1278,30 @@ impl Controller {
             path_id,
             vertex_id,
         })]);
+        Ok(design)
+    }
+
+    /// Set the position of a bezier vertex as a single revertible operation.
+    fn set_bezier_vertex_position(
+        &mut self,
+        mut design: Design,
+        vertex_id: BezierVertexId,
+        position: Vec2,
+    ) -> Result<Design, ErrOperation> {
+        let mut new_paths = design.bezier_paths.make_mut();
+        let BezierVertexId { vertex_id, path_id } = vertex_id;
+        let path = new_paths
+            .get_mut(&path_id)
+            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+        let vertex = path
+            .get_vertex_mut(vertex_id)
+            .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
+        let old_tengent_in = vertex.position_in.map(|p| p - vertex.position);
+        let old_tengent_out = vertex.position_out.map(|p| p - vertex.position);
+        vertex.position = position;
+        vertex.position_out = old_tengent_out.map(|t| vertex.position + t);
+        vertex.position_in = old_tengent_in.map(|t| vertex.position + t);
+        drop(new_paths);
         Ok(design)
     }
 

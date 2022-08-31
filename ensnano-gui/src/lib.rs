@@ -48,7 +48,7 @@ use status_bar::StatusBar;
 use ensnano_design::{
     elements::{DnaAttribute, DnaElement, DnaElementKey},
     grid::GridTypeDescr,
-    ultraviolet, BezierPathId, Nucl, Parameters,
+    ultraviolet, BezierPathId, BezierVertexId, Nucl, Parameters,
 };
 use ensnano_interactor::graphics::{FogParameters, HBoundDisplay};
 use ensnano_interactor::{
@@ -65,7 +65,7 @@ use iced_winit::{conversion, program, winit, Debug, Size};
 use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use ultraviolet::{Rotor3, Vec3};
+use ultraviolet::{Rotor3, Vec2, Vec3};
 use wgpu::Device;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
@@ -211,6 +211,7 @@ pub trait Requests: 'static + Send {
     fn make_bezier_path_cyclic(&mut self, path_id: BezierPathId, cyclic: bool);
     fn set_exporting(&mut self, exporting: bool);
     fn import_3d_object(&mut self);
+    fn set_position_of_bezier_vertex(&mut self, vertex_id: BezierVertexId, position: Vec2);
 }
 
 #[derive(Clone, Debug, PartialEq)]

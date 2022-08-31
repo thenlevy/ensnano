@@ -29,7 +29,7 @@ pub trait BuilderMessage: Clone + 'static {
     fn value_submitted(kind: ValueKind) -> Self;
 }
 
-use crate::ultraviolet::{Bivec3, Mat3, Rotor3, Vec3};
+use crate::ultraviolet::{Bivec3, Mat3, Rotor3, Vec2, Vec3};
 
 macro_rules! type_builder {
     ($builder_name:ident, $initializer:tt, $internal:tt, $convert_in:path, $convert_out:path, $($param: ident: $param_type: tt %$formatter:path) , *) => {
@@ -169,6 +169,7 @@ nb_turn: f32 %*/
 pub enum ValueKind {
     HelixGridPosition,
     GridOrientation,
+    BezierVertexPosition,
 }
 
 #[derive(Debug, Clone)]
@@ -176,6 +177,7 @@ pub enum InstanciatedValue {
     HelixGridPosition(Vec3),
     GridOrientation(Rotor3),
     GridNbTurn(f32),
+    BezierVertexPosition(Vec2),
 }
 
 pub enum GridPositionBuilder {
@@ -324,6 +326,7 @@ impl<S: AppState> Builder<S> for GridBuilder {
         match value_kind {
             ValueKind::HelixGridPosition => self.position_builder.update_str_value(n, value_str),
             ValueKind::GridOrientation => self.orientation_builder.update_str_value(n, value_str),
+            vk => log::error!("Unexpected value kind for GridBuilder {:?}", vk),
         }
     }
 
@@ -331,6 +334,10 @@ impl<S: AppState> Builder<S> for GridBuilder {
         match value_kind {
             ValueKind::HelixGridPosition => self.position_builder.submit_value(),
             ValueKind::GridOrientation => self.orientation_builder.submit_value(),
+            vk => {
+                log::error!("Unexpected value kind for GridBuilder {:?}", vk);
+                None
+            }
         }
     }
 

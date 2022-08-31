@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::super::DesignReader;
 use super::*;
-use ensnano_design::grid::GridId;
+use ensnano_design::{grid::GridId, BezierVertexId};
 use ensnano_interactor::{Selection, SimulationState};
 use iced::{scrollable, Scrollable};
 
@@ -25,7 +25,7 @@ mod value_constructor;
 use value_constructor::{Builder, GridBuilder};
 pub use value_constructor::{BuilderMessage, InstanciatedValue, ValueKind};
 
-use ultraviolet::{Rotor3, Vec3};
+use ultraviolet::{Rotor3, Vec2, Vec3};
 pub enum ValueRequest {
     HelixGridPosition {
         grid_id: GridId,
@@ -38,6 +38,10 @@ pub enum ValueRequest {
     GridNbTurn {
         grid_id: GridId,
         nb_turn: f32,
+    },
+    BezierVertexPosition {
+        vertex_id: BezierVertexId,
+        position: Vec2,
     },
 }
 
@@ -77,6 +81,17 @@ impl ValueRequest {
                     None
                 }
             }
+            InstanciatedValue::BezierVertexPosition(pos) => {
+                if let Selection::BezierVertex(vertex_id) = selection {
+                    Some(Self::BezierVertexPosition {
+                        vertex_id: *vertex_id,
+                        position: pos,
+                    })
+                } else {
+                    log::error!("Recieved value {:?} with selection {:?}", value, selection);
+                    None
+                }
+            }
         }
     }
 
@@ -96,6 +111,13 @@ impl ValueRequest {
             Self::GridNbTurn { grid_id, nb_turn } => {
                 request.lock().unwrap().set_nb_turn(*grid_id, *nb_turn)
             }
+            Self::BezierVertexPosition {
+                vertex_id,
+                position,
+            } => request
+                .lock()
+                .unwrap()
+                .set_position_of_bezier_vertex(*vertex_id, *position),
         }
     }
 }
