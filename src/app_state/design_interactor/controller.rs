@@ -1266,6 +1266,10 @@ impl Controller {
         vertex.position_out = old_tengent_out.map(|t| vertex.position + t);
         vertex.position_in = old_tengent_in.map(|t| vertex.position + t);
         drop(new_paths);
+        self.next_selection = Some(vec![Selection::BezierVertex(BezierVertexId {
+            path_id,
+            vertex_id,
+        })]);
         Ok(design)
     }
 

@@ -22,8 +22,8 @@ use ensnano_design::{
 };
 use ensnano_exports::{ExportResult, ExportType};
 use ensnano_interactor::{
-    operation::Operation, ActionMode, DesignOperation, RigidBodyConstants, Selection,
-    SimulationState, StrandBuilder, SuggestionParameters,
+    operation::Operation, DesignOperation, RigidBodyConstants, Selection, SimulationState,
+    StrandBuilder, SuggestionParameters,
 };
 
 mod presenter;
