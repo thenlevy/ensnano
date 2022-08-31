@@ -162,6 +162,10 @@ impl GuiState for AppState {
     fn is_exporting(&self) -> bool {
         self.0.exporting
     }
+
+    fn is_transitory(&self) -> bool {
+        !self.is_in_stable_state()
+    }
 }
 
 #[cfg(test)]

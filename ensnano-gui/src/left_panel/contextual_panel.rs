@@ -130,8 +130,8 @@ struct InstantiatedBuilder<S: AppState> {
 impl<S: AppState> InstantiatedBuilder<S> {
     /// If a builder can be made from the selection, update the builder and return true. Otherwise,
     /// return false.
-    fn update(&mut self, selection: &Selection, reader: &dyn DesignReader) -> bool {
-        if *selection != self.selection {
+    fn update(&mut self, selection: &Selection, reader: &dyn DesignReader, app_state: &S) -> bool {
+        if *selection != self.selection || app_state.is_transitory() {
             self.selection = selection.clone();
             if let Some(builder) = Self::new_builder(selection, reader) {
                 self.builder = builder;
@@ -216,10 +216,15 @@ impl<S: AppState> ContextualPanel<S> {
         self.width = width;
     }
 
-    fn update_builder(&mut self, selection: Option<&Selection>, reader: &dyn DesignReader) {
+    fn update_builder(
+        &mut self,
+        selection: Option<&Selection>,
+        reader: &dyn DesignReader,
+        app_state: &S,
+    ) {
         if let Some(s) = selection {
             if let Some(builder) = &mut self.builder {
-                if !builder.update(s, reader) {
+                if !builder.update(s, reader, app_state) {
                     self.builder = None;
                 }
             } else {
@@ -245,6 +250,7 @@ impl<S: AppState> ContextualPanel<S> {
         self.update_builder(
             Some(selection).filter(|_| nb_selected == 1),
             app_state.get_reader().as_ref(),
+            app_state,
         );
 
         let xover_len = app_state

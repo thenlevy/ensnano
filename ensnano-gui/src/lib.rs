@@ -1013,6 +1013,7 @@ pub trait AppState:
     fn get_show_bezier_paths(&self) -> bool;
     fn get_selected_bezier_path(&self) -> Option<BezierPathId>;
     fn is_exporting(&self) -> bool;
+    fn is_transitory(&self) -> bool;
 }
 
 pub trait DesignReader: 'static {
