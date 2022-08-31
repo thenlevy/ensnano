@@ -146,6 +146,16 @@ type_builder!(
 );
 
 type_builder!(
+    Vec2Builder,
+    Vec2,
+    Vec2,
+    std::convert::identity,
+    std::convert::identity,
+    x: f32 % FloatFormatter,
+    y: f32 % FloatFormatter
+);
+
+type_builder!(
     DirectionAngleBuilder,
     Rotor3,
     DirectionAngle,
@@ -252,6 +262,62 @@ impl GridOrientationBuilder {
         match self {
             Self::DirectionAngle(b) => b.has_keyboard_priority(),
         }
+    }
+}
+
+pub struct BezierVertexBuilder {
+    position_builder: Vec2Builder,
+}
+
+impl BezierVertexBuilder {
+    pub fn new(position: Vec2) -> Self {
+        Self {
+            position_builder: Vec2Builder::new(ValueKind::BezierVertexPosition, position),
+        }
+    }
+}
+
+impl<S: AppState> Builder<S> for BezierVertexBuilder {
+    fn view<'a>(
+        &'a mut self,
+        ui_size: UiSize,
+        _selection: &Selection,
+        _app_state: &S,
+    ) -> Element<'a, super::Message<S>, Renderer> {
+        let mut ret = Column::new().width(iced::Length::Fill);
+        let position_builder_view = self.position_builder.view();
+        ret = ret.push(Text::new("Position").size(ui_size.intermediate_text()));
+        ret = ret.push(position_builder_view);
+        ret.into()
+    }
+
+    fn update_str_value(&mut self, value_kind: ValueKind, n: usize, value_str: String) {
+        if let ValueKind::BezierVertexPosition = value_kind {
+            self.position_builder.update_str_value(n, value_str)
+        } else {
+            log::error!(
+                "Unexpected value kind {:?} for BezierVertexBuilder",
+                value_kind
+            )
+        }
+    }
+
+    fn submit_value(&mut self, value_kind: ValueKind) -> Option<InstanciatedValue> {
+        if let ValueKind::BezierVertexPosition = value_kind {
+            self.position_builder
+                .submit_value()
+                .map(|v| InstanciatedValue::BezierVertexPosition(v))
+        } else {
+            log::error!(
+                "Unexpected value kind {:?} for BezierVertexBuilder",
+                value_kind
+            );
+            None
+        }
+    }
+
+    fn has_keyboard_priority(&self) -> bool {
+        self.position_builder.has_keyboard_priority()
     }
 }
 

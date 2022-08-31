@@ -22,7 +22,7 @@ use ensnano_interactor::{Selection, SimulationState};
 use iced::{scrollable, Scrollable};
 
 mod value_constructor;
-use value_constructor::{Builder, GridBuilder};
+use value_constructor::{BezierVertexBuilder, Builder, GridBuilder};
 pub use value_constructor::{BuilderMessage, InstanciatedValue, ValueKind};
 
 use ultraviolet::{Rotor3, Vec2, Vec3};
@@ -165,6 +165,13 @@ impl<S: AppState> InstantiatedBuilder<S> {
                     reader.get_grid_position_and_orientation(*g_id)
                 {
                     Some(Box::new(GridBuilder::new(position, orientation)))
+                } else {
+                    None
+                }
+            }
+            Selection::BezierVertex(vertex_id) => {
+                if let Some(position) = reader.get_bezier_vertex_position(*vertex_id) {
+                    Some(Box::new(BezierVertexBuilder::new(position)))
                 } else {
                     None
                 }

@@ -230,4 +230,16 @@ impl ReaderGui for DesignReader {
             .get(&path_id)
             .map(|p| p.cyclic)
     }
+
+    fn get_bezier_vertex_position(
+        &self,
+        vertex_id: ensnano_design::BezierVertexId,
+    ) -> Option<ensnano_design::Vec2> {
+        let path = self
+            .presenter
+            .current_design
+            .bezier_paths
+            .get(&vertex_id.path_id)?;
+        path.vertices().get(vertex_id.vertex_id).map(|v| v.position)
+    }
 }
