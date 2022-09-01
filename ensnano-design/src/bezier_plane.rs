@@ -85,6 +85,13 @@ impl BezierPlaneDescriptor {
             + Vec3::unit_z().rotated_by(self.orientation) * vec.x
             + Vec3::unit_y().rotated_by(self.orientation) * vec.y
     }
+
+    pub fn vec2_angle_to_vec3(&self, vec: Vec2, angle: f32) -> Vec3 {
+        let z = vec.mag() * angle.tan();
+        Vec3::unit_z().rotated_by(self.orientation) * vec.x
+            + Vec3::unit_y().rotated_by(self.orientation) * vec.y
+            + Vec3::unit_x().rotated_by(self.orientation) * z
+    }
 }
 
 pub fn ray_bezier_plane_intersection<'a>(
@@ -240,6 +247,8 @@ pub struct BezierVertex {
     pub position_out: Option<Vec2>,
     #[serde(default)]
     grid_translation: Vec3,
+    #[serde(default)]
+    tangent_angle: f32,
 }
 
 impl BezierVertex {
@@ -272,6 +281,7 @@ impl BezierVertex {
             position_out: None,
             position_in: None,
             grid_translation: Vec3::zero(),
+            tangent_angle: 0.,
         }
     }
 }
@@ -294,19 +304,19 @@ struct BezierInstantiator {
 impl PieceWiseBezierInstantiator for BezierInstantiator {
     fn vector_in(&self, i: usize) -> Option<Vec3> {
         let vertex = self.source_path.vertices().get(i)?;
-        let pos = self.position(i)?;
         vertex.position_in.and_then(|position_in| {
+            let vec2 = vertex.position - position_in;
             let plane = self.source_planes.get(&vertex.plane_id)?;
-            Some(pos - plane.space_position_of_point2d(position_in))
+            Some(plane.vec2_angle_to_vec3(vec2, vertex.tangent_angle))
         })
     }
 
     fn vector_out(&self, i: usize) -> Option<Vec3> {
         let vertex = self.source_path.vertices().get(i)?;
-        let pos = self.position(i)?;
-        vertex.position_out.and_then(|position_in| {
+        vertex.position_out.and_then(|position_out| {
+            let vec2 = position_out - vertex.position;
             let plane = self.source_planes.get(&vertex.plane_id)?;
-            Some(plane.space_position_of_point2d(position_in) - pos)
+            Some(plane.vec2_angle_to_vec3(vec2, vertex.tangent_angle))
         })
     }
 
