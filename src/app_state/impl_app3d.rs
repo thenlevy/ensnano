@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use crate::scene::{AppState as App3D, DrawOptions};
+use ensnano_design::grid::GridId;
 use ensnano_interactor::StrandBuilder;
 
 use super::*;
@@ -68,7 +69,16 @@ impl App3D for AppState {
     }
 
     fn get_widget_basis(&self) -> WidgetBasis {
-        self.0.widget_basis
+        // When the selected object is a grid associated to a bezier vertex, we always want to
+        // return WidgetBasis::Object. We do so to enforce that all rotation applied to that grid
+        // happen in a cannonical plane
+        if let Some(Selection::Grid(_, GridId::BezierPathGrid(_))) =
+            self.get_selection().as_ref().get(0)
+        {
+            WidgetBasis::Object
+        } else {
+            self.0.widget_basis
+        }
     }
 
     fn is_changing_color(&self) -> bool {
