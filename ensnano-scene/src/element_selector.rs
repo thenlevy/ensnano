@@ -336,6 +336,21 @@ impl SceneElement {
             self
         }
     }
+
+    pub fn converted_to_grid_if_disc_on_bezier_grid(self) -> Self {
+        if let Self::GridCircle(
+            d_id,
+            GridPosition {
+                grid: g_id @ GridId::BezierPathGrid(_),
+                ..
+            },
+        ) = self
+        {
+            Self::Grid(d_id, g_id)
+        } else {
+            self
+        }
+    }
 }
 
 struct SceneReader {

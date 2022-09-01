@@ -335,9 +335,12 @@ impl<S: AppState> ControllerState<S> for NormalState {
                             } else {
                                 let adding = context.get_modifiers().shift()
                                     || ctrl(context.get_modifiers());
+
+                                let selected_element = clicked_element
+                                    .map(SceneElement::converted_to_grid_if_disc_on_bezier_grid);
                                 let new_state = PointAndClicking::selecting(
                                     context.cursor_position,
-                                    clicked_element,
+                                    selected_element,
                                     adding,
                                 );
                                 Transition {
