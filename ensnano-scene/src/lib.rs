@@ -1330,6 +1330,8 @@ pub trait AppState: Clone + 'static {
     fn get_design_path(&self) -> Option<PathBuf>;
 
     fn get_selected_bezier_vertex(&self) -> Option<BezierVertexId>;
+
+    fn has_selected_a_bezier_grid(&self) -> bool;
 }
 
 pub trait Requests {

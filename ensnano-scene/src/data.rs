@@ -18,6 +18,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! This modules handles internal informations about the scene, such as the selected objects etc..
 //! It also communicates with the desgings to get the position of the objects to draw on the scene.
 
+use crate::view::AvailableRotationAxes;
+
 use super::view::{
     GridDisc, HandleColors, Instanciable, RawDnaInstance, StereographicSphereAndPlane,
 };
@@ -297,7 +299,11 @@ impl<R: DesignReader> Data<R> {
         self.view
             .borrow_mut()
             .update(ViewUpdate::Handles(handle_descr));
-        let only_right = false;
+        let available_rotation_axes = if app_state.has_selected_a_bezier_grid() {
+            AvailableRotationAxes::NoZ
+        } else {
+            AvailableRotationAxes::All
+        };
         let rotation_widget_descr = if app_state.get_action_mode().0.wants_rotation() {
             origin
                 .clone()
@@ -306,7 +312,7 @@ impl<R: DesignReader> Data<R> {
                     origin,
                     orientation: RotationWidgetOrientation::Rotor(orientation),
                     size: 0.2,
-                    only_right,
+                    available_rotation_axes,
                     colors: self.handle_colors,
                 })
         } else {

@@ -72,9 +72,7 @@ impl App3D for AppState {
         // When the selected object is a grid associated to a bezier vertex, we always want to
         // return WidgetBasis::Object. We do so to enforce that all rotation applied to that grid
         // happen in a cannonical plane
-        if let Some(Selection::Grid(_, GridId::BezierPathGrid(_))) =
-            self.get_selection().as_ref().get(0)
-        {
+        if self.has_selected_a_bezier_grid() {
             WidgetBasis::Object
         } else {
             self.0.widget_basis
@@ -161,6 +159,13 @@ impl App3D for AppState {
         } else {
             None
         }
+    }
+
+    fn has_selected_a_bezier_grid(&self) -> bool {
+        matches!(
+            self.get_selection().as_ref().get(0),
+            Some(Selection::Grid(_, GridId::BezierPathGrid(_)))
+        )
     }
 }
 

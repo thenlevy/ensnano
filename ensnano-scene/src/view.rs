@@ -75,7 +75,9 @@ use instances_drawer::{InstanceDrawer, RawDrawer};
 pub use letter::LetterInstance;
 use maths_3d::unproject_point_on_line;
 use rotation_widget::RotationWidget;
-pub use rotation_widget::{RotationMode, RotationWidgetDescriptor, RotationWidgetOrientation};
+pub use rotation_widget::{
+    AvailableRotationAxes, RotationMode, RotationWidgetDescriptor, RotationWidgetOrientation,
+};
 pub use sheet_2d::Sheet2D;
 use text::Letter;
 //use plane_drawer::PlaneDrawer;
