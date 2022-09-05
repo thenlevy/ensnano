@@ -1729,6 +1729,27 @@ impl Controller {
         origin: Vec3,
     ) -> Design {
         self.update_state_and_design(&mut design);
+        let bezier_paths = design.get_up_to_date_paths();
+        let mut new_vectors_out = BTreeMap::new();
+
+        for g_id in grid_ids.iter() {
+            if let GridId::BezierPathGrid(vertex_id) = g_id {
+                if let Some(old_vector_out) = bezier_paths.get_vector_out(*vertex_id) {
+                    let new_vector_out = old_vector_out.rotated_by(rotation);
+                    new_vectors_out.insert(vertex_id, new_vector_out);
+                }
+            }
+        }
+
+        drop(bezier_paths);
+        let mut new_paths = design.bezier_paths.make_mut();
+        for (vertex_id, new_vector_out) in new_vectors_out.into_iter() {
+            if let Some(path) = new_paths.get_mut(&vertex_id.path_id) {
+                path.set_vector_out(vertex_id.vertex_id, new_vector_out, &design.bezier_planes)
+            }
+        }
+
+        drop(new_paths);
         let mut new_grids = design.free_grids.make_mut();
         for g_id in grid_ids.into_iter() {
             if let Some(desc) = new_grids.get_mut_g_id(&g_id) {

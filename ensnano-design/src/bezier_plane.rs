@@ -237,6 +237,12 @@ impl BezierPath {
     pub fn vertices_mut(&mut self) -> &mut [BezierVertex] {
         self.vertices.as_mut_slice()
     }
+
+    pub fn set_vector_out(&mut self, i: usize, vector_out: Vec3, planes: &BezierPlanes) {
+        self.vertices_mut()
+            .get_mut(i)
+            .map(|v| v.set_vector_out(vector_out, planes));
+    }
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
@@ -248,7 +254,7 @@ pub struct BezierVertex {
     #[serde(default)]
     grid_translation: Vec3,
     #[serde(default)]
-    tangent_angle: f32,
+    angle_with_plane: f32,
 }
 
 impl BezierVertex {
@@ -262,6 +268,32 @@ impl BezierVertex {
         } else {
             log::error!("Could not get plane");
             None
+        }
+    }
+
+    fn set_vector_out(&mut self, vector_out: Vec3, planes: &BezierPlanes) {
+        if let Some(plane) = planes.0.get(&self.plane_id) {
+            // (x, y) = coordinates in the bezier plane
+            let x = vector_out.dot(Vec3::unit_z().rotated_by(plane.orientation));
+            let y = vector_out.dot(Vec3::unit_y().rotated_by(plane.orientation));
+            let height = vector_out.dot(Vec3::unit_x().rotated_by(plane.orientation));
+
+            let tangent_angle = height / Vec2::new(x, y).mag();
+            let angle_with_plane = tangent_angle.atan();
+            let ratio = if let Some((inward, outward)) = self
+                .position_in
+                .map(|x| self.position - x)
+                .zip(self.position_out.map(|x| x - self.position))
+            {
+                inward.mag() / outward.mag()
+            } else {
+                1.
+            };
+            let vector_out = Vec2::new(x, y);
+            let vector_in = ratio * vector_out;
+            self.angle_with_plane = angle_with_plane;
+            self.position_out = Some(self.position + vector_out);
+            self.position_in = Some(self.position - vector_in);
         }
     }
 
@@ -281,7 +313,7 @@ impl BezierVertex {
             position_out: None,
             position_in: None,
             grid_translation: Vec3::zero(),
-            tangent_angle: 0.,
+            angle_with_plane: 0.,
         }
     }
 }
@@ -307,7 +339,7 @@ impl PieceWiseBezierInstantiator for BezierInstantiator {
         vertex.position_in.and_then(|position_in| {
             let vec2 = vertex.position - position_in;
             let plane = self.source_planes.get(&vertex.plane_id)?;
-            Some(plane.vec2_angle_to_vec3(vec2, vertex.tangent_angle))
+            Some(plane.vec2_angle_to_vec3(vec2, vertex.angle_with_plane))
         })
     }
 
@@ -316,7 +348,7 @@ impl PieceWiseBezierInstantiator for BezierInstantiator {
         vertex.position_out.and_then(|position_out| {
             let vec2 = position_out - vertex.position;
             let plane = self.source_planes.get(&vertex.plane_id)?;
-            Some(plane.vec2_angle_to_vec3(vec2, vertex.tangent_angle))
+            Some(plane.vec2_angle_to_vec3(vec2, vertex.angle_with_plane))
         })
     }
 
@@ -547,6 +579,14 @@ impl BezierPathData {
             .as_ref()
             .and_then(|f| f.get(vertex_id.vertex_id))
             .map(|f| f.1)
+    }
+
+    pub fn get_vector_out(&self, vertex_id: BezierVertexId) -> Option<Vec3> {
+        let path = self.instanciated_paths.get(&vertex_id.path_id)?;
+        path.curve_descriptor
+            .as_ref()
+            .and_then(|desc| desc.ends.get(vertex_id.vertex_id))
+            .map(|end| end.vector_out)
     }
 
     pub fn grids(&self) -> Vec<(GridId, GridDescriptor)> {
