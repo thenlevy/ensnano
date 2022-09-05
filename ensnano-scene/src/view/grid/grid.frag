@@ -4,7 +4,7 @@
 layout(location=0) flat in uint v_grid_type;
 layout(location=1) in vec2 v_tex_honey_coords;
 layout(location=2) in vec2 v_tex_square_coords;
-layout(location=3) in vec3 v_color;
+layout(location=3) in vec4 v_color;
 layout(location=4) flat in uint v_fake;
 layout(location=5) flat in uint v_design_id;
 
@@ -29,12 +29,12 @@ void main() {
        color = vec4(1., 1., 1., 0.4);
     }
 
-    if (color.w < 0.01) {
+    if (color.w < 0.01 && v_fake > 0) {
     discard;
     }
 
-    f_color = color * vec4(v_color, 1.);
+    f_color = color * vec4(v_color.xyz, 1.);
     if (v_fake > 0) {
-      f_color = vec4(v_color, float(v_design_id) / 255.);
+      f_color = v_color;
     }
 }

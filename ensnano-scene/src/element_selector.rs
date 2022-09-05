@@ -400,9 +400,9 @@ impl SceneReader {
                             path_id: BezierPathId(r >> 16),
                             vertex_id: (g + b) as usize,
                         };
-                        Some(SceneElement::Grid(a, GridId::BezierPathGrid(vertex)))
+                        Some(SceneElement::Grid(0, GridId::BezierPathGrid(vertex)))
                     } else {
-                        Some(SceneElement::Grid(a, GridId::FreeGrid(color as usize)))
+                        Some(SceneElement::Grid(0, GridId::FreeGrid(color as usize)))
                     }
                 }
                 DrawType::Design => {

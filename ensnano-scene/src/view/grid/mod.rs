@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use ensnano_design::ultraviolet;
 use ensnano_utils::wgpu;
-use ultraviolet::{Mat4, Vec2, Vec3};
+use ultraviolet::{Mat4, Vec2, Vec3, Vec4};
 use wgpu::{include_spirv, Device, RenderPass};
 
 use super::{grid_disc::GridDisc, instances_drawer::*, LetterInstance};
@@ -128,11 +128,10 @@ impl GridInstance {
             min_y,
             max_y,
             grid_type,
-            color: Instance::color_from_u32(self.color).truncated(),
+            color: Instance::color_from_au32(self.color),
             inter_helix_gap: self.grid.parameters.inter_helix_gap,
             helix_radius: self.grid.parameters.helix_radius,
             design_id: self.design as u32,
-            _padding: 0,
         }
     }
 
@@ -201,12 +200,11 @@ pub struct GridInstanceRaw {
     pub max_x: f32,           // padding 2
     pub min_y: f32,           // padding 3
     pub max_y: f32,           // padding 0
-    pub color: Vec3,          // padding 3
-    pub grid_type: u32,       // padding 0
-    pub helix_radius: f32,    // padding 1,
-    pub inter_helix_gap: f32, // padding 2,
-    pub design_id: u32,       // padding 3,
-    pub _padding: u32,
+    pub color: Vec4,          // padding 0
+    pub grid_type: u32,       // padding 1
+    pub helix_radius: f32,    // padding 2,
+    pub inter_helix_gap: f32, // padding 3,
+    pub design_id: u32,       // padding 0,
 }
 
 /// A structure that manages the pipepline that draw the grids

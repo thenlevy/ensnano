@@ -5,7 +5,7 @@ layout(location=0) in vec2 a_position;
 layout(location=0) out flat uint v_grid_type;
 layout(location=1) out vec2 v_tex_honney_coords;
 layout(location=2) out vec2 v_tex_square_coords;
-layout(location=3) out vec3 v_color;
+layout(location=3) out vec4 v_color;
 layout(location=4) out flat uint v_fake;
 layout(location=5) out flat uint v_design_id;
 
@@ -27,7 +27,7 @@ struct Instances {
     float max_x;
     float min_y;
     float max_y;
-    vec3 color;
+    vec4 color;
     uint grid_type;
     float helix_radius;
     float inter_helix_gap;
