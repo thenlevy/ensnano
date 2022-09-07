@@ -126,6 +126,8 @@ impl<'a> BasisMapper<'a> {
             *c
         } else if let Some(c) = self.map.and_then(|m| m.get(&nucl.compl())) {
             compl(*c, compl_a)
+        } else if let Some(c) = self.alternative.get(nucl) {
+            *c
         } else {
             let base = rand_base();
             self.alternative.insert(nucl.clone(), base);
