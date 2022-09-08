@@ -16,9 +16,12 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::utils::dvec_to_vec;
+
 use super::*;
 use std::f64::consts::{PI, TAU};
 use ultraviolet::DVec2;
+use ultraviolet::Mat3;
 
 use chebyshev_polynomials::ChebyshevPolynomial;
 
@@ -159,8 +162,17 @@ impl SmoothInterpolatedCurve {
         self.curve.point(s.rem_euclid(1.))
     }
 
+    fn curvilinear_abscissa(&self, t: f64) -> f64 {
+        self.smooth_chebyshev(t)
+    }
+
     fn t_max(&self) -> f64 {
         self.interpolators.len() as f64
+    }
+
+    fn normalized_tangent(&self, t: f64) -> DVec2 {
+        let s = self.smooth_chebyshev(t);
+        self.curve.normalized_tangent(s.rem_euclid(1.))
     }
 }
 
@@ -295,5 +307,33 @@ impl Curved for Revolution {
             }
         }
         None
+    }
+
+    fn surface_info(&self, t: f64) -> Option<SurfaceInfo> {
+        let point = super::SurfacePoint {
+            revolution_angle: TAU * t,
+            abscissa_along_section: self.curve.curvilinear_abscissa(t),
+        };
+
+        let section_tangent = self.curve.normalized_tangent(t);
+
+        let right = crate::utils::dvec_to_vec(DVec3 {
+            x: -point.revolution_angle.sin(),
+            y: point.revolution_angle.cos(),
+            z: 0.,
+        });
+        let up = crate::utils::dvec_to_vec(DVec3 {
+            x: section_tangent.x * point.revolution_angle.cos(),
+            y: section_tangent.x * point.revolution_angle.sin(),
+            z: section_tangent.y,
+        });
+        let local_frame = Mat3::new(right, up, right.cross(up)).into_rotor3();
+
+        Some(SurfaceInfo {
+            point,
+            section_tangent: Vec2::new(section_tangent.x as f32, section_tangent.y as f32),
+            local_frame,
+            position: dvec_to_vec(self.position(t)),
+        })
     }
 }

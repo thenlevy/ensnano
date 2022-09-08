@@ -55,7 +55,7 @@ type ViewPtr = Rc<RefCell<View>>;
 /// A module that handles the instantiation of designs as 3D geometric objects
 mod design3d;
 use design3d::Design3D;
-pub use design3d::{DesignReader, HBond, HalfHBond};
+pub use design3d::{DesignReader, HBond, HalfHBond, SurfaceInfo, SurfacePoint};
 use ensnano_design::External3DObjectsStamp;
 
 pub struct Data<R: DesignReader> {
@@ -1891,6 +1891,10 @@ impl<R: DesignReader> Data<R> {
 
     pub fn notify_handle_movement(&mut self) {
         self.handle_need_opdate = true;
+    }
+
+    pub(super) fn get_surface_info(&self, nucl: Nucl) -> Option<SurfaceInfo> {
+        self.designs.get(0).and_then(|d| d.get_surface_info(nucl))
     }
 }
 

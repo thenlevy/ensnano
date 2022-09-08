@@ -27,6 +27,7 @@ use ensnano_design::{
     BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, Collection,
     CubicBezierConstructor, CurveDescriptor, External3DObjects, InstanciatedPath, Parameters,
 };
+pub use ensnano_design::{SurfaceInfo, SurfacePoint};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::{
     graphics::{LoopoutBond, LoopoutNucl},
@@ -1050,6 +1051,10 @@ impl<R: DesignReader> Design3D<R> {
         }
         ret
     }
+
+    pub fn get_surface_info(&self, nucl: Nucl) -> Option<SurfaceInfo> {
+        self.design.get_surface_info(nucl)
+    }
 }
 
 fn create_dna_bound(
@@ -1212,6 +1217,7 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_optimal_xover_arround(&self, source: Nucl, target: Nucl) -> Option<(Nucl, Nucl)>;
     fn get_bezier_grid_used_by_helix(&self, h_id: usize) -> Vec<GridId>;
     fn get_external_objects(&self) -> &External3DObjects;
+    fn get_surface_info(&self, nucl: Nucl) -> Option<SurfaceInfo>;
 }
 
 pub(super) struct HBoundsInstances {

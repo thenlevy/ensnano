@@ -61,7 +61,7 @@ use controller::{Consequence, Controller, WidgetTarget};
 mod data;
 pub use controller::ClickMode;
 use data::Data;
-pub use data::{DesignReader, HBond, HalfHBond};
+pub use data::{DesignReader, HBond, HalfHBond, SurfaceInfo, SurfacePoint};
 mod element_selector;
 use element_selector::{ElementSelector, SceneElement};
 mod maths_3d;
@@ -1194,7 +1194,10 @@ impl<S: AppState> Application for Scene<S> {
                 self.notify(SceneNotification::CameraMoved);
             }
             Notification::Centering(nucl, design_id) => {
-                if let Some(position) = self.data.borrow().get_nucl_position(nucl, design_id) {
+                if let Some(surface_info) = self.data.borrow().get_surface_info(nucl) {
+                    println!("got {:?}", surface_info);
+                } else if let Some(position) = self.data.borrow().get_nucl_position(nucl, design_id)
+                {
                     self.controller.center_camera(position);
                 }
                 self.notify(SceneNotification::CameraMoved);
@@ -1204,7 +1207,18 @@ impl<S: AppState> Application for Scene<S> {
                     self.data
                         .borrow_mut()
                         .notify_selection(vec![selection].as_slice());
-                    if let Some(position) = self.data.borrow().get_selected_position() {
+                    let surface_info = if let Selection::Nucleotide(_, nt) = selection {
+                        self.data.borrow().get_surface_info(nt)
+                    } else {
+                        None
+                    };
+                    if let Some(surface_info) = surface_info {
+                        println!("got {:?}", surface_info);
+                        let cam_pos = surface_info.position
+                            + 50. * Vec3::unit_z().rotated_by(surface_info.local_frame);
+                        self.controller
+                            .teleport_camera(cam_pos, surface_info.local_frame);
+                    } else if let Some(position) = self.data.borrow().get_selected_position() {
                         self.controller.center_camera(position);
                     }
                     let pivot_element = self.data.borrow().selection_to_element(selection);

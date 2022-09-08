@@ -189,6 +189,7 @@ impl<S: AppState> Controller<S> {
     }
 
     pub fn update_modifiers(&mut self, modifiers: ModifiersState) {
+        log::info!("New modifiers {:?}", modifiers);
         self.current_modifiers = modifiers;
         if !modifiers.shift() {
             self.bezier_curve_origin = None;
@@ -217,6 +218,7 @@ impl<S: AppState> Controller<S> {
     }
 
     pub fn check_timers(&mut self) -> Consequence {
+        log::info!("Checking timers");
         let transition = self.state.borrow_mut().check_timers(&self);
         if let Some(state) = transition.new_state {
             log::info!("3D controller state: {}", state.display());
@@ -359,7 +361,8 @@ impl<S: AppState> Controller<S> {
             )
         };
 
-        if let Some(state) = transition.new_state {
+        if let Some(mut state) = transition.new_state {
+            state.give_context(EventContext::new(self, app_state, pixel_reader, position));
             log::info!("3D controller state: {}", state.display());
             let csq = self.state.borrow().transition_from(&self);
             self.transition_consequence(csq);

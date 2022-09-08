@@ -98,6 +98,10 @@ pub(super) trait ControllerState<S: AppState> {
     fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
         None
     }
+
+    fn give_context<'a>(&mut self, _context: EventContext<'a, S>) {
+        ()
+    }
 }
 
 pub struct NormalState {
@@ -534,5 +538,13 @@ fn ctrl(modifiers: &ModifiersState) -> bool {
         modifiers.logo()
     } else {
         modifiers.ctrl()
+    }
+}
+
+fn other_ctrl(modifiers: &ModifiersState) -> bool {
+    if cfg!(target_os = "macos") {
+        modifiers.ctrl()
+    } else {
+        modifiers.logo()
     }
 }

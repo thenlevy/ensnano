@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ultraviolet::{DMat3, DVec3, Rotor3, Vec3};
+use ultraviolet::{DMat3, DVec3, Rotor3, Vec2, Vec3};
 const EPSILON: f64 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
 
@@ -184,6 +184,12 @@ pub trait Curved {
     fn last_theta(&self) -> Option<f64> {
         None
     }
+
+    /// This method can be overriden to express the fact the a curve is a portion of a surface.
+    /// In that case return the information about the surface at the point corresponding to time t
+    fn surface_info(&self, _t: f64) -> Option<SurfaceInfo> {
+        None
+    }
 }
 
 /// The bounds of the curve. This describe the interval in which t can be taken
@@ -196,6 +202,22 @@ pub enum CurveBounds {
     PositiveInfinite,
     /// t ∈ ]-∞, +∞[
     BiInfinite,
+}
+
+#[derive(Debug)]
+pub struct SurfacePoint {
+    pub revolution_angle: f64,
+    pub abscissa_along_section: f64,
+}
+
+#[derive(Debug)]
+pub struct SurfaceInfo {
+    pub point: SurfacePoint,
+    pub section_tangent: Vec2,
+    /// A frame where the up vector is normal to the revolution plane, and the right vector is
+    /// tengent to the revolution circle
+    pub local_frame: Rotor3,
+    pub position: Vec3,
 }
 
 #[derive(Clone)]
