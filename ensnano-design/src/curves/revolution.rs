@@ -169,11 +169,6 @@ impl SmoothInterpolatedCurve {
         self.interpolators.len() as f64
     }
 
-    fn normalized_tangent(&self, t: f64) -> DVec2 {
-        let s = self.smooth_chebyshev(t);
-        self.normalized_tangent_at_s(s)
-    }
-
     fn normalized_tangent_at_s(&self, s: f64) -> DVec2 {
         self.curve.normalized_tangent(s.rem_euclid(1.))
     }
@@ -246,9 +241,7 @@ impl Revolution {
 
     fn get_surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo> {
         log::info!("Info point point {:?}", point);
-        let t_section_rotation = point.revolution_angle / TAU;
-        let section_rotation =
-            PI * self.half_turns_count as f64 * t_section_rotation.rem_euclid(1.);
+        let section_rotation = point.section_rotation_angle;
 
         let section_tangent = self
             .curve
@@ -271,6 +264,7 @@ impl Revolution {
         let position = self.curve_point_to_3d(
             self.curve.point_at_s(point.abscissa_along_section),
             point.revolution_angle,
+            Some(point.section_rotation_angle),
         );
 
         Some(SurfaceInfo {
@@ -281,9 +275,14 @@ impl Revolution {
         })
     }
 
-    fn curve_point_to_3d(&self, section_point: DVec2, revolution_angle: f64) -> DVec3 {
+    fn curve_point_to_3d(
+        &self,
+        section_point: DVec2,
+        revolution_angle: f64,
+        section_angle: Option<f64>,
+    ) -> DVec3 {
         let t = revolution_angle / TAU;
-        let section_rotation = PI * self.half_turns_count as f64 * t.rem_euclid(1.);
+        let section_rotation = section_angle.unwrap_or(self.default_section_rotation_angle(t));
 
         let x = self.revolution_radius
             + self.curve_scale_factor
@@ -298,6 +297,10 @@ impl Revolution {
             z: y,
         }
     }
+
+    fn default_section_rotation_angle(&self, t: f64) -> f64 {
+        PI * self.half_turns_count as f64 * t.rem_euclid(1.)
+    }
 }
 
 impl Curved for Revolution {
@@ -305,7 +308,7 @@ impl Curved for Revolution {
         let revolution_angle = TAU * t;
 
         let section_point = self.curve.point(t);
-        self.curve_point_to_3d(section_point, revolution_angle)
+        self.curve_point_to_3d(section_point, revolution_angle, None)
     }
 
     fn bounds(&self) -> CurveBounds {
@@ -363,6 +366,7 @@ impl Curved for Revolution {
             revolution_angle: TAU * t,
             abscissa_along_section: self.curve.curvilinear_abscissa(t),
             helix_id,
+            section_rotation_angle: self.default_section_rotation_angle(t),
         };
         self.get_surface_info(point)
     }
