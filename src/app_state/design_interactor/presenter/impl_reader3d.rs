@@ -546,9 +546,14 @@ impl Reader3D for DesignReader {
         &self.presenter.current_design.external_3d_objects
     }
 
-    fn get_surface_info(&self, nucl: Nucl) -> Option<SurfaceInfo> {
+    fn get_surface_info_nucl(&self, nucl: Nucl) -> Option<SurfaceInfo> {
         let helix = self.presenter.current_design.helices.get(&nucl.helix)?;
-        helix.get_surface_info(nucl)
+        helix.get_surface_info_nucl(nucl)
+    }
+
+    fn get_surface_info(&self, point: ensnano_design::SurfacePoint) -> Option<SurfaceInfo> {
+        let helix = self.presenter.current_design.helices.get(&point.helix_id)?;
+        helix.get_surface_info(point)
     }
 }
 

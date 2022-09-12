@@ -22,11 +22,14 @@ use super::{
 };
 use crate::{PhySize, PhysicalPosition, WindowEvent};
 use ensnano_design::grid::{GridId, GridObject, GridPosition, HelixGridPosition};
-use ensnano_design::{BezierPathId, BezierPlaneId, BezierVertex, BezierVertexId, Nucl};
+use ensnano_design::{
+    BezierPathId, BezierPlaneId, BezierVertex, BezierVertexId, Nucl, SurfaceInfo, SurfacePoint,
+};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::Selection;
 use ensnano_utils::winit::event::*;
 use std::cell::RefCell;
+use std::ops::Deref;
 use ultraviolet::{Rotor3, Vec2, Vec3};
 
 use super::AppState;
@@ -152,7 +155,7 @@ pub enum Consequence {
 
 enum TransistionConsequence {
     Nothing,
-    InitCameraMovement,
+    InitCameraMovement { translation: bool },
     EndCameraMovement,
     InitFreeXover(Nucl, usize, Vec3),
     StopRotatingPivot,
@@ -202,6 +205,11 @@ impl<S: AppState> Controller<S> {
         self.end_movement();
     }
 
+    pub fn set_surface_point(&mut self, info: SurfaceInfo) {
+        self.camera_controller.set_surface_point(info);
+        self.end_movement();
+    }
+
     pub fn align_horizon(&mut self) {
         let angle = self.camera_controller.horizon_angle();
         self.camera_controller.tilt_camera(angle);
@@ -218,7 +226,7 @@ impl<S: AppState> Controller<S> {
     }
 
     pub fn check_timers(&mut self) -> Consequence {
-        log::info!("Checking timers");
+        log::debug!("Checking timers");
         let transition = self.state.borrow_mut().check_timers(&self);
         if let Some(state) = transition.new_state {
             log::info!("3D controller state: {}", state.display());
@@ -376,7 +384,9 @@ impl<S: AppState> Controller<S> {
     fn transition_consequence(&mut self, csq: TransistionConsequence) {
         match csq {
             TransistionConsequence::Nothing => (),
-            TransistionConsequence::InitCameraMovement => self.init_movement(),
+            TransistionConsequence::InitCameraMovement { translation } => {
+                self.init_movement(translation && self.current_modifiers.shift())
+            }
             TransistionConsequence::EndCameraMovement => self.end_movement(),
             TransistionConsequence::InitFreeXover(nucl, d_id, position) => {
                 self.data.borrow_mut().init_free_xover(nucl, position, d_id)
@@ -407,8 +417,12 @@ impl<S: AppState> Controller<S> {
 
     /// Moves the camera according to its speed and the time elapsed since previous frame
     pub fn update_camera(&mut self, dt: Duration) {
-        self.camera_controller
-            .update_camera(dt, self.click_mode, &self.current_modifiers);
+        self.camera_controller.update_camera(
+            dt,
+            self.click_mode,
+            &self.current_modifiers,
+            self.data.borrow().deref(),
+        );
     }
 
     /// Handles a resizing of the window and/or drawing area
@@ -426,8 +440,8 @@ impl<S: AppState> Controller<S> {
         self.window_size
     }
 
-    fn init_movement(&mut self) {
-        self.camera_controller.init_movement();
+    fn init_movement(&mut self, along_surface: bool) {
+        self.camera_controller.init_movement(along_surface);
         if !ctrl(&self.current_modifiers) {
             self.camera_controller
                 .init_constrained_rotation(!self.current_modifiers.alt())
@@ -529,4 +543,5 @@ pub(super) trait Data {
     fn update_handle_colors(&mut self, colors: HandleColors);
     fn element_to_selection(&self, element: &Option<SceneElement>) -> Selection;
     fn init_free_xover(&mut self, nucl: Nucl, position: Vec3, design_id: usize);
+    fn get_surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo>;
 }

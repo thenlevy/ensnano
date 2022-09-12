@@ -242,7 +242,7 @@ impl DraggingTransitionTable for TranslatingCamera {
     }
 
     fn on_enterring(&self) -> TransistionConsequence {
-        TransistionConsequence::InitCameraMovement
+        TransistionConsequence::InitCameraMovement { translation: true }
     }
 
     fn on_leaving(&self) -> TransistionConsequence {
@@ -285,7 +285,7 @@ impl DraggingTransitionTable for RotatingCamera {
     }
 
     fn on_enterring(&self) -> TransistionConsequence {
-        TransistionConsequence::InitCameraMovement
+        TransistionConsequence::InitCameraMovement { translation: false }
     }
 
     fn on_leaving(&self) -> TransistionConsequence {
@@ -320,7 +320,7 @@ impl DraggingTransitionTable for TiltingCamera {
     }
 
     fn on_enterring(&self) -> TransistionConsequence {
-        TransistionConsequence::InitCameraMovement
+        TransistionConsequence::InitCameraMovement { translation: false }
     }
 
     fn on_leaving(&self) -> TransistionConsequence {

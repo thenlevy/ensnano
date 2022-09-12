@@ -1205,15 +1205,12 @@ impl<S: AppState> Application for Scene<S> {
                         .borrow_mut()
                         .notify_selection(vec![selection].as_slice());
                     let surface_info = if let Selection::Nucleotide(_, nt) = selection {
-                        self.data.borrow().get_surface_info(nt)
+                        self.data.borrow().get_surface_info_nucl(nt)
                     } else {
                         None
                     };
                     if let Some(surface_info) = surface_info {
-                        let cam_pos = surface_info.position
-                            + 20. * Vec3::unit_z().rotated_by(surface_info.local_frame);
-                        self.controller
-                            .teleport_camera(cam_pos, surface_info.local_frame.reversed());
+                        self.controller.set_surface_point(surface_info);
                     } else if let Some(position) = self.data.borrow().get_selected_position() {
                         self.controller.center_camera(position);
                     }

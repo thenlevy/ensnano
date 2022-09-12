@@ -1893,8 +1893,10 @@ impl<R: DesignReader> Data<R> {
         self.handle_need_opdate = true;
     }
 
-    pub(super) fn get_surface_info(&self, nucl: Nucl) -> Option<SurfaceInfo> {
-        self.designs.get(0).and_then(|d| d.get_surface_info(nucl))
+    pub(super) fn get_surface_info_nucl(&self, nucl: Nucl) -> Option<SurfaceInfo> {
+        self.designs
+            .get(0)
+            .and_then(|d| d.get_surface_info_nucl(nucl))
     }
 }
 
@@ -2007,6 +2009,10 @@ impl<R: DesignReader> ControllerData for Data<R> {
 
     fn init_free_xover(&mut self, nucl: Nucl, position: Vec3, design_id: usize) {
         self.init_free_xover(nucl, position, design_id)
+    }
+
+    fn get_surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo> {
+        self.designs.get(0).and_then(|d| d.get_surface_info(point))
     }
 }
 

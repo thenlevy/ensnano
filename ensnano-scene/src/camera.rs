@@ -16,8 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::maths_3d;
-use super::{ClickMode, PhySize, Stereography};
-use ensnano_design::ultraviolet;
+use super::{controller::Data as SurfaceInfoProvider, ClickMode, PhySize, Stereography};
+use ensnano_design::{ultraviolet, SurfaceInfo, SurfacePoint};
 use ensnano_utils::winit;
 use std::cell::RefCell;
 use std::f32::consts::{FRAC_PI_2, PI};
@@ -26,6 +26,10 @@ use std::time::Duration;
 use ultraviolet::{Mat3, Mat4, Rotor3, Vec3};
 use winit::dpi::PhysicalPosition;
 use winit::event::*;
+
+const DIST_TO_SURFACE: f32 = 20.;
+const SURFACE_ABSCISSA_FACTOR: f64 = 1.;
+const SURFACE_REVOLUTION_ANGLE_FACTOR: f64 = 1.;
 
 #[derive(Debug, Clone)]
 pub struct Camera {
@@ -257,6 +261,7 @@ pub struct CameraController {
     /// The yz angle accumulated during a free camera rotation
     free_yz_angle: f32,
     current_constrained_rotation: Option<ConstrainedRotation>,
+    surface_point: Option<SurfacePoint>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -309,6 +314,7 @@ impl CameraController {
             free_xz_angle: 0.,
             free_yz_angle: 0.,
             current_constrained_rotation: None,
+            surface_point: None,
         }
     }
 
@@ -479,25 +485,37 @@ impl CameraController {
     }
 
     /// Translate the camera
-    fn translate_camera(&mut self) {
+    fn translate_camera(&mut self, surface_info_provider: &dyn SurfaceInfoProvider) {
         let right = self.mouse_horizontal;
         let up = -self.mouse_vertical;
 
-        let scale = if let Some(pivot) = self.pivot_point {
-            (Vec3::from(pivot) - self.camera.borrow().position)
-                .dot(self.camera.borrow().direction())
-        } else if let Some(origin) = self.zoom_plane.as_ref().map(|plane| plane.origin) {
-            (origin - self.camera.borrow().position).dot(self.camera.borrow().direction())
+        if let Some(mut point) = self.surface_point.clone() {
+            log::info!("Got point");
+            point.abscissa_along_section += up as f64 * SURFACE_ABSCISSA_FACTOR;
+            point.revolution_angle += right as f64 * SURFACE_REVOLUTION_ANGLE_FACTOR;
+
+            if let Some(surface_info) = surface_info_provider.get_surface_info(point.clone()) {
+                let cam_pos = surface_info.position
+                    + DIST_TO_SURFACE * Vec3::unit_z().rotated_by(surface_info.local_frame);
+                self.teleport_camera(cam_pos, surface_info.local_frame.reversed());
+            }
         } else {
-            10.
-        };
+            let scale = if let Some(pivot) = self.pivot_point {
+                (Vec3::from(pivot) - self.camera.borrow().position)
+                    .dot(self.camera.borrow().direction())
+            } else if let Some(origin) = self.zoom_plane.as_ref().map(|plane| plane.origin) {
+                (origin - self.camera.borrow().position).dot(self.camera.borrow().direction())
+            } else {
+                10.
+            };
 
-        let right_vec =
-            self.camera.borrow().right_vec() * scale * self.projection.borrow().get_ratio();
-        let up_vec = self.camera.borrow().up_vec() * scale;
+            let right_vec =
+                self.camera.borrow().right_vec() * scale * self.projection.borrow().get_ratio();
+            let up_vec = self.camera.borrow().up_vec() * scale;
 
-        let old_pos = self.cam0.position;
-        self.camera.borrow_mut().position = old_pos + right * right_vec + up * up_vec;
+            let old_pos = self.cam0.position;
+            self.camera.borrow_mut().position = old_pos + right * right_vec + up * up_vec;
+        }
 
         self.mouse_horizontal = 0.0;
         self.mouse_vertical = 0.0;
@@ -611,16 +629,17 @@ impl CameraController {
         self.scroll = 0.;
     }
 
-    pub fn update_camera(
+    pub(super) fn update_camera(
         &mut self,
         dt: Duration,
         click_mode: ClickMode,
         modifier: &ModifiersState,
+        surface_info_provider: &dyn SurfaceInfoProvider,
     ) {
         if self.processed_move {
             match click_mode {
                 ClickMode::RotateCam => self.process_angles(),
-                ClickMode::TranslateCam => self.translate_camera(),
+                ClickMode::TranslateCam => self.translate_camera(surface_info_provider),
             }
         }
         if self.is_moving() {
@@ -628,8 +647,12 @@ impl CameraController {
         }
     }
 
-    pub fn init_movement(&mut self) {
+    pub fn init_movement(&mut self, along_surface: bool) {
         self.processed_move = false;
+        if !along_surface {
+            log::info!("Setting info to None");
+            self.surface_point = None;
+        }
     }
 
     pub fn init_constrained_rotation(&mut self, force_horizon: bool) {
@@ -666,6 +689,12 @@ impl CameraController {
         camera.rotor = rotation;
         self.last_rotor = rotation;
         self.cam0 = camera.clone();
+    }
+
+    pub fn set_surface_point(&mut self, info: SurfaceInfo) {
+        let cam_pos = info.position + DIST_TO_SURFACE * Vec3::unit_z().rotated_by(info.local_frame);
+        self.teleport_camera(cam_pos, info.local_frame.reversed());
+        self.surface_point = Some(info.point);
     }
 
     pub fn horizon_angle(&self) -> f32 {

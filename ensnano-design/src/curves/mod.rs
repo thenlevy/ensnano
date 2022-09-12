@@ -187,7 +187,13 @@ pub trait Curved {
 
     /// This method can be overriden to express the fact the a curve is a portion of a surface.
     /// In that case return the information about the surface at the point corresponding to time t
-    fn surface_info(&self, _t: f64) -> Option<SurfaceInfo> {
+    fn surface_info_time(&self, _t: f64, _helix_id: usize) -> Option<SurfaceInfo> {
+        None
+    }
+
+    /// This method can be overriden to express the fact the a curve is a portion of a surface.
+    /// In that case return the information about the surface at the specified point
+    fn surface_info(&self, _point: SurfacePoint) -> Option<SurfaceInfo> {
         None
     }
 }
@@ -204,10 +210,11 @@ pub enum CurveBounds {
     BiInfinite,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SurfacePoint {
     pub revolution_angle: f64,
     pub abscissa_along_section: f64,
+    pub helix_id: usize,
 }
 
 #[derive(Debug)]
