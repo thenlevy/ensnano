@@ -20,8 +20,7 @@ use crate::utils::dvec_to_vec;
 
 use super::*;
 use std::f64::consts::{PI, TAU};
-use ultraviolet::DVec2;
-use ultraviolet::Mat3;
+use ultraviolet::{DRotor2, DVec2, Mat3};
 
 use chebyshev_polynomials::ChebyshevPolynomial;
 
@@ -315,7 +314,11 @@ impl Curved for Revolution {
             abscissa_along_section: self.curve.curvilinear_abscissa(t),
         };
 
-        let section_tangent = self.curve.normalized_tangent(t);
+        let section_rotation = PI * self.half_turns_count as f64 * t.rem_euclid(1.);
+        let section_tangent = self
+            .curve
+            .normalized_tangent(t)
+            .rotated_by(DRotor2::from_angle(section_rotation));
 
         let right = crate::utils::dvec_to_vec(DVec3 {
             x: -point.revolution_angle.sin(),

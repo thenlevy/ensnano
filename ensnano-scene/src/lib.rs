@@ -1194,10 +1194,7 @@ impl<S: AppState> Application for Scene<S> {
                 self.notify(SceneNotification::CameraMoved);
             }
             Notification::Centering(nucl, design_id) => {
-                if let Some(surface_info) = self.data.borrow().get_surface_info(nucl) {
-                    println!("got {:?}", surface_info);
-                } else if let Some(position) = self.data.borrow().get_nucl_position(nucl, design_id)
-                {
+                if let Some(position) = self.data.borrow().get_nucl_position(nucl, design_id) {
                     self.controller.center_camera(position);
                 }
                 self.notify(SceneNotification::CameraMoved);
@@ -1213,11 +1210,10 @@ impl<S: AppState> Application for Scene<S> {
                         None
                     };
                     if let Some(surface_info) = surface_info {
-                        println!("got {:?}", surface_info);
                         let cam_pos = surface_info.position
-                            + 50. * Vec3::unit_z().rotated_by(surface_info.local_frame);
+                            + 20. * Vec3::unit_z().rotated_by(surface_info.local_frame);
                         self.controller
-                            .teleport_camera(cam_pos, surface_info.local_frame);
+                            .teleport_camera(cam_pos, surface_info.local_frame.reversed());
                     } else if let Some(position) = self.data.borrow().get_selected_position() {
                         self.controller.center_camera(position);
                     }
