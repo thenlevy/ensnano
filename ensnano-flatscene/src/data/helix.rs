@@ -798,11 +798,12 @@ impl Helix {
         }
 
         let mut print_basis = |position: isize, forward: bool| {
-            let nucl = Nucl {
-                helix: self.real_id,
-                position,
+            let nucl = FlatNucl {
+                helix: self.flat_id,
+                flat_position: position,
                 forward,
-            };
+            }
+            .to_real();
             if nucl_collection.contains(&nucl) {
                 let (c, color) = basis_map
                     .get(&nucl)
@@ -817,9 +818,9 @@ impl Helix {
                     symetry,
                 };
                 let (line, position) = if nucl.forward {
-                    (self.top_line(), self.char_position_top(nucl.position))
+                    (self.top_line(), self.char_position_top(position))
                 } else {
-                    (self.bottom_line(), self.char_position_bottom(nucl.position))
+                    (self.bottom_line(), self.char_position_bottom(position))
                 };
                 text_drawer.add_sentence(sentence, position, line);
             }
