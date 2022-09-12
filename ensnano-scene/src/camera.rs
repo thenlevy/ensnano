@@ -262,6 +262,7 @@ pub struct CameraController {
     free_yz_angle: f32,
     current_constrained_rotation: Option<ConstrainedRotation>,
     surface_point: Option<SurfacePoint>,
+    surface_point0: Option<SurfacePoint>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -315,6 +316,7 @@ impl CameraController {
             free_yz_angle: 0.,
             current_constrained_rotation: None,
             surface_point: None,
+            surface_point0: None,
         }
     }
 
@@ -489,7 +491,7 @@ impl CameraController {
         let right = self.mouse_horizontal;
         let up = -self.mouse_vertical;
 
-        if let Some(mut point) = self.surface_point.clone() {
+        if let Some(mut point) = self.surface_point0.clone() {
             log::info!("Got point");
             point.abscissa_along_section += up as f64 * SURFACE_ABSCISSA_FACTOR;
             point.revolution_angle += right as f64 * SURFACE_REVOLUTION_ANGLE_FACTOR;
@@ -499,6 +501,7 @@ impl CameraController {
                     + DIST_TO_SURFACE * Vec3::unit_z().rotated_by(surface_info.local_frame);
                 self.teleport_camera(cam_pos, surface_info.local_frame.reversed());
             }
+            self.surface_point = Some(point);
         } else {
             let scale = if let Some(pivot) = self.pivot_point {
                 (Vec3::from(pivot) - self.camera.borrow().position)
@@ -651,6 +654,7 @@ impl CameraController {
         self.processed_move = false;
         if !along_surface {
             log::info!("Setting info to None");
+            self.surface_point0 = None;
             self.surface_point = None;
         }
     }
@@ -669,6 +673,7 @@ impl CameraController {
     pub fn end_movement(&mut self) {
         self.last_rotor = self.camera.borrow().rotor;
         self.cam0 = self.camera.borrow().clone();
+        self.surface_point0 = self.surface_point.clone();
         self.mouse_horizontal = 0.;
         self.mouse_vertical = 0.;
         if let Some(origin) = self.pivot_point {
