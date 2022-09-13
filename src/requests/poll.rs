@@ -425,4 +425,8 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     if let Some(b) = requests.set_thick_helices.take() {
         main_state.set_thick_helices(b);
     }
+
+    if let Some(()) = requests.toggle_thick_helices.take() {
+        main_state.toggle_thick_helices();
+    }
 }

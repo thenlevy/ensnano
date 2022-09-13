@@ -128,6 +128,7 @@ pub struct Requests {
     pub set_show_bezier_paths: Option<bool>,
     pub set_invert_y_scroll: Option<bool>,
     pub set_thick_helices: Option<bool>,
+    pub toggle_thick_helices: Option<()>,
     pub twist_simulation: Option<GridId>,
     pub horizon_targeted: Option<()>,
 }
