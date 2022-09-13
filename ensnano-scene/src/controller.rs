@@ -363,6 +363,9 @@ impl<S: AppState> Controller<S> {
                 VirtualKeyCode::Space if *state == ElementState::Pressed => {
                     Consequence::ToggleWidget
                 }
+                VirtualKeyCode::W if *state == ElementState::Pressed => {
+                    Consequence::ReverseSurfaceDirection
+                }
                 _ => {
                     if self.camera_controller.process_keyboard(*key, *state) {
                         Consequence::CameraMoved
