@@ -30,6 +30,8 @@ const INTER_HELIX_GAP: f64 = crate::Parameters::DEFAULT.helix_radius as f64
 
 const NB_STEPS: usize = 10_000_000;
 
+const EPSILON_DERIVATIVE: f64 = 1e-6;
+
 /// A torus
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Torus {
@@ -277,6 +279,10 @@ impl CurveDescriptor2D {
             }
             _ => Vec::new(),
         }
+    }
+
+    pub fn normalized_tangent(&self, t: f64) -> DVec2 {
+        (self.point(t + EPSILON_DERIVATIVE) - self.point(t)).normalized()
     }
 }
 

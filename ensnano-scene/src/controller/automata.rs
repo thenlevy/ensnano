@@ -98,6 +98,10 @@ pub(super) trait ControllerState<S: AppState> {
     fn cursor(&self) -> Option<ensnano_interactor::CursorIcon> {
         None
     }
+
+    fn give_context<'a>(&mut self, _context: EventContext<'a, S>) {
+        ()
+    }
 }
 
 pub struct NormalState {
@@ -129,8 +133,14 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 ..
             } if context.get_modifiers().alt() => {
                 let click_info = ClickInfo::new(MouseButton::Left, context.cursor_position);
+                let clicked_nucl = context
+                    .get_element_under_cursor()
+                    .and_then(|elt| context.element_to_nucl(&Some(elt), true));
                 Transition {
-                    new_state: Some(Box::new(dragging_state::translating_camera(click_info))),
+                    new_state: Some(Box::new(dragging_state::translating_camera(
+                        click_info,
+                        clicked_nucl,
+                    ))),
                     consequences: Consequence::Nothing,
                 }
             }
@@ -481,8 +491,14 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 ..
             } => {
                 let click_info = ClickInfo::new(MouseButton::Middle, context.cursor_position);
+                let clicked_nucl = context
+                    .get_element_under_cursor()
+                    .and_then(|elt| context.element_to_nucl(&Some(elt), true));
                 Transition {
-                    new_state: Some(Box::new(dragging_state::translating_camera(click_info))),
+                    new_state: Some(Box::new(dragging_state::translating_camera(
+                        click_info,
+                        clicked_nucl,
+                    ))),
                     consequences: Consequence::Nothing,
                 }
             }
@@ -534,5 +550,13 @@ fn ctrl(modifiers: &ModifiersState) -> bool {
         modifiers.logo()
     } else {
         modifiers.ctrl()
+    }
+}
+
+fn other_ctrl(modifiers: &ModifiersState) -> bool {
+    if cfg!(target_os = "macos") {
+        modifiers.ctrl()
+    } else {
+        modifiers.logo()
     }
 }

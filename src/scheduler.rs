@@ -73,6 +73,7 @@ impl Scheduler {
         dt: Duration,
         app_state: AppState,
     ) -> bool {
+        log::debug!("Scheduler checking redraw");
         self.needs_redraw.clear();
         for (area, app) in self.applications.iter_mut() {
             if multiplexer.is_showing(area)

@@ -500,6 +500,9 @@ impl Multiplexer {
                             },
                         )
                     }
+                    VirtualKeyCode::X => {
+                        self.requests.lock().unwrap().toggle_thick_helices = Some(());
+                    }
                     VirtualKeyCode::Z if ctrl(&self.modifiers) => {
                         if self.modifiers.shift() {
                             self.requests.lock().unwrap().redo = Some(())

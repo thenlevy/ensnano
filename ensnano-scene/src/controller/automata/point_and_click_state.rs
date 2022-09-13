@@ -218,19 +218,34 @@ impl<S: AppState> ControllerState<S> for PointAndClicking<S> {
         self.description.into()
     }
 
-    fn check_timers(&mut self, _controller: &Controller<S>) -> Transition<S> {
+    fn check_timers(&mut self, controller: &Controller<S>) -> Transition<S> {
         if let Some(transition) = self.long_hold_state.as_ref() {
+            log::info!("Some long hold state");
             let now = Instant::now();
-            if (now - self.clicked_date) > LONG_HOLDING_TIME {
+            if (now - self.clicked_date) > LONG_HOLDING_TIME
+                || other_ctrl(&controller.current_modifiers)
+            {
                 if let Some(new_state) = transition(self.get_click_info(self.clicked_position)) {
                     return Transition {
                         new_state: Some(new_state),
                         consequences: Consequence::Nothing,
                     };
                 }
+            } else {
+                log::debug!("No transition");
             }
         }
         Transition::nothing()
+    }
+
+    fn give_context<'a>(&mut self, mut context: EventContext<'a, S>) {
+        if let Some(transition_maker) = self.long_hold_state_maker.as_ref() {
+            let position = context.cursor_position;
+            self.long_hold_state = Some(OptionalTransitionPtr::Owned(transition_maker(
+                &mut context,
+                self.get_click_info(position),
+            )))
+        }
     }
 }
 
@@ -326,6 +341,24 @@ impl<S: AppState> PointAndClicking<S> {
             long_hold_state_maker: Some(ContextDependentTransitionPtr::Borrowed(
                 &making_xover_maker,
             )),
+        }
+    }
+
+    pub(super) fn reversing_surface_direction(
+        clicked_position: PhysicalPosition<f64>,
+        clicked_date: Instant,
+    ) -> Self {
+        Self {
+            away_state: Default::default(),
+            away_state_maker: None,
+            clicked_date,
+            description: "Waiting for double click",
+            pressed_button: MouseButton::Middle,
+            release_consequences: Consequence::ReverseSurfaceDirection,
+            release_transition: Default::default(),
+            long_hold_state: Some(Default::default()),
+            clicked_position,
+            long_hold_state_maker: None,
         }
     }
 

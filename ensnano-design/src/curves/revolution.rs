@@ -16,9 +16,11 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::utils::dvec_to_vec;
+
 use super::*;
 use std::f64::consts::{PI, TAU};
-use ultraviolet::DVec2;
+use ultraviolet::{DRotor2, DVec2, Mat3};
 
 use chebyshev_polynomials::ChebyshevPolynomial;
 
@@ -156,11 +158,23 @@ impl SmoothInterpolatedCurve {
 
     fn point(&self, t: f64) -> DVec2 {
         let s = self.smooth_chebyshev(t);
-        self.curve.point(s.rem_euclid(1.))
+        self.point_at_s(s)
+    }
+
+    fn curvilinear_abscissa(&self, t: f64) -> f64 {
+        self.smooth_chebyshev(t)
     }
 
     fn t_max(&self) -> f64 {
         self.interpolators.len() as f64
+    }
+
+    fn normalized_tangent_at_s(&self, s: f64) -> DVec2 {
+        self.curve.normalized_tangent(s.rem_euclid(1.))
+    }
+
+    fn point_at_s(&self, s: f64) -> DVec2 {
+        self.curve.point(s.rem_euclid(1.))
     }
 }
 
@@ -224,15 +238,58 @@ impl Revolution {
             t0 += 1.;
         }
     }
-}
 
-impl Curved for Revolution {
-    fn position(&self, t: f64) -> DVec3 {
-        let revolution_angle = TAU * t;
+    fn get_surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo> {
+        log::info!("Info point point {:?}", point);
+        let section_rotation = point.section_rotation_angle;
 
-        let section_rotation = PI * self.half_turns_count as f64 * t.rem_euclid(1.);
+        let section_tangent = self
+            .curve
+            .normalized_tangent_at_s(point.abscissa_along_section)
+            .rotated_by(DRotor2::from_angle(section_rotation));
+        log::info!("section tangent {:?}", section_tangent);
 
-        let section_point = self.curve.point(t);
+        let right = crate::utils::dvec_to_vec(DVec3 {
+            x: -point.revolution_angle.sin(),
+            y: point.revolution_angle.cos(),
+            z: 0.,
+        });
+        let up = crate::utils::dvec_to_vec(DVec3 {
+            x: section_tangent.x * point.revolution_angle.cos(),
+            y: section_tangent.x * point.revolution_angle.sin(),
+            z: section_tangent.y,
+        });
+        let direction = right.cross(up);
+
+        let local_frame = if point.reversed_direction {
+            Mat3::new(-right, up, -direction).into_rotor3()
+        } else {
+            Mat3::new(right, up, direction).into_rotor3()
+        };
+
+        let position = self.curve_point_to_3d(
+            self.curve.point_at_s(point.abscissa_along_section),
+            point.revolution_angle,
+            Some(point.section_rotation_angle),
+        );
+
+        Some(SurfaceInfo {
+            point,
+            section_tangent: Vec2::new(section_tangent.x as f32, section_tangent.y as f32),
+            local_frame,
+            position: dvec_to_vec(position),
+        })
+    }
+
+    fn curve_point_to_3d(
+        &self,
+        section_point: DVec2,
+        revolution_angle: f64,
+        section_angle: Option<f64>,
+    ) -> DVec3 {
+        let t = revolution_angle / TAU;
+        let section_rotation = section_angle.unwrap_or(self.default_section_rotation_angle(t));
+
         let x = self.revolution_radius
             + self.curve_scale_factor
                 * (section_point.x * section_rotation.cos()
@@ -245,6 +302,19 @@ impl Curved for Revolution {
             y: revolution_angle.sin() * x,
             z: y,
         }
+    }
+
+    fn default_section_rotation_angle(&self, t: f64) -> f64 {
+        PI * self.half_turns_count as f64 * t.rem_euclid(1.)
+    }
+}
+
+impl Curved for Revolution {
+    fn position(&self, t: f64) -> DVec3 {
+        let revolution_angle = TAU * t;
+
+        let section_point = self.curve.point(t);
+        self.curve_point_to_3d(section_point, revolution_angle, None)
     }
 
     fn bounds(&self) -> CurveBounds {
@@ -295,5 +365,20 @@ impl Curved for Revolution {
             }
         }
         None
+    }
+
+    fn surface_info_time(&self, t: f64, helix_id: usize) -> Option<SurfaceInfo> {
+        let point = super::SurfacePoint {
+            revolution_angle: TAU * t,
+            abscissa_along_section: self.curve.curvilinear_abscissa(t),
+            helix_id,
+            section_rotation_angle: self.default_section_rotation_angle(t),
+            reversed_direction: false,
+        };
+        self.get_surface_info(point)
+    }
+
+    fn surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo> {
+        self.get_surface_info(point)
     }
 }

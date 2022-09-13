@@ -27,6 +27,7 @@ use ensnano_design::{
     BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, Collection,
     CubicBezierConstructor, CurveDescriptor, External3DObjects, InstanciatedPath, Parameters,
 };
+pub use ensnano_design::{SurfaceInfo, SurfacePoint};
 use ensnano_interactor::consts::*;
 use ensnano_interactor::{
     graphics::{LoopoutBond, LoopoutNucl},
@@ -1009,6 +1010,16 @@ impl<R: DesignReader> Design3D<R> {
         .to_raw_instance()
     }
 
+    pub fn surface_pivot_sphere(position: Vec3) -> RawDnaInstance {
+        SphereInstance {
+            position,
+            id: 0,
+            radius: 1.2 * SELECT_SCALE_FACTOR,
+            color: Instance::color_from_au32(SURFACE_PIVOT_SPHERE_COLOR),
+        }
+        .to_raw_instance()
+    }
+
     pub fn free_xover_sphere(position: Vec3) -> RawDnaInstance {
         SphereInstance {
             position,
@@ -1049,6 +1060,14 @@ impl<R: DesignReader> Design3D<R> {
             ret.push(create_prime3_cone(c.0, c.1, c.2));
         }
         ret
+    }
+
+    pub fn get_surface_info_nucl(&self, nucl: Nucl) -> Option<SurfaceInfo> {
+        self.design.get_surface_info_nucl(nucl)
+    }
+
+    pub fn get_surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo> {
+        self.design.get_surface_info(point)
     }
 }
 
@@ -1212,6 +1231,8 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_optimal_xover_arround(&self, source: Nucl, target: Nucl) -> Option<(Nucl, Nucl)>;
     fn get_bezier_grid_used_by_helix(&self, h_id: usize) -> Vec<GridId>;
     fn get_external_objects(&self) -> &External3DObjects;
+    fn get_surface_info_nucl(&self, nucl: Nucl) -> Option<SurfaceInfo>;
+    fn get_surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo>;
 }
 
 pub(super) struct HBoundsInstances {

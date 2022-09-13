@@ -843,6 +843,29 @@ impl Helix {
             None
         }
     }
+
+    pub fn get_surface_info_nucl(&self, nucl: Nucl) -> Option<SurfaceInfo> {
+        let mut surface_info = self.instanciated_curve.as_ref().and_then(|curve| {
+            let curve = &curve.curve;
+            let t = curve.nucl_time(nucl.position)?;
+            curve.geometry.surface_info_time(t, nucl.helix)
+        })?;
+        surface_info.local_frame.rotate_by(self.orientation);
+        surface_info.position.rotate_by(self.orientation);
+        surface_info.position += self.position;
+        Some(surface_info)
+    }
+
+    pub fn get_surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo> {
+        let mut surface_info = self.instanciated_curve.as_ref().and_then(|curve| {
+            let curve = &curve.curve;
+            curve.geometry.surface_info(point)
+        })?;
+        surface_info.local_frame.rotate_by(self.orientation);
+        surface_info.position.rotate_by(self.orientation);
+        surface_info.position += self.position;
+        Some(surface_info)
+    }
 }
 
 /// The virtual position of a nucleotide.

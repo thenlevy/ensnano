@@ -17,7 +17,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
-use crate::scene::GridInstance;
 use ensnano_design::{
     grid::{GridId, GridObject, GridPosition, HelixGridPosition},
     BezierPlaneDescriptor, BezierPlaneId, BezierVertexId, Collection, CurveDescriptor, Nucl,
@@ -29,7 +28,7 @@ use ensnano_interactor::{
 use std::collections::HashSet;
 use ultraviolet::{Mat4, Rotor3, Vec2, Vec3};
 
-use crate::scene::DesignReader as Reader3D;
+use crate::scene::{DesignReader as Reader3D, GridInstance, SurfaceInfo};
 
 impl Reader3D for DesignReader {
     fn get_color(&self, e_id: u32) -> Option<u32> {
@@ -545,6 +544,16 @@ impl Reader3D for DesignReader {
 
     fn get_external_objects(&self) -> &ensnano_design::External3DObjects {
         &self.presenter.current_design.external_3d_objects
+    }
+
+    fn get_surface_info_nucl(&self, nucl: Nucl) -> Option<SurfaceInfo> {
+        let helix = self.presenter.current_design.helices.get(&nucl.helix)?;
+        helix.get_surface_info_nucl(nucl)
+    }
+
+    fn get_surface_info(&self, point: ensnano_design::SurfacePoint) -> Option<SurfaceInfo> {
+        let helix = self.presenter.current_design.helices.get(&point.helix_id)?;
+        helix.get_surface_info(point)
     }
 }
 

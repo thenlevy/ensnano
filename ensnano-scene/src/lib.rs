@@ -61,7 +61,7 @@ use controller::{Consequence, Controller, WidgetTarget};
 mod data;
 pub use controller::ClickMode;
 use data::Data;
-pub use data::{DesignReader, HBond, HalfHBond};
+pub use data::{DesignReader, HBond, HalfHBond, SurfaceInfo, SurfacePoint};
 mod element_selector;
 use element_selector::{ElementSelector, SceneElement};
 mod maths_3d;
@@ -550,6 +550,10 @@ impl<S: AppState> Scene<S> {
                     vertex_id,
                 }),
             ),
+            Consequence::ReverseSurfaceDirection => {
+                self.controller.reverse_surface_direction();
+                self.notify(SceneNotification::CameraMoved);
+            }
         };
     }
 
@@ -1204,7 +1208,14 @@ impl<S: AppState> Application for Scene<S> {
                     self.data
                         .borrow_mut()
                         .notify_selection(vec![selection].as_slice());
-                    if let Some(position) = self.data.borrow().get_selected_position() {
+                    let surface_info = if let Selection::Nucleotide(_, nt) = selection {
+                        self.data.borrow().get_surface_info_nucl(nt)
+                    } else {
+                        None
+                    };
+                    if let Some(surface_info) = surface_info {
+                        self.controller.set_surface_point(surface_info);
+                    } else if let Some(position) = self.data.borrow().get_selected_position() {
                         self.controller.center_camera(position);
                     }
                     let pivot_element = self.data.borrow().selection_to_element(selection);
