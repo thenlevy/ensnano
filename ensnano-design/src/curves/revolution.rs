@@ -259,7 +259,13 @@ impl Revolution {
             y: section_tangent.x * point.revolution_angle.sin(),
             z: section_tangent.y,
         });
-        let local_frame = Mat3::new(right, up, right.cross(up)).into_rotor3();
+        let direction = right.cross(up);
+
+        let local_frame = if point.reversed_direction {
+            Mat3::new(-right, up, -direction).into_rotor3()
+        } else {
+            Mat3::new(right, up, direction).into_rotor3()
+        };
 
         let position = self.curve_point_to_3d(
             self.curve.point_at_s(point.abscissa_along_section),
@@ -367,6 +373,7 @@ impl Curved for Revolution {
             abscissa_along_section: self.curve.curvilinear_abscissa(t),
             helix_id,
             section_rotation_angle: self.default_section_rotation_angle(t),
+            reversed_direction: false,
         };
         self.get_surface_info(point)
     }

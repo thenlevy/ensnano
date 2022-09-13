@@ -216,6 +216,7 @@ pub struct SurfacePoint {
     pub abscissa_along_section: f64,
     pub helix_id: usize,
     pub section_rotation_angle: f64,
+    pub reversed_direction: bool,
 }
 
 #[derive(Debug)]

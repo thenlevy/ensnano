@@ -495,8 +495,9 @@ impl CameraController {
 
         if let Some(mut point) = self.surface_point0.clone() {
             log::info!("Got point");
+            let sign = if point.reversed_direction { -1. } else { 1. };
             point.abscissa_along_section += up as f64 * SURFACE_ABSCISSA_FACTOR;
-            point.revolution_angle += right as f64 * SURFACE_REVOLUTION_ANGLE_FACTOR;
+            point.revolution_angle += right as f64 * SURFACE_REVOLUTION_ANGLE_FACTOR * sign;
 
             if let Some(surface_info) = surface_info_provider.get_surface_info(point.clone()) {
                 let cam_pos = surface_info.position
@@ -726,6 +727,18 @@ impl CameraController {
         self.dist_to_surface = Some(DEFAULT_DIST_TO_SURFACE);
         self.teleport_camera(cam_pos, info.local_frame.reversed());
         self.surface_point = Some(info.point);
+    }
+
+    pub(super) fn reverse_surface_direction(
+        &mut self,
+        surface_info_provider: &dyn SurfaceInfoProvider,
+    ) {
+        if let Some(point) = self.surface_point.as_mut() {
+            point.reversed_direction ^= true;
+            if let Some(surface_info) = surface_info_provider.get_surface_info(point.clone()) {
+                self.set_surface_point(surface_info);
+            }
+        }
     }
 
     pub fn horizon_angle(&self) -> f32 {

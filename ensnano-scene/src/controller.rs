@@ -211,6 +211,12 @@ impl<S: AppState> Controller<S> {
         self.end_movement();
     }
 
+    pub fn reverse_surface_direction(&mut self) {
+        self.camera_controller
+            .reverse_surface_direction(self.data.borrow().deref());
+        self.end_movement();
+    }
+
     pub fn align_horizon(&mut self) {
         let angle = self.camera_controller.horizon_angle();
         self.camera_controller.tilt_camera(angle);

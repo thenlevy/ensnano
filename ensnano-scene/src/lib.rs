@@ -551,7 +551,8 @@ impl<S: AppState> Scene<S> {
                 }),
             ),
             Consequence::ReverseSurfaceDirection => {
-                println!("Reversing surface direction");
+                self.controller.reverse_surface_direction();
+                self.notify(SceneNotification::CameraMoved);
             }
         };
     }
