@@ -156,7 +156,10 @@ pub enum Consequence {
 
 enum TransistionConsequence {
     Nothing,
-    InitCameraMovement { translation: bool },
+    InitCameraMovement {
+        translation: bool,
+        nucl: Option<Nucl>,
+    },
     EndCameraMovement,
     InitFreeXover(Nucl, usize, Vec3),
     StopRotatingPivot,
@@ -391,7 +394,13 @@ impl<S: AppState> Controller<S> {
     fn transition_consequence(&mut self, csq: TransistionConsequence) {
         match csq {
             TransistionConsequence::Nothing => (),
-            TransistionConsequence::InitCameraMovement { translation } => {
+            TransistionConsequence::InitCameraMovement { translation, nucl } => {
+                if let Some(info) = nucl
+                    .and_then(|n| self.data.borrow().get_surface_info_nucl(n))
+                    .filter(|_| self.current_modifiers.shift())
+                {
+                    self.camera_controller.set_surface_point_if_unset(info);
+                }
                 self.init_movement(translation && self.current_modifiers.shift())
             }
             TransistionConsequence::EndCameraMovement => self.end_movement(),
@@ -551,4 +560,5 @@ pub(super) trait Data {
     fn element_to_selection(&self, element: &Option<SceneElement>) -> Selection;
     fn init_free_xover(&mut self, nucl: Nucl, position: Vec3, design_id: usize);
     fn get_surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo>;
+    fn get_surface_info_nucl(&self, nucl: Nucl) -> Option<SurfaceInfo>;
 }

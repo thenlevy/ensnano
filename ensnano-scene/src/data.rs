@@ -2014,6 +2014,10 @@ impl<R: DesignReader> ControllerData for Data<R> {
     fn get_surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo> {
         self.designs.get(0).and_then(|d| d.get_surface_info(point))
     }
+
+    fn get_surface_info_nucl(&self, nucl: Nucl) -> Option<SurfaceInfo> {
+        self.get_surface_info_nucl(nucl)
+    }
 }
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]

@@ -232,7 +232,9 @@ impl<S: AppState, Table: DraggingTransitionTable> ControllerState<S> for Draggin
 /// The user is moving the camera.
 ///
 /// Cursor movements translate the camera
-pub(super) struct TranslatingCamera;
+pub(super) struct TranslatingCamera {
+    from_nucl: Option<Nucl>,
+}
 
 impl DraggingTransitionTable for TranslatingCamera {
     fn description() -> &'static str {
@@ -254,7 +256,10 @@ impl DraggingTransitionTable for TranslatingCamera {
     }
 
     fn on_enterring(&self) -> TransistionConsequence {
-        TransistionConsequence::InitCameraMovement { translation: true }
+        TransistionConsequence::InitCameraMovement {
+            translation: true,
+            nucl: self.from_nucl,
+        }
     }
 
     fn on_leaving(&self) -> TransistionConsequence {
@@ -278,7 +283,18 @@ impl DraggingTransitionTable for TranslatingCamera {
     }
 }
 
-dragging_state_constructor!(translating_camera, TranslatingCamera);
+//dragging_state_constructor!(translating_camera, TranslatingCamera);
+pub(super) fn translating_camera(
+    click: ClickInfo,
+    from_nucl: Option<Nucl>,
+) -> DraggingState<TranslatingCamera> {
+    DraggingState {
+        current_cursor_position: click.current_position,
+        clicked_button: click.button,
+        clicked_position: click.clicked_position,
+        transition_table: TranslatingCamera { from_nucl },
+    }
+}
 
 /// The user is rotating the camera
 ///
@@ -309,7 +325,10 @@ impl DraggingTransitionTable for RotatingCamera {
     }
 
     fn on_enterring(&self) -> TransistionConsequence {
-        TransistionConsequence::InitCameraMovement { translation: false }
+        TransistionConsequence::InitCameraMovement {
+            translation: false,
+            nucl: None,
+        }
     }
 
     fn on_leaving(&self) -> TransistionConsequence {
@@ -344,7 +363,10 @@ impl DraggingTransitionTable for TiltingCamera {
     }
 
     fn on_enterring(&self) -> TransistionConsequence {
-        TransistionConsequence::InitCameraMovement { translation: false }
+        TransistionConsequence::InitCameraMovement {
+            translation: false,
+            nucl: None,
+        }
     }
 
     fn on_leaving(&self) -> TransistionConsequence {

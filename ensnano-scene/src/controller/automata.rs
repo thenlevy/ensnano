@@ -133,8 +133,14 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 ..
             } if context.get_modifiers().alt() => {
                 let click_info = ClickInfo::new(MouseButton::Left, context.cursor_position);
+                let clicked_nucl = context
+                    .get_element_under_cursor()
+                    .and_then(|elt| context.element_to_nucl(&Some(elt), true));
                 Transition {
-                    new_state: Some(Box::new(dragging_state::translating_camera(click_info))),
+                    new_state: Some(Box::new(dragging_state::translating_camera(
+                        click_info,
+                        clicked_nucl,
+                    ))),
                     consequences: Consequence::Nothing,
                 }
             }
@@ -485,8 +491,14 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 ..
             } => {
                 let click_info = ClickInfo::new(MouseButton::Middle, context.cursor_position);
+                let clicked_nucl = context
+                    .get_element_under_cursor()
+                    .and_then(|elt| context.element_to_nucl(&Some(elt), true));
                 Transition {
-                    new_state: Some(Box::new(dragging_state::translating_camera(click_info))),
+                    new_state: Some(Box::new(dragging_state::translating_camera(
+                        click_info,
+                        clicked_nucl,
+                    ))),
                     consequences: Consequence::Nothing,
                 }
             }
