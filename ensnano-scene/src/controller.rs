@@ -439,6 +439,9 @@ impl<S: AppState> Controller<S> {
             &self.current_modifiers,
             self.data.borrow().deref(),
         );
+        self.data
+            .borrow_mut()
+            .notify_camera_movement(&self.camera_controller);
     }
 
     /// Handles a resizing of the window and/or drawing area
@@ -561,4 +564,5 @@ pub(super) trait Data {
     fn init_free_xover(&mut self, nucl: Nucl, position: Vec3, design_id: usize);
     fn get_surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo>;
     fn get_surface_info_nucl(&self, nucl: Nucl) -> Option<SurfaceInfo>;
+    fn notify_camera_movement(&mut self, camera: &CameraController);
 }

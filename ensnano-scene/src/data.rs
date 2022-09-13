@@ -76,6 +76,7 @@ pub struct Data<R: DesignReader> {
     pivot_element: Option<SceneElement>,
     pivot_update: bool,
     pivot_position: Option<Vec3>,
+    surface_pivot_position: Option<Vec3>,
     free_xover: Option<FreeXover>,
     free_xover_update: bool,
     handle_need_opdate: bool,
@@ -107,6 +108,7 @@ impl<R: DesignReader> Data<R> {
             stereographic_camera: Arc::new((Default::default(), 1.)),
             stereographic_camera_need_update: false,
             external_3d_objects_stamps: None,
+            surface_pivot_position: None,
         }
     }
 
@@ -1282,14 +1284,21 @@ impl<R: DesignReader> Data<R> {
     }
 
     fn update_pivot(&mut self) {
-        let spheres = if let Some(pivot) = self.pivot_position {
-            vec![Design3D::<R>::pivot_sphere(pivot)]
-        } else {
-            vec![]
-        };
+        let mut spheres = vec![];
+        if let Some(pivot) = self.pivot_position {
+            spheres.push(Design3D::<R>::pivot_sphere(pivot));
+        }
+        if let Some(position) = self.surface_pivot_position {
+            spheres.push(Design3D::<R>::surface_pivot_sphere(position));
+        }
         self.view
             .borrow_mut()
             .update(ViewUpdate::RawDna(Mesh::PivotSphere, Rc::new(spheres)));
+    }
+
+    pub fn update_surface_pivot(&mut self, position: Option<Vec3>) {
+        self.surface_pivot_position = position;
+        self.pivot_update = true;
     }
 
     fn update_free_xover(&mut self, candidates: &[Selection]) {
@@ -2017,6 +2026,10 @@ impl<R: DesignReader> ControllerData for Data<R> {
 
     fn get_surface_info_nucl(&self, nucl: Nucl) -> Option<SurfaceInfo> {
         self.get_surface_info_nucl(nucl)
+    }
+
+    fn notify_camera_movement(&mut self, camera: &crate::camera::CameraController) {
+        self.update_surface_pivot(camera.get_current_surface_pivot())
     }
 }
 

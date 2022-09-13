@@ -923,6 +923,15 @@ impl CameraController {
             None, // we don't play we grids in stereographic view
         )
     }
+
+    pub fn get_current_surface_pivot(&self) -> Option<Vec3> {
+        if self.surface_point.is_some() {
+            let dist = self.dist_to_surface.unwrap_or(DEFAULT_DIST_TO_SURFACE);
+            Some(self.camera.borrow().direction() * dist + self.camera.borrow().position)
+        } else {
+            None
+        }
+    }
 }
 
 /// A plane in space defined by an origin and a normal

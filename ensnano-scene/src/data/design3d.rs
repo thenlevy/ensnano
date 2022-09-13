@@ -1010,6 +1010,16 @@ impl<R: DesignReader> Design3D<R> {
         .to_raw_instance()
     }
 
+    pub fn surface_pivot_sphere(position: Vec3) -> RawDnaInstance {
+        SphereInstance {
+            position,
+            id: 0,
+            radius: 1.2 * SELECT_SCALE_FACTOR,
+            color: Instance::color_from_au32(SURFACE_PIVOT_SPHERE_COLOR),
+        }
+        .to_raw_instance()
+    }
+
     pub fn free_xover_sphere(position: Vec3) -> RawDnaInstance {
         SphereInstance {
             position,
