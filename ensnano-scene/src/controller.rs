@@ -151,6 +151,7 @@ pub enum Consequence {
         full_symetry_other: bool,
         new_vector: Vec2,
     },
+    ReverseSurfaceDirection,
 }
 
 enum TransistionConsequence {

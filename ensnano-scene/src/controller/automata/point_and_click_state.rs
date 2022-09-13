@@ -344,6 +344,24 @@ impl<S: AppState> PointAndClicking<S> {
         }
     }
 
+    pub(super) fn reversing_surface_direction(
+        clicked_position: PhysicalPosition<f64>,
+        clicked_date: Instant,
+    ) -> Self {
+        Self {
+            away_state: Default::default(),
+            away_state_maker: None,
+            clicked_date,
+            description: "Waiting for double click",
+            pressed_button: MouseButton::Middle,
+            release_consequences: Consequence::ReverseSurfaceDirection,
+            release_transition: Default::default(),
+            long_hold_state: Some(Default::default()),
+            clicked_position,
+            long_hold_state_maker: None,
+        }
+    }
+
     /// A state in which the user may be performing a double click
     ///
     /// If the user clicks on the element a second time in a short (i.e. < `LONG_HOLDING_TIME` )

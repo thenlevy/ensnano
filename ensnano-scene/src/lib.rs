@@ -550,6 +550,9 @@ impl<S: AppState> Scene<S> {
                     vertex_id,
                 }),
             ),
+            Consequence::ReverseSurfaceDirection => {
+                println!("Reversing surface direction");
+            }
         };
     }
 

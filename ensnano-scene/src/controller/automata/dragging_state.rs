@@ -23,6 +23,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! In such a state, cursor movement all cursor movement have similar consequences shuch has moving
 //! the camera or moving an object.
 
+use std::time::Instant;
+
 use ensnano_design::BezierVertexId;
 
 use super::*;
@@ -93,6 +95,13 @@ pub(super) trait DraggingTransitionTable {
     fn on_enterring(&self) -> TransistionConsequence;
     fn on_leaving(&self) -> TransistionConsequence;
     fn handles_color_system(&self) -> Option<HandleColors> {
+        None
+    }
+
+    fn out_transition<S: AppState>(
+        &self,
+        _context: EventContext<'_, S>,
+    ) -> Option<Box<dyn ControllerState<S>>> {
         None
     }
 }
@@ -180,10 +189,13 @@ impl<S: AppState, Table: DraggingTransitionTable> ControllerState<S> for Draggin
                     .transition_table
                     .on_button_released()
                     .unwrap_or(Consequence::Nothing);
-                Transition {
-                    new_state: Some(Box::new(NormalState {
+                let new_state = self.transition_table.out_transition(context).or_else(|| {
+                    Some(Box::new(NormalState {
                         mouse_position: self.current_cursor_position,
-                    })),
+                    }))
+                });
+                Transition {
+                    new_state,
                     consequences,
                 }
             }
@@ -251,6 +263,18 @@ impl DraggingTransitionTable for TranslatingCamera {
 
     fn cursor() -> Option<ensnano_interactor::CursorIcon> {
         Some(CursorIcon::AllScroll)
+    }
+
+    fn out_transition<S: AppState>(
+        &self,
+        context: EventContext<'_, S>,
+    ) -> Option<Box<dyn ControllerState<S>>> {
+        Some(Box::new(
+            point_and_click_state::PointAndClicking::reversing_surface_direction(
+                context.cursor_position,
+                Instant::now(),
+            ),
+        ))
     }
 }
 
