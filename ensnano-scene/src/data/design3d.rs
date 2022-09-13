@@ -1003,7 +1003,7 @@ impl<R: DesignReader> Design3D<R> {
         SphereInstance {
             position,
             id: 0,
-            radius: 1.2 * SELECT_SCALE_FACTOR,
+            radius: PIVOT_SCALE_FACTOR,
             color: Instance::color_from_au32(PIVOT_SPHERE_COLOR),
         }
         .to_raw_instance()
@@ -1013,7 +1013,7 @@ impl<R: DesignReader> Design3D<R> {
         SphereInstance {
             position,
             id: 0,
-            radius: 1.1 * SELECT_SCALE_FACTOR,
+            radius: FREE_XOVER_SCALE_FACTOR,
             color: Instance::color_from_au32(FREE_XOVER_COLOR),
         }
         .to_raw_instance()
