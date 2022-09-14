@@ -344,6 +344,8 @@ impl<S: AppState> PointAndClicking<S> {
         }
     }
 
+    #[allow(dead_code)] // was used to make it possible to reverse surface direction with a double
+                        // click. We may want to use it again in the future.
     pub(super) fn reversing_surface_direction(
         clicked_position: PhysicalPosition<f64>,
         clicked_date: Instant,

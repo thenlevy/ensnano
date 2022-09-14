@@ -23,8 +23,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! In such a state, cursor movement all cursor movement have similar consequences shuch has moving
 //! the camera or moving an object.
 
-use std::time::Instant;
-
 use ensnano_design::BezierVertexId;
 
 use super::*;
@@ -98,6 +96,8 @@ pub(super) trait DraggingTransitionTable {
         None
     }
 
+    // Currently no type override this method. It was used at some point to make it possible to
+    // reverse the surface direction with a double click.
     fn out_transition<S: AppState>(
         &self,
         _context: EventContext<'_, S>,
@@ -272,14 +272,9 @@ impl DraggingTransitionTable for TranslatingCamera {
 
     fn out_transition<S: AppState>(
         &self,
-        context: EventContext<'_, S>,
+        _context: EventContext<'_, S>,
     ) -> Option<Box<dyn ControllerState<S>>> {
-        Some(Box::new(
-            point_and_click_state::PointAndClicking::reversing_surface_direction(
-                context.cursor_position,
-                Instant::now(),
-            ),
-        ))
+        None
     }
 }
 
