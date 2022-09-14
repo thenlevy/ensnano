@@ -1965,7 +1965,7 @@ impl Controller {
         segment: usize,
         isometry: Isometry2,
     ) -> Design {
-        println!("setting isometry {h_id} {segment}");
+        log::info!("setting isometry {h_id} {segment} {:?}", isometry);
         let mut new_helices = design.helices.make_mut();
         if segment == 0 {
             if let Some(h) = new_helices.get_mut(&h_id) {
