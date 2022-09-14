@@ -100,25 +100,37 @@ pub fn get_file_to_write<P1: AsRef<Path>, P2: AsRef<Path>>(
 ) -> PathInput {
     log::info!(
         "starting path {:?}",
-        starting_path.as_ref().map(|p| p.as_ref().to_str())
+        starting_path.as_ref().and_then(|p| p.as_ref().to_str())
     );
     log::info!(
         "starting name {:?}",
-        starting_name.as_ref().map(|p| p.as_ref().to_str())
+        starting_name.as_ref().and_then(|p| p.as_ref().to_str())
     );
     let mut dialog = rfd::AsyncFileDialog::new();
 
     let default_extenstion = extension_filter.get(0).and_then(|f| f.1.get(0));
 
     let starting_name = starting_name.and_then(|p| {
-        p.as_ref()
-            .to_path_buf()
-            .file_name()
-            .map(|s| s.to_os_string())
+        let mut path_buf = PathBuf::from(p.as_ref());
+        let extension = path_buf.extension().clone();
+        if extension.is_none() && default_extenstion.is_some() {
+            path_buf.set_extension(default_extenstion.unwrap());
+        } else if let Some(_current_extension) = extension
+            .filter(|ext| !filter_has_extension(extension_filter, ext.to_str().unwrap_or("")))
+        {
+            let new_extension = format!("{}", default_extenstion.unwrap_or(&""));
+            path_buf.set_extension(new_extension);
+        }
+        path_buf.file_name().map(|s| s.to_os_string())
     });
+    log::info!("starting name filtered {:?}", starting_name);
     for filter in extension_filter.iter() {
         dialog = dialog.add_filter(filter.0, filter.1);
     }
+    log::info!(
+        "starting path filtered {:?}",
+        starting_path.as_ref().map(|p| p.as_ref())
+    );
     if let Some(path) = starting_path {
         dialog = dialog.set_directory(path);
     }
@@ -179,6 +191,10 @@ pub fn load<P: AsRef<Path>>(starting_path: Option<P>, filters: Filters) -> PathI
     for filter in filters.iter() {
         dialog = dialog.add_filter(filter.0, filter.1);
     }
+    log::info!(
+        "starting path {:?}",
+        starting_path.as_ref().map(|p| p.as_ref())
+    );
     if let Some(path) = starting_path {
         dialog = dialog.set_directory(path);
     }
