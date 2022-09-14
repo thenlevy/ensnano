@@ -369,7 +369,7 @@ impl Instanciable for ConeInstance {
     type Ressource = ();
 
     fn vertices() -> Vec<DnaVertex> {
-        let radius = 1.;
+        let radius = 1. / 2.;
         let mut ret: Vec<DnaVertex> = (0..(2 * NB_RAY_TUBE))
             .map(|i| {
                 let point = i / 2 + i % 2;

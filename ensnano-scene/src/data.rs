@@ -1397,7 +1397,7 @@ impl<R: DesignReader> Data<R> {
             for tube in tubes {
                 pasted_tubes.push(tube);
             }
-            for cone in design.get_all_prime3_cone() {
+            for cone in design.get_cones_raw(app_state.show_insertion_representents()) {
                 cones.push(cone);
             }
         }

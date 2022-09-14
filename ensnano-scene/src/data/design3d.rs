@@ -196,6 +196,19 @@ impl<R: DesignReader> Design3D<R> {
     }
     */
 
+    pub fn get_cones_raw(&self, show_insertion_representents: bool) -> Vec<RawDnaInstance> {
+        let mut ids = self.design.get_all_visible_bound_ids();
+        if !show_insertion_representents {
+            ids.retain(|id| self.design.get_insertion_length(*id) == 0);
+        }
+        let vec: Vec<_> = ids
+            .iter()
+            .flat_map(|id| self.make_cone_from_bound(*id))
+            .step_by(3)
+            .collect();
+        vec
+    }
+
     /// Return the list of tube instances to be displayed to represent the design
     pub fn get_tubes_raw(&self, show_insertion_representents: bool) -> Rc<Vec<RawDnaInstance>> {
         let mut ids = self.design.get_all_visible_bound_ids();
@@ -406,6 +419,23 @@ impl<R: DesignReader> Design3D<R> {
             full_h_bonds,
             ellipsoids,
         }
+    }
+
+    fn make_cone_from_bound(&self, id: u32) -> Option<RawDnaInstance> {
+        let kind = self.get_object_type(id)?;
+        let raw_instance = match kind {
+            ObjectType::Bound(id1, id2) => {
+                let pos1 =
+                    self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id1))?;
+                let pos2 =
+                    self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id2))?;
+                let color = self.get_color(id).unwrap_or(0);
+                let cone = create_prime3_cone(pos1, pos2, color);
+                Some(cone)
+            }
+            ObjectType::Nucleotide(_) => None,
+        };
+        raw_instance
     }
 
     /// Convert return an instance representing the object with identifier `id`
@@ -1117,8 +1147,8 @@ fn create_check_bound(source: Vec3, dest: Vec3, checked: bool) -> RawDnaInstance
 fn create_prime3_cone(source: Vec3, dest: Vec3, color: u32) -> RawDnaInstance {
     let color = Instance::color_from_u32(color);
     let rotor = Rotor3::from_rotation_between(Vec3::unit_x(), (dest - source).normalized());
-    let position = source;
-    let length = (2. / 3. * (dest - source).mag()).min(2. / 3. * 0.7);
+    let length = 1. / 3. * (dest - source).mag();
+    let position = (3. * source + 2. * dest) / 5.;
     ConeInstance {
         position,
         length,
