@@ -89,6 +89,7 @@ impl GridDivision for Hyperboloid {
     }
 
     fn curve(&self, x: isize, _y: isize, info: CurveInfo) -> Option<Arc<CurveDescriptor>> {
+        /*
         if self.nb_turn_per_100_nt != 0.0 {
             if let Some(omega) =
                 nb_turn_per_100_nt_to_omega(self.nb_turn_per_100_nt, &info.parameters)
@@ -110,7 +111,8 @@ impl GridDivision for Hyperboloid {
             ret.t_max = info.t_max;
             ret.t_min = info.t_min;
             Some(Arc::new(CurveDescriptor::Twist(ret)))
-        }
+        }*/
+        None
     }
 }
 
