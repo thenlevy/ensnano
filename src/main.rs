@@ -1783,8 +1783,12 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         self.main_state.set_visibility_sieve(vec![], true);
     }
 
-    fn need_save(&self) -> bool {
-        self.main_state.need_save()
+    fn need_save(&self) -> Option<Option<PathBuf>> {
+        if self.main_state.need_save() {
+            Some(self.get_current_file_name().map(Path::to_path_buf))
+        } else {
+            None
+        }
     }
 
     fn get_current_design_directory(&self) -> Option<&Path> {
