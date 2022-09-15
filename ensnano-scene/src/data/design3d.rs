@@ -421,7 +421,11 @@ impl<R: DesignReader> Design3D<R> {
         }
     }
 
-    fn make_cone_from_bound(&self, id: u32, filter: &dyn Fn(&Nucl) -> bool) -> Option<RawDnaInstance> {
+    fn make_cone_from_bound(
+        &self,
+        id: u32,
+        filter: &dyn Fn(&Nucl) -> bool,
+    ) -> Option<RawDnaInstance> {
         let kind = self.get_object_type(id)?;
         let raw_instance = match kind {
             ObjectType::Bound(id1, id2) => {
@@ -431,7 +435,7 @@ impl<R: DesignReader> Design3D<R> {
                     self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id2))?;
                 let n1 = self.design.get_nucl_with_id(id1).filter(filter);
                 if n1.is_none() {
-                    return None
+                    return None;
                 }
                 let color = self.get_color(id).unwrap_or(0);
                 let cone = create_prime3_cone(pos1, pos2, color);

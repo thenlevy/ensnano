@@ -158,6 +158,7 @@ pub struct Organizer<E: OrganizerElement> {
     rng_thread: ThreadRng,
     groups: Vec<GroupContent<E>>,
     sections: Vec<Section<E>>,
+    auto_groups: BTreeMap<String, Section<E>>,
     scroll_state: scrollable::State,
     theme: Theme,
     width: iced::Length,
@@ -189,6 +190,7 @@ impl<E: OrganizerElement> Organizer<E> {
             rng_thread: rng,
             groups: vec![],
             sections,
+            auto_groups: Default::default(),
             scroll_state: Default::default(),
             theme: Theme::grey(),
             width: iced::Length::Units(300),
@@ -235,6 +237,14 @@ impl<E: OrganizerElement> Organizer<E> {
             )
         }
         for s in self.sections.iter_mut() {
+            ret = ret.push(
+                Row::new().push(tabulation()).push(
+                    s.view(&self.theme, &selection)
+                        .width(iced::Length::FillPortion(8)),
+                ),
+            )
+        }
+        for s in self.auto_groups.values_mut() {
             ret = ret.push(
                 Row::new().push(tabulation()).push(
                     s.view(&self.theme, &selection)
@@ -738,6 +748,12 @@ impl<E: OrganizerElement> Organizer<E> {
             let key = e.key();
             let section_id: usize = key.section().into();
             self.sections[section_id].add_element(e.clone());
+            for g in e.auto_groups() {
+                self.auto_groups
+                    .entry(g.to_string())
+                    .or_insert_with(|| Section::new(0, g.to_string()))
+                    .add_element(e.clone())
+            }
         }
         let ret = self.delete_useless_leaves(elements.iter().map(|e| e.key()).collect());
         self.update_attributes();
