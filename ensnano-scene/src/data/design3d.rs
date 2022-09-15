@@ -201,6 +201,7 @@ impl<R: DesignReader> Design3D<R> {
         if !show_insertion_representents {
             ids.retain(|id| self.design.get_insertion_length(*id) == 0);
         }
+        ids.sort();
         let vec: Vec<_> = ids
             .iter()
             .flat_map(|id| self.make_cone_from_bound(*id))
