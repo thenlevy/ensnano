@@ -22,6 +22,9 @@ layout(set=0, binding=0) uniform Uniform {
 
 
 void main() {
+    if (length(v_normal) < 0.01) {
+        discard;
+    }
     float visibility;
     if (u_make_fog > 0) {
         float dist;

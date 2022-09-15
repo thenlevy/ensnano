@@ -393,7 +393,7 @@ impl Instanciable for ConeInstance {
             let height = if i % 2 == 0 { radius } else { 0. };
             let theta = (point as f32) * 2. * PI / NB_RAY_TUBE as f32;
             let position = [0., theta.sin() * height, theta.cos() * height];
-            let normal = [-1., 0., 0.];
+            let normal = [0., 0., 0.];
             ret.push(DnaVertex { position, normal });
         }
 
