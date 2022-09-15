@@ -201,11 +201,10 @@ impl<R: DesignReader> Design3D<R> {
         if !show_insertion_representents {
             ids.retain(|id| self.design.get_insertion_length(*id) == 0);
         }
-        ids.sort();
+        let filter = |_n: &Nucl| true;
         let vec: Vec<_> = ids
             .iter()
-            .flat_map(|id| self.make_cone_from_bound(*id))
-            .step_by(3)
+            .flat_map(|id| self.make_cone_from_bound(*id, &filter))
             .collect();
         vec
     }
@@ -422,7 +421,7 @@ impl<R: DesignReader> Design3D<R> {
         }
     }
 
-    fn make_cone_from_bound(&self, id: u32) -> Option<RawDnaInstance> {
+    fn make_cone_from_bound(&self, id: u32, filter: &dyn Fn(&Nucl) -> bool) -> Option<RawDnaInstance> {
         let kind = self.get_object_type(id)?;
         let raw_instance = match kind {
             ObjectType::Bound(id1, id2) => {
@@ -430,6 +429,10 @@ impl<R: DesignReader> Design3D<R> {
                     self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id1))?;
                 let pos2 =
                     self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id2))?;
+                let n1 = self.design.get_nucl_with_id(id1).filter(filter);
+                if n1.is_none() {
+                    return None
+                }
                 let color = self.get_color(id).unwrap_or(0);
                 let cone = create_prime3_cone(pos1, pos2, color);
                 Some(cone)
