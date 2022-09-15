@@ -199,7 +199,7 @@ impl<E: OrganizerElement> Organizer<E> {
         let mut section: Result<<E::Key as ElementKey>::Section, _> = i.try_into();
         while let Ok(s) = section {
             log::info!("section {:?}, {:?}", i, s);
-            let new_section: Section<E> = Section::new(i, E::Key::name(s));
+            let new_section: Section<E> = Section::new(NodeId::SectionId(i), E::Key::name(s));
             sections.push(new_section);
             i += 1;
             section = i.try_into();
@@ -547,6 +547,10 @@ impl<E: OrganizerElement> Organizer<E> {
             self.groups[id[0]].expand(&id[1..], expanded)
         } else if let Some(id) = get_section_id(id) {
             self.sections[id].expand(expanded)
+        } else if let NodeId::AutoGroupId(name) = id {
+            if let Some(group) = self.auto_groups.get_mut(name) {
+                group.expand(expanded)
+            }
         }
     }
 
@@ -752,6 +756,10 @@ impl<E: OrganizerElement> Organizer<E> {
             s.elements.clear();
             s.content.clear();
         }
+        for g in self.auto_groups.values_mut() {
+            g.content.clear();
+            g.elements.clear();
+        }
         for e in elements.iter() {
             let key = e.key();
             let section_id: usize = key.section().into();
@@ -759,10 +767,13 @@ impl<E: OrganizerElement> Organizer<E> {
             for g in e.auto_groups() {
                 self.auto_groups
                     .entry(g.to_string())
-                    .or_insert_with(|| Section::new(0, g.to_string()))
+                    .or_insert_with(|| {
+                        Section::new(NodeId::AutoGroupId(g.to_string()), g.to_string())
+                    })
                     .add_element(e.clone())
             }
         }
+        self.auto_groups.retain(|_, g| g.elements.len() > 0);
         let ret = self.delete_useless_leaves(elements.iter().map(|e| e.key()).collect());
         self.update_attributes();
         ret
@@ -788,10 +799,10 @@ struct Section<E: OrganizerElement> {
 }
 
 impl<E: OrganizerElement> Section<E> {
-    fn new(id: usize, name: String) -> Self {
+    fn new(id: NodeId, name: String) -> Self {
         Self {
             content: BTreeMap::new(),
-            id: NodeId::SectionId(id),
+            id,
             name,
             expanded: false,
             view: NodeView::new_section(),
