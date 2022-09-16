@@ -54,6 +54,7 @@ pub enum DnaElement {
     },
 }
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum DnaAutoGroup {
     StrandWithLength(BoundedLength),
     StrandWithDomainOfLength(BoundedLength),
@@ -72,10 +73,11 @@ impl ToString for DnaAutoGroup {
 
 const LONG: usize = 100;
 const SHORT: usize = 4;
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum BoundedLength {
-    Long,
     Short,
     Between(usize),
+    Long,
 }
 
 impl From<usize> for BoundedLength {

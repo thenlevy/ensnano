@@ -24,7 +24,7 @@ pub trait OrganizerElement: Clone + std::fmt::Debug + 'static {
     /// A type that is used to store the elements in a BTreeMap
     type Key: ElementKey;
 
-    type AutoGroup: ToString;
+    type AutoGroup: ToString + std::cmp::Ord + std::cmp::Eq + Clone + std::fmt::Debug;
 
     /// The name that will be displayed to represent the element
     fn display_name(&self) -> String;
