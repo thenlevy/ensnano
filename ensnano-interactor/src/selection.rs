@@ -101,43 +101,6 @@ impl Selection {
         format!("{:?}", self)
     }
 
-    /*
-    pub fn fetch_values(&self, reader: &dyn DesignReader) -> Vec<String> {
-        match self {
-            Selection::Grid(_, g_id) => {
-                let b1 = reader.has_persistent_phantom(*g_id);
-                let b2 = reader.has_small_spheres(*g_id);
-                let mut ret: Vec<String> = vec![b1, b2]
-                    .iter()
-                    .map(|b| {
-                        if *b {
-                            "true".to_string()
-                        } else {
-                            "false".to_string()
-                        }
-                    })
-                    .collect();
-                if let Some(f) = reader.get_hyperboloid_shift(*g_id) {
-                    ret.push(f.to_string());
-                }
-                ret
-            }
-            Selection::Strand(_, s_id) => vec![
-                format!(
-                    "{:?}",
-                    reader.get_strand_length(*s_id as usize).unwrap_or(0)
-                ),
-                format!("{:?}", reader.is_scaffold(*s_id as usize)),
-                s_id.to_string(),
-                reader.formatted_length_decomposition_of_strand(*s_id as usize),
-            ],
-            Selection::Nucleotide(_, nucl) => {
-                vec![format!("{}", reader.is_anchor(*nucl))]
-            }
-            _ => Vec::new(),
-        }
-    }*/
-
     fn get_helices_containing_self(&self, reader: &dyn DesignReader) -> Option<Vec<usize>> {
         match self {
             Self::Design(_) => None,

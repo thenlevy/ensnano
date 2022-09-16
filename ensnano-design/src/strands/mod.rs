@@ -702,6 +702,33 @@ impl Strand {
             .flatten()
             .collect()
     }
+
+    pub fn domain_lengths(&self) -> Vec<usize> {
+        let mut previous_domain: Option<Domain> = None;
+        let mut lengths: Vec<usize> = vec![];
+        for d in self.domains.iter() {
+            if previous_domain
+                .filter(|prev| prev.has_same_half_helix(d))
+                .is_some()
+            {
+                *lengths.last_mut().unwrap() += d.length();
+            } else {
+                lengths.push(d.length());
+            }
+            previous_domain = Some(d.clone());
+        }
+        if lengths.len() > 1
+            && self
+                .domains
+                .first()
+                .zip(self.domains.last())
+                .filter(|(d1, d2)| d1.has_same_half_helix(d2))
+                .is_some()
+        {
+            lengths[0] += lengths.pop().unwrap();
+        }
+        lengths
+    }
 }
 
 /// A domain can be either an interval of nucleotides on an helix, or an "Insertion" that is a set
@@ -1103,6 +1130,11 @@ impl Domain {
             sequence: None,
             attached_to_prime3: true,
         }
+    }
+
+    pub fn has_same_half_helix(&self, other: &Self) -> bool {
+        let my_helix = self.half_helix();
+        my_helix.is_some() && my_helix == other.half_helix()
     }
 }
 

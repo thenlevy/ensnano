@@ -377,9 +377,10 @@ impl Presenter {
         if let Some(strand) = self.current_design.strands.get(&s_id) {
             ret.push_str(&strand.length().to_string());
             let mut first = true;
-            for d in strand.domains.iter() {
+            let lengths = strand.domain_lengths();
+            for len in lengths.iter() {
                 let sign = if first { '=' } else { '+' };
-                ret.push_str(&format!(" {} {}", sign, d.length()));
+                ret.push_str(&format!(" {} {}", sign, len));
                 first = false;
             }
         }
