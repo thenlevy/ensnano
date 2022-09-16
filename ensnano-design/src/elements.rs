@@ -30,6 +30,7 @@ pub enum DnaElement {
     Strand {
         id: usize,
         length: usize,
+        domain_lengths: Vec<usize>,
     },
     Helix {
         id: usize,
@@ -54,30 +55,34 @@ pub enum DnaElement {
 }
 
 pub enum DnaAutoGroup {
-    StrandWithLength(StrandLength),
+    StrandWithLength(BoundedLength),
+    StrandWithDomainOfLength(BoundedLength),
 }
 
 impl ToString for DnaAutoGroup {
     fn to_string(&self) -> String {
         match self {
             Self::StrandWithLength(length) => format!("Strand with length {}", length.to_string()),
+            Self::StrandWithDomainOfLength(length) => {
+                format!("Strand with a domain of length {}", length.to_string())
+            }
         }
     }
 }
 
-const LONG_STRAND: usize = 100;
-const SHORT_STRAND: usize = 10;
-pub enum StrandLength {
+const LONG: usize = 100;
+const SHORT: usize = 4;
+pub enum BoundedLength {
     Long,
     Short,
     Between(usize),
 }
 
-impl From<usize> for StrandLength {
+impl From<usize> for BoundedLength {
     fn from(n: usize) -> Self {
-        if n > LONG_STRAND {
+        if n > LONG {
             Self::Long
-        } else if n < SHORT_STRAND {
+        } else if n < SHORT {
             Self::Short
         } else {
             Self::Between(n)
@@ -85,11 +90,11 @@ impl From<usize> for StrandLength {
     }
 }
 
-impl ToString for StrandLength {
+impl ToString for BoundedLength {
     fn to_string(&self) -> String {
         match self {
-            Self::Long => format!("> {LONG_STRAND}"),
-            Self::Short => format!("< {SHORT_STRAND}"),
+            Self::Long => format!("> {LONG}"),
+            Self::Short => format!("< {SHORT}"),
             Self::Between(n) => format!("= {n}"),
         }
     }
@@ -167,8 +172,19 @@ impl OrganizerElement for DnaElement {
 
     fn auto_groups(&self) -> Vec<Self::AutoGroup> {
         match self {
-            DnaElement::Strand { length, .. } => {
-                vec![DnaAutoGroup::StrandWithLength((*length).into())]
+            DnaElement::Strand {
+                length,
+                domain_lengths,
+                ..
+            } => {
+                let mut ret = vec![DnaAutoGroup::StrandWithLength((*length).into())];
+                let mut lengths = domain_lengths.clone();
+                lengths.sort();
+                lengths.dedup();
+                for len in lengths {
+                    ret.push(DnaAutoGroup::StrandWithDomainOfLength((len).into()))
+                }
+                ret
             }
             _ => vec![],
         }

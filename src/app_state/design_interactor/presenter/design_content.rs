@@ -483,6 +483,7 @@ impl DesignContent {
             elements.push(elements::DnaElement::Strand {
                 id: *s_id,
                 length: strand.length(),
+                domain_lengths: strand.domain_lengths(),
             });
             let parameters = design.parameters.unwrap_or_default();
             strand.update_insertions(&design.helices, &parameters);
