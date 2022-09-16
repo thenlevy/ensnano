@@ -23,6 +23,9 @@ pub trait OrganizerElement: Clone + std::fmt::Debug + 'static {
     type Attribute: OrganizerAttribute;
     /// A type that is used to store the elements in a BTreeMap
     type Key: ElementKey;
+
+    type AutoGroup: ToString + std::cmp::Ord + std::cmp::Eq + Clone + std::fmt::Debug;
+
     /// The name that will be displayed to represent the element
     fn display_name(&self) -> String;
     /// The key that will be used to store self in a BTreeMap
@@ -38,6 +41,8 @@ pub trait OrganizerElement: Clone + std::fmt::Debug + 'static {
     fn all_repr() -> &'static [<Self::Attribute as OrganizerAttribute>::Repr] {
         Self::Attribute::all_repr()
     }
+
+    fn auto_groups(&self) -> Vec<Self::AutoGroup>;
 }
 
 pub trait OrganizerAttributeRepr:

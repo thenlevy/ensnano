@@ -369,7 +369,7 @@ impl Instanciable for ConeInstance {
     type Ressource = ();
 
     fn vertices() -> Vec<DnaVertex> {
-        let radius = 1.;
+        let radius = 1. / 2.;
         let mut ret: Vec<DnaVertex> = (0..(2 * NB_RAY_TUBE))
             .map(|i| {
                 let point = i / 2 + i % 2;
@@ -393,7 +393,7 @@ impl Instanciable for ConeInstance {
             let height = if i % 2 == 0 { radius } else { 0. };
             let theta = (point as f32) * 2. * PI / NB_RAY_TUBE as f32;
             let position = [0., theta.sin() * height, theta.cos() * height];
-            let normal = [-1., 0., 0.];
+            let normal = [0., 0., 0.];
             ret.push(DnaVertex { position, normal });
         }
 

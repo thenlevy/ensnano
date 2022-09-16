@@ -20,7 +20,7 @@ use crate::curves::Twist;
 use crate::{nb_turn_per_100_nt_to_omega, CurveDescriptor, Helix};
 use std::sync::Arc;
 
-use ultraviolet::{Rotor3, Vec2, Vec3};
+use ultraviolet::{Isometry2, Rotor2, Rotor3, Vec2, Vec3};
 
 /// A structure made of helices arranged circularly on two planes.
 #[derive(Clone, Debug)]
@@ -141,6 +141,10 @@ impl Hyperboloid {
                     grid_center: origin,
                 },
             );
+            helix.isometry2d = Some(Isometry2::new(
+                (5. * i as f32 - 1.) * Vec2::unit_y(),
+                Rotor2::identity(),
+            ));
             ret.push(helix);
         }
         (ret, self.length as usize)
