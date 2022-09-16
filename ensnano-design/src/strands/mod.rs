@@ -708,7 +708,7 @@ impl Strand {
         let mut lengths: Vec<usize> = vec![];
         for d in self.domains.iter() {
             if previous_domain
-                .filter(|prev| prev.has_same_half_helix(d))
+                .filter(|prev| prev.is_neighbour(d))
                 .is_some()
             {
                 *lengths.last_mut().unwrap() += d.length();
@@ -722,7 +722,7 @@ impl Strand {
                 .domains
                 .first()
                 .zip(self.domains.last())
-                .filter(|(d1, d2)| d1.has_same_half_helix(d2))
+                .filter(|(d1, d2)| d1.is_neighbour(d2))
                 .is_some()
         {
             lengths[0] += lengths.pop().unwrap();
@@ -1132,9 +1132,24 @@ impl Domain {
         }
     }
 
-    pub fn has_same_half_helix(&self, other: &Self) -> bool {
-        let my_helix = self.half_helix();
-        my_helix.is_some() && my_helix == other.half_helix()
+    pub fn is_neighbour(&self, other: &Self) -> bool {
+        if let (
+            Self::HelixDomain(HelixInterval {
+                start: my_start, ..
+            }),
+            Self::HelixDomain(HelixInterval {
+                start: other_start, ..
+            }),
+        ) = (self, other)
+        {
+            let my_helix = self.half_helix();
+
+            my_helix.is_some()
+                && my_helix == other.half_helix()
+                && (*my_start == 0 || *other_start == 0)
+        } else {
+            false
+        }
     }
 }
 
