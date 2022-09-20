@@ -85,9 +85,8 @@ impl TubeSpiral {
     }
 
     fn inclination(&self) -> f64 {
-
         if self.number_of_helices == 1 {
-            0. 
+            0.
         } else {
             let nb_helices = self.number_of_helices as f64;
             // FIXME: this is wrong when nb_helices > 2 and small_axis < big axis
