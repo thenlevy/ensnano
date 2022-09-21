@@ -25,7 +25,9 @@ use ensnano_design::{
     ultraviolet, AbscissaConverter, Extremity, Helix as DesignHelix, HelixCollection,
     Strand as StrandDesign,
 };
-use ensnano_interactor::consts::CANDIDATE_STRAND_HIGHLIGHT_FACTOR_2D;
+use ensnano_interactor::consts::{
+    CANDIDATE_STRAND_HIGHLIGHT_FACTOR_2D, SELECTED_STRAND_HIGHLIGHT_FACTOR_2D,
+};
 use ensnano_interactor::{torsion::Torsion, Referential};
 use ensnano_utils::full_isometry::FullIsometry;
 use ultraviolet::{Isometry2, Rotor2, Vec2, Vec3};
@@ -390,13 +392,20 @@ impl<R: DesignReader> Design2d<R> {
             .collect()
     }
 
-    pub fn strand_from_xover(&self, xover: &(Nucl, Nucl), color: u32) -> Strand {
+    pub fn strand_from_xover(&self, xover: &(Nucl, Nucl), color: u32, thicker: bool) -> Strand {
         // pretend it's a strand with two size one domains
         let flat_nucls = [xover.0, xover.0, xover.1, xover.1]
             .iter()
             .filter_map(|n| FlatNucl::from_real(n, self.id_map()))
             .collect();
-        Strand::new(0, flat_nucls, vec![], 0, None).highlighted(color, 1.)
+
+        let width = if thicker {
+            SELECTED_STRAND_HIGHLIGHT_FACTOR_2D
+        } else {
+            1.
+        };
+
+        Strand::new(0, flat_nucls, vec![], 0, None).highlighted(color, width)
     }
 
     pub fn get_nucl_id(&self, nucl: Nucl) -> Option<u32> {

@@ -189,10 +189,10 @@ impl<R: DesignReader> Data<R> {
             }
         }
         for xover in selected_xovers.iter() {
-            selection_highlight.push(self.design.strand_from_xover(xover, SELECTED_COLOR));
+            selection_highlight.push(self.design.strand_from_xover(xover, SELECTED_COLOR, true));
         }
         for xover in candidate_xovers.iter() {
-            candidate_highlight.push(self.design.strand_from_xover(xover, CANDIDATE_COLOR));
+            candidate_highlight.push(self.design.strand_from_xover(xover, CANDIDATE_COLOR, true));
         }
         self.view
             .borrow_mut()
