@@ -78,6 +78,7 @@ impl<R: DesignReader> Design2d<R> {
         let strand_ids = self.design.get_all_strand_ids();
         for strand_id in strand_ids.iter() {
             let strand_opt = self.design.get_strand_points(*strand_id);
+            log::debug!("strand {strand_id}\n strand points: {:?}", strand_opt);
             // Unwrap: `strand_id` is in the list returned by `get_all_strand_ids` so it
             // corresponds to an existing strand id.
             let strand = strand_opt.unwrap();
