@@ -37,6 +37,7 @@ mod roller;
 pub use roller::{PhysicalSystem, RollInterface, RollPresenter};
 mod twister;
 pub use twister::{TwistInterface, TwistPresenter, Twister};
+mod revolutions;
 
 const MAX_DERIVATIVE_NORM: f32 = 1e4;
 

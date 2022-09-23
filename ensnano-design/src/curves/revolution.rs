@@ -111,14 +111,20 @@ impl SmoothInterpolatedCurve {
         }
     }
 
-    fn smooth_chebyshev(&self, s: f64) -> f64 {
-        let u = s.rem_euclid(1.);
+    /// Given a time t, return the time u at which the section must be evaluated.
+    /// Smoothen the junction between consecutive one-turn segments.
+    fn smooth_chebyshev(&self, t: f64) -> f64 {
+        // the position on the current segment. If u is close the 0, we interpolate with the
+        // previous segment. If u is close to 1, we interpolate with the next segment.
+        let u = t.rem_euclid(1.);
+
         let helix_idx =
-            (s.div_euclid(1.) as isize).rem_euclid(self.interpolators.len() as isize) as usize;
+            (t.div_euclid(1.) as isize).rem_euclid(self.interpolators.len() as isize) as usize;
         let prev_idx =
             (helix_idx as isize - 1).rem_euclid(self.interpolators.len() as isize) as usize;
         let next_idx = (helix_idx + 1).rem_euclid(self.interpolators.len());
 
+        // Quantify what "close to 0" and "close to 1" mean.
         let a = self.smoothening_coeff;
 
         let shift = if self.half_turn { 0.5 } else { 0. };
