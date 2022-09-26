@@ -284,6 +284,19 @@ impl CurveDescriptor2D {
     pub fn normalized_tangent(&self, t: f64) -> DVec2 {
         (self.point(t + EPSILON_DERIVATIVE) - self.point(t)).normalized()
     }
+
+    pub fn derivative(&self, t: f64) -> DVec2 {
+        //TODO better implementation for ellipse and bezier curve
+
+        let left = (t - EPSILON_DERIVATIVE / 2.).rem_euclid(1.);
+        let right = (t + EPSILON_DERIVATIVE / 2.).rem_euclid(1.);
+        (self.point(right) - self.point(left)) / EPSILON_DERIVATIVE
+    }
+
+    pub fn perimeter(&self) -> f64 {
+
+
+    }
 }
 
 struct InstanciatedEllipse {
