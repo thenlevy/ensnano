@@ -294,8 +294,7 @@ impl CurveDescriptor2D {
     }
 
     pub fn perimeter(&self) -> f64 {
-
-
+        quadrature::integrate(|t| self.derivative(t).mag(), 0., 1., 1e-5).integral
     }
 }
 
