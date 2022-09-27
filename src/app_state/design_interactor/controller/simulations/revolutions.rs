@@ -30,7 +30,7 @@ use mathru::analysis::differential_equation::ordinary::{
     ExplicitODE,
 };
 
-use ensnano_design::{CurveDescriptor2D, DVec3, Parameters as DNAParameters};
+use ensnano_design::{CurveDescriptor2D, DVec3, Parameters as DNAParameters, CurveDescriptor, InterpolationDescriptor, InterpolatedCurveDescriptor};
 
 pub struct RevolutionSurfaceSystem {
     nb_segment: usize,
@@ -78,11 +78,12 @@ impl RevolutionSurfaceSystem {
         let total_nb_section = nb_segment * nb_section_per_segment;
         let nb_helices = desc.target.nb_helices();
 
+        let target = RevolutionSurface::new(desc.target);
         let next_section: Vec<usize> = (0..total_nb_section)
             .map(|n| {
                 if n % nb_section_per_segment == nb_section_per_segment - 1 {
                     let segment = n / nb_section_per_segment;
-                    let next_segment = (segment as isize + desc.target.shift_per_turn)
+                    let next_segment = (segment as isize + target.total_shift())
                         .rem_euclid(nb_segment as isize)
                         as usize;
                     next_segment * nb_section_per_segment
@@ -96,7 +97,7 @@ impl RevolutionSurfaceSystem {
             .map(|n| {
                 if n % nb_section_per_segment == 0 {
                     let segment = n / nb_section_per_segment;
-                    let prev_segment = (segment as isize - desc.target.shift_per_turn)
+                    let prev_segment = (segment as isize - target.total_shift())
                         .rem_euclid(nb_segment as isize)
                         as usize;
                     prev_segment * nb_section_per_segment + nb_section_per_segment - 1
@@ -112,7 +113,7 @@ impl RevolutionSurfaceSystem {
             prev_section,
             next_section,
             dna_parameters: desc.dna_parameters,
-            target: RevolutionSurface::new(desc.target),
+            target,
             last_thetas: None,
         }
     }
@@ -129,8 +130,7 @@ impl RevolutionSurfaceSystem {
             };
             self.apply_springs(&mut system, Some(&mut spring_relaxation_state));
             println!("curve scale {}", self.target.curve_scale_factor);
-            self.target.curve_scale_factor /=
-                (spring_relaxation_state.min_ext + spring_relaxation_state.max_ext) / 2.;
+            self.target.curve_scale_factor /= spring_relaxation_state.avg_ext;
             *first = false;
         }
 
@@ -181,8 +181,8 @@ impl RevolutionSurfaceSystem {
     }
 
     fn next_spring_end(&self, section_idx: usize) -> usize {
-        let total_nb_segment = self.nb_segment * self.nb_section_per_segment;
-        (section_idx + self.nb_section_per_segment) % total_nb_segment
+        let total_nb_section = self.nb_segment * self.nb_section_per_segment;
+        (section_idx + self.nb_section_per_segment) % total_nb_section
     }
 
     fn revolution_angle_section(&self, section_idx: usize) -> f64 {
@@ -290,6 +290,37 @@ impl RevolutionSurfaceSystem {
                 - FLUID_FRICTION * system.d_thetas[section_idx])
                 / BALL_MASS;
         }
+    }
+
+    fn to_curve_desc(&self) -> Option<Vec<CurveDescriptor>> {
+        let thetas = self.last_thetas.clone()?;
+
+        let mut ret = Vec::new();
+
+        let nb_segment_per_helix = self.nb_segment / self.target.nb_helices;
+        for i in 0..self.target.nb_helices {
+            let mut interpolations = Vec::new();
+            let segment_indicies = (0..nb_segment_per_helix).map(|n| (i as isize + (n as isize * self.target.total_shift())).rem_euclid(self.nb_segment as isize));
+            for s_idx in segment_indicies {
+                let start = s_idx as usize * self.nb_section_per_segment;
+                let end = start + self.nb_section_per_segment;
+                let thetas = thetas[start..end].to_vec();
+                println!("segment {s_idx}, thetas {:?}", thetas);
+                let s = (0..self.nb_section_per_segment).map(|x| x as f64 / self.nb_section_per_segment as f64).collect();
+                interpolations.push(InterpolationDescriptor::PointsValues { points: s, values: thetas });
+            }
+            ret.push(CurveDescriptor::InterpolatedCurve(InterpolatedCurveDescriptor {
+                curve: self.target.curve.clone(),
+                curve_scale_factor: self.target.curve_scale_factor,
+                chevyshev_smoothening: self.target.junction_smoothening,
+                interpolation: interpolations,
+                half_turns_count: self.target.half_turns_count,
+                revolution_radius: self.target.revolution_radius,
+            }))
+        }
+
+        Some(ret)
+
     }
 }
 
@@ -473,6 +504,11 @@ impl RevolutionSurface {
             z: 0.,
         }
     }
+
+    fn total_shift(&self) -> isize {
+        let additional_shift = if self.half_turns_count % 2 == 1 { self.nb_helix_per_half_section } else { 0 };
+        self.shift_per_turn + additional_shift as isize
+    }
 }
 
 #[cfg(test)]
@@ -496,16 +532,23 @@ mod tests {
         let system_desc = RevolutionSurfaceSystemDescriptor {
             nb_section_per_segment: NB_SECTION_PER_SEGMENT,
             dna_parameters: DNAParameters::GEARY_2014_DNA,
-            nb_segment: 2,
+            nb_segment: 14,
             target: surface_desc,
         };
         let mut system = RevolutionSurfaceSystem::new(system_desc);
         let mut current_default = std::f64::INFINITY;
 
-        let mut first = false;
+        let mut first = true;
         while current_default > 1.05 {
             current_default = system.one_simulation_step(&mut first);
             println!("current default {current_default}")
+        }
+        let curve_desc = system.to_curve_desc().unwrap();
+
+        for desc in curve_desc {
+            let len = desc.compute_length();
+            println!("length ~= {:?}", len);
+            println!("length ~= {:?} nt", len.map(|l| l/ DNAParameters::GEARY_2014_DNA.z_step as f64));
         }
     }
 }

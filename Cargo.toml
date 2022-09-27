@@ -50,6 +50,7 @@ iced = "0.4.2"
 iced_graphics = "0.3.1"
 iced_winit = "0.4.0"
 iced_native = "0.5.1"
+chebyshev_polynomials = { git = "https://github.com/thenlevy/chebyshev_polynomials" }
 
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]

@@ -25,7 +25,7 @@ const DELTA_MAX: f64 = 256.0;
 use crate::{
     grid::{Edge, GridPosition},
     utils::vec_to_dvec,
-    BezierPathData, BezierPathId,
+    BezierPathData, BezierPathId, NAMED_DNA_PARAMETERS,
 };
 
 use super::{Helix, Parameters};
@@ -277,6 +277,10 @@ impl Curve {
             parameters.inclination as f64,
         );
         ret
+    }
+
+    fn compute_length<T: Curved + 'static + Sync + Send>(geometry: T, parameters: &Parameters) -> f64 {
+        quadrature::integrate(|x| geometry.speed(x).mag() , geometry.t_min(), geometry.t_max(), 1e-5).integral
     }
 
     pub fn nb_points(&self) -> usize {
@@ -661,6 +665,11 @@ impl CurveDescriptor {
             _ => None,
         }
     }
+
+    pub fn compute_length(&self) -> Option<f64> {
+        let desc = InstanciatedCurveDescriptor::try_instanciate(Arc::new(self.clone()))?;
+        desc.instance.try_length(&Parameters::GEARY_2014_DNA)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -1037,6 +1046,44 @@ impl InstanciatedCurveDescriptor_ {
             ))),
             Self::InterpolatedCurve(desc) => {
                 Some(Arc::new(Curve::new(desc.clone().instanciate(), parameters)))
+            }
+        }
+    }
+
+    fn try_length(&self, parameters: &Parameters) -> Option<f64> {
+        match self {
+            Self::Bezier(constructor) => Some(Curve::compute_length(
+                constructor.clone().into_bezier(),
+                parameters,
+            )),
+            Self::SphereLikeSpiral(spiral) => Some(Curve::compute_length(
+                spiral.clone().with_parameters(parameters.clone()),
+                parameters,
+            )),
+            Self::TubeSpiral(spiral) => Some(Curve::compute_length(
+                spiral.clone().with_parameters(parameters.clone()),
+                parameters,
+            )),
+            Self::Twist(twist) => Some(Curve::compute_length(twist.clone(), parameters)),
+            Self::Torus(torus) => Some(Curve::compute_length(torus.clone(), parameters)),
+            Self::SuperTwist(twist) => Some(Curve::compute_length(twist.clone(), parameters)),
+            Self::TwistedTorus(_) => None,
+            Self::PiecewiseBezier(_) => None,
+            Self::TranslatedBezierPath {
+                path_curve,
+                translation,
+                initial_frame,
+                ..
+            } => Some(Curve::compute_length(
+                TranslatedPiecewiseBezier {
+                    original_curve: path_curve.clone(),
+                    translation: *translation,
+                    initial_frame: *initial_frame,
+                },
+                parameters,
+            )),
+            Self::InterpolatedCurve(desc) => {
+                Some(Curve::compute_length(desc.clone().instanciate(), parameters))
             }
         }
     }
