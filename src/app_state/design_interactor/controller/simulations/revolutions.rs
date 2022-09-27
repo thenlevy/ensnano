@@ -479,7 +479,7 @@ impl RevolutionSurface {
         // must be equal to PI * half_turns when revolution_angle = TAU.
         let section_rotation = revolution_angle * (self.half_turns_count as f64) / 2.;
 
-        let section_point = self.curve.point(section_t);
+        let section_point = self.curve.point(section_t / TAU);
 
         let x_2d = self.revolution_radius
             + self.curve_scale_factor
@@ -499,7 +499,7 @@ impl RevolutionSurface {
     fn dpos_dtheta(&self, revolution_angle: f64, section_t: f64) -> DVec3 {
         let section_rotation = revolution_angle * (self.half_turns_count as f64) / 2.;
 
-        let dpos_curve = self.curve.derivative(section_t);
+        let dpos_curve = self.curve.derivative(section_t / TAU);
 
         let x_2d = self.curve_scale_factor
             * (dpos_curve.x * section_rotation.cos() - section_rotation.sin() * dpos_curve.y);
