@@ -120,7 +120,7 @@ impl<R: DesignReader> Design3D<R> {
                         position: p,
                         color: Instance::color_from_u32(SURFACE_PIVOT_SPHERE_COLOR),
                         id: u32::MAX,
-                        radius: 4.,
+                        radius: 1.,
                     }
                     .to_raw_instance(),
                 );

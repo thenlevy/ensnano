@@ -1150,7 +1150,7 @@ impl MainState {
         let result = self.app_state.start_simulation(
             parameters,
             &mut self.chanel_reader,
-            SimulationTarget::Grids,
+            SimulationTarget::Relaxation,
         );
         self.apply_operation_result(result)
     }
