@@ -16,7 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use super::{SimulationInterface, SimulationReader, SimulationUpdate};
 use std::f64::consts::{PI, TAU};
+use std::sync::{Arc, Mutex, Weak};
 
 const SPRING_STIFFNESS: f64 = 1.;
 const TORSION_STIFFNESS: f64 = 30.;
@@ -30,8 +32,14 @@ use mathru::analysis::differential_equation::ordinary::{
     ExplicitODE,
 };
 
-use ensnano_design::{CurveDescriptor2D, DVec3, Parameters as DNAParameters, CurveDescriptor, InterpolationDescriptor, InterpolatedCurveDescriptor};
+use ensnano_design::{
+    CurveDescriptor, CurveDescriptor2D, DVec3, InterpolatedCurveDescriptor,
+    InterpolationDescriptor, Parameters as DNAParameters,
+};
 
+use crate::app_state::ErrOperation;
+
+#[derive(Clone)]
 pub struct RevolutionSurfaceSystem {
     nb_segment: usize,
     nb_section_per_segment: usize,
@@ -43,12 +51,12 @@ pub struct RevolutionSurfaceSystem {
 }
 
 pub struct RevolutionSurfaceSystemDescriptor {
-    pub nb_segment: usize,
     pub nb_section_per_segment: usize,
     pub target: RevolutionSurfaceDescriptor,
     pub dna_parameters: DNAParameters,
 }
 
+#[derive(Clone)]
 pub struct RevolutionSurface {
     curve: CurveDescriptor2D,
     revolution_radius: f64,
@@ -73,7 +81,7 @@ pub struct RevolutionSurfaceDescriptor {
 
 impl RevolutionSurfaceSystem {
     pub fn new(desc: RevolutionSurfaceSystemDescriptor) -> Self {
-        let nb_segment = desc.nb_segment;
+        let nb_segment = 2 * desc.target.nb_helix_per_half_section;
         let nb_section_per_segment = NB_SECTION_PER_SEGMENT;
         let total_nb_section = nb_segment * nb_section_per_segment;
         let nb_helices = desc.target.nb_helices();
@@ -108,7 +116,7 @@ impl RevolutionSurfaceSystem {
             .collect();
 
         Self {
-            nb_segment: desc.nb_segment,
+            nb_segment,
             nb_section_per_segment: NB_SECTION_PER_SEGMENT,
             prev_section,
             next_section,
@@ -300,27 +308,36 @@ impl RevolutionSurfaceSystem {
         let nb_segment_per_helix = self.nb_segment / self.target.nb_helices;
         for i in 0..self.target.nb_helices {
             let mut interpolations = Vec::new();
-            let segment_indicies = (0..nb_segment_per_helix).map(|n| (i as isize + (n as isize * self.target.total_shift())).rem_euclid(self.nb_segment as isize));
+            let segment_indicies = (0..nb_segment_per_helix).map(|n| {
+                (i as isize + (n as isize * self.target.total_shift()))
+                    .rem_euclid(self.nb_segment as isize)
+            });
             for s_idx in segment_indicies {
                 let start = s_idx as usize * self.nb_section_per_segment;
                 let end = start + self.nb_section_per_segment;
                 let thetas = thetas[start..end].to_vec();
                 println!("segment {s_idx}, thetas {:?}", thetas);
-                let s = (0..self.nb_section_per_segment).map(|x| x as f64 / self.nb_section_per_segment as f64).collect();
-                interpolations.push(InterpolationDescriptor::PointsValues { points: s, values: thetas });
+                let s = (0..self.nb_section_per_segment)
+                    .map(|x| x as f64 / self.nb_section_per_segment as f64)
+                    .collect();
+                interpolations.push(InterpolationDescriptor::PointsValues {
+                    points: s,
+                    values: thetas,
+                });
             }
-            ret.push(CurveDescriptor::InterpolatedCurve(InterpolatedCurveDescriptor {
-                curve: self.target.curve.clone(),
-                curve_scale_factor: self.target.curve_scale_factor,
-                chevyshev_smoothening: self.target.junction_smoothening,
-                interpolation: interpolations,
-                half_turns_count: self.target.half_turns_count,
-                revolution_radius: self.target.revolution_radius,
-            }))
+            ret.push(CurveDescriptor::InterpolatedCurve(
+                InterpolatedCurveDescriptor {
+                    curve: self.target.curve.clone(),
+                    curve_scale_factor: self.target.curve_scale_factor,
+                    chevyshev_smoothening: self.target.junction_smoothening,
+                    interpolation: interpolations,
+                    half_turns_count: self.target.half_turns_count,
+                    revolution_radius: self.target.revolution_radius,
+                },
+            ))
         }
 
         Some(ret)
-
     }
 }
 
@@ -506,9 +523,98 @@ impl RevolutionSurface {
     }
 
     fn total_shift(&self) -> isize {
-        let additional_shift = if self.half_turns_count % 2 == 1 { self.nb_helix_per_half_section } else { 0 };
+        let additional_shift = if self.half_turns_count % 2 == 1 {
+            self.nb_helix_per_half_section
+        } else {
+            0
+        };
         self.shift_per_turn + additional_shift as isize
     }
+}
+
+pub struct RevolutionSystemThread {
+    interface: Weak<Mutex<RevolutionSystemInterface>>,
+    system: RevolutionSurfaceSystem,
+}
+
+impl RevolutionSystemThread {
+    pub fn start_new(
+        system: RevolutionSurfaceSystemDescriptor,
+        reader: &mut dyn SimulationReader,
+    ) -> Result<Arc<Mutex<RevolutionSystemInterface>>, ErrOperation> {
+        let ret = Arc::new(Mutex::new(RevolutionSystemInterface::default()));
+        let ret_dyn: Arc<Mutex<dyn SimulationInterface>> = ret.clone();
+        reader.attach_state(&ret_dyn);
+        let simulation_thread = Self::new(system, &ret);
+        simulation_thread.run();
+        Ok(ret)
+    }
+
+    fn new(
+        system_desc: RevolutionSurfaceSystemDescriptor,
+        interface: &Arc<Mutex<RevolutionSystemInterface>>,
+    ) -> Self {
+        let system = RevolutionSurfaceSystem::new(system_desc);
+        Self {
+            interface: Arc::downgrade(interface),
+            system,
+        }
+    }
+
+    fn run(mut self) {
+        std::thread::spawn(move || {
+            let mut first = false;
+            while let Some(interface_ptr) = self.interface.upgrade() {
+                let mut interface = interface_ptr.lock().unwrap();
+                interface.new_state = Some(self.system.clone());
+                drop(interface);
+                self.system.one_simulation_step(&mut first);
+            }
+        });
+    }
+}
+
+impl SimulationUpdate for RevolutionSurfaceSystem {
+    fn update_design(&self, design: &mut ensnano_design::Design) {
+        design.additional_structure = Some(Arc::new(self.clone()))
+    }
+}
+
+impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
+    fn position(&self) -> Vec<ultraviolet::Vec3> {
+        use ensnano_design::utils::dvec_to_vec;
+        let thetas = self
+            .last_thetas
+            .clone()
+            .unwrap_or_else(|| self.thetas_init());
+        let total_nb_sections = self.nb_segment * self.nb_section_per_segment;
+        (0..total_nb_sections)
+            .map(|n| dvec_to_vec(self.position_section(n, &thetas)))
+            .collect()
+    }
+
+    fn next(&self) -> Vec<usize> {
+        let total_nb_sections = self.nb_segment * self.nb_section_per_segment;
+        (0..total_nb_sections)
+            .map(|n| self.next_spring_end(n))
+            .collect()
+    }
+
+    fn right(&self) -> Vec<usize> {
+        self.next_section.clone()
+    }
+}
+
+impl SimulationInterface for RevolutionSystemInterface {
+    fn get_simulation_state(&mut self) -> Option<Box<dyn SimulationUpdate>> {
+        let s = self.new_state.take()?;
+        Some(Box::new(s))
+    }
+}
+
+#[derive(Default)]
+pub struct RevolutionSystemInterface {
+    new_state: Option<RevolutionSurfaceSystem>,
 }
 
 #[cfg(test)]
@@ -532,7 +638,6 @@ mod tests {
         let system_desc = RevolutionSurfaceSystemDescriptor {
             nb_section_per_segment: NB_SECTION_PER_SEGMENT,
             dna_parameters: DNAParameters::GEARY_2014_DNA,
-            nb_segment: 14,
             target: surface_desc,
         };
         let mut system = RevolutionSurfaceSystem::new(system_desc);
@@ -548,7 +653,10 @@ mod tests {
         for desc in curve_desc {
             let len = desc.compute_length();
             println!("length ~= {:?}", len);
-            println!("length ~= {:?} nt", len.map(|l| l/ DNAParameters::GEARY_2014_DNA.z_step as f64));
+            println!(
+                "length ~= {:?} nt",
+                len.map(|l| l / DNAParameters::GEARY_2014_DNA.z_step as f64)
+            );
         }
     }
 }

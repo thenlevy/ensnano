@@ -46,7 +46,8 @@ use clipboard::{PastedStrand, StrandClipboard};
 
 use self::simulations::{
     GridSystemInterface, GridsSystemThread, HelixSystemInterface, HelixSystemThread,
-    PhysicalSystem, RollInterface, TwistInterface,
+    PhysicalSystem, RevolutionSystemInterface, RevolutionSystemThread, RollInterface,
+    TwistInterface,
 };
 
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -477,6 +478,37 @@ impl Controller {
     ) -> Result<(OkOperation, Self), ErrOperation> {
         let mut ret = self.clone();
         match operation {
+            SimulationOperation::ExampleRelaxation { reader } => {
+                use ensnano_design::{CurveDescriptor2D, Parameters};
+                use simulations::RevolutionSurfaceDescriptor;
+                use simulations::RevolutionSurfaceSystemDescriptor;
+
+                if self.is_in_persistant_state().is_transitory() {
+                    return Err(ErrOperation::IncompatibleState);
+                }
+                let surface_desc = RevolutionSurfaceDescriptor {
+                    curve: CurveDescriptor2D::Ellipse {
+                        semi_minor_axis: 1f64.into(),
+                        semi_major_axis: 2f64.into(),
+                    },
+                    half_turns_count: 6,
+                    revolution_radius: 23.99710394464801,
+                    junction_smoothening: 0.,
+                    nb_helix_per_half_section: 7,
+                    dna_paramters: Parameters::GEARY_2014_DNA,
+                    shift_per_turn: -12,
+                };
+                let system_desc = RevolutionSurfaceSystemDescriptor {
+                    nb_section_per_segment: 100,
+                    dna_parameters: Parameters::GEARY_2014_DNA,
+                    target: surface_desc,
+                };
+                let interface = RevolutionSystemThread::start_new(system_desc, reader)?;
+                ret.state = ControllerState::Relaxing {
+                    interface,
+                    initial_design: AddressPointer::new(design.clone()),
+                };
+            }
             SimulationOperation::StartHelices {
                 presenter,
                 parameters,
@@ -1069,6 +1101,7 @@ impl Controller {
             ControllerState::SimulatingGrids { .. } => SimulationState::RigidGrid,
             ControllerState::Rolling { .. } => SimulationState::Rolling,
             ControllerState::Twisting { grid_id, .. } => SimulationState::Twisting { grid_id },
+            ControllerState::Relaxing { .. } => SimulationState::Relaxing,
             _ => SimulationState::None,
         }
     }
@@ -3379,6 +3412,10 @@ enum ControllerState {
         interface: Arc<Mutex<GridSystemInterface>>,
         _initial_design: AddressPointer<Design>,
     },
+    Relaxing {
+        interface: Arc<Mutex<RevolutionSystemInterface>>,
+        initial_design: AddressPointer<Design>,
+    },
     WithPausedSimulation {
         initial_design: AddressPointer<Design>,
     },
@@ -3431,6 +3468,7 @@ impl ControllerState {
             Self::PositioningHelicesDuplicationPoint { .. } => {
                 "Positioning helices duplication point"
             }
+            Self::Relaxing { .. } => "Relaxing revolution surface",
         }
     }
     fn update_pasting_position(
@@ -3565,6 +3603,7 @@ impl ControllerState {
             Self::OptimizingScaffoldPosition => self.clone(),
             Self::Simulating { .. } => self.clone(),
             Self::SimulatingGrids { .. } => self.clone(),
+            Self::Relaxing { .. } => self.clone(),
             Self::WithPausedSimulation { .. } => Self::Normal,
             Self::Rolling { .. } => Self::Normal,
             Self::SettingRollHelices => Self::Normal,

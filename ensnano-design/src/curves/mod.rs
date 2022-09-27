@@ -279,8 +279,17 @@ impl Curve {
         ret
     }
 
-    fn compute_length<T: Curved + 'static + Sync + Send>(geometry: T, parameters: &Parameters) -> f64 {
-        quadrature::integrate(|x| geometry.speed(x).mag() , geometry.t_min(), geometry.t_max(), 1e-5).integral
+    fn compute_length<T: Curved + 'static + Sync + Send>(
+        geometry: T,
+        parameters: &Parameters,
+    ) -> f64 {
+        quadrature::integrate(
+            |x| geometry.speed(x).mag(),
+            geometry.t_min(),
+            geometry.t_max(),
+            1e-5,
+        )
+        .integral
     }
 
     pub fn nb_points(&self) -> usize {
@@ -1082,9 +1091,10 @@ impl InstanciatedCurveDescriptor_ {
                 },
                 parameters,
             )),
-            Self::InterpolatedCurve(desc) => {
-                Some(Curve::compute_length(desc.clone().instanciate(), parameters))
-            }
+            Self::InterpolatedCurve(desc) => Some(Curve::compute_length(
+                desc.clone().instanciate(),
+                parameters,
+            )),
         }
     }
 

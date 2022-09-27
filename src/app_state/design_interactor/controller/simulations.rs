@@ -18,6 +18,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use crate::app_state::design_interactor::presenter::NuclCollection;
 
+pub use revolutions::*;
+
 use super::*;
 
 use ensnano_design::{grid::Grid, Parameters};
@@ -1337,6 +1339,9 @@ pub enum SimulationOperation<'pres, 'reader> {
     StartTwist {
         grid_id: GridId,
         presenter: &'pres dyn TwistPresenter,
+        reader: &'reader mut dyn SimulationReader,
+    },
+    ExampleRelaxation {
         reader: &'reader mut dyn SimulationReader,
     },
 }

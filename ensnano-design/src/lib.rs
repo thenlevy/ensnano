@@ -169,6 +169,15 @@ pub struct Design {
 
     #[serde(default)]
     pub external_3d_objects: External3DObjects,
+
+    #[serde(skip)]
+    pub additional_structure: Option<Arc<dyn AdditionalStructure>>,
+}
+
+pub trait AdditionalStructure: Send + Sync {
+    fn position(&self) -> Vec<Vec3>;
+    fn right(&self) -> Vec<usize>;
+    fn next(&self) -> Vec<usize>;
 }
 
 /// An immuatable reference to a design whose helices pahts and grid data are guaranteed to be up-to
@@ -351,6 +360,7 @@ impl Design {
             old_grids: Vec::new(),
             instanciated_paths: None,
             external_3d_objects: Default::default(),
+            additional_structure: None,
         }
     }
 

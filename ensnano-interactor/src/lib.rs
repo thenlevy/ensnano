@@ -470,6 +470,7 @@ pub enum SimulationState {
     RigidHelices,
     Paused,
     Twisting { grid_id: GridId },
+    Relaxing,
 }
 
 impl SimulationState {
