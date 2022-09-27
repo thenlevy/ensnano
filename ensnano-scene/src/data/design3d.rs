@@ -24,8 +24,9 @@ use super::{ultraviolet, LetterInstance, SceneElement};
 use ensnano_design::grid::{GridId, GridObject, GridPosition};
 use ensnano_design::{grid::HelixGridPosition, Nucl};
 use ensnano_design::{
-    BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, Collection,
-    CubicBezierConstructor, CurveDescriptor, External3DObjects, InstanciatedPath, Parameters,
+    AdditionalStructure, BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex,
+    Collection, CubicBezierConstructor, CurveDescriptor, External3DObjects, InstanciatedPath,
+    Parameters,
 };
 pub use ensnano_design::{SurfaceInfo, SurfacePoint};
 use ensnano_interactor::consts::*;
@@ -107,6 +108,19 @@ impl<R: DesignReader> Design3D<R> {
                         color: Instance::color_from_u32(loopout_nucl.color),
                         id: loopout_nucl.repr_bond_identifier,
                         radius: 1.,
+                    }
+                    .to_raw_instance(),
+                );
+            }
+        }
+        if let Some(additional_structure) = self.design.get_additional_structure() {
+            for p in additional_structure.position() {
+                ret.push(
+                    SphereInstance {
+                        position: p,
+                        color: Instance::color_from_u32(SURFACE_PIVOT_SPHERE_COLOR),
+                        id: u32::MAX,
+                        radius: 4.,
                     }
                     .to_raw_instance(),
                 );
@@ -233,6 +247,18 @@ impl<R: DesignReader> Design3D<R> {
                     )
                     .to_raw_instance()
                     .with_expected_length(expected_length),
+                )
+            }
+        }
+
+        if let Some(additional_structure) = self.design.get_additional_structure() {
+            let positions = additional_structure.position();
+            for (me, next) in additional_structure.right().into_iter().enumerate() {
+                let pos_left = positions[me];
+                let pos_right = positions[next];
+                ret.push(
+                    create_dna_bound(pos_left, pos_right, REGULAR_H_BOND_COLOR, u32::MAX, false)
+                        .to_raw_instance(),
                 )
             }
         }
@@ -1271,6 +1297,7 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_external_objects(&self) -> &External3DObjects;
     fn get_surface_info_nucl(&self, nucl: Nucl) -> Option<SurfaceInfo>;
     fn get_surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo>;
+    fn get_additional_structure(&self) -> Option<&dyn AdditionalStructure>;
 }
 
 pub(super) struct HBoundsInstances {
