@@ -1017,7 +1017,7 @@ impl InstanciatedCurveDescriptor_ {
                 },
                 parameters,
             )),
-            Self::InterpolatedCurve(desc) => Arc::new(Curve::new(desc.instanciate(), parameters)),
+            Self::InterpolatedCurve(desc) => Arc::new(Curve::new(desc.instanciate(true), parameters)),
         }
     }
 
@@ -1054,7 +1054,7 @@ impl InstanciatedCurveDescriptor_ {
                 parameters,
             ))),
             Self::InterpolatedCurve(desc) => {
-                Some(Arc::new(Curve::new(desc.clone().instanciate(), parameters)))
+                Some(Arc::new(Curve::new(desc.clone().instanciate(true), parameters)))
             }
         }
     }
@@ -1092,7 +1092,7 @@ impl InstanciatedCurveDescriptor_ {
                 parameters,
             )),
             Self::InterpolatedCurve(desc) => Some(Curve::compute_length(
-                desc.clone().instanciate(),
+                desc.clone().instanciate(false),
                 parameters,
             )),
         }

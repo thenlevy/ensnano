@@ -37,7 +37,7 @@ pub struct InterpolatedCurveDescriptor {
 }
 
 impl InterpolatedCurveDescriptor {
-    pub(super) fn instanciate(self) -> Revolution {
+    pub(super) fn instanciate(self, init_interpolators: bool) -> Revolution {
         let curve = self.curve.clone();
         let mut discontinuities = vec![0.];
         for i in 0..self.interpolation.len() {
@@ -57,7 +57,9 @@ impl InterpolatedCurveDescriptor {
             inverse_curvilinear_abscissa: vec![],
             curvilinear_abscissa: vec![],
         };
-        ret.init_interpolators();
+        if init_interpolators {
+            ret.init_interpolators();
+        }
         ret
     }
 }

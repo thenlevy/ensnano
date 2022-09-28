@@ -28,7 +28,7 @@ const NB_SECTION_PER_SEGMENT: usize = 100;
 
 use mathru::algebra::linear::vector::vector::Vector;
 use mathru::analysis::differential_equation::ordinary::{
-    solver::runge_kutta::{explicit::fixed::FixedStepper, ExplicitEuler, Heun2},
+    solver::runge_kutta::{explicit::fixed::FixedStepper, ExplicitEuler, Ralston2,},
     ExplicitODE,
 };
 
@@ -142,11 +142,11 @@ impl RevolutionSurfaceSystem {
             *first = false;
         }
 
-        let solver = FixedStepper::new(1e-2);
-        let method = Heun2::default();
+        let solver = FixedStepper::new(1e-1);
+        let method = Ralston2::default();
 
         let mut spring_relaxation_state = SpringRelaxationState::new();
-        let avg_ext = if let Some(last_state) = solver
+        if let Some(last_state) = solver
             .solve(self, &method)
             .ok()
             .and_then(|(_, y)| y.last().cloned())
@@ -154,12 +154,9 @@ impl RevolutionSurfaceSystem {
             let mut system = RelaxationSystem::from_mathru(last_state, total_nb_section);
             self.apply_springs(&mut system, Some(&mut spring_relaxation_state));
             self.last_thetas = Some(system.thetas.clone());
-            spring_relaxation_state.avg_ext
         } else {
             log::error!("error while solving ODE");
-            1.
         };
-        //self.target.curve_scale_factor /= avg_ext;
         self.target.curve_scale_factor /= (spring_relaxation_state.min_ext
             + spring_relaxation_state.max_ext
             + 2. * spring_relaxation_state.avg_ext)
@@ -176,8 +173,8 @@ impl RevolutionSurfaceSystem {
         let mut ret = Vec::with_capacity(total_nb_segment);
 
         for segment_idx in 0..self.nb_segment {
-            let theta_init = TAU * segment_idx as f64 / self.nb_segment as f64;
-            let delta_theta = self.target.shift_per_turn as f64 * TAU
+            let theta_init = segment_idx as f64 / self.nb_segment as f64;
+            let delta_theta = self.target.shift_per_turn as f64
                 / (self.target.nb_helix_per_half_section as f64 * 2.);
 
             for section_idx in 0..self.nb_section_per_segment {
@@ -481,7 +478,7 @@ impl RevolutionSurface {
         // must be equal to PI * half_turns when revolution_angle = TAU.
         let section_rotation = revolution_angle * (self.half_turns_count as f64) / 2.;
 
-        let section_point = self.curve.point(section_t / TAU);
+        let section_point = self.curve.point(section_t);
 
         let x_2d = self.revolution_radius
             + self.curve_scale_factor
@@ -501,7 +498,7 @@ impl RevolutionSurface {
     fn dpos_dtheta(&self, revolution_angle: f64, section_t: f64) -> DVec3 {
         let section_rotation = revolution_angle * (self.half_turns_count as f64) / 2.;
 
-        let dpos_curve = self.curve.derivative(section_t / TAU);
+        let dpos_curve = self.curve.derivative(section_t);
 
         let x_2d = self.curve_scale_factor
             * (dpos_curve.x * section_rotation.cos() - section_rotation.sin() * dpos_curve.y);
@@ -643,15 +640,16 @@ mod tests {
             target: surface_desc,
         };
         let mut system = RevolutionSurfaceSystem::new(system_desc);
-        let mut current_default = std::f64::INFINITY;
+        system.target.curve_scale_factor = 4.46;
+        let mut current_default;
 
         let mut first = true;
-        while current_default > 1.05 {
+        for _ in 0..10 {
             current_default = system.one_simulation_step(&mut first);
             println!("current default {current_default}")
         }
-        let curve_desc = system.to_curve_desc().unwrap();
 
+        let curve_desc = system.to_curve_desc().unwrap();
         for desc in curve_desc {
             let len = desc.compute_length();
             println!("length ~= {:?}", len);
