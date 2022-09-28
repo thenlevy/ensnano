@@ -136,10 +136,10 @@ impl RevolutionSurfaceSystem {
     ) -> usize {
         let mut current_default;
         for _ in 0..10 {
-            current_default = self.one_simulation_step(first);
             if let Some(interface) = interface.as_ref() {
                 interface.lock().unwrap().new_state = Some(self.clone());
             }
+            current_default = self.one_simulation_step(first);
             if current_default < 1.01 {
                 break;
             }
@@ -164,7 +164,6 @@ impl RevolutionSurfaceSystem {
             (self.total_length(&thetas) / (self.dna_parameters.z_step as f64)).floor() as usize;
         println!("total len by sum {len_by_sum}");
         self.target.revolution_radius /= (total_len as f64) / (self.scaffold_len_target as f64);
-        std::thread::sleep_ms(1000);
         total_len
     }
 

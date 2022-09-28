@@ -487,22 +487,24 @@ impl Controller {
                     return Err(ErrOperation::IncompatibleState);
                 }
                 let surface_desc = RevolutionSurfaceDescriptor {
-                    curve: CurveDescriptor2D::Ellipse {
-                        semi_minor_axis: 1f64.into(),
-                        semi_major_axis: 2f64.into(),
+                    curve: CurveDescriptor2D::TwoBalls {
+                        radius_tube: 0.76.into(),
+                        radius_extern: 2.5.into(),
+                        radius_intern: 1.7.into(),
+                        smooth_ceil: 0.04.into(),
                     },
-                    half_turns_count: 5,
-                    revolution_radius: 23.99710394464801,
+                    half_turns_count: 0,
+                    revolution_radius: 10.,
                     junction_smoothening: 0.,
-                    nb_helix_per_half_section: 7,
+                    nb_helix_per_half_section: 17,
                     dna_paramters: Parameters::GEARY_2014_DNA,
-                    shift_per_turn: -12,
+                    shift_per_turn: 2,
                 };
                 let system_desc = RevolutionSurfaceSystemDescriptor {
                     nb_section_per_segment: 100,
                     dna_parameters: Parameters::GEARY_2014_DNA,
                     target: surface_desc,
-                    scaffold_len_target: 7560,
+                    scaffold_len_target: 8064,
                 };
                 let interface = RevolutionSystemThread::start_new(system_desc, reader)?;
                 ret.state = ControllerState::Relaxing {
