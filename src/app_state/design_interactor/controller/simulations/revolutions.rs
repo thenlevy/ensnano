@@ -160,8 +160,10 @@ impl RevolutionSurfaceSystem {
             1.
         };
         //self.target.curve_scale_factor /= avg_ext;
-        self.target.curve_scale_factor /=
-            (spring_relaxation_state.min_ext + spring_relaxation_state.max_ext) / 2.;
+        self.target.curve_scale_factor /= (spring_relaxation_state.min_ext
+            + spring_relaxation_state.max_ext
+            + 2. * spring_relaxation_state.avg_ext)
+            / 4.;
         println!("spring_relax state {:?}", spring_relaxation_state);
         println!("curve scale {}", self.target.curve_scale_factor);
         spring_relaxation_state
