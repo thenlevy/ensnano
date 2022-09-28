@@ -178,6 +178,7 @@ pub trait AdditionalStructure: Send + Sync {
     fn position(&self) -> Vec<Vec3>;
     fn right(&self) -> Vec<usize>;
     fn next(&self) -> Vec<usize>;
+    fn nt_path(&self) -> Option<Vec<Vec3>>;
 }
 
 /// An immuatable reference to a design whose helices pahts and grid data are guaranteed to be up-to

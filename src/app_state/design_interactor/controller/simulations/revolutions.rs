@@ -20,15 +20,15 @@ use super::{SimulationInterface, SimulationReader, SimulationUpdate};
 use std::f64::consts::{PI, TAU};
 use std::sync::{Arc, Mutex, Weak};
 
-const SPRING_STIFFNESS: f64 = 1.;
+const SPRING_STIFFNESS: f64 = 8.;
 const TORSION_STIFFNESS: f64 = 30.;
-const FLUID_FRICTION: f64 = 0.8;
-const BALL_MASS: f64 = 1.;
+const FLUID_FRICTION: f64 = 0.1;
+const BALL_MASS: f64 = 10.;
 const NB_SECTION_PER_SEGMENT: usize = 100;
 
 use mathru::algebra::linear::vector::vector::Vector;
 use mathru::analysis::differential_equation::ordinary::{
-    solver::runge_kutta::{explicit::fixed::FixedStepper, ExplicitEuler, Ralston2,},
+    solver::runge_kutta::{explicit::fixed::FixedStepper, ExplicitEuler, Ralston4},
     ExplicitODE,
 };
 
@@ -48,12 +48,14 @@ pub struct RevolutionSurfaceSystem {
     next_section: Vec<usize>,
     dna_parameters: DNAParameters,
     last_thetas: Option<Vec<f64>>,
+    scaffold_len_target: usize,
 }
 
 pub struct RevolutionSurfaceSystemDescriptor {
     pub nb_section_per_segment: usize,
     pub target: RevolutionSurfaceDescriptor,
     pub dna_parameters: DNAParameters,
+    pub scaffold_len_target: usize,
 }
 
 #[derive(Clone)]
@@ -123,7 +125,47 @@ impl RevolutionSurfaceSystem {
             dna_parameters: desc.dna_parameters,
             target,
             last_thetas: None,
+            scaffold_len_target: desc.scaffold_len_target,
         }
+    }
+
+    fn one_radius_optimisation_step(
+        &mut self,
+        first: &mut bool,
+        interface: Option<Arc<Mutex<RevolutionSystemInterface>>>,
+    ) -> usize {
+        let mut current_default;
+        for _ in 0..10 {
+            current_default = self.one_simulation_step(first);
+            if let Some(interface) = interface.as_ref() {
+                interface.lock().unwrap().new_state = Some(self.clone());
+            }
+            if current_default < 1.01 {
+                break;
+            }
+        }
+
+        let curve_desc = self.to_curve_desc().unwrap();
+
+        let thetas = self
+            .last_thetas
+            .clone()
+            .unwrap_or_else(|| self.thetas_init());
+        let mut total_len = 0;
+        for desc in curve_desc {
+            let len = desc.compute_length().unwrap();
+            println!("length ~= {:?}", len);
+            println!("length ~= {:?} nt", len / self.dna_parameters.z_step as f64);
+            total_len += (len / self.dna_parameters.z_step as f64).floor() as usize;
+        }
+
+        println!("total len {total_len}");
+        let len_by_sum =
+            (self.total_length(&thetas) / (self.dna_parameters.z_step as f64)).floor() as usize;
+        println!("total len by sum {len_by_sum}");
+        self.target.revolution_radius /= (total_len as f64) / (self.scaffold_len_target as f64);
+        std::thread::sleep_ms(1000);
+        total_len
     }
 
     fn one_simulation_step(&mut self, first: &mut bool) -> f64 {
@@ -131,7 +173,10 @@ impl RevolutionSurfaceSystem {
         if *first {
             let mut spring_relaxation_state = SpringRelaxationState::new();
             let mut system = RelaxationSystem {
-                thetas: self.thetas_init(),
+                thetas: self
+                    .last_thetas
+                    .clone()
+                    .unwrap_or_else(|| self.thetas_init()),
                 forces: vec![DVec3::zero(); total_nb_section],
                 d_thetas: vec![0.; total_nb_section],
                 second_derivative_thetas: vec![0.; total_nb_section],
@@ -143,7 +188,7 @@ impl RevolutionSurfaceSystem {
         }
 
         let solver = FixedStepper::new(1e-1);
-        let method = Ralston2::default();
+        let method = Ralston4::default();
 
         let mut spring_relaxation_state = SpringRelaxationState::new();
         if let Some(last_state) = solver
@@ -157,10 +202,13 @@ impl RevolutionSurfaceSystem {
         } else {
             log::error!("error while solving ODE");
         };
-        self.target.curve_scale_factor /= (spring_relaxation_state.min_ext
-            + spring_relaxation_state.max_ext
-            + 2. * spring_relaxation_state.avg_ext)
-            / 4.;
+        /*self.target.curve_scale_factor /= (spring_relaxation_state.min_ext
+        + spring_relaxation_state.max_ext
+        + 2. * spring_relaxation_state.avg_ext)
+        / 4.;*/
+        self.target.curve_scale_factor /=
+            (spring_relaxation_state.min_ext + spring_relaxation_state.max_ext) / 2.;
+
         println!("spring_relax state {:?}", spring_relaxation_state);
         println!("curve scale {}", self.target.curve_scale_factor);
         spring_relaxation_state
@@ -213,6 +261,17 @@ impl RevolutionSurfaceSystem {
         (self.position_section(self.next_section[section_idx], thetas)
             - self.position_section(self.prev_section[section_idx], thetas))
         .normalized()
+    }
+
+    fn total_length(&self, thetas: &[f64]) -> f64 {
+        let mut ret = 0.;
+        let total_nb_segment = self.nb_segment * self.nb_section_per_segment;
+        for i in 0..total_nb_segment {
+            ret += (self.position_section(self.next_section[i], thetas)
+                - self.position_section(i, thetas))
+            .mag()
+        }
+        ret
     }
 
     fn apply_springs(
@@ -291,6 +350,7 @@ impl RevolutionSurfaceSystem {
         let total_nb_segment = self.nb_segment * self.nb_section_per_segment;
         for section_idx in 0..total_nb_segment {
             let tengent = self.dpos_dtheta(section_idx, &system.thetas);
+            let derivative = &mut system.forces[section_idx];
             let acceleration_without_friction =
                 system.forces[section_idx].dot(tengent) / tengent.mag_sq();
             system.second_derivative_thetas[section_idx] += (acceleration_without_friction
@@ -313,15 +373,24 @@ impl RevolutionSurfaceSystem {
             });
             for s_idx in segment_indicies {
                 let start = s_idx as usize * self.nb_section_per_segment;
-                let end = start + self.nb_section_per_segment;
-                let thetas = thetas[start..end].to_vec();
-                println!("segment {s_idx}, thetas {:?}", thetas);
-                let s = (0..self.nb_section_per_segment)
+                let end = start + self.nb_section_per_segment - 1;
+                let mut segment_thetas = thetas[start..=end].to_vec();
+                let mut next_value = thetas[self.next_section[end]];
+                let last_value = segment_thetas.last().unwrap();
+                while next_value >= 0.5 + last_value {
+                    next_value -= 1.
+                }
+                while next_value <= last_value - 0.5 {
+                    next_value += 1.
+                }
+                segment_thetas.push(next_value);
+                //println!("thetas {:.2?}", segment_thetas);
+                let s = (0..=self.nb_section_per_segment)
                     .map(|x| x as f64 / self.nb_section_per_segment as f64)
                     .collect();
                 interpolations.push(InterpolationDescriptor::PointsValues {
                     points: s,
-                    values: thetas,
+                    values: segment_thetas,
                 });
             }
             ret.push(CurveDescriptor::InterpolatedCurve(
@@ -562,12 +631,14 @@ impl RevolutionSystemThread {
 
     fn run(mut self) {
         std::thread::spawn(move || {
-            let mut first = false;
+            let mut first = true;
             while let Some(interface_ptr) = self.interface.upgrade() {
-                let mut interface = interface_ptr.lock().unwrap();
-                interface.new_state = Some(self.system.clone());
-                drop(interface);
-                self.system.one_simulation_step(&mut first);
+                let current_len = self
+                    .system
+                    .one_radius_optimisation_step(&mut first, Some(interface_ptr));
+                if current_len == self.system.scaffold_len_target {
+                    break;
+                }
             }
         });
     }
@@ -602,6 +673,16 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
     fn right(&self) -> Vec<usize> {
         self.next_section.clone()
     }
+
+    fn nt_path(&self) -> Option<Vec<ultraviolet::Vec3>> {
+        let mut ret = Vec::new();
+        let curve_desc = self.to_curve_desc()?;
+        for desc in curve_desc {
+            let nts = desc.path()?;
+            ret.extend(nts.into_iter().map(ensnano_design::utils::dvec_to_vec));
+        }
+        Some(ret)
+    }
 }
 
 impl SimulationInterface for RevolutionSystemInterface {
@@ -628,7 +709,7 @@ mod tests {
                 semi_major_axis: 2f64.into(),
             },
             half_turns_count: 6,
-            revolution_radius: 23.99710394464801,
+            revolution_radius: 20.,
             junction_smoothening: 0.,
             nb_helix_per_half_section: 7,
             dna_paramters: DNAParameters::GEARY_2014_DNA,
@@ -638,25 +719,14 @@ mod tests {
             nb_section_per_segment: NB_SECTION_PER_SEGMENT,
             dna_parameters: DNAParameters::GEARY_2014_DNA,
             target: surface_desc,
+            scaffold_len_target: 7560,
         };
         let mut system = RevolutionSurfaceSystem::new(system_desc);
-        system.target.curve_scale_factor = 4.46;
-        let mut current_default;
 
+        let mut current_length = 0;
         let mut first = true;
-        for _ in 0..10 {
-            current_default = system.one_simulation_step(&mut first);
-            println!("current default {current_default}")
-        }
-
-        let curve_desc = system.to_curve_desc().unwrap();
-        for desc in curve_desc {
-            let len = desc.compute_length();
-            println!("length ~= {:?}", len);
-            println!(
-                "length ~= {:?} nt",
-                len.map(|l| l / DNAParameters::GEARY_2014_DNA.z_step as f64)
-            );
+        while current_length != system.scaffold_len_target {
+            current_length = system.one_radius_optimisation_step(&mut first, None);
         }
     }
 }

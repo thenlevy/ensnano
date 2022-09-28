@@ -283,6 +283,14 @@ impl Curve {
         geometry: T,
         parameters: &Parameters,
     ) -> f64 {
+        if let Some((x0, x1)) = geometry
+            .curvilinear_abscissa(geometry.t_min())
+            .zip(geometry.curvilinear_abscissa(geometry.t_max()))
+        {
+            let ret = x1 - x0;
+            println!("length by curvilinear_abscissa = {ret}");
+            return x1 - x0;
+        }
         quadrature::integrate(
             |x| geometry.speed(x).mag(),
             geometry.t_min(),
@@ -290,6 +298,15 @@ impl Curve {
             1e-5,
         )
         .integral
+    }
+
+    fn path<T: Curved + 'static + Sync + Send>(geometry: T, parameters: &Parameters) -> Vec<DVec3> {
+        let nb_point = 10_000;
+        (0..nb_point)
+            .map(|n| {
+                geometry.position(geometry.t_min() + n as f64 * geometry.t_max() / nb_point as f64)
+            })
+            .collect()
     }
 
     pub fn nb_points(&self) -> usize {
@@ -679,6 +696,11 @@ impl CurveDescriptor {
         let desc = InstanciatedCurveDescriptor::try_instanciate(Arc::new(self.clone()))?;
         desc.instance.try_length(&Parameters::GEARY_2014_DNA)
     }
+
+    pub fn path(&self) -> Option<Vec<DVec3>> {
+        let desc = InstanciatedCurveDescriptor::try_instanciate(Arc::new(self.clone()))?;
+        desc.instance.try_path(&Parameters::GEARY_2014_DNA)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -1017,7 +1039,9 @@ impl InstanciatedCurveDescriptor_ {
                 },
                 parameters,
             )),
-            Self::InterpolatedCurve(desc) => Arc::new(Curve::new(desc.instanciate(true), parameters)),
+            Self::InterpolatedCurve(desc) => {
+                Arc::new(Curve::new(desc.instanciate(true), parameters))
+            }
         }
     }
 
@@ -1053,9 +1077,10 @@ impl InstanciatedCurveDescriptor_ {
                 },
                 parameters,
             ))),
-            Self::InterpolatedCurve(desc) => {
-                Some(Arc::new(Curve::new(desc.clone().instanciate(true), parameters)))
-            }
+            Self::InterpolatedCurve(desc) => Some(Arc::new(Curve::new(
+                desc.clone().instanciate(true),
+                parameters,
+            ))),
         }
     }
 
@@ -1095,6 +1120,43 @@ impl InstanciatedCurveDescriptor_ {
                 desc.clone().instanciate(false),
                 parameters,
             )),
+        }
+    }
+
+    fn try_path(&self, parameters: &Parameters) -> Option<Vec<DVec3>> {
+        match self {
+            Self::Bezier(constructor) => {
+                Some(Curve::path(constructor.clone().into_bezier(), parameters))
+            }
+            Self::SphereLikeSpiral(spiral) => Some(Curve::path(
+                spiral.clone().with_parameters(parameters.clone()),
+                parameters,
+            )),
+            Self::TubeSpiral(spiral) => Some(Curve::path(
+                spiral.clone().with_parameters(parameters.clone()),
+                parameters,
+            )),
+            Self::Twist(twist) => Some(Curve::path(twist.clone(), parameters)),
+            Self::Torus(torus) => Some(Curve::path(torus.clone(), parameters)),
+            Self::SuperTwist(twist) => Some(Curve::path(twist.clone(), parameters)),
+            Self::TwistedTorus(_) => None,
+            Self::PiecewiseBezier(_) => None,
+            Self::TranslatedBezierPath {
+                path_curve,
+                translation,
+                initial_frame,
+                ..
+            } => Some(Curve::path(
+                TranslatedPiecewiseBezier {
+                    original_curve: path_curve.clone(),
+                    translation: *translation,
+                    initial_frame: *initial_frame,
+                },
+                parameters,
+            )),
+            Self::InterpolatedCurve(desc) => {
+                Some(Curve::path(desc.clone().instanciate(false), parameters))
+            }
         }
     }
 

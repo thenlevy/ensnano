@@ -103,6 +103,9 @@ impl SmoothInterpolatedCurve {
                     )
                 }
             };
+            let interpolated_values: Vec<_> = (0..100)
+                .map(|n| interpolator.evaluate(0.01 * n as f64))
+                .collect();
             interpolators.push(interpolator);
         }
         Self {

@@ -151,7 +151,9 @@ impl DesignInteractor {
                 reader,
                 grid_id,
             },
-            SimulationTarget::Relaxation => controller::SimulationOperation::ExampleRelaxation { reader, },
+            SimulationTarget::Relaxation => {
+                controller::SimulationOperation::ExampleRelaxation { reader }
+            }
         };
         let result = self
             .controller
@@ -1853,5 +1855,5 @@ pub enum SimulationTarget {
     Helices,
     Roll { target_helices: Option<Vec<usize>> },
     Twist { grid_id: GridId },
-    Relaxation
+    Relaxation,
 }

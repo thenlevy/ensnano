@@ -125,6 +125,19 @@ impl<R: DesignReader> Design3D<R> {
                     .to_raw_instance(),
                 );
             }
+            if let Some(path) = additional_structure.nt_path() {
+                for p in path {
+                    ret.push(
+                        SphereInstance {
+                            position: p,
+                            color: Instance::color_from_u32(PIVOT_SPHERE_COLOR),
+                            id: u32::MAX,
+                            radius: 1.,
+                        }
+                        .to_raw_instance(),
+                    );
+                }
+            }
         }
         Rc::new(ret)
     }

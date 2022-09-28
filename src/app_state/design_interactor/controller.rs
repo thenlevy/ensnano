@@ -502,6 +502,7 @@ impl Controller {
                     nb_section_per_segment: 100,
                     dna_parameters: Parameters::GEARY_2014_DNA,
                     target: surface_desc,
+                    scaffold_len_target: 7560,
                 };
                 let interface = RevolutionSystemThread::start_new(system_desc, reader)?;
                 ret.state = ControllerState::Relaxing {
