@@ -491,7 +491,7 @@ impl Controller {
                         semi_minor_axis: 1f64.into(),
                         semi_major_axis: 2f64.into(),
                     },
-                    half_turns_count: 6,
+                    half_turns_count: 5,
                     revolution_radius: 23.99710394464801,
                     junction_smoothening: 0.,
                     nb_helix_per_half_section: 7,
