@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use crate::Parameters;
 
 use super::Curved;
-use std::f64::consts::{PI, TAU};
+use std::f64::consts::{FRAC_PI_2, PI, TAU};
 use ultraviolet::DVec3;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -161,7 +161,7 @@ impl Curved for SphereLikeSpiral {
     }
 
     fn subdivision_for_t(&self, t: f64) -> Option<usize> {
-        Some((self.nb_turn() * t * PI + self.theta_0 / TAU) as usize)
+        Some((self.nb_turn() * t * FRAC_PI_2 + self.theta_0 / TAU) as usize)
     }
 
     fn is_time_maps_singleton(&self) -> bool {

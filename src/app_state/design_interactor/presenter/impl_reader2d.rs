@@ -262,7 +262,7 @@ fn split_domain_into_helices_segment(
 
     let mut iter = intermediate_positions
         .into_iter()
-        .skip_while(|pos| *pos < domain.start);
+        .skip_while(|pos| *pos <= domain.start);
 
     ret.push(Nucl {
         helix: domain.helix,

@@ -1,3 +1,5 @@
+use iced::Space;
+
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -163,7 +165,7 @@ impl DiscreteValue {
     }
 
     fn view<S: AppState>(&mut self, active: bool, name_size: u16) -> Element<Message<S>> {
-        let decr_button = if active && self.value - self.step > self.min_val {
+        let decr_button = if active && self.value - self.step >= self.min_val {
             Button::new(&mut self.decr_button, Text::new("-")).on_press(Message::DescreteValue {
                 factory_id: self.owner_id,
                 value_id: self.value_id,
@@ -172,7 +174,7 @@ impl DiscreteValue {
         } else {
             Button::new(&mut self.decr_button, Text::new("-"))
         };
-        let incr_button = if active && self.value + self.step < self.max_val {
+        let incr_button = if active && self.value + self.step <= self.max_val {
             Button::new(&mut self.incr_button, Text::new("+")).on_press(Message::DescreteValue {
                 factory_id: self.owner_id,
                 value_id: self.value_id,
@@ -215,22 +217,23 @@ impl DiscreteValue {
             .push(name_text)
             .push(iced::Space::with_width(iced::Length::Fill))
             .align_items(iced::Alignment::Center)
-            .width(iced::Length::FillPortion(4));
+            .width(iced::Length::FillPortion(8));
 
         let middle = Row::new()
             .push(Text::new(format!("{:.1}", self.value)))
-            .width(iced::Length::FillPortion(1));
+            .width(iced::Length::FillPortion(3));
         let right = Row::new()
             .push(decr_button)
             .push(incr_button)
             .push(iced::Space::with_width(iced::Length::Units(2)))
             .push(slider)
-            .width(iced::Length::FillPortion(5));
+            .width(iced::Length::FillPortion(10));
 
         Row::new()
             .push(left)
             .push(middle)
             .push(right)
+            .push(Space::with_width(iced::Length::FillPortion(1)))
             .align_items(iced::Alignment::Center)
             .into()
     }
