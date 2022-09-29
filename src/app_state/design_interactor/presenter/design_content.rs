@@ -480,7 +480,11 @@ impl DesignContent {
         let grid_manager = design.get_updated_grid_data().clone();
 
         for (s_id, strand) in design.strands.iter_mut() {
-            elements.push(elements::DnaElement::Strand { id: *s_id });
+            elements.push(elements::DnaElement::Strand {
+                id: *s_id,
+                length: strand.length(),
+                domain_lengths: strand.domain_lengths(),
+            });
             let parameters = design.parameters.unwrap_or_default();
             strand.update_insertions(&design.helices, &parameters);
             let mut strand_position = 0;

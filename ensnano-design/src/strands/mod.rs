@@ -702,6 +702,33 @@ impl Strand {
             .flatten()
             .collect()
     }
+
+    pub fn domain_lengths(&self) -> Vec<usize> {
+        let mut previous_domain: Option<Domain> = None;
+        let mut lengths: Vec<usize> = vec![];
+        for d in self.domains.iter() {
+            if previous_domain
+                .filter(|prev| prev.is_neighbour(d))
+                .is_some()
+            {
+                *lengths.last_mut().unwrap() += d.length();
+            } else {
+                lengths.push(d.length());
+            }
+            previous_domain = Some(d.clone());
+        }
+        if lengths.len() > 1
+            && self
+                .domains
+                .first()
+                .zip(self.domains.last())
+                .filter(|(d1, d2)| d1.is_neighbour(d2))
+                .is_some()
+        {
+            lengths[0] += lengths.pop().unwrap();
+        }
+        lengths
+    }
 }
 
 /// A domain can be either an interval of nucleotides on an helix, or an "Insertion" that is a set
@@ -1102,6 +1129,26 @@ impl Domain {
             instanciation: None,
             sequence: None,
             attached_to_prime3: true,
+        }
+    }
+
+    pub fn is_neighbour(&self, other: &Self) -> bool {
+        if let (
+            Self::HelixDomain(HelixInterval {
+                start: my_start, ..
+            }),
+            Self::HelixDomain(HelixInterval {
+                start: other_start, ..
+            }),
+        ) = (self, other)
+        {
+            let my_helix = self.half_helix();
+
+            my_helix.is_some()
+                && my_helix == other.half_helix()
+                && (*my_start == 0 || *other_start == 0)
+        } else {
+            false
         }
     }
 }

@@ -29,6 +29,8 @@ pub enum DnaElement {
     },
     Strand {
         id: usize,
+        length: usize,
+        domain_lengths: Vec<usize>,
     },
     Helix {
         id: usize,
@@ -52,14 +54,63 @@ pub enum DnaElement {
     },
 }
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub enum DnaAutoGroup {
+    StrandWithLength(BoundedLength),
+    StrandWithDomainOfLength(BoundedLength),
+}
+
+impl ToString for DnaAutoGroup {
+    fn to_string(&self) -> String {
+        match self {
+            Self::StrandWithLength(length) => format!("Strand with length {}", length.to_string()),
+            Self::StrandWithDomainOfLength(length) => {
+                format!("Strand with a domain of length {}", length.to_string())
+            }
+        }
+    }
+}
+
+const LONG: usize = 100;
+const SHORT: usize = 4;
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub enum BoundedLength {
+    Short,
+    Between(usize),
+    Long,
+}
+
+impl From<usize> for BoundedLength {
+    fn from(n: usize) -> Self {
+        if n > LONG {
+            Self::Long
+        } else if n < SHORT {
+            Self::Short
+        } else {
+            Self::Between(n)
+        }
+    }
+}
+
+impl ToString for BoundedLength {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Long => format!("> {LONG}"),
+            Self::Short => format!("< {SHORT}"),
+            Self::Between(n) => format!("= {n}"),
+        }
+    }
+}
+
 impl OrganizerElement for DnaElement {
     type Attribute = DnaAttribute;
     type Key = DnaElementKey;
+    type AutoGroup = DnaAutoGroup;
 
     fn key(&self) -> DnaElementKey {
         match self {
             DnaElement::Grid { id, .. } => DnaElementKey::Grid(*id),
-            DnaElement::Strand { id } => DnaElementKey::Strand(*id),
+            DnaElement::Strand { id, .. } => DnaElementKey::Strand(*id),
             DnaElement::Helix { id, .. } => DnaElementKey::Helix(*id),
             DnaElement::Nucleotide {
                 helix,
@@ -79,7 +130,7 @@ impl OrganizerElement for DnaElement {
     fn display_name(&self) -> String {
         match self {
             DnaElement::Grid { id, .. } => format!("Grid {}", id),
-            DnaElement::Strand { id } => format!("Strand {}", id),
+            DnaElement::Strand { id, .. } => format!("Strand {}", id),
             DnaElement::Helix { id, .. } => format!("Helix {}", id),
             DnaElement::Nucleotide {
                 helix,
@@ -117,6 +168,26 @@ impl OrganizerElement for DnaElement {
                 DnaAttribute::LockedForSimulations(*locked),
             ],
             DnaElement::Grid { visible, .. } => vec![DnaAttribute::Visible(*visible)],
+            _ => vec![],
+        }
+    }
+
+    fn auto_groups(&self) -> Vec<Self::AutoGroup> {
+        match self {
+            DnaElement::Strand {
+                length,
+                domain_lengths,
+                ..
+            } => {
+                let mut ret = vec![DnaAutoGroup::StrandWithLength((*length).into())];
+                let mut lengths = domain_lengths.clone();
+                lengths.sort();
+                lengths.dedup();
+                for len in lengths {
+                    ret.push(DnaAutoGroup::StrandWithDomainOfLength((len).into()))
+                }
+                ret
+            }
             _ => vec![],
         }
     }

@@ -214,7 +214,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn turn_selection_into_anchor(&mut self);
     fn set_visibility_sieve(&mut self, compl: bool);
     fn clear_visibility_sieve(&mut self);
-    fn need_save(&self) -> bool;
+    fn need_save(&self) -> Option<Option<PathBuf>>;
     fn get_current_design_directory(&self) -> Option<&Path>;
     fn get_current_file_name(&self) -> Option<&Path>;
     fn set_current_group_pivot(&mut self, pivot: GroupPivot);

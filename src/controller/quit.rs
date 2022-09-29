@@ -30,7 +30,12 @@ pub(super) struct Quit {
 }
 
 enum QuitStep {
-    Init { need_save: bool },
+    Init {
+        /// None if there is no need to save
+        /// Some(Some(path)) if there is a need to save at a known path
+        /// Some(None) if there is a need to save at an unkonwn path
+        need_save: Option<Option<PathBuf>>,
+    },
     Quitting,
 }
 
@@ -41,7 +46,7 @@ impl Quit {
         }
     }
 
-    pub fn quit(need_save: bool) -> Box<Self> {
+    pub fn quit(need_save: Option<Option<PathBuf>>) -> Box<Self> {
         Box::new(Self {
             step: QuitStep::Init { need_save },
         })
@@ -60,12 +65,12 @@ impl State for Quit {
     }
 }
 
-fn init_quit(need_save: bool) -> Box<dyn State> {
-    if need_save {
+fn init_quit(need_save: Option<Option<PathBuf>>) -> Box<dyn State> {
+    if let Some(path) = need_save {
         let quitting = Box::new(Quit::quitting());
         Box::new(YesNo::new(
             messages::SAVE_BEFORE_EXIT,
-            save_before_quit(),
+            save_before_quit(path),
             quitting,
         ))
     } else {
@@ -73,10 +78,18 @@ fn init_quit(need_save: bool) -> Box<dyn State> {
     }
 }
 
-fn save_before_quit() -> Box<dyn State> {
+fn save_before_quit(path: Option<PathBuf>) -> Box<dyn State> {
     let on_success = Box::new(Quit::quitting());
     let on_error = Box::new(super::NormalState);
-    Box::new(SaveAs::new(on_success, on_error))
+    if let Some(path) = path {
+        Box::new(SaveWithPath {
+            path,
+            on_error,
+            on_success,
+        })
+    } else {
+        Box::new(SaveAs::new(on_success, on_error))
+    }
 }
 
 pub(super) struct Load {
@@ -92,20 +105,23 @@ impl Load {
         }
     }
 
-    pub(super) fn init_reolad(need_save: bool, path: PathBuf) -> Box<dyn State> {
-        if need_save {
-            let yes = save_before_known_path(path.clone());
-            let no = Box::new(Load::known_path(path));
+    pub(super) fn init_reolad(
+        need_save: Option<Option<PathBuf>>,
+        path_to_load: PathBuf,
+    ) -> Box<dyn State> {
+        if let Some(save_path) = need_save {
+            let yes = save_before_known_path(save_path, path_to_load.clone());
+            let no = Box::new(Load::known_path(path_to_load));
             Box::new(YesNo::new(messages::SAVE_BEFORE_RELOAD, yes, no))
         } else {
-            Box::new(Load::known_path(path))
+            Box::new(Load::known_path(path_to_load))
         }
     }
 }
 
 use std::path::PathBuf;
 enum LoadStep {
-    Init { need_save: bool },
+    Init { need_save: Option<Option<PathBuf>> },
     AskPath { path_input: Option<PathInput> },
     GotPath(PathBuf),
 }
@@ -124,7 +140,7 @@ impl Load {
         })
     }
 
-    pub fn load(need_save: bool, load_type: LoadType) -> Box<Self> {
+    pub fn load(need_save: Option<Option<PathBuf>>, load_type: LoadType) -> Box<Self> {
         Box::new(Self {
             step: LoadStep::Init { need_save },
             load_type,
@@ -149,9 +165,9 @@ impl State for Load {
     }
 }
 
-fn init_load(need_save: bool, load_type: LoadType) -> Box<dyn State> {
-    if need_save {
-        let yes = save_before_load(load_type);
+fn init_load(path_to_save: Option<Option<PathBuf>>, load_type: LoadType) -> Box<dyn State> {
+    if let Some(path_to_save) = path_to_save {
+        let yes = save_before_load(path_to_save, load_type);
         let no = Load::ask_path(load_type);
         Box::new(YesNo::new(messages::SAVE_BEFORE_LOAD, yes, no))
     } else {
@@ -159,16 +175,32 @@ fn init_load(need_save: bool, load_type: LoadType) -> Box<dyn State> {
     }
 }
 
-fn save_before_load(load_type: LoadType) -> Box<dyn State> {
+fn save_before_load(path_to_save: Option<PathBuf>, load_type: LoadType) -> Box<dyn State> {
     let on_success = Load::ask_path(load_type);
     let on_error = Box::new(super::NormalState);
-    Box::new(SaveAs::new(on_success, on_error))
+    if let Some(path) = path_to_save {
+        Box::new(SaveWithPath {
+            path,
+            on_error,
+            on_success,
+        })
+    } else {
+        Box::new(SaveAs::new(on_success, on_error))
+    }
 }
 
-fn save_before_known_path(path: PathBuf) -> Box<dyn State> {
-    let on_success = Box::new(Load::known_path(path));
+fn save_before_known_path(path_to_save: Option<PathBuf>, path_to_load: PathBuf) -> Box<dyn State> {
+    let on_success = Box::new(Load::known_path(path_to_load));
     let on_error = Box::new(NormalState);
-    Box::new(SaveAs::new(on_success, on_error))
+    if let Some(path) = path_to_save {
+        Box::new(SaveWithPath {
+            path,
+            on_success,
+            on_error,
+        })
+    } else {
+        Box::new(SaveAs::new(on_success, on_error))
+    }
 }
 
 fn ask_path<P: AsRef<Path>>(
@@ -235,12 +267,12 @@ pub(super) struct NewDesign {
 }
 
 enum NewStep {
-    Init { need_save: bool },
+    Init { need_save: Option<Option<PathBuf>> },
     MakeNewDesign,
 }
 
 impl NewDesign {
-    pub fn init(need_save: bool) -> Self {
+    pub fn init(need_save: Option<Option<PathBuf>>) -> Self {
         Self {
             step: NewStep::Init { need_save },
         }
@@ -257,8 +289,8 @@ impl State for NewDesign {
     fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         match self.step {
             NewStep::Init { need_save } => {
-                if need_save {
-                    init_new_design()
+                if let Some(path) = need_save {
+                    init_new_design(path)
                 } else {
                     new_design(main_state)
                 }
@@ -268,8 +300,8 @@ impl State for NewDesign {
     }
 }
 
-fn init_new_design() -> Box<dyn State> {
-    let yes = save_before_new();
+fn init_new_design(path_to_save: Option<PathBuf>) -> Box<dyn State> {
+    let yes = save_before_new(path_to_save);
     let no = NewDesign::make_new_design();
     Box::new(YesNo::new(messages::SAVE_BEFORE_NEW, yes, no))
 }
@@ -279,10 +311,18 @@ fn new_design(main_state: &mut dyn MainState) -> Box<dyn State> {
     Box::new(super::NormalState)
 }
 
-fn save_before_new() -> Box<dyn State> {
+fn save_before_new(path_to_save: Option<PathBuf>) -> Box<dyn State> {
     let on_success = NewDesign::make_new_design();
     let on_error = Box::new(super::NormalState);
-    Box::new(SaveAs::new(on_success, on_error))
+    if let Some(path) = path_to_save {
+        Box::new(SaveWithPath {
+            on_success,
+            on_error,
+            path,
+        })
+    } else {
+        Box::new(SaveAs::new(on_success, on_error))
+    }
 }
 
 pub(super) struct SaveAs {

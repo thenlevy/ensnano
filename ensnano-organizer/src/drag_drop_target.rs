@@ -1,3 +1,4 @@
+use super::OrganizerElement;
 use iced::{Container, Element};
 use iced_native::{
     event, layout, overlay, renderer::Style, Alignment, Clipboard, Event, Layout, Length, Point,
@@ -5,12 +6,12 @@ use iced_native::{
 };
 
 #[derive(Debug, Clone, PartialOrd, PartialEq, Eq, Ord)]
-pub(super) enum Identifier<K> {
-    Group { id: super::NodeId },
+pub(super) enum Identifier<K, AutoGroup> {
+    Group { id: super::NodeId<AutoGroup> },
     Section { key: K },
 }
 
-pub(super) struct DragDropTarget<'a, Message, K> {
+pub(super) struct DragDropTarget<'a, Message, K, E> {
     padding: u16,
     width: Length,
     height: Length,
@@ -19,12 +20,12 @@ pub(super) struct DragDropTarget<'a, Message, K> {
     horizontal_alignment: Alignment,
     vertical_alignment: Alignment,
     content: Container<'a, Message>,
-    identifier: Identifier<K>,
+    identifier: Identifier<K, E>,
 }
 
-impl<'a, Message, K> DragDropTarget<'a, Message, K> {
+impl<'a, Message, K, E> DragDropTarget<'a, Message, K, E> {
     /// Creates an empty [`DragDropTarget`].
-    pub fn new<T>(content: T, identifier: Identifier<K>) -> Self
+    pub fn new<T>(content: T, identifier: Identifier<K, E>) -> Self
     where
         T: Into<Element<'a, Message>>,
     {
@@ -53,7 +54,7 @@ use super::OrganizerMessage;
 use iced_wgpu::Renderer;
 
 impl<'a, E: super::OrganizerElement> Widget<OrganizerMessage<E>, Renderer>
-    for DragDropTarget<'a, OrganizerMessage<E>, E::Key>
+    for DragDropTarget<'a, OrganizerMessage<E>, E::Key, E::AutoGroup>
 {
     fn width(&self) -> Length {
         self.width

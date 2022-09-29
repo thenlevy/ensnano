@@ -103,7 +103,7 @@ impl State for NormalState {
                 Action::LoadDesign(None) => Load::load(main_state.need_save(), LoadType::Design),
                 Action::Import3DObject => {
                     if main_state.get_current_design_directory().is_some() {
-                        Load::load(false, LoadType::Object3D)
+                        Load::load(None, LoadType::Object3D)
                     } else {
                         TransitionMessage::new(
                             messages::SET_DESIGN_DIRECTORY_FIRST,

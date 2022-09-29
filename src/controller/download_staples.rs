@@ -20,7 +20,7 @@ use super::{messages, MainState, NormalState, State, TransitionMessage};
 
 use crate::dialog;
 use dialog::{MustAckMessage, PathInput};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Default)]
 pub(super) struct DownloadStaples {
@@ -52,7 +52,7 @@ impl State for DownloadStaples {
         let downloader = main_state.get_staple_downloader();
         match self.step {
             Step::Init => get_design_providing_staples(downloader.as_ref()),
-            Step::AskingPath(state) => ask_path(state, main_state.get_current_design_directory()),
+            Step::AskingPath(state) => ask_path(state, main_state),
             Step::PathAsked {
                 path_input,
                 design_id,
@@ -91,10 +91,7 @@ fn get_design_providing_staples(downlader: &dyn StaplesDownloader) -> Box<dyn St
     }
 }
 
-fn ask_path<P: AsRef<Path>>(
-    mut state: AskingPath_,
-    starting_diectory: Option<P>,
-) -> Box<DownloadStaples> {
+fn ask_path(mut state: AskingPath_, main_state: &dyn MainState) -> Box<DownloadStaples> {
     if let Some(must_ack) = state.warning_ack.as_ref() {
         if !must_ack.was_ack() {
             return Box::new(DownloadStaples {
@@ -106,13 +103,11 @@ fn ask_path<P: AsRef<Path>>(
         let must_ack = dialog::blocking_message(msg.into(), rfd::MessageLevel::Warning);
         state.with_ack(must_ack)
     } else {
-        let candidate_name = starting_diectory.as_ref().map(|p| {
-            let mut ret: PathBuf = p.as_ref().to_owned();
-            ret.push("staples.xlsx");
-            ret
-        });
-        let path_input =
-            dialog::get_file_to_write(&messages::STAPLES_FILTER, starting_diectory, candidate_name);
+        let path_input = dialog::get_file_to_write(
+            &messages::STAPLES_FILTER,
+            main_state.get_current_design_directory(),
+            main_state.get_current_file_name(),
+        );
         Box::new(DownloadStaples {
             step: Step::PathAsked {
                 path_input,
