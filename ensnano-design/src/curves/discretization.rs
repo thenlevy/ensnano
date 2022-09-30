@@ -197,7 +197,7 @@ impl Curve {
             .zip(self.geometry.curvilinear_abscissa(t1))
         {
             let ret = x1 - x0;
-            println!("length by curvilinear_abscissa = {ret}");
+            log::info!("length by curvilinear_abscissa = {ret}");
             return x1 - x0;
         }
         let mut current_axis = self.itterative_axis(t0, None);
@@ -211,8 +211,7 @@ impl Curve {
             p = q;
         }
         let quad = quadrature::integrate(|x| self.geometry.speed(x).mag(), t0, t1, 1e-7).integral;
-        println!("by quadrature {}", quad);
-        //println!("by summation {}", len);
+        log::info!("by quadrature {}", quad);
         len
     }
 
