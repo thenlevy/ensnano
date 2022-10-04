@@ -256,16 +256,15 @@ impl<R: DesignReader> Design2d<R> {
         if !self.id_map.contains_segment(h_id, segment_idx) {
             let flat_idx = FlatIdx(self.helices.len());
             self.id_map.insert_segment_key(flat_idx, h_id, segment_idx);
-            let (min_left, max_right) = self
+            let max_right = self
                 .id_map
-                .get_left_right_segment(h_id, segment_idx)
-                .unwrap_or((isize::MIN, isize::MAX));
+                .get_max_right(h_id, segment_idx)
+                .unwrap_or(isize::MAX);
             self.helices.push(Helix2d {
                 id: h_id,
                 segment_idx,
                 left: -1,
                 right: 1,
-                min_left,
                 max_right,
                 isometry: FullIsometry::from_isommetry_symmetry(isometry, symmetry),
                 visible: self.design.get_visibility_helix(h_id).unwrap_or(false),
@@ -442,7 +441,6 @@ pub struct Helix2d {
     pub left: isize,
     /// The largest position of a nucleotide of the the helix
     pub right: isize,
-    pub min_left: isize,
     pub max_right: isize,
     pub isometry: FullIsometry,
     pub visible: bool,

@@ -86,12 +86,15 @@ impl<R: DesignReader> Data<R> {
             self.view.borrow_mut().update_helices(&self.helices);
             self.view
                 .borrow_mut()
-                .update_strands(&self.design.get_strands(), &self.helices);
+                .update_strands(self.design.get_strands(), &self.helices);
             self.view
                 .borrow_mut()
                 .update_pasted_strand(self.design.get_pasted_strand(), &self.helices);
             self.update_highlight(new_state);
             self.update_strand_building_info(new_state.get_building_state());
+        }
+        for h in self.helices.iter() {
+            println!("{:?} ({:?}, {:?})", h.flat_id, h.get_left(), h.get_right())
         }
         self.instance_update = false;
     }
@@ -167,7 +170,7 @@ impl<R: DesignReader> Data<R> {
                     if let Some(flat_nucl) = FlatNucl::from_real(n, id_map) {
                         candidate_nucls.push(flat_nucl);
                         let mut other = self.get_best_suggestion(flat_nucl);
-                        other = other.or(self.can_make_auto_xover(flat_nucl));
+                        other = other.or_else(|| self.can_make_auto_xover(flat_nucl));
                         if let Some(other) = other {
                             suggestions.push((flat_nucl, other));
                         }
@@ -488,13 +491,25 @@ impl<R: DesignReader> Data<R> {
     pub fn can_cross_to(&self, from: FlatNucl, to: FlatNucl) -> bool {
         let from = from.to_real();
         let to = to.to_real();
-        let prim5 = self.design.prime5_of(from).or(self.design.prime5_of(to));
-        let prim3 = self.design.prime3_of(from).or(self.design.prime3_of(to));
+        let prim5 = self
+            .design
+            .prime5_of(from)
+            .or_else(|| self.design.prime5_of(to));
+        let prim3 = self
+            .design
+            .prime3_of(from)
+            .or_else(|| self.design.prime3_of(to));
         if prim3 != prim5 {
             prim3.zip(prim5).is_some()
         } else {
-            let from_end = self.design.prime5_of(from).or(self.design.prime3_of(from));
-            let to_end = self.design.prime3_of(to).or(self.design.prime5_of(to));
+            let from_end = self
+                .design
+                .prime5_of(from)
+                .or_else(|| self.design.prime3_of(from));
+            let to_end = self
+                .design
+                .prime3_of(to)
+                .or_else(|| self.design.prime5_of(to));
             from_end.is_some() && to_end.is_some()
         }
     }
@@ -543,7 +558,7 @@ impl<R: DesignReader> Data<R> {
         self.design
             .prime3_of(nucl)
             .map(|_| true)
-            .or(self.design.prime5_of(nucl).map(|_| false))
+            .or_else(|| self.design.prime5_of(nucl).map(|_| false))
     }
 
     pub fn set_free_end(&mut self, free_end: Option<FreeEnd>) {
@@ -572,13 +587,13 @@ impl<R: DesignReader> Data<R> {
         let strand_3prime = self
             .design
             .prime5_of(nucl1)
-            .or(self.design.prime5_of(nucl2));
+            .or_else(|| self.design.prime5_of(nucl2));
 
         // The 5 prime strand is the strand whose **3prime** end is in the xover
         let strand_5prime = self
             .design
             .prime3_of(nucl1)
-            .or(self.design.prime3_of(nucl2));
+            .or_else(|| self.design.prime3_of(nucl2));
 
         if strand_3prime.is_none() || strand_5prime.is_none() {
             log::error!("Problem during cross-over attempt. If you are not trying to break a cyclic strand please repport a bug");
@@ -795,7 +810,7 @@ impl<R: DesignReader> Data<R> {
             let h1 = &self.helices[flat_1.helix.flat];
             let h2 = &self.helices[flat_2.helix.flat];
             let a = h1.get_nucl_position(&flat_1, helix::Shift::No);
-            let b = h2.get_nucl_position(&&flat_2, helix::Shift::No);
+            let b = h2.get_nucl_position(&flat_2, helix::Shift::No);
             if helix::rectangle_intersect(c1, c2, a, b) {
                 selection_set.insert(xover_id);
             }
@@ -976,9 +991,7 @@ impl<R: DesignReader> Data<R> {
     fn xover_containing_nucl(&self, nucl: &FlatNucl) -> Option<usize> {
         let xovers_list = self.design.get_xovers_list();
         xovers_list.iter().find_map(|(id, (n1, n2))| {
-            if *n1 == *nucl {
-                Some(*id)
-            } else if *n2 == *nucl {
+            if *n1 == *nucl || *n2 == *nucl {
                 Some(*id)
             } else {
                 None
@@ -1044,10 +1057,8 @@ impl<R: DesignReader> Data<R> {
                 {
                     return Some(candidate);
                 }
-            } else if strand_of_prime5.is_some() {
-                if self.can_cross_to(nucl, candidate) {
-                    return Some(candidate);
-                }
+            } else if strand_of_prime5.is_some() && self.can_cross_to(nucl, candidate) {
+                return Some(candidate);
             }
         }
 
@@ -1064,10 +1075,8 @@ impl<R: DesignReader> Data<R> {
                 {
                     return Some(candidate);
                 }
-            } else if strand_of_prime3.is_some() {
-                if self.can_cross_to(nucl, candidate) {
-                    return Some(candidate);
-                }
+            } else if strand_of_prime3.is_some() && self.can_cross_to(nucl, candidate) {
+                return Some(candidate);
             }
         }
 
@@ -1121,8 +1130,7 @@ fn apply_symetric_difference_to_pivots(
         let segment_idx = old_translation_pivots[i].helix.segment_idx;
         if selection
             .iter()
-            .find(|s| matches!(s, Selection::Helix{helix_id, segment_id, ..} if *helix_id == real_helix && *segment_id == segment_idx))
-            .is_some()
+            .any(|s| matches!(s, Selection::Helix{helix_id, segment_id, ..} if *helix_id == real_helix && *segment_id == segment_idx))
         {
             old_translation_pivots.remove(i);
             old_rotation_pivots.remove(i);
@@ -1137,7 +1145,7 @@ fn apply_symetric_difference_to_selection(
     let mut to_remove = Vec::new();
     for s in old_selection.iter() {
         if new_selection.contains(s) {
-            to_remove.push(s.clone());
+            to_remove.push(*s);
         }
     }
 
@@ -1194,7 +1202,7 @@ impl LastClick {
     }
 
     pub fn select(&self, pool: &mut Vec<Selection>) -> Selection {
-        if pool.len() == 0 {
+        if pool.is_empty() {
             Selection::Nothing
         } else {
             let id = self.counter % pool.len();

@@ -186,13 +186,14 @@ impl Design {
     /// `UpToDateDesign` reference to the data.
     /// Having an option to not mutate the design is meant to prevent unecessary run-time cloning
     /// of the design
+    #[allow(clippy::needless_lifetimes)]
     pub fn try_get_up_to_date<'a>(&'a self) -> Option<UpToDateDesign<'a>> {
         let paths_data = self
             .instanciated_paths
             .as_ref()
             .filter(|data| !data.need_update(&self.bezier_planes, &self.bezier_paths))?;
         if let Some(data) = self.instanciated_grid_data.as_ref() {
-            if data.is_up_to_date(&self) {
+            if data.is_up_to_date(self) {
                 Some(UpToDateDesign {
                     design: self,
                     grid_data: data,
@@ -207,6 +208,7 @@ impl Design {
     }
 
     /// Update self if necessary and returns an up-to-date reference to self.
+    #[allow(clippy::needless_lifetimes)]
     pub fn get_up_to_date<'a>(&'a mut self) -> UpToDateDesign<'a> {
         let parameters = self.parameters.as_ref().unwrap_or(&Parameters::DEFAULT);
         if let Some(paths_data) = self.instanciated_paths.as_ref() {
@@ -235,6 +237,7 @@ impl Design {
         }
     }
 
+    #[allow(clippy::needless_lifetimes)]
     pub fn get_up_to_date_paths<'a>(&'a mut self) -> &'a BezierPathData {
         let parameters = self.parameters.as_ref().unwrap_or(&Parameters::DEFAULT);
         if let Some(paths_data) = self.instanciated_paths.as_ref() {
@@ -412,10 +415,8 @@ impl Design {
         }
         for (n_id, n1) in nucls.iter().enumerate() {
             for n2 in nucls.iter().skip(n_id + 1) {
-                if n1.0.helix != n2.0.helix {
-                    if (n1.1 - n2.1).mag() < epsilon {
-                        ret.push((n1.0, n2.0, ((n1.1 + n2.1) / 2.)));
-                    }
+                if n1.0.helix != n2.0.helix && (n1.1 - n2.1).mag() < epsilon {
+                    ret.push((n1.0, n2.0, ((n1.1 + n2.1) / 2.)));
                 }
             }
         }
@@ -444,14 +445,14 @@ impl Design {
         self.cameras.insert(cam_id, new_camera);
     }
 
-    pub fn rm_camera(&mut self, cam_id: CameraId) -> Result<(), ()> {
+    pub fn rm_camera(&mut self, cam_id: CameraId) -> bool {
         if self.cameras.remove(&cam_id).is_some() {
             if self.favorite_camera == Some(cam_id) {
                 self.favorite_camera = self.cameras.keys().min().cloned();
             }
-            Ok(())
+            true
         } else {
-            Err(())
+            false
         }
     }
 
@@ -471,19 +472,19 @@ impl Design {
     }
 
     pub fn get_favourite_camera_id(&self) -> Option<CameraId> {
-        self.favorite_camera.clone()
+        self.favorite_camera
     }
 
-    pub fn set_favourite_camera(&mut self, cam_id: CameraId) -> Result<(), ()> {
+    pub fn set_favourite_camera(&mut self, cam_id: CameraId) -> bool {
         if self.cameras.contains_key(&cam_id) {
             if self.favorite_camera != Some(cam_id) {
                 self.favorite_camera = Some(cam_id);
             } else {
                 self.favorite_camera = None;
             }
-            Ok(())
+            true
         } else {
-            Err(())
+            false
         }
     }
 
@@ -508,7 +509,7 @@ impl Design {
         self.update_curve_bounds();
         for _ in 0..3 {
             let need_update = if let Some(data) = self.instanciated_grid_data.as_ref() {
-                !data.is_up_to_date(&self)
+                !data.is_up_to_date(self)
             } else {
                 true
             };
@@ -663,7 +664,7 @@ pub fn mutate_in_arc<F, Obj: Clone>(obj_ptr: &mut Arc<Obj>, mut mutation: F)
 where
     F: FnMut(&mut Obj),
 {
-    let mut new_obj = Obj::clone(&obj_ptr);
+    let mut new_obj = Obj::clone(obj_ptr);
     mutation(&mut new_obj);
     *obj_ptr = Arc::new(new_obj)
 }

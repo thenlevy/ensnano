@@ -58,9 +58,9 @@ pub trait ControllerState<S: AppState> {
     #[allow(dead_code)]
     fn display(&self) -> String;
 
-    fn transition_from(&self, controller: &Controller<S>) -> ();
+    fn transition_from(&self, controller: &Controller<S>);
 
-    fn transition_to(&self, controller: &Controller<S>) -> ();
+    fn transition_to(&self, controller: &Controller<S>);
 
     fn check_timers(&mut self, _controller: &Controller<S>) -> Transition<S> {
         Transition::nothing()
@@ -420,9 +420,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
         controller.data.borrow_mut().set_free_end(None);
     }
 
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 }
 
 pub struct Translating {
@@ -456,12 +454,12 @@ impl<S: AppState> ControllerState<S> for Translating {
                         .borrow()
                         .get_rotation_pivot(pivot.helix.flat, &controller.get_camera(position.y))
                     {
-                        translation_pivots.push(pivot.clone());
+                        translation_pivots.push(*pivot);
                         rotation_pivots.push(rotation_pivot);
                     }
                 }
 
-                if rotation_pivots.len() > 0 {
+                if !rotation_pivots.is_empty() {
                     Transition {
                         new_state: Some(Box::new(ReleasedPivot {
                             mouse_position: self.mouse_position,
@@ -551,7 +549,7 @@ impl<S: AppState> ControllerState<S> for MovingCamera {
                 state: ElementState::Released,
                 ..
             } if *button == self.clicked_button => {
-                if self.rotation_pivots.len() > 0 {
+                if !self.rotation_pivots.is_empty() {
                     Transition {
                         new_state: Some(Box::new(ReleasedPivot {
                             mouse_position: self.mouse_position,
@@ -600,9 +598,7 @@ impl<S: AppState> ControllerState<S> for MovingCamera {
         controller.end_movement();
     }
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn cursor(&self) -> Option<CursorIcon> {
         Some(CursorIcon::Grabbing)
@@ -859,7 +855,7 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                 state: ElementState::Pressed,
                 ..
             } => {
-                if self.translation_pivots.len() > 0 {
+                if !self.translation_pivots.is_empty() {
                     Transition {
                         new_state: Some(Box::new(Rotating::new(
                             self.translation_pivots.clone(),
@@ -1071,7 +1067,7 @@ impl<S: AppState> ControllerState<S> for LeavingPivot {
                 if *state == ElementState::Released {
                     return Transition::nothing();
                 }
-                if self.translation_pivots.len() > 0 {
+                if !self.translation_pivots.is_empty() {
                     Transition {
                         new_state: Some(Box::new(Rotating::new(
                             self.translation_pivots.clone(),
@@ -1290,13 +1286,9 @@ struct AddOrXover {
 }
 
 impl<S: AppState> ControllerState<S> for AddOrXover {
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("Add or Xover")
@@ -1400,13 +1392,9 @@ struct InitAttachement {
 }
 
 impl<S: AppState> ControllerState<S> for InitAttachement {
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("Init Attachement")
@@ -1502,13 +1490,9 @@ struct InitBuilding {
 }
 
 impl<S: AppState> ControllerState<S> for InitBuilding {
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("Init Building")
@@ -1660,13 +1644,9 @@ struct MovingFreeEnd {
 }
 
 impl<S: AppState> ControllerState<S> for MovingFreeEnd {
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("Moving Free End")
@@ -1790,13 +1770,9 @@ struct Building {
 }
 
 impl<S: AppState> ControllerState<S> for Building {
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("Building")
@@ -1897,13 +1873,9 @@ pub struct Crossing {
 }
 
 impl<S: AppState> ControllerState<S> for Crossing {
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("Crossing")
@@ -1997,13 +1969,9 @@ struct Cutting {
 }
 
 impl<S: AppState> ControllerState<S> for Cutting {
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("Cutting")
@@ -2087,13 +2055,9 @@ struct RmHelix {
 }
 
 impl<S: AppState> ControllerState<S> for RmHelix {
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("RmHelix")
@@ -2170,13 +2134,9 @@ struct FlipGroup {
 }
 
 impl<S: AppState> ControllerState<S> for FlipGroup {
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("FlipGroup")
@@ -2254,13 +2214,9 @@ struct FlipVisibility {
 }
 
 impl<S: AppState> ControllerState<S> for FlipVisibility {
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("RmHelix")
@@ -2339,13 +2295,9 @@ struct FollowingSuggestion {
 }
 
 impl<S: AppState> ControllerState<S> for FollowingSuggestion {
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("Following Suggestion")
@@ -2441,13 +2393,9 @@ struct CenteringSuggestion {
 }
 
 impl<S: AppState> ControllerState<S> for CenteringSuggestion {
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("CenteringSuggestion")
@@ -2525,13 +2473,9 @@ struct Pasting {
 }
 
 impl<S: AppState> ControllerState<S> for Pasting {
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("Pasting")
@@ -2562,13 +2506,12 @@ impl<S: AppState> ControllerState<S> for Pasting {
                         .data
                         .borrow()
                         .get_click(x, y, &controller.get_camera(position.y));
-                let consequences = if self.nucl.is_none() {
-                    Consequence::PasteRequest(self.nucl)
-                } else if nucl == ClickResult::Nucl(self.nucl.unwrap()) {
-                    Consequence::PasteRequest(self.nucl)
-                } else {
-                    Consequence::Nothing
-                };
+                let consequences =
+                    if self.nucl.is_none() || nucl == ClickResult::Nucl(self.nucl.unwrap()) {
+                        Consequence::PasteRequest(self.nucl)
+                    } else {
+                        Consequence::Nothing
+                    };
                 Transition {
                     new_state: Some(Box::new(NormalState {
                         mouse_position: self.mouse_position,
@@ -2604,7 +2547,7 @@ struct DraggingSelection {
 
 impl<S: AppState> ControllerState<S> for DraggingSelection {
     fn display(&self) -> String {
-        format!("Dragging Selection")
+        String::from("Dragging Selection")
     }
     fn input(
         &mut self,
@@ -2715,9 +2658,7 @@ impl<S: AppState> ControllerState<S> for DraggingSelection {
         controller.end_movement();
     }
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 }
 
 struct AddClick {
@@ -2726,13 +2667,9 @@ struct AddClick {
 }
 
 impl<S: AppState> ControllerState<S> for AddClick {
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("AddClick")
@@ -2905,13 +2842,9 @@ impl<S: AppState> ControllerState<S> for DoubleClicking {
         }
     }
 
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 }
 
 struct AddCirclePivot {
@@ -2922,13 +2855,9 @@ struct AddCirclePivot {
 }
 
 impl<S: AppState> ControllerState<S> for AddCirclePivot {
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn display(&self) -> String {
         String::from("AddCirclePivot")
@@ -3029,9 +2958,9 @@ impl<S: AppState> ControllerState<S> for InitHelixTranslation {
         String::from("Init Helix Translation")
     }
 
-    fn transition_to(&self, _controller: &Controller<S>) -> () {}
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
-    fn transition_from(&self, _controller: &Controller<S>) -> () {}
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
     fn input(
         &mut self,
@@ -3182,13 +3111,9 @@ impl<S: AppState> ControllerState<S> for TranslatingHandle {
         }
     }
 
-    fn transition_from(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_from(&self, _controller: &Controller<S>) {}
 
-    fn transition_to(&self, _controller: &Controller<S>) {
-        ()
-    }
+    fn transition_to(&self, _controller: &Controller<S>) {}
 
     fn cursor(&self) -> Option<CursorIcon> {
         Some(CursorIcon::Grabbing)

@@ -105,8 +105,9 @@ impl Helix {
     }
 
     pub fn update(&mut self, helix2d: &Helix2d, id_map: &FlatHelixMaps) {
-        self.left = self.left.min(helix2d.left);
-        self.right = self.right.max(helix2d.right);
+        let segment_left = self.flat_id.segment_left.unwrap_or(0);
+        self.left = self.left.min(helix2d.left - segment_left);
+        self.right = self.right.max(helix2d.right - segment_left);
         self.visible = helix2d.visible;
         self.real_id = helix2d.id;
         let left;
@@ -571,14 +572,10 @@ impl Helix {
         if self.leftmost_x() > right || (self.rightmost_x() as f32) < left {
             // the helix is invisible
             None
-        } else if self.leftmost_x() - 1. - 2. * CIRCLE_WIDGET_RADIUS > left {
+        } else if self.leftmost_x() - 1. - 2. * CIRCLE_WIDGET_RADIUS > left
+            || self.rightmost_x() + 2. + 2. * CIRCLE_WIDGET_RADIUS < right
+        {
             // There is room on the left of the helix
-            Some(FlatNucl {
-                flat_position: self.left - 3,
-                helix: self.flat_id,
-                forward: true,
-            })
-        } else if self.rightmost_x() + 2. + 2. * CIRCLE_WIDGET_RADIUS < right {
             Some(FlatNucl {
                 flat_position: self.left - 3,
                 helix: self.flat_id,
@@ -870,20 +867,13 @@ impl Helix {
                     return true;
                 }
             }
-        } else {
-            if let Some((x0, x1)) = self.screen_rectangle_intersection(
-                camera,
-                left,
-                top,
-                right,
-                bottom,
-                HelixLine::Bottom,
-            ) {
-                if self.x_conversion(nucl.flat_position as f32) >= x0.floor()
-                    && self.x_conversion(nucl.flat_position as f32) < x1.ceil()
-                {
-                    return true;
-                }
+        } else if let Some((x0, x1)) =
+            self.screen_rectangle_intersection(camera, left, top, right, bottom, HelixLine::Bottom)
+        {
+            if self.x_conversion(nucl.flat_position as f32) >= x0.floor()
+                && self.x_conversion(nucl.flat_position as f32) < x1.ceil()
+            {
+                return true;
             }
         }
         false

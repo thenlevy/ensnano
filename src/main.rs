@@ -930,7 +930,7 @@ fn formated_path_end<P: AsRef<Path>>(path: P) -> String {
     let mut iter = components.iter().rev().take(3).rev();
     for _ in 0..3 {
         if let Some(comp) = iter.next().and_then(|s| s.to_str()) {
-            ret.push(comp.clone());
+            ret.push(comp);
         }
     }
     ret.join("/")

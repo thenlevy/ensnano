@@ -31,7 +31,7 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct FlatIdx(pub usize);
 
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy)]
 pub struct FlatHelix {
     /// The identifier of the helix in the flatscene data strucutres.
     pub flat: FlatIdx,
@@ -44,6 +44,14 @@ pub struct FlatHelix {
 impl std::cmp::PartialEq for FlatHelix {
     fn eq(&self, other: &Self) -> bool {
         self.flat == other.flat
+    }
+}
+
+use std::hash::{Hash, Hasher};
+
+impl Hash for FlatHelix {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.flat.hash(state);
     }
 }
 
@@ -81,19 +89,15 @@ impl FlatHelixMaps {
         self.flat_to_real.get(&idx).cloned()
     }
 
-    pub fn get_left_right_segment(
-        &self,
-        helix_id: usize,
-        segment_idx: usize,
-    ) -> Option<(isize, isize)> {
+    pub fn get_max_right(&self, helix_id: usize, segment_idx: usize) -> Option<isize> {
         self.segments.get(&helix_id).and_then(|segments| {
             let left = if segment_idx > 0 {
                 segments.get(segment_idx - 1).cloned()?
             } else {
                 isize::MIN
             };
-            let right = segments.get(segment_idx).cloned().unwrap_or(isize::MAX);
-            Some((left, right))
+            let right = segments.get(segment_idx).cloned()?;
+            Some(right - left)
         })
     }
 
@@ -229,7 +233,7 @@ pub struct FlatNucl {
 }
 
 impl FlatNucl {
-    pub fn to_real(&self) -> Nucl {
+    pub fn to_real(self) -> Nucl {
         Nucl {
             helix: self.helix.real,
             position: self.flat_position + self.helix.segment_left.unwrap_or(0),
@@ -327,7 +331,7 @@ impl FlatSelection {
                     }
                 }
                 Selection::Grid(d, g_id) => Self::Grid(*d as usize, *g_id),
-                Selection::Phantom(pe) => Self::Phantom(pe.clone()),
+                Selection::Phantom(pe) => Self::Phantom(*pe),
                 Selection::Nothing => Self::Nothing,
                 Selection::BezierControlPoint { .. } => Self::Nothing,
                 Selection::BezierTengent { .. } => Self::Nothing,

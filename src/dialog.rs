@@ -143,7 +143,7 @@ pub fn get_file_to_write<P1: AsRef<Path>, P2: AsRef<Path>>(
         let save_op = async move {
             let file = future_file.await;
             if let Some(handle) = file {
-                let mut path_buf: std::path::PathBuf = handle.path().clone().into();
+                let mut path_buf: std::path::PathBuf = handle.path().into();
                 let extension = path_buf.extension().clone();
                 if extension.is_none() && default_extenstion.is_some() {
                     path_buf.set_extension(default_extenstion.unwrap());
@@ -175,7 +175,7 @@ pub fn get_dir() -> PathInput {
         let save_op = async move {
             let file = dialog.await;
             if let Some(handle) = file {
-                let path_buf: std::path::PathBuf = handle.path().clone().into();
+                let path_buf: std::path::PathBuf = handle.path().into();
                 log_err![snd.send(Some(path_buf))];
             } else {
                 log_err![snd.send(None)];
@@ -204,7 +204,7 @@ pub fn load<P: AsRef<Path>>(starting_path: Option<P>, filters: Filters) -> PathI
         let load_op = async move {
             let file = future_file.await;
             if let Some(handle) = file {
-                let path_buf: std::path::PathBuf = handle.path().clone().into();
+                let path_buf: std::path::PathBuf = handle.path().into();
                 log_err![snd.send(Some(path_buf))];
             } else {
                 log_err![snd.send(None)];

@@ -903,7 +903,6 @@ impl Controller {
             });
         log::info!("edge = {:?}", edge);
         let grid_data = data.clone();
-        drop(data);
         self.state
             .update_helices_pasting_position(position, edge, design)?;
         if let Some(edge) = edge {
@@ -935,7 +934,6 @@ impl Controller {
         let edge = nucl
             .as_ref()
             .and_then(|n2| Self::edge_beteen_nucls(data.helices, data.grid_data, &n1, n2));
-        drop(data);
         self.state
             .update_xover_pasting_position(nucl, edge, design)?;
         let data = design.mut_strand_and_data();

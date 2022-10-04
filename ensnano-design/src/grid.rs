@@ -1256,7 +1256,6 @@ pub(super) fn make_grid_from_helices(
     }
     let grid_data = design.get_updated_grid_data();
     let desc = grid_data.find_grid_for_group(helices);
-    drop(grid_data);
     let mut new_grids = design.free_grids.make_mut();
     let new_id = new_grids.push(desc);
     drop(new_grids);
