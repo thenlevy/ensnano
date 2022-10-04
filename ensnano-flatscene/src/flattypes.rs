@@ -90,14 +90,18 @@ impl FlatHelixMaps {
     }
 
     pub fn get_max_right(&self, helix_id: usize, segment_idx: usize) -> Option<isize> {
+        self.segments
+            .get(&helix_id)
+            .and_then(|segments| segments.get(segment_idx).cloned())
+    }
+
+    pub fn get_min_left(&self, helix_id: usize, segment_idx: usize) -> Option<isize> {
         self.segments.get(&helix_id).and_then(|segments| {
-            let left = if segment_idx > 0 {
-                segments.get(segment_idx - 1).cloned()?
+            if segment_idx > 0 {
+                segments.get(segment_idx - 1).cloned()
             } else {
-                isize::MIN
-            };
-            let right = segments.get(segment_idx).cloned()?;
-            Some(right - left)
+                None
+            }
         })
     }
 

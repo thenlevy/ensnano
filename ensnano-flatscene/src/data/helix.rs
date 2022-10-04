@@ -105,9 +105,8 @@ impl Helix {
     }
 
     pub fn update(&mut self, helix2d: &Helix2d, id_map: &FlatHelixMaps) {
-        let segment_left = self.flat_id.segment_left.unwrap_or(0);
-        self.left = self.left.min(helix2d.left - segment_left);
-        self.right = self.right.max(helix2d.right - segment_left);
+        self.left = self.left.min(helix2d.left);
+        self.right = self.right.max(helix2d.right);
         self.visible = helix2d.visible;
         self.real_id = helix2d.id;
         let left;
@@ -311,11 +310,14 @@ impl Helix {
             let iso = self.isometry.into_homogeneous_matrix().inversed();
             iso.transform_point2(ret)
         };
-        if click.y <= 0. || click.y >= 2. {
+        if click.y <= 0.
+            || click.y >= 2.
+            || click.x < self.leftmost_x()
+            || click.y > self.rightmost_x()
+        {
             None
         } else {
-            let ret = self.get_click_unbounded(x, y);
-            Some(ret).filter(|(position, _)| *position >= self.left && *position <= self.right)
+            Some(self.get_click_unbounded(x, y))
         }
     }
 
@@ -337,10 +339,17 @@ impl Helix {
     }
 
     pub fn redim_zero(&mut self) -> (isize, isize) {
-        let (left, right) = (self.right - 1, self.left + 1);
-        self.left = left;
-        self.right = right;
-        (left, right)
+        if let Some(left) = self.flat_id.segment_left {
+            let (left, right) = (left, left + 2);
+            self.left = left;
+            self.right = right;
+            (left, right)
+        } else {
+            let (left, right) = (self.right - 1, self.left + 1);
+            self.left = left;
+            self.right = right;
+            (left, right)
+        }
     }
 
     pub fn click_on_handle(&self, x: f32, y: f32) -> Option<HelixHandle> {
@@ -423,20 +432,23 @@ impl Helix {
     }
 
     fn info_position(&self, x: isize) -> Vec2 {
-        self.isometry
-            .into_homogeneous_matrix()
-            .transform_point2(self.x_conversion(x as f32 + 0.5) * Vec2::unit_x() - Vec2::unit_y())
+        let pos_shift = self.flat_id.segment_left.unwrap_or(0);
+        self.isometry.into_homogeneous_matrix().transform_point2(
+            self.x_conversion(x as f32 + 0.5 - pos_shift as f32) * Vec2::unit_x() - Vec2::unit_y(),
+        )
     }
 
     fn char_position_top(&self, x: isize) -> Vec2 {
+        let pos_shift = self.flat_id.segment_left.unwrap_or(0) as f32;
         self.isometry
             .into_homogeneous_matrix()
-            .transform_point2(self.x_conversion(x as f32 + 0.5) * Vec2::unit_x())
+            .transform_point2(self.x_conversion(x as f32 + 0.5 - pos_shift) * Vec2::unit_x())
     }
 
     fn char_position_bottom(&self, x: isize) -> Vec2 {
+        let pos_shift = self.flat_id.segment_left.unwrap_or(0) as f32;
         self.isometry.into_homogeneous_matrix().transform_point2(
-            self.x_conversion(x as f32 + 0.5) * Vec2::unit_x() + 2. * Vec2::unit_y(),
+            self.x_conversion(x as f32 + 0.5 - pos_shift) * Vec2::unit_x() + 2. * Vec2::unit_y(),
         )
     }
 
@@ -497,11 +509,11 @@ impl Helix {
     }
 
     fn leftmost_x(&self) -> f32 {
-        self.x_conversion(self.left as f32)
+        self.abscissa_converter.nucl_to_x_convertion(self.left) as f32
     }
 
     fn rightmost_x(&self) -> f32 {
-        self.x_conversion(self.right as f32 + 1.)
+        self.abscissa_converter.nucl_to_x_convertion(self.right + 1) as f32
     }
 
     /// Return the center of the helix's circle widget.
@@ -706,7 +718,7 @@ impl Helix {
     ) {
         let candidate_pos: Option<isize> = hovered_nucl
             .filter(|n| n.helix == self.flat_id)
-            .map(|n| n.flat_position);
+            .map(|n| n.to_real().position);
         let show_seq = show_seq && camera.borrow().get_globals().zoom >= ZOOM_THRESHOLD;
         let size_id = 3.;
         let zoom_font = if camera.borrow().get_globals().zoom < 7.0 {
@@ -775,7 +787,7 @@ impl Helix {
             print_pos(position);
         }
 
-        let mut print_info = |pos: isize, info: &str| {
+        let mut print_info = |flat_pos: isize, info: &str| {
             let sentence = Sentence {
                 text: info,
                 size: size_pos * zoom_font,
@@ -785,6 +797,7 @@ impl Helix {
                 symetry,
             };
             let line = self.info_line();
+            let pos = flat_pos + self.flat_id.segment_left.unwrap_or(0);
             text_drawer.add_sentence(sentence, self.info_position(pos), line);
         };
 
@@ -794,10 +807,10 @@ impl Helix {
             }
         }
 
-        let mut print_basis = |position: isize, forward: bool| {
+        let mut print_basis = |flat_position: isize, forward: bool| {
             let nucl = FlatNucl {
                 helix: self.flat_id,
-                flat_position: position,
+                flat_position,
                 forward,
             }
             .to_real();
@@ -815,9 +828,9 @@ impl Helix {
                     symetry,
                 };
                 let (line, position) = if nucl.forward {
-                    (self.top_line(), self.char_position_top(position))
+                    (self.top_line(), self.char_position_top(flat_position))
                 } else {
-                    (self.bottom_line(), self.char_position_bottom(position))
+                    (self.bottom_line(), self.char_position_bottom(flat_position))
                 };
                 text_drawer.add_sentence(sentence, position, line);
             }
@@ -825,8 +838,9 @@ impl Helix {
 
         if show_seq {
             for pos in self.left..=self.right {
-                print_basis(pos, true);
-                print_basis(pos, false);
+                let flat_pos = pos - self.flat_id.segment_left.unwrap_or(0);
+                print_basis(flat_pos, true);
+                print_basis(flat_pos, false);
             }
         }
     }
@@ -1086,13 +1100,13 @@ mod abcissa_converter {
             } else {
                 0.0
             };
-            self.converter
-                .nucl_to_x_convertion(n + self.left.unwrap_or(0))
-                - adjust
+
+            self.converter.nucl_to_x_convertion(n) - adjust
         }
 
         pub fn x_conversion(&self, x: f64) -> f64 {
             if let Some(n) = self.left {
+                // translate x to the right and back
                 let adjust = self.converter.nucl_to_x_convertion(n);
                 self.converter.x_conversion(x + n as f64) - adjust
             } else {

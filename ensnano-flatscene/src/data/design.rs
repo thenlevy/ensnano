@@ -133,9 +133,9 @@ impl<R: DesignReader> Design2d<R> {
 
         for ((h_id, _segment_id), flat_idx) in self.id_map.iter() {
             let visibility = self.design.get_visibility_helix(*h_id);
-            self.helices
-                .get_mut(*flat_idx)
-                .map(|h| h.visible = visibility.unwrap_or(false));
+            if let Some(h) = self.helices.get_mut(*flat_idx) {
+                h.visible = visibility.unwrap_or(false)
+            }
         }
 
         for h in self.helices.iter_mut() {
@@ -169,7 +169,7 @@ impl<R: DesignReader> Design2d<R> {
             }
         }
         to_remove.sort();
-        if to_remove.len() > 0 {
+        if !to_remove.is_empty() {
             for h in to_remove.iter().rev() {
                 self.helices.remove(h.flat);
                 self.known_helices.remove(&h.real);
@@ -179,13 +179,19 @@ impl<R: DesignReader> Design2d<R> {
     }
 
     pub fn get_removed_helices(&mut self) -> BTreeSet<FlatIdx> {
-        std::mem::replace(&mut self.removed, BTreeSet::new())
+        std::mem::take(&mut self.removed)
     }
 
     pub fn update_helix(&mut self, helix: FlatHelix, left: isize, right: isize) {
         let helix2d = &mut self.helices[helix.flat];
         helix2d.left = left;
         helix2d.right = right;
+        if let Some(min_left) = helix2d.min_left {
+            helix2d.right = helix2d.left.max(min_left);
+        }
+        if let Some(max_right) = helix2d.max_right {
+            helix2d.right = helix2d.right.min(max_right);
+        }
     }
 
     /// Add a nucleotide to self and increase the left/right bond the the 2d segment representation
@@ -194,6 +200,12 @@ impl<R: DesignReader> Design2d<R> {
             let helix2d = &mut self.helices[flat_nucl.helix.flat];
             helix2d.left = helix2d.left.min(nucl.position - 1);
             helix2d.right = helix2d.right.max(nucl.position + 1);
+            if let Some(min_left) = helix2d.min_left {
+                helix2d.left = helix2d.left.max(min_left);
+            }
+            if let Some(max_right) = helix2d.max_right {
+                helix2d.right = helix2d.right.min(max_right);
+            }
         } else {
             log::error!("Could not convert {nucl} to flat nucl")
         }
@@ -252,20 +264,20 @@ impl<R: DesignReader> Design2d<R> {
         let symmetry = self
             .design
             .get_helix_segment_symmetry(h_id, segment_idx)
-            .unwrap_or(Vec2::one());
+            .unwrap_or_else(Vec2::one);
         if !self.id_map.contains_segment(h_id, segment_idx) {
             let flat_idx = FlatIdx(self.helices.len());
             self.id_map.insert_segment_key(flat_idx, h_id, segment_idx);
-            let max_right = self
-                .id_map
-                .get_max_right(h_id, segment_idx)
-                .unwrap_or(isize::MAX);
+            let max_right = self.id_map.get_max_right(h_id, segment_idx);
+            let min_left = self.id_map.get_min_left(h_id, segment_idx);
+            let left = min_left.unwrap_or(-1);
             self.helices.push(Helix2d {
                 id: h_id,
                 segment_idx,
-                left: -1,
-                right: 1,
+                left: min_left.map(|x| x - 1).unwrap_or(-1),
+                right: left + 2,
                 max_right,
+                min_left,
                 isometry: FullIsometry::from_isommetry_symmetry(isometry, symmetry),
                 visible: self.design.get_visibility_helix(h_id).unwrap_or(false),
                 abscissa_converter: Arc::new(self.design.get_abcissa_converter(h_id)),
@@ -437,11 +449,14 @@ impl<R: DesignReader> Design2d<R> {
 pub struct Helix2d {
     /// The id of the helix within the design
     pub id: usize,
-    /// The smallest position of a nucleotide of the helix
+    /// The smallest position of a nucleotide represented on this helix segment
     pub left: isize,
-    /// The largest position of a nucleotide of the the helix
+    /// The largest position of a nucleotide represented on this helix segment
     pub right: isize,
-    pub max_right: isize,
+    /// The largest value that can be taken by self.right
+    pub max_right: Option<isize>,
+    /// The smallest value that can be taken by self.left
+    pub min_left: Option<isize>,
     pub isometry: FullIsometry,
     pub visible: bool,
     pub abscissa_converter: Arc<AbscissaConverter>,

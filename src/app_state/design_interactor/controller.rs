@@ -2216,8 +2216,8 @@ impl Controller {
                     for i in 0..(sign * delta) {
                         let mut copy_builder = builders.clone();
                         for builder in copy_builder.iter_mut() {
-                            if sign > 0 && !builder.try_incr(&current_design, ignored_domains)
-                                || sign < 0 && !builder.try_decr(&current_design, ignored_domains)
+                            if (sign > 0 && !builder.try_incr(&current_design, ignored_domains))
+                                || (sign < 0 && !builder.try_decr(&current_design, ignored_domains))
                             {
                                 blocked = true;
                                 break;
