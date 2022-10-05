@@ -1832,11 +1832,7 @@ impl<S: AppState> ControllerState<S> for Building {
                     self.can_attach = false;
                 }
                 match nucl {
-                    FlatNucl {
-                        helix,
-                        flat_position: position,
-                        ..
-                    } if helix == self.nucl.helix => {
+                    FlatNucl { helix, .. } if helix == self.nucl.helix => {
                         let real_position = nucl.to_real().position;
                         controller.data.borrow_mut().notify_update();
                         Transition::consequence(Consequence::MoveBuilders(real_position))

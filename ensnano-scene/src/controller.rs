@@ -237,13 +237,13 @@ impl<S: AppState> Controller<S> {
 
     pub fn check_timers(&mut self) -> Consequence {
         log::debug!("Checking timers");
-        let transition = self.state.borrow_mut().check_timers(&self);
+        let transition = self.state.borrow_mut().check_timers(self);
         if let Some(state) = transition.new_state {
             log::info!("3D controller state: {}", state.display());
-            let csq = self.state.borrow().transition_from(&self);
+            let csq = self.state.borrow().transition_from(self);
             self.transition_consequence(csq);
             self.state = RefCell::new(state);
-            let csq = self.state.borrow().transition_to(&self);
+            let csq = self.state.borrow().transition_to(self);
             self.transition_consequence(csq);
         }
         transition.consequences
@@ -385,10 +385,10 @@ impl<S: AppState> Controller<S> {
         if let Some(mut state) = transition.new_state {
             state.give_context(EventContext::new(self, app_state, pixel_reader, position));
             log::info!("3D controller state: {}", state.display());
-            let csq = self.state.borrow().transition_from(&self);
+            let csq = self.state.borrow().transition_from(self);
             self.transition_consequence(csq);
             self.state = RefCell::new(state);
-            let csq = self.state.borrow().transition_to(&self);
+            let csq = self.state.borrow().transition_to(self);
             self.transition_consequence(csq);
         }
         transition.consequences
@@ -475,6 +475,7 @@ impl<S: AppState> Controller<S> {
     }
 
     pub fn set_camera_target(&mut self, target: Vec3, up: Vec3, pivot: Option<Vec3>) {
+        self.camera_controller.init_movement(false);
         self.camera_controller
             .look_at_orientation(target, up, pivot);
         self.shift_cam();
@@ -485,6 +486,7 @@ impl<S: AppState> Controller<S> {
     }
 
     pub fn rotate_camera(&mut self, xz: f32, yz: f32, xy: f32, pivot: Option<Vec3>) {
+        self.camera_controller.init_movement(false);
         self.camera_controller.rotate_camera(xz, yz, pivot);
         self.camera_controller.tilt_camera(xy);
         self.shift_cam();
