@@ -16,15 +16,16 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::{
-    flattypes::FlatSelection, view::EditionInfo, AppState, Flat, HelixVec, PhantomElement,
-    Requests, ViewPtr,
+    flattypes::{FlatPosition, FlatSelection, HelixSegment},
+    view::EditionInfo,
+    AppState, Flat, HelixVec, PhantomElement, Requests, ViewPtr,
 };
 use ensnano_design::{ultraviolet, Nucl};
 use ensnano_interactor::{Selection, SelectionMode};
 use std::sync::{Arc, Mutex};
 use ultraviolet::Vec2;
 
-mod helix;
+pub(crate) mod helix;
 pub use helix::{GpuVertex, Helix, HelixHandle, HelixModel, Shift};
 mod strand;
 pub use strand::{FreeEnd, Strand, StrandVertex};
@@ -86,7 +87,7 @@ impl<R: DesignReader> Data<R> {
             self.view.borrow_mut().update_helices(&self.helices);
             self.view
                 .borrow_mut()
-                .update_strands(&self.design.get_strands(), &self.helices);
+                .update_strands(self.design.get_strands(), &self.helices);
             self.view
                 .borrow_mut()
                 .update_pasted_strand(self.design.get_pasted_strand(), &self.helices);
@@ -128,7 +129,13 @@ impl<R: DesignReader> Data<R> {
                     segment_id,
                     ..
                 } => {
-                    if let Some(flat_helix) = FlatHelix::from_real(*helix_id, *segment_id, id_map) {
+                    if let Some(flat_helix) = FlatHelix::from_real(
+                        HelixSegment {
+                            helix_idx: *helix_id,
+                            segment_idx: *segment_id,
+                        },
+                        id_map,
+                    ) {
                         selected_helices.push(flat_helix.flat);
                     }
                 }
@@ -159,7 +166,13 @@ impl<R: DesignReader> Data<R> {
                     segment_id,
                     ..
                 } => {
-                    if let Some(flat_helix) = FlatHelix::from_real(*helix_id, *segment_id, id_map) {
+                    if let Some(flat_helix) = FlatHelix::from_real(
+                        HelixSegment {
+                            helix_idx: *helix_id,
+                            segment_idx: *segment_id,
+                        },
+                        id_map,
+                    ) {
                         candidate_helices.push(flat_helix.flat);
                     }
                 }
@@ -167,7 +180,7 @@ impl<R: DesignReader> Data<R> {
                     if let Some(flat_nucl) = FlatNucl::from_real(n, id_map) {
                         candidate_nucls.push(flat_nucl);
                         let mut other = self.get_best_suggestion(flat_nucl);
-                        other = other.or(self.can_make_auto_xover(flat_nucl));
+                        other = other.or_else(|| self.can_make_auto_xover(flat_nucl));
                         if let Some(other) = other {
                             suggestions.push((flat_nucl, other));
                         }
@@ -234,7 +247,11 @@ impl<R: DesignReader> Data<R> {
             helix.update(&new_helices[i], id_map);
         }
         for h in new_helices[nb_helix..].iter() {
-            if let Some(flat_helix) = FlatHelix::from_real(h.id, h.segment_idx, id_map) {
+            let segment = HelixSegment {
+                helix_idx: h.id,
+                segment_idx: h.segment_idx,
+            };
+            if let Some(flat_helix) = FlatHelix::from_real(segment, id_map) {
                 self.helices.push(Helix::new(
                     h.left,
                     h.right,
@@ -367,16 +384,16 @@ impl<R: DesignReader> Data<R> {
     }
 
     pub fn get_click_unbounded_helix(&self, x: f32, y: f32, helix: FlatHelix) -> FlatNucl {
-        let (position, forward) = self.helices[helix.flat].get_click_unbounded(x, y);
+        let (flat_position, forward) = self.helices[helix.flat].get_click_unbounded(x, y);
         FlatNucl {
-            flat_position: position + helix.segment_left.unwrap_or(0),
+            flat_position,
             forward,
             helix,
         }
     }
 
     #[allow(dead_code)]
-    pub fn get_pivot_position(&self, helix: FlatIdx, position: isize) -> Option<Vec2> {
+    pub fn get_pivot_position(&self, helix: FlatIdx, position: FlatPosition) -> Option<Vec2> {
         self.helices.get(helix).map(|h| h.get_pivot(position))
     }
 
@@ -394,8 +411,8 @@ impl<R: DesignReader> Data<R> {
             .into_iter()
             .map(|flat| Selection::Helix {
                 design_id: 0,
-                helix_id: flat.real,
-                segment_id: flat.segment_idx,
+                helix_id: flat.segment.helix_idx,
+                segment_id: flat.segment.segment_idx,
             })
             .collect();
         self.requests.lock().unwrap().new_selection(new_selection);
@@ -429,7 +446,11 @@ impl<R: DesignReader> Data<R> {
                     ..
                 } = s
                 {
-                    if let Some(h) = self.design.id_map().get_segment_idx(*helix_id, *segment_id) {
+                    let segment = HelixSegment {
+                        helix_idx: *helix_id,
+                        segment_idx: *segment_id,
+                    };
+                    if let Some(h) = self.design.id_map().get_segment_idx(segment) {
                         ids.push(h)
                     }
                 }
@@ -488,13 +509,25 @@ impl<R: DesignReader> Data<R> {
     pub fn can_cross_to(&self, from: FlatNucl, to: FlatNucl) -> bool {
         let from = from.to_real();
         let to = to.to_real();
-        let prim5 = self.design.prime5_of(from).or(self.design.prime5_of(to));
-        let prim3 = self.design.prime3_of(from).or(self.design.prime3_of(to));
+        let prim5 = self
+            .design
+            .prime5_of(from)
+            .or_else(|| self.design.prime5_of(to));
+        let prim3 = self
+            .design
+            .prime3_of(from)
+            .or_else(|| self.design.prime3_of(to));
         if prim3 != prim5 {
             prim3.zip(prim5).is_some()
         } else {
-            let from_end = self.design.prime5_of(from).or(self.design.prime3_of(from));
-            let to_end = self.design.prime3_of(to).or(self.design.prime5_of(to));
+            let from_end = self
+                .design
+                .prime5_of(from)
+                .or_else(|| self.design.prime3_of(from));
+            let to_end = self
+                .design
+                .prime3_of(to)
+                .or_else(|| self.design.prime5_of(to));
             from_end.is_some() && to_end.is_some()
         }
     }
@@ -543,7 +576,7 @@ impl<R: DesignReader> Data<R> {
         self.design
             .prime3_of(nucl)
             .map(|_| true)
-            .or(self.design.prime5_of(nucl).map(|_| false))
+            .or_else(|| self.design.prime5_of(nucl).map(|_| false))
     }
 
     pub fn set_free_end(&mut self, free_end: Option<FreeEnd>) {
@@ -572,13 +605,13 @@ impl<R: DesignReader> Data<R> {
         let strand_3prime = self
             .design
             .prime5_of(nucl1)
-            .or(self.design.prime5_of(nucl2));
+            .or_else(|| self.design.prime5_of(nucl2));
 
         // The 5 prime strand is the strand whose **3prime** end is in the xover
         let strand_5prime = self
             .design
             .prime3_of(nucl1)
-            .or(self.design.prime3_of(nucl2));
+            .or_else(|| self.design.prime3_of(nucl2));
 
         if strand_3prime.is_none() || strand_5prime.is_none() {
             log::error!("Problem during cross-over attempt. If you are not trying to break a cyclic strand please repport a bug");
@@ -589,9 +622,9 @@ impl<R: DesignReader> Data<R> {
     pub fn get_fit_rectangle(&self) -> FitRectangle {
         let mut ret = FitRectangle::new();
         for h in self.helices.iter() {
-            let left = h.get_pivot(h.get_left());
+            let left = h.get_pivot(h.get_flat_left());
             ret.add_point(Vec2::new(left.x, left.y));
-            let right = h.get_pivot(h.get_right());
+            let right = h.get_pivot(h.get_flat_right());
             ret.add_point(Vec2::new(right.x, right.y));
         }
         ret
@@ -665,7 +698,7 @@ impl<R: DesignReader> Data<R> {
                 translation_pivots.push(translation_pivot);
                 rotation_pivots.push(rotation_pivot);
                 selection.push(Selection::Helix {
-                    segment_id: h.flat_id.segment_idx,
+                    segment_id: h.flat_id.segment.segment_idx,
                     helix_id: h.real_id,
                     design_id: self.id,
                 });
@@ -711,7 +744,11 @@ impl<R: DesignReader> Data<R> {
                     helix_id,
                     segment_id,
                 } if *design_id == self.id => {
-                    if let Some(flat_id) = id_map.get_segment_idx(*helix_id, *segment_id) {
+                    let segment = HelixSegment {
+                        segment_idx: *segment_id,
+                        helix_idx: *helix_id,
+                    };
+                    if let Some(flat_id) = id_map.get_segment_idx(segment) {
                         if let Some(h) = self.helices.get(flat_id) {
                             let translation_pivot = h
                                 .get_circle_pivot(camera)
@@ -795,7 +832,7 @@ impl<R: DesignReader> Data<R> {
             let h1 = &self.helices[flat_1.helix.flat];
             let h2 = &self.helices[flat_2.helix.flat];
             let a = h1.get_nucl_position(&flat_1, helix::Shift::No);
-            let b = h2.get_nucl_position(&&flat_2, helix::Shift::No);
+            let b = h2.get_nucl_position(&flat_2, helix::Shift::No);
             if helix::rectangle_intersect(c1, c2, a, b) {
                 selection_set.insert(xover_id);
             }
@@ -876,8 +913,8 @@ impl<R: DesignReader> Data<R> {
             ClickResult::CircleWidget { translation_pivot } => {
                 let selection = Selection::Helix {
                     design_id: self.id,
-                    helix_id: translation_pivot.helix.real,
-                    segment_id: translation_pivot.helix.segment_idx,
+                    helix_id: translation_pivot.helix.segment.helix_idx,
+                    segment_id: translation_pivot.helix.segment.segment_idx,
                 };
                 if let Some(pos) = new_selection.iter().position(|x| *x == selection) {
                     new_selection.remove(pos);
@@ -976,9 +1013,7 @@ impl<R: DesignReader> Data<R> {
     fn xover_containing_nucl(&self, nucl: &FlatNucl) -> Option<usize> {
         let xovers_list = self.design.get_xovers_list();
         xovers_list.iter().find_map(|(id, (n1, n2))| {
-            if *n1 == *nucl {
-                Some(*id)
-            } else if *n2 == *nucl {
+            if *n1 == *nucl || *n2 == *nucl {
                 Some(*id)
             } else {
                 None
@@ -1044,10 +1079,8 @@ impl<R: DesignReader> Data<R> {
                 {
                     return Some(candidate);
                 }
-            } else if strand_of_prime5.is_some() {
-                if self.can_cross_to(nucl, candidate) {
-                    return Some(candidate);
-                }
+            } else if strand_of_prime5.is_some() && self.can_cross_to(nucl, candidate) {
+                return Some(candidate);
             }
         }
 
@@ -1064,10 +1097,8 @@ impl<R: DesignReader> Data<R> {
                 {
                     return Some(candidate);
                 }
-            } else if strand_of_prime3.is_some() {
-                if self.can_cross_to(nucl, candidate) {
-                    return Some(candidate);
-                }
+            } else if strand_of_prime3.is_some() && self.can_cross_to(nucl, candidate) {
+                return Some(candidate);
             }
         }
 
@@ -1117,12 +1148,11 @@ fn apply_symetric_difference_to_pivots(
     }
 
     for i in (0..old_rotation_pivots.len()).rev() {
-        let real_helix = old_translation_pivots[i].helix.real;
-        let segment_idx = old_translation_pivots[i].helix.segment_idx;
+        let real_helix = old_translation_pivots[i].helix.segment.helix_idx;
+        let segment_idx = old_translation_pivots[i].helix.segment.segment_idx;
         if selection
             .iter()
-            .find(|s| matches!(s, Selection::Helix{helix_id, segment_id, ..} if *helix_id == real_helix && *segment_id == segment_idx))
-            .is_some()
+            .any(|s| matches!(s, Selection::Helix{helix_id, segment_id, ..} if *helix_id == real_helix && *segment_id == segment_idx))
         {
             old_translation_pivots.remove(i);
             old_rotation_pivots.remove(i);
@@ -1137,7 +1167,7 @@ fn apply_symetric_difference_to_selection(
     let mut to_remove = Vec::new();
     for s in old_selection.iter() {
         if new_selection.contains(s) {
-            to_remove.push(s.clone());
+            to_remove.push(*s);
         }
     }
 
@@ -1194,7 +1224,7 @@ impl LastClick {
     }
 
     pub fn select(&self, pool: &mut Vec<Selection>) -> Selection {
-        if pool.len() == 0 {
+        if pool.is_empty() {
             Selection::Nothing
         } else {
             let id = self.counter % pool.len();

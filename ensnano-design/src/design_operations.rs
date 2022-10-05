@@ -61,11 +61,10 @@ pub fn attach_object_to_grid(
     {
         Err(ErrOperation::GridPositionAlreadyUsed)
     } else {
-        drop(grid_manager);
         let mut helices_mut = design.helices.make_mut();
         let helix_ref = helices_mut
             .get_mut(&object.helix())
-            .ok_or(ErrOperation::HelixDoesNotExists(object.helix()))?;
+            .ok_or_else(|| ErrOperation::HelixDoesNotExists(object.helix()))?;
         // take previous axis position if there were one
         match object {
             GridObject::Helix(_) => {

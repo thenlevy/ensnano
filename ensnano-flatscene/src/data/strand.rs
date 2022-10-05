@@ -76,7 +76,7 @@ impl Strand {
     ) -> (Vertices, Vertices) {
         let mut vertices = Vertices::new();
         let mut cross_split_vertices = Vertices::new();
-        if self.points.len() == 0 {
+        if self.points.is_empty() {
             return (vertices, cross_split_vertices);
         }
         let color = self.get_path_color();
@@ -183,7 +183,7 @@ impl Strand {
             highlight: Some(highlight_thickness),
             points: self.points.clone(),
             insertions: self.insertions.clone(),
-            ..*self.clone()
+            ..*self
         }
     }
 }
@@ -268,22 +268,20 @@ impl FilteredFreeEnd {
 fn alternative_position(position: Vec2, cam1: &CameraPtr, cam2: &CameraPtr) -> Option<Vec2> {
     if cam1.borrow().bottom == cam2.borrow().bottom {
         None
-    } else {
-        if !cam1.borrow().can_see_world_point(position)
-            && cam2.borrow().can_see_world_point(position)
-        {
-            let cam2_screen = cam2.borrow().world_to_norm_screen(position.x, position.y);
-            let alternative = if cam1.borrow().bottom {
-                cam1.borrow()
-                    .norm_screen_to_world(cam2_screen.0, cam2_screen.1 - 1.)
-            } else {
-                cam1.borrow()
-                    .norm_screen_to_world(cam2_screen.0, cam2_screen.1 + 1.)
-            };
-            Some(Vec2::new(alternative.0, alternative.1))
+    } else if !cam1.borrow().can_see_world_point(position)
+        && cam2.borrow().can_see_world_point(position)
+    {
+        let cam2_screen = cam2.borrow().world_to_norm_screen(position.x, position.y);
+        let alternative = if cam1.borrow().bottom {
+            cam1.borrow()
+                .norm_screen_to_world(cam2_screen.0, cam2_screen.1 - 1.)
         } else {
-            None
-        }
+            cam1.borrow()
+                .norm_screen_to_world(cam2_screen.0, cam2_screen.1 + 1.)
+        };
+        Some(Vec2::new(alternative.0, alternative.1))
+    } else {
+        None
     }
 }
 
@@ -296,6 +294,7 @@ struct TwoCameraAndPoints<'a> {
 
 /// Return true if `a` and `b` are both visible by exactly one camera, and each camera can see
 /// exactly one of the points.
+#[allow(clippy::needless_lifetimes)]
 fn one_point_one_camera<'a>(input: TwoCameraAndPoints<'a>) -> bool {
     let a = input.point_1;
     let b = input.point_2;

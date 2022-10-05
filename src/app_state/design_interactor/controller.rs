@@ -998,12 +998,10 @@ impl Controller {
             ControllerState::BuildingStrand { initializing, .. } => {
                 if let DesignOperation::MoveBuilders(_) = operation {
                     OperationCompatibility::Compatible
+                } else if initializing {
+                    OperationCompatibility::FinishFirst
                 } else {
-                    if initializing {
-                        OperationCompatibility::FinishFirst
-                    } else {
-                        OperationCompatibility::Incompatible
-                    }
+                    OperationCompatibility::Incompatible
                 }
             }
             ControllerState::OptimizingScaffoldPosition => {
@@ -1442,7 +1440,7 @@ impl Controller {
     }
 
     fn delete_camera(&mut self, mut design: Design, id: CameraId) -> Result<Design, ErrOperation> {
-        if design.rm_camera(id).is_err() {
+        if !design.rm_camera(id) {
             Err(ErrOperation::CameraDoesNotExist(id))
         } else {
             Ok(design)
@@ -1454,7 +1452,7 @@ impl Controller {
         mut design: Design,
         id: CameraId,
     ) -> Result<Design, ErrOperation> {
-        if design.set_favourite_camera(id).is_err() {
+        if !design.set_favourite_camera(id) {
             Err(ErrOperation::CameraDoesNotExist(id))
         } else {
             Ok(design)
@@ -1741,7 +1739,6 @@ impl Controller {
             }
         }
 
-        drop(bezier_paths);
         let mut new_paths = design.bezier_paths.make_mut();
         for (vertex_id, new_vector_out) in new_vectors_out.into_iter() {
             if let Some(path) = new_paths.get_mut(&vertex_id.path_id) {
@@ -1971,13 +1968,11 @@ impl Controller {
             if let Some(h) = new_helices.get_mut(&h_id) {
                 h.isometry2d = Some(isometry);
             }
-        } else {
-            if let Some(i) = new_helices
-                .get_mut(&h_id)
-                .and_then(|h| h.additonal_isometries.get_mut(segment - 1))
-            {
-                i.additional_isometry = Some(isometry);
-            }
+        } else if let Some(i) = new_helices
+            .get_mut(&h_id)
+            .and_then(|h| h.additonal_isometries.get_mut(segment - 1))
+        {
+            i.additional_isometry = Some(isometry);
         }
         drop(new_helices);
         design
@@ -2221,11 +2216,8 @@ impl Controller {
                     for i in 0..(sign * delta) {
                         let mut copy_builder = builders.clone();
                         for builder in copy_builder.iter_mut() {
-                            if sign > 0 && !builder.try_incr(&current_design, ignored_domains) {
-                                blocked = true;
-                                break;
-                            } else if sign < 0
-                                && !builder.try_decr(&current_design, ignored_domains)
+                            if (sign > 0 && !builder.try_incr(&current_design, ignored_domains))
+                                || (sign < 0 && !builder.try_decr(&current_design, ignored_domains))
                             {
                                 blocked = true;
                                 break;
@@ -2569,7 +2561,6 @@ impl Controller {
                 .ok_or(ErrOperation::GridDoesNotExist(end.grid))?;
             return self.add_bezier_point(design, obj, start.light(), tengent, false);
         }
-        drop(grid_manager);
         let helix = Helix::new_bezier_two_points(&grid_manager, start, end)?;
         let mut new_helices = design.helices.make_mut();
 
@@ -2903,12 +2894,10 @@ impl Controller {
             }
         } else if source_strand == target_strand {
             Self::make_cycle(strands, source_strand, true)
+        } else if target_3prime {
+            Self::merge_strands(strands, source_strand, target_strand)
         } else {
-            if target_3prime {
-                Self::merge_strands(strands, source_strand, target_strand)
-            } else {
-                Self::merge_strands(strands, target_strand, source_strand)
-            }
+            Self::merge_strands(strands, target_strand, source_strand)
         }
     }
 
@@ -2944,13 +2933,7 @@ impl Controller {
             std::mem::swap(&mut a2, &mut b2);
         }
 
-        if a1.prime3() == a2 && b1.prime3() == b2 {
-            true
-        } else if a1.prime5() == a2 && b1.prime5() == b2 {
-            true
-        } else {
-            false
-        }
+        (a1.prime3() == a2 && b1.prime3() == b2) || (a1.prime5() == a2 && b1.prime5() == b2)
     }
 
     fn apply_several_xovers(
@@ -3538,8 +3521,6 @@ impl ControllerState {
             Self::Normal
         } else if let Self::WithPendingHelicesDuplication { .. } = self {
             Self::Normal
-        } else if let Self::WithPendingHelicesDuplication { .. } = self {
-            Self::Normal
         } else {
             self.clone()
         }
@@ -3547,11 +3528,11 @@ impl ControllerState {
 
     /// Return true if the operation is undoable only when going from this state to normal
     fn is_undoable_once(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Self::PositioningStrandDuplicationPoint { .. }
-            | Self::PositioningStrandPastingPoint { .. } => true,
-            _ => false,
-        }
+                | Self::PositioningStrandPastingPoint { .. }
+        )
     }
 }
 

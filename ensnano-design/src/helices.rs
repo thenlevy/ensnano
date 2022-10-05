@@ -36,6 +36,7 @@ use ultraviolet::{DRotor3, DVec3, Isometry2, Mat4, Rotor3, Vec2, Vec3};
 pub struct Helices(pub(super) Arc<BTreeMap<usize, Arc<Helix>>>);
 
 impl Helices {
+    #[allow(clippy::needless_lifetimes)]
     pub fn make_mut<'a>(&'a mut self) -> HelicesMut<'a> {
         let new_map = BTreeMap::clone(self.0.as_ref());
         HelicesMut {
@@ -51,6 +52,9 @@ pub trait HelixCollection {
     fn values<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Helix> + 'a>;
     fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = &'a usize> + 'a>;
     fn len(&self) -> usize;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
     fn contains_key(&self, id: &usize) -> bool;
 }
 
@@ -282,10 +286,13 @@ impl Helix {
     pub fn from_scadnano(
         scad: &ScadnanoHelix,
         group_map: &BTreeMap<String, usize>,
-        groups: &Vec<ScadnanoGroup>,
+        groups: &[ScadnanoGroup],
         helix_per_group: &mut Vec<usize>,
     ) -> Result<Self, ScadnanoImportError> {
-        let group_id = scad.group.clone().unwrap_or(String::from("default_group"));
+        let group_id = scad
+            .group
+            .clone()
+            .unwrap_or_else(|| String::from("default_group"));
         let grid_id = if let Some(id) = group_map.get(&group_id) {
             id
         } else {
@@ -297,12 +304,12 @@ impl Helix {
         let x = if let Some(x) = scad.grid_position.get(0).cloned() {
             x
         } else {
-            return Err(ScadnanoImportError::MissingField(format!("x")));
+            return Err(ScadnanoImportError::MissingField(String::from("x")));
         };
         let y = if let Some(y) = scad.grid_position.get(1).cloned() {
             y
         } else {
-            return Err(ScadnanoImportError::MissingField(format!("y")));
+            return Err(ScadnanoImportError::MissingField(String::from("y")));
         };
         let group = if let Some(group) = groups.get(*grid_id) {
             group
@@ -378,7 +385,7 @@ impl Helix {
                 instanciated_descriptor: None,
                 grid_position,
                 isometry2d: None,
-                curve: new_curve_descriptor.map(|c| Arc::new(c)),
+                curve: new_curve_descriptor.map(Arc::new),
                 ..self.clone()
             })
         }
@@ -736,6 +743,8 @@ impl Helix {
         let axis_pos = self.axis_position(p, n);
         let my_nucl_pos = self.space_pos(p, n, forward);
         let direction = (my_nucl_pos - axis_pos).normalized();
+
+        #[allow(clippy::let_and_return)]
         let other_helix_pos = (2. * p.helix_radius + p.inter_helix_gap) * direction + axis_pos;
         other_helix_pos
     }
@@ -837,11 +846,9 @@ impl Helix {
     }
 
     pub fn get_curve_range(&self) -> Option<std::ops::RangeInclusive<isize>> {
-        if let Some(ref curve) = self.instanciated_curve {
-            Some(curve.curve.range())
-        } else {
-            None
-        }
+        self.instanciated_curve
+            .as_ref()
+            .map(|curve| curve.curve.range())
     }
 
     pub fn get_surface_info_nucl(&self, nucl: Nucl) -> Option<SurfaceInfo> {
@@ -950,6 +957,7 @@ impl<'a> Axis<'a> {
 }
 
 impl OwnedAxis {
+    #[allow(clippy::needless_lifetimes)]
     pub fn borrow<'a>(&'a self) -> Axis<'a> {
         match self {
             Self::Line { origin, direction } => Axis::Line {

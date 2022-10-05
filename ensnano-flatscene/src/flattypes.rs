@@ -31,13 +31,12 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct FlatIdx(pub usize);
 
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy)]
 pub struct FlatHelix {
     /// The identifier of the helix in the flatscene data strucutres.
     pub flat: FlatIdx,
-    /// The identifier of the helix in the designs data strucutres.
-    pub real: usize,
-    pub segment_idx: usize,
+    /// The segment that the helix represents
+    pub segment: HelixSegment,
     pub segment_left: Option<isize>,
 }
 
@@ -47,10 +46,24 @@ impl std::cmp::PartialEq for FlatHelix {
     }
 }
 
+use std::hash::{Hash, Hasher};
+
+impl Hash for FlatHelix {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.flat.hash(state);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct HelixSegment {
+    pub helix_idx: usize,
+    pub segment_idx: usize,
+}
+
 #[derive(Clone, Default)]
 pub struct FlatHelixMaps {
-    flat_to_real: BTreeMap<FlatIdx, (usize, usize)>,
-    real_to_flat: HashMap<(usize, usize), FlatIdx>,
+    flat_to_real: BTreeMap<FlatIdx, HelixSegment>,
+    real_to_flat: HashMap<HelixSegment, FlatIdx>,
     segments: HashMap<usize, Vec<isize>>,
 }
 
@@ -64,48 +77,48 @@ impl FlatHelixMaps {
         self.segments.insert(helix_id, segments);
     }
 
-    pub fn contains_segment(&self, helix_id: usize, segment_idx: usize) -> bool {
-        self.real_to_flat.contains_key(&(helix_id, segment_idx))
+    pub fn contains_segment(&self, segment: HelixSegment) -> bool {
+        self.real_to_flat.contains_key(&segment)
     }
 
-    pub fn insert_segment_key(&mut self, flat_idx: FlatIdx, helix_id: usize, segment_idx: usize) {
-        self.flat_to_real.insert(flat_idx, (helix_id, segment_idx));
-        self.real_to_flat.insert((helix_id, segment_idx), flat_idx);
+    pub fn insert_segment_key(&mut self, flat_idx: FlatIdx, segment: HelixSegment) {
+        self.flat_to_real.insert(flat_idx, segment);
+        self.real_to_flat.insert(segment, flat_idx);
     }
 
-    pub fn get_segment_idx(&self, helix_id: usize, segment_idx: usize) -> Option<FlatIdx> {
-        self.real_to_flat.get(&(helix_id, segment_idx)).cloned()
+    pub fn get_segment_idx(&self, segment: HelixSegment) -> Option<FlatIdx> {
+        self.real_to_flat.get(&segment).cloned()
     }
 
-    pub fn get_segment(&self, idx: FlatIdx) -> Option<(usize, usize)> {
+    pub fn get_segment(&self, idx: FlatIdx) -> Option<HelixSegment> {
         self.flat_to_real.get(&idx).cloned()
     }
 
-    pub fn get_left_right_segment(
-        &self,
-        helix_id: usize,
-        segment_idx: usize,
-    ) -> Option<(isize, isize)> {
-        self.segments.get(&helix_id).and_then(|segments| {
-            let left = if segment_idx > 0 {
-                segments.get(segment_idx - 1).cloned()?
+    pub fn get_max_right(&self, segment: HelixSegment) -> Option<isize> {
+        self.segments
+            .get(&segment.helix_idx)
+            .and_then(|segments| segments.get(segment.segment_idx).cloned())
+    }
+
+    pub fn get_min_left(&self, segment: HelixSegment) -> Option<isize> {
+        self.segments.get(&segment.helix_idx).and_then(|segments| {
+            if segment.segment_idx > 0 {
+                segments.get(segment.segment_idx - 1).cloned()
             } else {
-                isize::MIN
-            };
-            let right = segments.get(segment_idx).cloned().unwrap_or(isize::MAX);
-            Some((left, right))
+                None
+            }
         })
     }
 
     pub fn flat_nucl_to_real(&self, flat_nucl: FlatNucl) -> Option<Nucl> {
-        let (helix, segment) = self.flat_to_real.get(&flat_nucl.helix.flat)?;
+        let segment_idx = self.flat_to_real.get(&flat_nucl.helix.flat)?;
         let segment_left = self
             .segments
-            .get(helix)
-            .and_then(|segments| segments.get(*segment))?;
+            .get(&segment_idx.helix_idx)
+            .and_then(|segments| segments.get(segment_idx.segment_idx))?;
         Some(Nucl {
-            helix: *helix,
-            position: flat_nucl.flat_position + segment_left,
+            helix: segment_idx.helix_idx,
+            position: flat_nucl.flat_position.to_real(Some(*segment_left)),
             forward: flat_nucl.forward,
         })
     }
@@ -121,15 +134,20 @@ impl FlatHelixMaps {
                 .and_then(|segments| segments.get(segment_idx - 1))
                 .cloned()
         };
-        let flat = self.get_segment_idx(nucl.helix, segment_idx)?;
+        let flat = self.get_segment_idx(HelixSegment {
+            helix_idx: nucl.helix,
+            segment_idx,
+        })?;
         Some(FlatNucl {
             helix: FlatHelix {
                 flat,
-                real: nucl.helix,
-                segment_idx,
+                segment: HelixSegment {
+                    helix_idx: nucl.helix,
+                    segment_idx,
+                },
                 segment_left,
             },
-            flat_position: nucl.position - segment_left.unwrap_or(0),
+            flat_position: FlatPosition::from_real(nucl.position, segment_left),
             forward: nucl.forward,
         })
     }
@@ -144,7 +162,7 @@ impl FlatHelixMaps {
         Some(segment.len())
     }
 
-    pub fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&(usize, usize), &FlatIdx)> + 'a> {
+    pub fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&HelixSegment, &FlatIdx)> + 'a> {
         Box::new(self.real_to_flat.iter())
     }
 
@@ -168,23 +186,22 @@ impl std::cmp::Ord for FlatHelix {
 }
 
 impl FlatHelix {
-    pub fn from_real(real: usize, segment_idx: usize, helix_map: &FlatHelixMaps) -> Option<Self> {
-        let flat = *helix_map.real_to_flat.get(&(real, segment_idx))?;
+    pub fn from_real(segment: HelixSegment, helix_map: &FlatHelixMaps) -> Option<Self> {
+        let flat = *helix_map.real_to_flat.get(&segment)?;
 
-        let segment_left = if segment_idx == 0 {
+        let segment_left = if segment.segment_idx == 0 {
             None
         } else {
             helix_map
                 .segments
-                .get(&real)
-                .and_then(|segments| segments.get(segment_idx - 1))
+                .get(&segment.helix_idx)
+                .and_then(|segments| segments.get(segment.segment_idx - 1))
                 .cloned()
         };
         Some(Self {
             flat,
-            real,
+            segment,
             segment_left,
-            segment_idx,
         })
     }
 }
@@ -220,19 +237,42 @@ impl<T: Flat> std::ops::Index<FlatIdx> for Vec<T> {
     }
 }
 
+/// The position of a flat nucleotide. If the flat nucleotide belongs to an helix2d representing a
+/// a segment of a real helix, this position is relative to the leftmost extrimity of the segment.
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Eq, Ord, Hash)]
+pub struct FlatPosition(pub isize);
+
 /// The nucleotide type manipulated by the flatscene
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Eq, Ord, Hash)]
 pub struct FlatNucl {
     pub helix: FlatHelix,
-    pub flat_position: isize,
+    pub flat_position: FlatPosition,
     pub forward: bool,
 }
 
+impl FlatPosition {
+    pub fn from_real(real: isize, segment_left: Option<isize>) -> Self {
+        Self(real - segment_left.unwrap_or(0))
+    }
+
+    pub fn to_real(self, segment_left: Option<isize>) -> isize {
+        self.0 + segment_left.unwrap_or(0)
+    }
+
+    pub fn left(self) -> Self {
+        Self(self.0 - 1)
+    }
+
+    pub fn right(self) -> Self {
+        Self(self.0 + 1)
+    }
+}
+
 impl FlatNucl {
-    pub fn to_real(&self) -> Nucl {
+    pub fn to_real(self) -> Nucl {
         Nucl {
-            helix: self.helix.real,
-            position: self.flat_position + self.helix.segment_left.unwrap_or(0),
+            helix: self.helix.segment.helix_idx,
+            position: self.flat_position.to_real(self.helix.segment_left),
             forward: self.forward,
         }
     }
@@ -242,39 +282,31 @@ impl FlatNucl {
     }
 
     pub fn prime3(&self) -> Self {
-        Self {
-            flat_position: if self.forward {
-                self.flat_position + 1
-            } else {
-                self.flat_position - 1
-            },
-            ..*self
+        if self.forward {
+            self.right()
+        } else {
+            self.left()
         }
     }
 
     pub fn prime5(&self) -> Self {
-        Self {
-            flat_position: if self.forward {
-                self.flat_position - 1
-            } else {
-                self.flat_position + 1
-            },
-            ..*self
+        if self.forward {
+            self.left()
+        } else {
+            self.right()
         }
     }
 
-    #[allow(dead_code)]
     pub fn left(&self) -> Self {
         Self {
-            flat_position: self.flat_position - 1,
+            flat_position: self.flat_position.left(),
             ..*self
         }
     }
 
-    #[allow(dead_code)]
     pub fn right(&self) -> Self {
         Self {
-            flat_position: self.flat_position + 1,
+            flat_position: self.flat_position.right(),
             ..*self
         }
     }
@@ -320,14 +352,20 @@ impl FlatSelection {
                     helix_id,
                     ..
                 } => {
-                    if let Some(flat_helix) = FlatHelix::from_real(*helix_id, 0, id_map) {
+                    if let Some(flat_helix) = FlatHelix::from_real(
+                        HelixSegment {
+                            helix_idx: *helix_id,
+                            segment_idx: 0,
+                        },
+                        id_map,
+                    ) {
                         Self::Helix(*design_id as usize, flat_helix)
                     } else {
                         Self::Nothing
                     }
                 }
                 Selection::Grid(d, g_id) => Self::Grid(*d as usize, *g_id),
-                Selection::Phantom(pe) => Self::Phantom(pe.clone()),
+                Selection::Phantom(pe) => Self::Phantom(*pe),
                 Selection::Nothing => Self::Nothing,
                 Selection::BezierControlPoint { .. } => Self::Nothing,
                 Selection::BezierTengent { .. } => Self::Nothing,
