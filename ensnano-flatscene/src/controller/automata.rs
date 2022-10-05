@@ -1532,13 +1532,13 @@ impl<S: AppState> ControllerState<S> for InitBuilding {
                         &controller.get_camera(position.y),
                     );
                     match click_result {
-                        ClickResult::Nucl(FlatNucl {
-                            helix,
-                            flat_position: position,
-                            forward,
-                        }) if helix == self.nucl.helix && forward == self.nucl.forward => {
-                            if position != self.nucl.flat_position {
+                        ClickResult::Nucl(flat_nucl)
+                            if flat_nucl.helix == self.nucl.helix
+                                && flat_nucl.forward == self.nucl.forward =>
+                        {
+                            if flat_nucl.flat_position != self.nucl.flat_position {
                                 //self.builder.move_to(position);
+                                let real_position = flat_nucl.to_real().position;
                                 controller.data.borrow_mut().notify_update();
                                 Transition {
                                     new_state: Some(Box::new(Building {
@@ -1546,7 +1546,7 @@ impl<S: AppState> ControllerState<S> for InitBuilding {
                                         nucl: self.nucl,
                                         can_attach: true,
                                     })),
-                                    consequences: Consequence::MoveBuilders(position),
+                                    consequences: Consequence::MoveBuilders(real_position),
                                 }
                             } else {
                                 Transition::nothing()
@@ -1837,8 +1837,9 @@ impl<S: AppState> ControllerState<S> for Building {
                         flat_position: position,
                         ..
                     } if helix == self.nucl.helix => {
+                        let real_position = nucl.to_real().position;
                         controller.data.borrow_mut().notify_update();
-                        Transition::consequence(Consequence::MoveBuilders(position))
+                        Transition::consequence(Consequence::MoveBuilders(real_position))
                     }
                     _ => Transition::nothing(),
                 }

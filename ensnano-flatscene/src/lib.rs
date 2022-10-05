@@ -284,8 +284,8 @@ impl<S: AppState> FlatScene<S> {
                 .set_paste_candidate(candidate.map(|n| n.to_real())),
             Consequence::NewCandidate(candidate) => {
                 let phantom = candidate.map(|n| PhantomElement {
-                    position: n.flat_position as i32 + n.helix.segment_left.unwrap_or(0) as i32,
-                    helix_id: n.helix.real as u32,
+                    position: n.flat_position.to_real(n.helix.segment_left) as i32,
+                    helix_id: n.helix.segment.helix_idx as u32,
                     forward: n.forward,
                     bound: false,
                     design_id: self.selected_design as u32,
@@ -389,7 +389,7 @@ impl<S: AppState> FlatScene<S> {
             } => {
                 let pivots = pivots
                     .into_iter()
-                    .map(|n| (n.to_real(), n.helix.segment_idx))
+                    .map(|n| (n.to_real(), n.helix.segment.segment_idx))
                     .collect();
                 self.requests.lock().unwrap().apply_design_operation(
                     DesignOperation::SnapHelices {
@@ -403,7 +403,7 @@ impl<S: AppState> FlatScene<S> {
                 center,
                 angle,
             } => {
-                let helices = helices.into_iter().map(|fh| fh.real).collect();
+                let helices = helices.into_iter().map(|fh| fh.segment.helix_idx).collect();
                 self.requests.lock().unwrap().apply_design_operation(
                     DesignOperation::RotateHelices {
                         helices,
@@ -417,7 +417,7 @@ impl<S: AppState> FlatScene<S> {
                 centers,
                 symmetry,
             } => {
-                let helices = helices.into_iter().map(|fh| fh.real).collect();
+                let helices = helices.into_iter().map(|fh| fh.segment.helix_idx).collect();
                 self.requests.lock().unwrap().apply_design_operation(
                     DesignOperation::ApplySymmetryToHelices {
                         helices,
@@ -458,8 +458,8 @@ impl<S: AppState> FlatScene<S> {
                 .unwrap()
                 .new_candidates(vec![Selection::Helix {
                     design_id: self.selected_design as u32,
-                    helix_id: flat_helix.real,
-                    segment_id: flat_helix.segment_idx,
+                    helix_id: flat_helix.segment.helix_idx,
+                    segment_id: flat_helix.segment.segment_idx,
                 }]),
             Consequence::PngExport(corner1, corner2) => {
                 let glob_png = Globals::from_selection_rectangle(corner1, corner2);

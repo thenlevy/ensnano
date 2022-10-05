@@ -83,7 +83,7 @@ use text::Letter;
 //use plane_drawer::PlaneDrawer;
 //pub use plane_drawer::Plane;
 
-static MODEL_BG_ENTRY: &'static [wgpu::BindGroupLayoutEntry] = &[wgpu::BindGroupLayoutEntry {
+static MODEL_BG_ENTRY: &[wgpu::BindGroupLayoutEntry] = &[wgpu::BindGroupLayoutEntry {
     binding: 0,
     visibility: wgpu::ShaderStages::from_bits_truncate(wgpu::ShaderStages::VERTEX.bits()),
     ty: wgpu::BindingType::Buffer {
@@ -310,7 +310,7 @@ impl View {
         let external_objects_drawer = Object3DDrawer::new(device.clone());
         let sheets_drawer = InstanceDrawer::new(
             device.clone(),
-            queue.clone(),
+            queue,
             &viewer.get_layout_desc(),
             &model_bg_desc,
             (),
@@ -383,7 +383,7 @@ impl View {
                     .new_instances(vec![DirectionCube::new(dist)]);
             }
             ViewUpdate::Fog(fog) => {
-                let fog_center = self.fog_parameters.alt_fog_center.clone();
+                let fog_center = self.fog_parameters.alt_fog_center;
                 self.fog_parameters = fog;
                 self.fog_parameters.alt_fog_center = fog_center;
                 self.update_viewers();
@@ -533,7 +533,7 @@ impl View {
             } else {
                 None
             };
-            png_msaa.as_ref().unwrap_or(&target)
+            png_msaa.as_ref().unwrap_or(target)
         } else {
             target
         };
@@ -1070,7 +1070,7 @@ pub enum Mesh {
 }
 
 impl Mesh {
-    fn to_fake(&self) -> Option<Self> {
+    fn to_fake(self) -> Option<Self> {
         match self {
             Self::Sphere => Some(Self::FakeSphere),
             Self::Tube => Some(Self::FakeTube),
@@ -1081,7 +1081,7 @@ impl Mesh {
         }
     }
 
-    fn to_outline(&self) -> Option<Self> {
+    fn to_outline(self) -> Option<Self> {
         match self {
             Self::Sphere => Some(Self::OutlineSphere),
             Self::Tube => Some(Self::OutlineTube),
@@ -1512,8 +1512,8 @@ impl DnaDrawers {
                 "fake bezier control",
             ),
             stereographic_sphere: InstanceDrawer::new(
-                device.clone(),
-                queue.clone(),
+                device,
+                queue,
                 viewer_desc,
                 model_desc,
                 (),

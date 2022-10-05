@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::super::view::{CircleInstance, InsertionDescriptor, InsertionInstance};
 use super::super::{CameraPtr, Flat, FlatHelix};
 use super::{FlatNucl, Helix2d, NuclCollection};
-use crate::flattypes::FlatHelixMaps;
+use crate::flattypes::{FlatHelixMaps, FlatPosition, HelixSegment};
 use crate::view::EditionInfo;
 use abcissa_converter::{AbscissaConverter, AbscissaConverter_};
 use ahash::RandomState;
@@ -110,7 +110,11 @@ impl Helix {
         self.visible = helix2d.visible;
         self.real_id = helix2d.id;
         let left;
-        if let Some(flat_id) = FlatHelix::from_real(self.real_id, helix2d.segment_idx, id_map) {
+        let segment = HelixSegment {
+            helix_idx: helix2d.id,
+            segment_idx: helix2d.segment_idx,
+        };
+        if let Some(flat_id) = FlatHelix::from_real(segment, id_map) {
             left = flat_id.segment_left;
             self.flat_id = flat_id
         } else {
@@ -126,10 +130,14 @@ impl Helix {
 
     pub fn background_vertices(&self) -> Vertices {
         let mut vertices = Vertices::new();
-        let left = self.abscissa_converter.nucl_to_x_convertion(self.left) as f32;
-        let right = self
+        let left = self
             .abscissa_converter
-            .nucl_to_x_convertion(self.right.max(self.left + 1) + 1) as f32;
+            .nucl_to_x_convertion(self.get_flat_left()) as f32;
+        let right = self.abscissa_converter.nucl_to_x_convertion(
+            self.get_flat_right()
+                .right()
+                .max(self.get_flat_left().right()),
+        ) as f32;
         let top = 0.;
         let bottom = 2.;
         let mut fill_tess = lyon::tessellation::FillTessellator::new();
@@ -159,10 +167,14 @@ impl Helix {
 
     pub fn to_vertices(&self) -> Vertices {
         let mut vertices = Vertices::new();
-        let left = self.abscissa_converter.nucl_to_x_convertion(self.left) as f32;
-        let right = self
+        let left = self
             .abscissa_converter
-            .nucl_to_x_convertion(self.right.max(self.left + 1) + 1) as f32;
+            .nucl_to_x_convertion(self.get_flat_left()) as f32;
+        let right = self.abscissa_converter.nucl_to_x_convertion(
+            self.get_flat_right()
+                .right()
+                .max(self.get_flat_left().right()),
+        ) as f32;
         let top = 0.;
         let bottom = 2.;
 
@@ -176,7 +188,9 @@ impl Helix {
             lyon::tessellation::path::Winding::Positive,
         );
         for i in (self.left + 1)..=self.right {
-            let x = self.abscissa_converter.nucl_to_x_convertion(i);
+            let x = self
+                .abscissa_converter
+                .nucl_to_x_convertion(FlatPosition::from_real(i, self.flat_id.segment_left));
             builder.begin(Point::new(x as f32, 0.));
             builder.line_to(Point::new(x as f32, 2.));
             builder.end(false);
@@ -216,7 +230,7 @@ impl Helix {
 
     /// Return the position of the nucleotide in the 2d drawing
     pub fn get_nucl_position(&self, nucl: &FlatNucl, shift: Shift) -> Vec2 {
-        let mut local_position = nucl.flat_position as f32 * Vec2::unit_x()
+        let mut local_position = nucl.flat_position.0 as f32 * Vec2::unit_x()
             + match shift {
                 Shift::Prime3 => {
                     if nucl.forward {
@@ -273,7 +287,7 @@ impl Helix {
 
     /// Return the position at which the 3' tick should end
     pub fn get_arrow_end(&self, nucl: &FlatNucl) -> Vec2 {
-        let mut local_position = nucl.flat_position as f32 * Vec2::unit_x()
+        let mut local_position = nucl.flat_position.0 as f32 * Vec2::unit_x()
             + if nucl.forward {
                 Vec2::new(0.2, 0.3)
             } else {
@@ -304,7 +318,7 @@ impl Helix {
     }*/
 
     /// Return the nucleotide displayed at position (x, y) or None if (x, y) is outside the helix
-    pub fn get_click(&self, x: f32, y: f32) -> Option<(isize, bool)> {
+    pub fn get_click(&self, x: f32, y: f32) -> Option<(FlatPosition, bool)> {
         let click = {
             let ret = Vec2::new(x, y);
             let iso = self.isometry.into_homogeneous_matrix().inversed();
@@ -324,8 +338,12 @@ impl Helix {
     pub fn move_handle(&mut self, handle: HelixHandle, position: Vec2) -> (isize, isize) {
         let (pos, _) = self.get_click_unbounded(position.x, position.y);
         match handle {
-            HelixHandle::Left => self.left = (self.right - 2).min(pos + 1),
-            HelixHandle::Right => self.right = (self.left + 2).max(pos - 1),
+            HelixHandle::Left => {
+                self.left = (self.right - 2).min(pos.right().to_real(self.flat_id.segment_left))
+            }
+            HelixHandle::Right => {
+                self.right = (self.left + 2).max(pos.left().to_real(self.flat_id.segment_left))
+            }
         }
         (self.left, self.right)
     }
@@ -361,10 +379,13 @@ impl Helix {
         if click.y <= 0. || click.y >= 2. {
             None
         } else {
-            let ret = self.get_click_unbounded(x, y);
-            if ret.0 == self.left - 1 {
+            let ret = self
+                .get_click_unbounded(x, y)
+                .0
+                .to_real(self.flat_id.segment_left);
+            if ret == self.left - 1 {
                 Some(HelixHandle::Left)
-            } else if ret.0 == self.right + 1 {
+            } else if ret == self.right + 1 {
                 Some(HelixHandle::Right)
             } else {
                 None
@@ -374,7 +395,7 @@ impl Helix {
 
     /// Project a click on the helix's axis, and return the corresponding nucleotide
     /// Do not take the left and right bound into account.
-    pub fn get_click_unbounded(&self, x: f32, y: f32) -> (isize, bool) {
+    pub fn get_click_unbounded(&self, x: f32, y: f32) -> (FlatPosition, bool) {
         let click = {
             let ret = Vec2::new(x, y);
             let iso = self.isometry.into_homogeneous_matrix().inversed();
@@ -385,7 +406,7 @@ impl Helix {
             .abscissa_converter
             .x_to_nucl_conversion(click.x as f64)
             .floor() as isize;
-        (position, forward)
+        (FlatPosition(position), forward)
     }
 
     /// Return true if (x, y) is on the circle representing self
@@ -397,10 +418,10 @@ impl Helix {
         }
     }
 
-    pub fn get_pivot(&self, position: isize) -> Vec2 {
+    pub fn get_pivot(&self, position: FlatPosition) -> Vec2 {
         self.isometry
             .into_homogeneous_matrix()
-            .transform_point2(self.scale * Vec2::new(self.x_conversion(position as f32), 1.))
+            .transform_point2(self.scale * Vec2::new(self.x_conversion(position.0 as f32), 1.))
     }
 
     pub fn set_color(&mut self, color: u32) {
@@ -431,24 +452,22 @@ impl Helix {
         self.abscissa_converter.x_conversion(x as f64) as f32
     }
 
-    fn info_position(&self, x: isize) -> Vec2 {
-        let pos_shift = self.flat_id.segment_left.unwrap_or(0);
-        self.isometry.into_homogeneous_matrix().transform_point2(
-            self.x_conversion(x as f32 + 0.5 - pos_shift as f32) * Vec2::unit_x() - Vec2::unit_y(),
-        )
-    }
-
-    fn char_position_top(&self, x: isize) -> Vec2 {
-        let pos_shift = self.flat_id.segment_left.unwrap_or(0) as f32;
+    fn info_position(&self, x: FlatPosition) -> Vec2 {
         self.isometry
             .into_homogeneous_matrix()
-            .transform_point2(self.x_conversion(x as f32 + 0.5 - pos_shift) * Vec2::unit_x())
+            .transform_point2(self.x_conversion(x.0 as f32 + 0.5) * Vec2::unit_x() - Vec2::unit_y())
     }
 
-    fn char_position_bottom(&self, x: isize) -> Vec2 {
+    fn char_position_top(&self, x: FlatPosition) -> Vec2 {
+        self.isometry
+            .into_homogeneous_matrix()
+            .transform_point2(self.x_conversion(x.0 as f32 + 0.5) * Vec2::unit_x())
+    }
+
+    fn char_position_bottom(&self, x: FlatPosition) -> Vec2 {
         let pos_shift = self.flat_id.segment_left.unwrap_or(0) as f32;
         self.isometry.into_homogeneous_matrix().transform_point2(
-            self.x_conversion(x as f32 + 0.5 - pos_shift) * Vec2::unit_x() + 2. * Vec2::unit_y(),
+            self.x_conversion(x.0 as f32 + 0.5) * Vec2::unit_x() + 2. * Vec2::unit_y(),
         )
     }
 
@@ -456,7 +475,7 @@ impl Helix {
         let top_left_pos = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
-                flat_position: self.left - 1,
+                flat_position: self.get_flat_left().left(),
                 forward: true,
             },
             Shift::No,
@@ -464,7 +483,7 @@ impl Helix {
         let bottom_left_pos = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
-                flat_position: self.left - 1,
+                flat_position: self.get_flat_left().left(),
                 forward: false,
             },
             Shift::No,
@@ -472,7 +491,7 @@ impl Helix {
         let top_right_pos = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
-                flat_position: self.right + 1,
+                flat_position: self.get_flat_right().right(),
                 forward: true,
             },
             Shift::No,
@@ -480,7 +499,7 @@ impl Helix {
         let bottom_right_pos = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
-                flat_position: self.right + 1,
+                flat_position: self.get_flat_right().right(),
                 forward: false,
             },
             Shift::No,
@@ -509,11 +528,13 @@ impl Helix {
     }
 
     fn leftmost_x(&self) -> f32 {
-        self.abscissa_converter.nucl_to_x_convertion(self.left) as f32
+        self.abscissa_converter
+            .nucl_to_x_convertion(self.get_flat_left()) as f32
     }
 
     fn rightmost_x(&self) -> f32 {
-        self.abscissa_converter.nucl_to_x_convertion(self.right + 1) as f32
+        self.abscissa_converter
+            .nucl_to_x_convertion(self.get_flat_right().right()) as f32
     }
 
     /// Return the center of the helix's circle widget.
@@ -565,7 +586,12 @@ impl Helix {
         center.map(|c| CircleInstance::new(c, radius, self.flat_id.flat.0 as i32, color))
     }
 
-    pub fn get_circle_nucl(&self, position: isize, forward: bool, color: u32) -> CircleInstance {
+    pub fn get_circle_nucl(
+        &self,
+        position: FlatPosition,
+        forward: bool,
+        color: u32,
+    ) -> CircleInstance {
         let center = self.get_nucl_position(
             &FlatNucl {
                 helix: self.flat_id,
@@ -589,13 +615,13 @@ impl Helix {
         {
             // There is room on the left of the helix
             Some(FlatNucl {
-                flat_position: self.left - 3,
+                flat_position: self.get_flat_left().left().left().left(),
                 helix: self.flat_id,
                 forward: true,
             })
         } else {
             Some(FlatNucl {
-                flat_position: self.left,
+                flat_position: self.get_flat_left(),
                 helix: self.flat_id,
                 forward: true,
             })
@@ -605,7 +631,7 @@ impl Helix {
     /// A default nucleotide position for when the helix cannot be seen by the camera
     pub fn default_pivot(&self) -> FlatNucl {
         FlatNucl {
-            flat_position: self.left - 3,
+            flat_position: self.get_flat_left().left().left().left(),
             helix: self.flat_id,
             forward: true,
         }
@@ -638,10 +664,10 @@ impl Helix {
             .transform_point2(self.scale * local_position)
     }
 
-    pub fn make_visible(&self, position: isize, camera: CameraPtr) {
+    pub fn make_visible(&self, position: FlatPosition, camera: CameraPtr) {
         let intersection = self.screen_intersection(&camera);
         let need_center = if let Some((left, right)) = intersection {
-            left.floor() as isize > position || (right.ceil() as isize) < position
+            left.floor() as isize > position.0 || (right.ceil() as isize) < position.0
         } else {
             true
         };
@@ -761,7 +787,7 @@ impl Helix {
         let moving_pos = edition_info
             .as_ref()
             .filter(|info| info.nucl.helix == self.flat_id)
-            .map(|info| info.nucl.flat_position);
+            .map(|info| info.nucl.flat_position.to_real(self.flat_id.segment_left));
         let mut print_pos = |pos: isize| {
             let color = if Some(pos) == moving_pos || candidate_pos == Some(pos) {
                 [1., 0., 0., 1.].into()
@@ -769,6 +795,7 @@ impl Helix {
                 [0., 0., 0., 1.].into()
             };
             let text = pos.to_string();
+            let flat_pos = FlatPosition::from_real(pos, self.flat_id.segment_left);
             let sentence = Sentence {
                 text: &text,
                 size: size_pos * zoom_font,
@@ -778,9 +805,9 @@ impl Helix {
                 symetry,
             };
             let (position, line) = if show_seq {
-                (self.info_position(pos), self.info_line())
+                (self.info_position(flat_pos), self.info_line())
             } else {
-                (self.char_position_top(pos), self.top_line())
+                (self.char_position_top(flat_pos), self.top_line())
             };
             char_collector
                 .text_drawer
@@ -800,7 +827,7 @@ impl Helix {
             print_pos(position);
         }
 
-        let mut print_info = |flat_pos: isize, info: &str| {
+        let mut print_info = |flat_pos: FlatPosition, info: &str| {
             let sentence = Sentence {
                 text: info,
                 size: size_pos * zoom_font,
@@ -810,10 +837,9 @@ impl Helix {
                 symetry,
             };
             let line = self.info_line();
-            let pos = flat_pos + self.flat_id.segment_left.unwrap_or(0);
             char_collector
                 .text_drawer
-                .add_sentence(sentence, self.info_position(pos), line);
+                .add_sentence(sentence, self.info_position(flat_pos), line);
         };
 
         if let Some(building) = edition_info {
@@ -822,7 +848,7 @@ impl Helix {
             }
         }
 
-        let mut print_basis = |flat_position: isize, forward: bool| {
+        let mut print_basis = |flat_position: FlatPosition, forward: bool| {
             let nucl = FlatNucl {
                 helix: self.flat_id,
                 flat_position,
@@ -844,9 +870,9 @@ impl Helix {
                     symetry,
                 };
                 let (line, position) = if nucl.forward {
-                    (self.top_line(), self.char_position_top(nucl.position))
+                    (self.top_line(), self.char_position_top(flat_position))
                 } else {
-                    (self.bottom_line(), self.char_position_bottom(nucl.position))
+                    (self.bottom_line(), self.char_position_bottom(flat_position))
                 };
                 char_collector
                     .text_drawer
@@ -856,11 +882,19 @@ impl Helix {
 
         if show_seq {
             for pos in self.left..=self.right {
-                let flat_pos = pos - self.flat_id.segment_left.unwrap_or(0);
+                let flat_pos = FlatPosition::from_real(pos, self.flat_id.segment_left);
                 print_basis(flat_pos, true);
                 print_basis(flat_pos, false);
             }
         }
+    }
+
+    pub fn get_flat_left(&self) -> FlatPosition {
+        FlatPosition::from_real(self.get_left(), self.flat_id.segment_left)
+    }
+
+    pub fn get_flat_right(&self) -> FlatPosition {
+        FlatPosition::from_real(self.get_right(), self.flat_id.segment_left)
     }
 
     pub fn get_left(&self) -> isize {
@@ -883,8 +917,8 @@ impl Helix {
         if let Some((x0, x1)) =
             self.screen_rectangle_intersection(camera, left, top, right, bottom, HelixLine::Middle)
         {
-            if self.x_conversion(nucl.flat_position as f32) >= x0.floor()
-                && self.x_conversion(nucl.flat_position as f32) < x1.ceil()
+            if self.x_conversion(nucl.flat_position.0 as f32) >= x0.floor()
+                && self.x_conversion(nucl.flat_position.0 as f32) < x1.ceil()
             {
                 return true;
             }
@@ -893,8 +927,8 @@ impl Helix {
             if let Some((x0, x1)) =
                 self.screen_rectangle_intersection(camera, left, top, right, bottom, HelixLine::Top)
             {
-                if self.x_conversion(nucl.flat_position as f32) >= x0.floor()
-                    && self.x_conversion(nucl.flat_position as f32) < x1.ceil()
+                if self.x_conversion(nucl.flat_position.0 as f32) >= x0.floor()
+                    && self.x_conversion(nucl.flat_position.0 as f32) < x1.ceil()
                 {
                     return true;
                 }
@@ -902,8 +936,8 @@ impl Helix {
         } else if let Some((x0, x1)) =
             self.screen_rectangle_intersection(camera, left, top, right, bottom, HelixLine::Bottom)
         {
-            if self.x_conversion(nucl.flat_position as f32) >= x0.floor()
-                && self.x_conversion(nucl.flat_position as f32) < x1.ceil()
+            if self.x_conversion(nucl.flat_position.0 as f32) >= x0.floor()
+                && self.x_conversion(nucl.flat_position.0 as f32) < x1.ceil()
             {
                 return true;
             }
@@ -1112,14 +1146,15 @@ mod abcissa_converter {
     }
 
     impl AbscissaConverter {
-        pub fn nucl_to_x_convertion(&self, n: isize) -> f64 {
+        pub fn nucl_to_x_convertion(&self, n: FlatPosition) -> f64 {
             let adjust = if let Some(n) = self.left {
                 self.converter.nucl_to_x_convertion(n)
             } else {
                 0.0
             };
 
-            self.converter.nucl_to_x_convertion(n) - adjust
+            let real = n.to_real(self.left);
+            self.converter.nucl_to_x_convertion(real) - adjust
         }
 
         pub fn x_conversion(&self, x: f64) -> f64 {
