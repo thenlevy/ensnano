@@ -844,9 +844,9 @@ impl Helix {
                     symetry,
                 };
                 let (line, position) = if nucl.forward {
-                    (self.top_line(), self.char_position_top(flat_position))
+                    (self.top_line(), self.char_position_top(nucl.position))
                 } else {
-                    (self.bottom_line(), self.char_position_bottom(flat_position))
+                    (self.bottom_line(), self.char_position_bottom(nucl.position))
                 };
                 char_collector
                     .text_drawer

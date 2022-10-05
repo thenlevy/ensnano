@@ -93,9 +93,6 @@ impl<R: DesignReader> Data<R> {
             self.update_highlight(new_state);
             self.update_strand_building_info(new_state.get_building_state());
         }
-        for h in self.helices.iter() {
-            println!("{:?} ({:?}, {:?})", h.flat_id, h.get_left(), h.get_right())
-        }
         self.instance_update = false;
     }
 
