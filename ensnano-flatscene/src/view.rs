@@ -16,7 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::data::{
-    FlatTorsion, FreeEnd, GpuVertex, Helix, HelixModel, Shift, Strand, StrandVertex,
+    helix::CharCollector, FlatTorsion, FreeEnd, GpuVertex, Helix, HelixModel, Shift, Strand,
+    StrandVertex,
 };
 use super::{CameraPtr, FlatIdx, FlatNucl, NuclCollection};
 use crate::{DrawArea, PhySize};
@@ -222,7 +223,7 @@ impl View {
             device.clone(),
             queue.clone(),
             globals_top.get_layout(),
-            depth_stencil_state.clone(),
+            depth_stencil_state,
         );
 
         Self {
@@ -320,14 +321,14 @@ impl View {
             self.queue.clone(),
             true,
         ));
-        self.helices_view[id_helix as usize].update(&helix);
-        self.helices_background[id_helix as usize].update(&helix);
+        self.helices_view[id_helix as usize].update(helix);
+        self.helices_background[id_helix as usize].update(helix);
         self.helices_model.push(helix.model());
         self.models.update(self.helices_model.as_slice());
     }
 
     pub fn rm_helices(&mut self, helices: BTreeSet<FlatIdx>) {
-        if self.helices.len() == 0 {
+        if self.helices.is_empty() {
             // self was already reseted
             return;
         }
@@ -370,7 +371,7 @@ impl View {
             &self.camera_top
         };
         self.strands.iter_mut().last().unwrap().update(
-            &strand,
+            strand,
             helices,
             &self.free_end,
             &self.camera_top,
@@ -1106,7 +1107,7 @@ impl View {
                 .and_then(|h| h.get_circle(camera, self.groups.as_ref()))
             {
                 circle.set_radius(circle.radius * 1.4);
-                circle.set_color(0xFF_FF0000);
+                circle.set_color(0xFF_FF_00_00);
                 circles.push(circle);
             }
         }
@@ -1118,7 +1119,7 @@ impl View {
                 .and_then(|h| h.get_circle(camera, self.groups.as_ref()))
             {
                 circle.set_radius(circle.radius * 1.4);
-                circle.set_color(0xFF_00FF00);
+                circle.set_color(0xFF_00_FF_00);
                 circles.push(circle);
             }
         }
@@ -1238,26 +1239,26 @@ impl View {
         self.text_drawer_bottom.clear();
 
         for h in self.helices.iter() {
-            h.add_char_instances(
-                &self.camera_top,
-                &mut self.text_drawer_top,
-                self.groups.as_ref(),
-                self.basis_map.as_ref(),
-                self.show_sec,
-                &self.edition_info,
-                &self.hovered_nucl,
-                self.nucl_collection.as_ref(),
-            );
-            h.add_char_instances(
-                &self.camera_bottom,
-                &mut self.text_drawer_bottom,
-                self.groups.as_ref(),
-                self.basis_map.as_ref(),
-                self.show_sec,
-                &self.edition_info,
-                &self.hovered_nucl,
-                self.nucl_collection.as_ref(),
-            )
+            h.add_char_instances(CharCollector {
+                camera: &self.camera_top,
+                text_drawer: &mut self.text_drawer_top,
+                groups: self.groups.as_ref(),
+                basis_map: self.basis_map.as_ref(),
+                show_seq: self.show_sec,
+                edition_info: &self.edition_info,
+                hovered_nucl: &self.hovered_nucl,
+                nucl_collection: self.nucl_collection.as_ref(),
+            });
+            h.add_char_instances(CharCollector {
+                camera: &self.camera_bottom,
+                text_drawer: &mut self.text_drawer_bottom,
+                groups: self.groups.as_ref(),
+                basis_map: self.basis_map.as_ref(),
+                show_seq: self.show_sec,
+                edition_info: &self.edition_info,
+                hovered_nucl: &self.hovered_nucl,
+                nucl_collection: self.nucl_collection.as_ref(),
+            })
         }
     }
 
@@ -1307,14 +1308,14 @@ fn helices_pipeline_descr(
     let desc = wgpu::RenderPipelineDescriptor {
         layout: Some(&pipeline_layout),
         fragment: Some(wgpu::FragmentState {
-            module: &fs_module,
+            module: fs_module,
             entry_point: "main",
             targets: color_targets,
         }),
         primitive: primitive_state,
         depth_stencil,
         vertex: wgpu::VertexState {
-            module: &vs_module,
+            module: vs_module,
             entry_point: "main",
             buffers: &[wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<GpuVertex>() as u64,
@@ -1363,7 +1364,7 @@ fn strand_pipeline_descr(
         primitive: primitive_state,
         layout: Some(&pipeline_layout),
         fragment: Some(wgpu::FragmentState {
-            module: &fs_module,
+            module: fs_module,
             entry_point: "main",
             targets: color_targets,
         }),
@@ -1374,7 +1375,7 @@ fn strand_pipeline_descr(
                 step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x4, 3 => Float32, 4 => Float32],
             }],
-            module: &vs_module,
+            module: vs_module,
             entry_point: "main",
         },
         multisample: wgpu::MultisampleState {

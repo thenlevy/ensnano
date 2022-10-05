@@ -704,28 +704,37 @@ impl Helix {
                 .transform_vec2(-Vec2::unit_x()),
         }
     }
+}
 
-    pub fn add_char_instances(
-        &self,
-        camera: &CameraPtr,
-        text_drawer: &mut TextDrawer,
-        groups: &BTreeMap<usize, bool>,
-        basis_map: &HashMap<Nucl, char, RandomState>,
-        show_seq: bool,
-        edition_info: &Option<EditionInfo>,
-        hovered_nucl: &Option<FlatNucl>,
-        nucl_collection: &dyn NuclCollection,
-    ) {
-        let candidate_pos: Option<isize> = hovered_nucl
+pub struct CharCollector<'a> {
+    pub camera: &'a CameraPtr,
+    pub text_drawer: &'a mut TextDrawer,
+    pub groups: &'a BTreeMap<usize, bool>,
+    pub basis_map: &'a HashMap<Nucl, char, RandomState>,
+    pub show_seq: bool,
+    pub edition_info: &'a Option<EditionInfo>,
+    pub hovered_nucl: &'a Option<FlatNucl>,
+    pub nucl_collection: &'a dyn NuclCollection,
+}
+
+impl Helix {
+    pub fn add_char_instances(&self, char_collector: CharCollector) {
+        let candidate_pos: Option<isize> = char_collector
+            .hovered_nucl
             .filter(|n| n.helix == self.flat_id)
             .map(|n| n.to_real().position);
-        let show_seq = show_seq && camera.borrow().get_globals().zoom >= ZOOM_THRESHOLD;
+        let show_seq = char_collector.show_seq
+            && char_collector.camera.borrow().get_globals().zoom >= ZOOM_THRESHOLD;
         let size_id = 3.;
-        let zoom_font = if camera.borrow().get_globals().zoom < 7.0 {
+        let zoom_font = if char_collector.camera.borrow().get_globals().zoom < 7.0 {
             2.
         } else {
             1.
         };
+        let camera = char_collector.camera;
+        let groups = char_collector.groups;
+        let edition_info = char_collector.edition_info;
+
         let size_pos = 1.4;
         let circle = self.get_circle(camera, groups);
         let rotation = camera.borrow().rotation().reversed();
@@ -744,7 +753,9 @@ impl Helix {
                 origin: circle.center + circle.radius * Vec2::unit_y(),
                 direction: Vec2::unit_x(),
             };
-            text_drawer.add_sentence(sentence, circle.center, line);
+            char_collector
+                .text_drawer
+                .add_sentence(sentence, circle.center, line);
         }
 
         let moving_pos = edition_info
@@ -771,7 +782,9 @@ impl Helix {
             } else {
                 (self.char_position_top(pos), self.top_line())
             };
-            text_drawer.add_sentence(sentence, position, line);
+            char_collector
+                .text_drawer
+                .add_sentence(sentence, position, line);
         };
 
         let mut pos = self.left;
@@ -798,7 +811,9 @@ impl Helix {
             };
             let line = self.info_line();
             let pos = flat_pos + self.flat_id.segment_left.unwrap_or(0);
-            text_drawer.add_sentence(sentence, self.info_position(pos), line);
+            char_collector
+                .text_drawer
+                .add_sentence(sentence, self.info_position(pos), line);
         };
 
         if let Some(building) = edition_info {
@@ -814,8 +829,9 @@ impl Helix {
                 forward,
             }
             .to_real();
-            if nucl_collection.contains(&nucl) {
-                let (c, color) = basis_map
+            if char_collector.nucl_collection.contains(&nucl) {
+                let (c, color) = char_collector
+                    .basis_map
                     .get(&nucl)
                     .map(|c| (c.to_string(), BLACK_VEC4))
                     .unwrap_or(('?'.to_string(), GREY_UNKNOWN_NUCL_VEC4));
@@ -832,7 +848,9 @@ impl Helix {
                 } else {
                     (self.bottom_line(), self.char_position_bottom(flat_position))
                 };
-                text_drawer.add_sentence(sentence, position, line);
+                char_collector
+                    .text_drawer
+                    .add_sentence(sentence, position, line);
             }
         };
 

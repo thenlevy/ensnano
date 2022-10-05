@@ -24,7 +24,7 @@ use ensnano_interactor::{Selection, SelectionMode};
 use std::sync::{Arc, Mutex};
 use ultraviolet::Vec2;
 
-mod helix;
+pub(crate) mod helix;
 pub use helix::{GpuVertex, Helix, HelixHandle, HelixModel, Shift};
 mod strand;
 pub use strand::{FreeEnd, Strand, StrandVertex};
