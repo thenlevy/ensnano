@@ -42,6 +42,8 @@ pub use iced_graphics;
 #[macro_use]
 extern crate paste;
 mod icon;
+extern crate serde;
+extern crate serde_derive;
 
 use status_bar::StatusBar;
 
@@ -384,12 +386,14 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
         app_state: top_bar::MainState<S>,
+        ui_size: UiSize,
     ) -> Self {
         let top_bar_area = multiplexer.get_draw_area(ElementType::TopBar).unwrap();
         let top_bar = TopBar::new(
-            requests.clone(),
+            requests,
             top_bar_area.size.to_logical(window.scale_factor()),
             app_state,
+            ui_size,
         );
         let mut top_bar_debug = Debug::new();
         let top_bar_state = program::State::new(
@@ -415,14 +419,16 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         requests: Arc<Mutex<R>>,
         first_time: bool,
         state: &S,
+        ui_size: UiSize,
     ) -> Self {
         let left_panel_area = multiplexer.get_draw_area(ElementType::LeftPanel).unwrap();
         let left_panel = LeftPanel::new(
-            requests.clone(),
+            requests,
             left_panel_area.size.to_logical(window.scale_factor()),
             left_panel_area.position.to_logical(window.scale_factor()),
             first_time,
             state,
+            ui_size,
         );
         let mut left_panel_debug = Debug::new();
         let left_panel_state = program::State::new(
@@ -446,9 +452,10 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
         state: &S,
+        ui_size: UiSize,
     ) -> Self {
         let status_bar_area = multiplexer.get_draw_area(ElementType::StatusBar).unwrap();
-        let status_bar = StatusBar::new(requests, state);
+        let status_bar = StatusBar::new(requests, state, ui_size);
         let mut status_bar_debug = Debug::new();
         let status_bar_state = program::State::new(
             status_bar,
@@ -499,7 +506,7 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
         if !self.state.is_queue_empty() || resized {
             // We update iced
             self.redraw = true;
-            let _ = self.state.update(
+            self.state.update(
                 convert_size(area.size),
                 conversion::cursor_position(cursor, window.scale_factor()),
                 &mut self.renderer,
@@ -559,15 +566,22 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         window: &Window,
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
-        settings: Settings,
+        ui_size: UiSize,
         state: &S,
         main_state: MainState,
     ) -> Self {
+        let settings = Settings {
+            antialiasing: Some(iced_graphics::Antialiasing::MSAAx4),
+            default_text_size: ui_size.main_text(),
+            default_font: Some(include_bytes!("../../font/ensnano2.ttf")),
+            ..Default::default()
+        };
+
         let mut elements = HashMap::new();
 
         let top_bar_renderer = Renderer::new(Backend::new(
             device.as_ref(),
-            settings.clone(),
+            settings,
             ensnano_utils::TEXTURE_FORMAT,
         ));
         let top_bar_state = top_bar_main_state(state, main_state);
@@ -579,11 +593,12 @@ impl<R: Requests, S: AppState> Gui<R, S> {
                 multiplexer,
                 requests.clone(),
                 top_bar_state,
+                ui_size,
             ),
         );
         let left_panel_renderer = Renderer::new(Backend::new(
             device.as_ref(),
-            settings.clone(),
+            settings,
             ensnano_utils::TEXTURE_FORMAT,
         ));
         elements.insert(
@@ -595,11 +610,12 @@ impl<R: Requests, S: AppState> Gui<R, S> {
                 requests.clone(),
                 true,
                 state,
+                ui_size,
             ),
         );
         let status_bar_renderer = Renderer::new(Backend::new(
             device.as_ref(),
-            settings.clone(),
+            settings,
             ensnano_utils::TEXTURE_FORMAT,
         ));
 
@@ -611,6 +627,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
                 multiplexer,
                 requests.clone(),
                 state,
+                ui_size,
             ),
         );
 
@@ -620,7 +637,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
             elements,
             device,
             resized: true,
-            ui_size: Default::default(),
+            ui_size,
         }
     }
 
@@ -711,7 +728,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
         main_state: MainState,
     ) {
         self.set_text_size(ui_size.main_text());
-        self.ui_size = ui_size.clone();
+        self.ui_size = ui_size;
 
         self.rebuild_gui(window, multiplexer, app_state, main_state);
     }
@@ -736,7 +753,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
     ) {
         let top_bar_renderer = Renderer::new(Backend::new(
             self.device.as_ref(),
-            self.settings.clone(),
+            self.settings,
             ensnano_utils::TEXTURE_FORMAT,
         ));
         self.elements.insert(
@@ -747,11 +764,12 @@ impl<R: Requests, S: AppState> Gui<R, S> {
                 multiplexer,
                 self.requests.clone(),
                 top_bar_main_state(state, main_state),
+                self.ui_size,
             ),
         );
         let left_panel_renderer = Renderer::new(Backend::new(
             self.device.as_ref(),
-            self.settings.clone(),
+            self.settings,
             ensnano_utils::TEXTURE_FORMAT,
         ));
         self.elements.insert(
@@ -763,11 +781,12 @@ impl<R: Requests, S: AppState> Gui<R, S> {
                 self.requests.clone(),
                 false,
                 state,
+                self.ui_size,
             ),
         );
         let status_bar_renderer = Renderer::new(Backend::new(
             self.device.as_ref(),
-            self.settings.clone(),
+            self.settings,
             ensnano_utils::TEXTURE_FORMAT,
         ));
         self.elements.insert(
@@ -778,6 +797,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
                 multiplexer,
                 self.requests.clone(),
                 state,
+                self.ui_size,
             ),
         );
     }
@@ -785,7 +805,7 @@ impl<R: Requests, S: AppState> Gui<R, S> {
     fn set_text_size(&mut self, text_size: u16) {
         let settings = Settings {
             default_text_size: text_size,
-            ..self.settings.clone()
+            ..self.settings
         };
         self.settings = settings;
     }
@@ -835,6 +855,7 @@ fn text_btn<'a, M: Clone>(
     Button::new(state, Text::new(text).size(size)).height(Length::Units(ui_size.button()))
 }
 
+#[allow(clippy::needless_lifetimes)]
 fn icon_btn<'a, M: Clone>(
     state: &'a mut button::State,
     icon_char: char,
@@ -967,7 +988,7 @@ impl<S: AppState> IcedMessages<S> {
                     &state, main_state,
                 )));
             self.status_bar
-                .push_back(status_bar::Message::NewApplicationState(state.clone()));
+                .push_back(status_bar::Message::NewApplicationState(state));
         }
     }
 }

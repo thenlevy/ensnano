@@ -227,6 +227,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
         logical_position: LogicalPosition<f64>,
         first_time: bool,
         state: &S,
+        ui_size: UiSize,
     ) -> Self {
         let selected_tab = if first_time { 0 } else { 5 };
         let mut organizer = Organizer::new();
@@ -240,7 +241,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
             show_torsion: false,
             selected_tab,
             organizer,
-            ui_size: Default::default(),
+            ui_size,
             grid_tab: GridTab::new(),
             edition_tab: EditionTab::new(),
             camera_tab: CameraTab::new(),

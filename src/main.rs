@@ -94,6 +94,7 @@ use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
 use iced_winit::winit::event::VirtualKeyCode;
 use iced_winit::{conversion, futures, program, winit, Debug, Size};
 
+use app_state::AppStateParameters;
 use futures::task::SpawnExt;
 use ultraviolet::{Rotor3, Vec3};
 use winit::{
@@ -271,13 +272,18 @@ fn main() {
         )
     }
 
+    use consts::APP_NAME;
+    let ui_size = confy::load(APP_NAME, APP_NAME)
+        .map(|p: AppStateParameters| p.ui_size)
+        .unwrap_or_default();
+
     let settings = Settings {
         antialiasing: Some(iced_graphics::Antialiasing::MSAAx4),
-        default_text_size: gui::UiSize::Medium.main_text(),
+        default_text_size: ui_size.main_text(),
         default_font: Some(include_bytes!("../font/ensnano2.ttf")),
         ..Default::default()
     };
-    let mut renderer = Renderer::new(Backend::new(&device, settings.clone(), TEXTURE_FORMAT));
+    let mut renderer = Renderer::new(Backend::new(&device, settings, TEXTURE_FORMAT));
     let device = Rc::new(device);
     let queue = Rc::new(queue);
     let mut resized = false;
@@ -296,6 +302,7 @@ fn main() {
         window.scale_factor(),
         device.clone(),
         requests.clone(),
+        ui_size,
     );
     multiplexer.change_split(SplitMode::Both);
 
@@ -351,7 +358,7 @@ fn main() {
         &window,
         &multiplexer,
         requests.clone(),
-        settings,
+        ui_size,
         &main_state.app_state,
         Default::default(),
     );
@@ -362,15 +369,13 @@ fn main() {
     let mut last_render_time = std::time::Instant::now();
     let mut mouse_interaction = iced::mouse::Interaction::Pointer;
 
+    main_state.applications.insert(ElementType::Scene, scene);
     main_state
         .applications
-        .insert(ElementType::Scene, scene.clone());
+        .insert(ElementType::FlatScene, flat_scene);
     main_state
         .applications
-        .insert(ElementType::FlatScene, flat_scene.clone());
-    main_state
-        .applications
-        .insert(ElementType::StereographicScene, stereographic_scene.clone());
+        .insert(ElementType::StereographicScene, stereographic_scene);
 
     // Add a design to the scene if one was given as a command line arguement
     if path.is_some() {
@@ -395,7 +400,7 @@ fn main() {
     messages
         .lock()
         .unwrap()
-        .push_application_state(main_state.get_app_state().clone(), last_gui_state.1.clone());
+        .push_application_state(main_state.get_app_state(), last_gui_state.1.clone());
 
     event_loop.run(move |event, _, control_flow| {
         // Wait for event or redraw a frame every 33 ms (30 frame per seconds)
@@ -427,10 +432,8 @@ fn main() {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
             } => {
-                main_state_view
-                    .multiplexer
-                    .update_modifiers(modifiers.clone());
-                messages.lock().unwrap().update_modifiers(modifiers.clone());
+                main_state_view.multiplexer.update_modifiers(modifiers);
+                messages.lock().unwrap().update_modifiers(modifiers);
                 main_state_view.notify_apps(Notification::ModifersChanged(modifiers));
             }
             Event::WindowEvent {
@@ -609,7 +612,7 @@ fn main() {
                 if new_gui_state != last_gui_state {
                     last_gui_state = new_gui_state;
                     messages.lock().unwrap().push_application_state(
-                        main_state.get_app_state().clone(),
+                        main_state.get_app_state(),
                         last_gui_state.1.clone(),
                     );
                     redraw = true;
@@ -749,7 +752,7 @@ pub struct OverlayManager {
 impl OverlayManager {
     pub fn new(requests: Arc<Mutex<Requests>>, window: &Window, renderer: &mut Renderer) -> Self {
         let color = ColorOverlay::new(
-            requests.clone(),
+            requests,
             PhysicalSize::new(250., 250.).to_logical(window.scale_factor()),
         );
         let mut color_debug = Debug::new();
@@ -990,7 +993,7 @@ impl MainState {
             file_name: None,
             wants_fit: false,
             last_backup_date: Instant::now(),
-            last_backed_up_state: app_state.clone(),
+            last_backed_up_state: app_state,
             simulation_cursor: None,
             applications_cursor: None,
             gui_cursor: Default::default(),
@@ -1001,19 +1004,18 @@ impl MainState {
     fn update_cursor(&mut self, multiplexer: &Multiplexer) -> bool {
         self.update_simulation_cursor();
         // Usefull to remember to finish hyperboloid before trying to eddit
-        if self.app_state.is_building_hyperboloid() {
-            if multiplexer
+        if self.app_state.is_building_hyperboloid()
+            && multiplexer
                 .foccused_element()
                 .map(|e| e.is_scene())
                 .unwrap_or(false)
-            {
-                self.applications_cursor = Some(CursorIcon::NotAllowed)
-            }
+        {
+            self.applications_cursor = Some(CursorIcon::NotAllowed)
         }
         let new_cursor = if self.simulation_cursor.is_some() {
             multiplexer
                 .icon
-                .or(Some(self.gui_cursor).filter(|c| c != &Default::default()))
+                .or_else(|| Some(self.gui_cursor).filter(|c| c != &Default::default()))
                 .or(self.simulation_cursor)
                 .unwrap_or_default()
         } else {
@@ -1310,22 +1312,20 @@ impl MainState {
     fn request_duplication(&mut self) {
         if self.app_state.can_iterate_duplication() {
             self.apply_copy_operation(CopyOperation::Duplicate)
+        } else if let Some((_, nucl_pairs)) = ensnano_interactor::list_of_xover_as_nucl_pairs(
+            self.app_state.get_selection().as_ref(),
+            &self.app_state.get_design_reader(),
+        ) {
+            self.apply_copy_operation(CopyOperation::InitXoverDuplication(nucl_pairs))
+        } else if let Some((_, helices)) =
+            ensnano_interactor::list_of_helices(self.app_state.get_selection().as_ref())
+        {
+            self.apply_copy_operation(CopyOperation::InitHelicesDuplication(helices))
         } else {
-            if let Some((_, nucl_pairs)) = ensnano_interactor::list_of_xover_as_nucl_pairs(
+            let strand_ids = ensnano_interactor::extract_strands_from_selection(
                 self.app_state.get_selection().as_ref(),
-                &self.app_state.get_design_reader(),
-            ) {
-                self.apply_copy_operation(CopyOperation::InitXoverDuplication(nucl_pairs))
-            } else if let Some((_, helices)) =
-                ensnano_interactor::list_of_helices(self.app_state.get_selection().as_ref())
-            {
-                self.apply_copy_operation(CopyOperation::InitHelicesDuplication(helices))
-            } else {
-                let strand_ids = ensnano_interactor::extract_strands_from_selection(
-                    self.app_state.get_selection().as_ref(),
-                );
-                self.apply_copy_operation(CopyOperation::InitStrandsDuplication(strand_ids))
-            }
+            );
+            self.apply_copy_operation(CopyOperation::InitStrandsDuplication(strand_ids))
         }
     }
 
@@ -1368,11 +1368,13 @@ impl MainState {
             path.set_extension(crate::consts::ENS_BACKUP_EXTENSION);
             path
         } else {
-            let mut ret = dirs::document_dir().or(dirs::home_dir()).ok_or_else(|| {
-                self.last_backup_date =
-                    Instant::now() + Duration::from_secs(crate::consts::SEC_PER_YEAR);
-                SaveDesignError::cannot_open_default_dir()
-            })?;
+            let mut ret = dirs::document_dir()
+                .or_else(dirs::home_dir)
+                .ok_or_else(|| {
+                    self.last_backup_date =
+                        Instant::now() + Duration::from_secs(crate::consts::SEC_PER_YEAR);
+                    SaveDesignError::cannot_open_default_dir()
+                })?;
             ret.push(crate::consts::ENS_UNAMED_FILE_NAME);
             ret.set_extension(crate::consts::ENS_BACKUP_EXTENSION);
             ret
@@ -1635,19 +1637,20 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn change_ui_size(&mut self, ui_size: UiSize) {
         self.gui.new_ui_size(
-            ui_size.clone(),
+            ui_size,
             self.window,
             self.multiplexer,
             &self.main_state.app_state,
-            self.main_state.gui_state(&self.multiplexer),
+            self.main_state.gui_state(self.multiplexer),
         );
-        self.multiplexer
-            .change_ui_size(ui_size.clone(), self.window);
+        self.multiplexer.change_ui_size(ui_size, self.window);
         self.main_state
             .messages
             .lock()
             .unwrap()
             .new_ui_size(ui_size);
+        self.main_state
+            .modify_state(|s| s.with_ui_size(ui_size), None);
         self.resized = true;
         //messages.lock().unwrap().new_ui_size(ui_size);
     }

@@ -26,6 +26,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use ensnano_design::group_attributes::GroupPivot;
 use ensnano_exports::{ExportResult, ExportType};
+use ensnano_gui::UiSize;
 use ensnano_interactor::graphics::{Background3D, HBoundDisplay, RenderingMode};
 use ensnano_interactor::{
     operation::Operation, ActionMode, CenterOfSelection, CheckXoversParameter, Selection,
@@ -94,8 +95,10 @@ impl Default for AppState {
 
 impl AppState {
     pub fn with_preffered_parameters() -> Result<Self, confy::ConfyError> {
-        let mut state: AppState_ = Default::default();
-        state.parameters = confy::load(APP_NAME, APP_NAME)?;
+        let state: AppState_ = AppState_ {
+            parameters: confy::load(APP_NAME, APP_NAME)?,
+            ..Default::default()
+        };
         let mut ret = AppState(AddressPointer::new(state));
         log::trace!("call from default");
         // Synchronize all the pointers.
@@ -167,6 +170,10 @@ impl AppState {
         let mut new_state = (*self.0).clone();
         new_state.parameters.suggestion_parameters = suggestion_parameters;
         Self(AddressPointer::new(new_state))
+    }
+
+    pub fn with_ui_size(&self, ui_size: UiSize) -> Self {
+        self.with_updated_parameters(|p| p.ui_size = ui_size)
     }
 
     pub fn with_action_mode(&self, action_mode: ActionMode) -> Self {
@@ -281,8 +288,7 @@ impl AppState {
             log::trace!("design need update");
             interactor =
                 interactor.with_updated_design_reader(&self.0.parameters.suggestion_parameters);
-            let new = self.with_interactor(interactor);
-            new
+            self.with_interactor(interactor)
         } else {
             old_self
         }
@@ -387,7 +393,7 @@ impl AppState {
     }
 
     pub fn finish_operation(&mut self) {
-        let pivot = self.0.selection.pivot.read().unwrap().clone();
+        let pivot = *self.0.selection.pivot.read().unwrap();
         log::info!("Setting pivot {:?}", pivot);
         log::info!("was {:?}", self.0.selection.old_pivot.read().unwrap());
         *self.0.selection.old_pivot.write().unwrap() = pivot;
@@ -416,8 +422,8 @@ impl AppState {
 
     pub(super) fn prepare_for_replacement(&mut self, source: &Self) {
         *self = self.with_candidates(vec![]);
-        *self = self.with_action_mode(source.0.action_mode.clone());
-        *self = self.with_selection_mode(source.0.selection_mode.clone());
+        *self = self.with_action_mode(source.0.action_mode);
+        *self = self.with_selection_mode(source.0.selection_mode);
         *self = self.with_suggestion_parameters(source.0.parameters.suggestion_parameters.clone());
         *self = self.with_check_xovers_parameters(source.0.parameters.check_xover_paramters);
         *self = self.with_updated_parameters(|p| *p = source.0.parameters.clone());
@@ -502,7 +508,6 @@ impl AppState {
         self.0.design.is_in_stable_state()
     }
 
-    #[must_use]
     pub(super) fn set_visibility_sieve(
         &mut self,
         selection: Vec<Selection>,
@@ -551,7 +556,7 @@ impl AppState {
     }
 
     pub fn get_current_group_id(&self) -> Option<GroupId> {
-        self.0.selection.selected_group.clone()
+        self.0.selection.selected_group
     }
 
     pub fn set_current_group_pivot(&mut self, pivot: GroupPivot) {
@@ -622,7 +627,7 @@ impl AppState {
 use serde::{Deserialize, Serialize};
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default)] // workarround for https://github.com/rust-cli/confy/issues/34
-struct AppStateParameters {
+pub struct AppStateParameters {
     suggestion_parameters: SuggestionParameters,
     check_xover_paramters: CheckXoversParameter,
     follow_stereography: bool,
@@ -634,6 +639,7 @@ struct AppStateParameters {
     inverted_y_scroll: bool,
     show_h_bonds: HBoundDisplay,
     show_bezier_paths: bool,
+    pub ui_size: ensnano_gui::UiSize,
 }
 
 impl Default for AppStateParameters {
@@ -650,6 +656,7 @@ impl Default for AppStateParameters {
             inverted_y_scroll: false,
             show_h_bonds: HBoundDisplay::No,
             show_bezier_paths: false,
+            ui_size: ensnano_gui::UiSize::default(),
         }
     }
 }

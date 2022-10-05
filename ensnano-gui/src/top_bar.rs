@@ -104,6 +104,7 @@ impl<R: Requests, S: AppState> TopBar<R, S> {
         requests: Arc<Mutex<R>>,
         logical_size: LogicalSize<f64>,
         application_state: MainState<S>,
+        ui_size: UiSize,
     ) -> Self {
         Self {
             button_fit: Default::default(),
@@ -130,7 +131,7 @@ impl<R: Requests, S: AppState> TopBar<R, S> {
             logical_size,
             action_mode_state: Default::default(),
             selection_mode_state: Default::default(),
-            ui_size: Default::default(),
+            ui_size,
             application_state,
         }
     }
