@@ -185,10 +185,12 @@ impl Presenter {
             sequence.len() - (shift % sequence.len())
         };
         if let Some(mut sequence) = self.current_design.scaffold_sequence.as_ref().map(|s| {
+            let length = s.chars().filter(|c| c.is_alphabetic()).count();
             s.chars()
                 .filter(|c| c.is_alphabetic())
                 .cycle()
                 .skip(nb_skip)
+                .take(length)
         }) {
             let mut basis_map = HashMap::clone(self.content.basis_map.as_ref());
             if let Some(strand) = self
@@ -220,6 +222,8 @@ impl Presenter {
                                         basis_map.insert(*real_compl, basis_compl);
                                     }
                                 }
+                            } else if basis.is_none() {
+                                log::error!("Ran out of base for nucleotide {:?}. Scaffold sequence is too short", nucl);
                             } else {
                                 log::error!("Could not get virtual mapping of {:?}", nucl.compl())
                             }
