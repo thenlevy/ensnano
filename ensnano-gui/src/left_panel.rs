@@ -415,16 +415,14 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 self.camera_shortcut.reset_angles();
             }
             Message::LengthHelicesChanged(length_str) => {
-                let new_strand_parameters =
-                    self.contextual_panel.update_length_str(length_str.clone());
+                let new_strand_parameters = self.contextual_panel.update_length_str(length_str);
                 self.requests
                     .lock()
                     .unwrap()
                     .add_double_strand_on_new_helix(Some(new_strand_parameters))
             }
             Message::PositionHelicesChanged(position_str) => {
-                let new_strand_parameters =
-                    self.contextual_panel.update_pos_str(position_str.clone());
+                let new_strand_parameters = self.contextual_panel.update_pos_str(position_str);
                 self.requests
                     .lock()
                     .unwrap()
@@ -684,17 +682,11 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::SelectScaffold => self.requests.lock().unwrap().set_scaffold_from_selection(),
             Message::RenderingMode(mode) => {
-                self.requests
-                    .lock()
-                    .unwrap()
-                    .change_3d_rendering_mode(mode.clone());
+                self.requests.lock().unwrap().change_3d_rendering_mode(mode);
                 self.camera_tab.rendering_mode = mode;
             }
             Message::Background3D(bg) => {
-                self.requests
-                    .lock()
-                    .unwrap()
-                    .change_3d_background(bg.clone());
+                self.requests.lock().unwrap().change_3d_background(bg);
                 self.camera_tab.background3d = bg;
             }
             Message::ForceHelp => {
@@ -862,32 +854,31 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::GridOn))),
                 self.grid_tab
-                    .view(self.ui_size.clone(), width, &self.application_state),
+                    .view(self.ui_size, width, &self.application_state),
             )
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Edit))),
                 self.edition_tab
-                    .view(self.ui_size.clone(), width, &self.application_state),
+                    .view(self.ui_size, width, &self.application_state),
             )
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Videocam))),
-                self.camera_tab
-                    .view(self.ui_size.clone(), &self.application_state),
+                self.camera_tab.view(self.ui_size, &self.application_state),
             )
             .push(
                 TabLabel::Icon(ICON_PHYSICAL_ENGINE),
                 self.simulation_tab
-                    .view(self.ui_size.clone(), &self.application_state),
+                    .view(self.ui_size, &self.application_state),
             )
             .push(
                 TabLabel::Icon(ICON_ATGC),
                 self.sequence_tab
-                    .view(self.ui_size.clone(), &self.application_state),
+                    .view(self.ui_size, &self.application_state),
             )
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Settings))),
                 self.parameters_tab
-                    .view(self.ui_size.clone(), &self.application_state),
+                    .view(self.ui_size, &self.application_state),
             )
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Draw))),
@@ -903,10 +894,10 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             .height(Length::Fill);
         let camera_shortcut =
             self.camera_shortcut
-                .view(self.ui_size.clone(), width, &self.application_state);
+                .view(self.ui_size, width, &self.application_state);
         let contextual_menu = self
             .contextual_panel
-            .view(self.ui_size.clone(), &self.application_state);
+            .view(self.ui_size, &self.application_state);
         let selection = self
             .application_state
             .get_selection()
@@ -1061,7 +1052,6 @@ impl container::StyleSheet for FloatingStyle {
             border_width: 3_f32,
             border_radius: 3_f32,
             border_color: Color::BLACK,
-            ..container::Style::default()
         }
     }
 }
@@ -1547,6 +1537,8 @@ fn color_to_u32(color: Color) -> u32 {
     let red = ((color.r * 255.) as u32) << 16;
     let green = ((color.g * 255.) as u32) << 8;
     let blue = (color.b * 255.) as u32;
+
+    #[allow(clippy::let_and_return)]
     let color_u32 = red + green + blue;
     color_u32
 }

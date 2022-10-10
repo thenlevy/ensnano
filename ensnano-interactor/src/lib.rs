@@ -662,3 +662,49 @@ pub struct BezierPlaneHomothethy {
     pub origin_moving_corner: Vec2,
     pub moving_corner: Vec2,
 }
+
+#[derive(Debug, Clone, Copy)]
+/// One of the stardard scaffold sequence shipped with ENSnano
+pub enum StandardSequence {
+    P7259,
+    P7560,
+    P8064,
+}
+
+impl StandardSequence {
+    pub fn description(&self) -> &'static str {
+        match self {
+            Self::P7259 => "m13 p7259",
+            Self::P7560 => "m13 p7560",
+            Self::P8064 => "m13 p8064",
+        }
+    }
+
+    pub fn sequence(&self) -> &'static str {
+        match self {
+            Self::P7259 => include_str!("./../../src/controller/p7249-Tilibit.txt"),
+            Self::P7560 => include_str!("./../../src/controller/p7560.txt"),
+            Self::P8064 => include_str!("./../../src/controller/m13-p8064.txt"),
+        }
+    }
+
+    /// Return the variant of Self whose associated sequence length is closest to n
+    pub fn from_length(n: usize) -> Self {
+        let mut best_score = isize::MAX;
+        let mut ret = Self::default();
+        for candidate in [Self::P7259, Self::P7560, Self::P8064] {
+            let score = (candidate.sequence().len() as isize - (n as isize)).abs();
+            if score < best_score {
+                best_score = score;
+                ret = candidate;
+            }
+        }
+        ret
+    }
+}
+
+impl Default for StandardSequence {
+    fn default() -> Self {
+        Self::P7259
+    }
+}

@@ -16,6 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+//! Functions that create [states](`crate::controller::State`) in which the user is interacting
+//! with a dialog box (alert, file picker,...).
+
 macro_rules! log_err {
     ($x:expr) => {
         if $x.is_err() {
@@ -112,7 +115,7 @@ pub fn get_file_to_write<P1: AsRef<Path>, P2: AsRef<Path>>(
 
     let starting_name = starting_name.and_then(|p| {
         let mut path_buf = PathBuf::from(p.as_ref());
-        let extension = path_buf.extension().clone();
+        let extension = path_buf.extension();
         if extension.is_none() && default_extenstion.is_some() {
             path_buf.set_extension(default_extenstion.unwrap());
         } else if let Some(_current_extension) = extension
@@ -144,7 +147,7 @@ pub fn get_file_to_write<P1: AsRef<Path>, P2: AsRef<Path>>(
             let file = future_file.await;
             if let Some(handle) = file {
                 let mut path_buf: std::path::PathBuf = handle.path().into();
-                let extension = path_buf.extension().clone();
+                let extension = path_buf.extension();
                 if extension.is_none() && default_extenstion.is_some() {
                     path_buf.set_extension(default_extenstion.unwrap());
                 } else if let Some(current_extension) = extension.filter(|ext| {

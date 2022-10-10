@@ -16,6 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+//! This modules defines the `poll_all` method that polls the requests stored in a `Requests`
+//! object.
+
 use super::*;
 use crate::PastePosition;
 
@@ -30,48 +33,9 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.push_action(Action::NotifyApps(Notification::FitRequest))
     }
 
-    /*
-    if let Some(ref path) = requests.file_add.take() {
-        let design = Design::new_with_path(0, path);
-        let path_end = formated_path_end(path);
-        if let Ok(design) = design {
-            window.set_title(&format!("ENSnano: {}", path_end));
-            messages.lock().unwrap().notify_new_design();
-            if let Some(tree) = design.get_organizer_tree() {
-                messages.lock().unwrap().push_new_tree(tree)
-            }
-            mediator.lock().unwrap().clear_designs();
-            let design = Arc::new(RwLock::new(design));
-            mediator.lock().unwrap().add_design(design);
-        } else {
-            //TODO
-        }
-    }*/
-
-    /*
-    if let Some((path, keep_proceed)) = requests.file_save.take() {
-        let path_end = formated_path_end(&path);
-        window.set_title(&format!("ENSnano: {}", path_end));
-        mediator.lock().unwrap().save_design(&path);
-        if let Some(keep_proceed) = keep_proceed {
-            requests.keep_proceed.push_back(keep_proceed);
-        }
-    }*/
-
     if let Some(value) = requests.toggle_text.take() {
         main_state.push_action(Action::NotifyApps(Notification::ToggleText(value)))
     }
-
-    /*
-    if let Some(value) = requests.toggle_scene {
-        multiplexer.change_split(value);
-        scheduler
-            .lock()
-            .unwrap()
-            .forward_new_size(window.inner_size(), &multiplexer);
-        gui.resize(&multiplexer, &window);
-        requests.toggle_scene = None;
-    }*/
 
     if requests.make_grids.take().is_some() {
         main_state.push_action(Action::TurnSelectionIntoGrid);
@@ -108,15 +72,6 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     if let Some(sensitivity) = requests.scroll_sensitivity.take() {
         main_state.set_scroll_sensitivity(sensitivity)
     }
-
-    /*
-    if let Some(overlay_type) = requests.overlay_closed.take() {
-        overlay_manager.rm_overlay(overlay_type, &mut multiplexer);
-    }
-
-    if let Some(overlay_type) = requests.overlay_opened.take() {
-        overlay_manager.add_overlay(overlay_type, &mut multiplexer);
-    }*/
 
     if let Some(op) = requests.operation_update.take() {
         main_state.update_pending_operation(op);
@@ -219,25 +174,19 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
         main_state.push_action(Action::TurnIntoAnchor)
     }
 
-    /*
-    if let Some((d_id, path)) = requests.stapples_file.take() {
-        mediator.lock().unwrap().proceed_stapples(d_id, &path);
-    }*/
-
-    /*
-    if let Some(content) = requests.sequence_input.take() {
-        main_state.messages.lock().unwrap().push_sequence(content);
-    }*/
-
     if let Some(f) = requests.new_shift_hyperboloid.take() {
         main_state.push_action(Action::UpdateHyperboloidShift(f))
     }
 
     if let Some((s, g_id, new_group)) = requests.organizer_selection.take() {
         let selection = s.into_iter().map(|e| e.to_selection(0)).collect();
-        if new_group && g_id.is_some() {
-            main_state.transfer_selection_pivot_to_group(g_id.unwrap());
+
+        if new_group {
+            if let Some(g_id) = g_id {
+                main_state.transfer_selection_pivot_to_group(g_id);
+            }
         }
+
         main_state.update_selection(selection, g_id);
     }
 
@@ -262,19 +211,6 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     if requests.clean_requests.take().is_some() {
         main_state.push_action(Action::DesignOperation(DesignOperation::CleanDesign))
     }
-
-    /*
-    if let Some(ui_size) = requests.new_ui_size.take() {
-        gui.new_ui_size(ui_size.clone(), &window, &multiplexer);
-        multiplexer.change_ui_size(ui_size.clone(), &window);
-        messages.lock().unwrap().new_ui_size(ui_size);
-        resized = true;
-    }*/
-
-    /*
-    if requests.oxdna.take().is_some() {
-        mediator.lock().unwrap().oxdna_export();
-    }*/
 
     if requests.split2d.take().is_some() {
         main_state.push_action(Action::Split2D)

@@ -171,12 +171,24 @@ fn convert_size_u32(size: PhySize) -> Size<u32> {
 #[cfg(not(feature = "log_after_renderer_setup"))]
 const EARLY_LOG: bool = true;
 #[cfg(feature = "log_after_renderer_setup")]
+/// Determine if log messages can be printed before the renderer setup.
+///
+/// Setting it to true will print information in the terminal that are not usefull for regular use.
+/// By default the value is `false`. It can be set to `true` by enabling the
+/// `log_after_renderer_setup` feature.
 const EARLY_LOG: bool = false;
 
+// On some windows machine, only the DX12 backends will work. So the `dx12_only` feature forces its
+// use.
 #[cfg(not(feature = "dx12_only"))]
 const BACKEND: wgpu::Backends = wgpu::Backends::PRIMARY;
 #[cfg(feature = "dx12_only")]
 const BACKEND: wgpu::Backends = wgpu::Backends::DX12;
+
+/// Set to true because there should not be any "false-positive" in wgpu errors.
+///
+/// TODO: Make a feature that would set this constant to `false`.
+const PANIC_ON_WGPU_ERRORS: bool = true;
 
 /// Main function. Runs the event loop and holds the framebuffer.
 ///
@@ -255,7 +267,10 @@ fn main() {
             .await
             .expect("Request device")
     });
-    //device.on_uncaptured_error(|e| log::error!("wgpu error {:?}", e));
+
+    if !PANIC_ON_WGPU_ERRORS {
+        device.on_uncaptured_error(|e| log::error!("wgpu error {:?}", e));
+    }
 
     {
         let size = window.inner_size();
