@@ -669,7 +669,7 @@ pub enum StandardSequence {
     P7259,
     P7560,
     P8064,
-    PUC19
+    PUC19,
 }
 
 impl StandardSequence {
