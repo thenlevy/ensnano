@@ -2256,13 +2256,13 @@ impl Controller {
         xovers: &[(Nucl, Nucl)],
     ) -> Result<Design, ErrOperation> {
         for (n1, _) in xovers.iter() {
-            let _ = Self::split_strand(&mut design.strands, &n1, None)?;
+            let _ = Self::split_strand(&mut design.strands, &n1, None, &mut self.color_idx)?;
         }
         Ok(design)
     }
 
     fn cut(&mut self, mut design: Design, nucl: Nucl) -> Result<Design, ErrOperation> {
-        let _ = Self::split_strand(&mut design.strands, &nucl, None)?;
+        let _ = Self::split_strand(&mut design.strands, &nucl, None, &mut self.color_idx)?;
         Ok(design)
     }
 
@@ -2280,6 +2280,7 @@ impl Controller {
         strands: &mut Strands,
         nucl: &Nucl,
         force_end: Option<bool>,
+        color_idx: &mut usize,
     ) -> Result<usize, ErrOperation> {
         let id = strands
             .get_strand_nucl(nucl)
@@ -2396,7 +2397,7 @@ impl Controller {
 
         log::info!("prime3 {:?}", prim3_domains);
         log::info!("prime3 {:?}", prime3_junctions);
-        let strand_5prime = Strand {
+        let mut strand_5prime = Strand {
             domains: prim5_domains,
             color: strand.color,
             junctions: prime5_junctions,
@@ -2405,7 +2406,7 @@ impl Controller {
             name: name.clone(),
         };
 
-        let strand_3prime = Strand {
+        let mut strand_3prime = Strand {
             domains: prim3_domains,
             color: strand.color,
             cyclic: false,
@@ -2416,14 +2417,16 @@ impl Controller {
         let new_id = (*strands.keys().max().unwrap_or(&0)).max(id) + 1;
         log::info!("new id {}, ; id {}", new_id, id);
         let (id_5prime, id_3prime) = if !on_3prime {
+            strand_3prime.color = Self::new_color(color_idx);
             (id, new_id)
         } else {
+            strand_5prime.color = Self::new_color(color_idx);
             (new_id, id)
         };
-        if strand_5prime.domains.len() > 0 {
+        if !strand_5prime.domains.is_empty() {
             strands.insert(id_5prime, strand_5prime);
         }
-        if strand_3prime.domains.len() > 0 {
+        if !strand_3prime.domains.is_empty() {
             strands.insert(id_3prime, strand_3prime);
         }
         //self.make_hash_maps();
@@ -2828,6 +2831,7 @@ impl Controller {
             target_strand,
             nucl,
             target_3prime,
+            &mut self.color_idx,
         )?;
         self.state = ControllerState::Normal;
         Ok(design)
@@ -2856,6 +2860,7 @@ impl Controller {
         target_strand: usize,
         nucl: Nucl,
         target_3prime: bool,
+        color_idx: &mut usize,
     ) -> Result<(), ErrOperation> {
         let new_id = strands.keys().max().map(|n| n + 1).unwrap_or(0);
         let was_cyclic = strands
@@ -2863,7 +2868,7 @@ impl Controller {
             .ok_or(ErrOperation::StrandDoesNotExist(target_strand))?
             .cyclic;
         //println!("half1 {}, ; half0 {}", new_id, target_strand);
-        Self::split_strand(strands, &nucl, Some(target_3prime))?;
+        Self::split_strand(strands, &nucl, Some(target_3prime), color_idx)?;
         //println!("splitted");
 
         if !was_cyclic && source_strand != target_strand {
@@ -3039,24 +3044,57 @@ impl Controller {
                 // different
                 let target_3prime = b;
                 if source_nucl.helix != target_nucl.helix {
-                    Self::cross_cut(strands, source_id, target_id, target_nucl, target_3prime)?
+                    Self::cross_cut(
+                        strands,
+                        source_id,
+                        target_id,
+                        target_nucl,
+                        target_3prime,
+                        &mut self.color_idx,
+                    )?
                 }
             }
             (None, Some(b)) => {
                 // We can cut cross directly but we need to reverse the xover
                 let target_3prime = b;
                 if source_nucl.helix != target_nucl.helix {
-                    Self::cross_cut(strands, target_id, source_id, source_nucl, target_3prime)?
+                    Self::cross_cut(
+                        strands,
+                        target_id,
+                        source_id,
+                        source_nucl,
+                        target_3prime,
+                        &mut self.color_idx,
+                    )?
                 }
             }
             (None, None) => {
                 if source_nucl.helix != target_nucl.helix {
                     if source_id != target_id {
-                        Self::split_strand(strands, &source_nucl, None)?;
-                        Self::cross_cut(strands, source_id, target_id, target_nucl, true)?;
+                        Self::split_strand(strands, &source_nucl, None, &mut self.color_idx)?;
+                        Self::cross_cut(
+                            strands,
+                            source_id,
+                            target_id,
+                            target_nucl,
+                            true,
+                            &mut self.color_idx,
+                        )?;
                     } else if source.cyclic {
-                        Self::split_strand(strands, &source_nucl, Some(false))?;
-                        Self::cross_cut(strands, source_id, target_id, target_nucl, true)?;
+                        Self::split_strand(
+                            strands,
+                            &source_nucl,
+                            Some(false),
+                            &mut self.color_idx,
+                        )?;
+                        Self::cross_cut(
+                            strands,
+                            source_id,
+                            target_id,
+                            target_nucl,
+                            true,
+                            &mut self.color_idx,
+                        )?;
                     } else {
                         // if the two nucleotides are on the same strand care must be taken
                         // because one of them might be on the newly crated strand after the
@@ -3070,11 +3108,35 @@ impl Controller {
                         if pos1 > pos2 {
                             // the source nucl will be on the 5' end of the split and the
                             // target nucl as well
-                            Self::split_strand(strands, &source_nucl, Some(false))?;
-                            Self::cross_cut(strands, source_id, target_id, target_nucl, true)?;
+                            Self::split_strand(
+                                strands,
+                                &source_nucl,
+                                Some(false),
+                                &mut self.color_idx,
+                            )?;
+                            Self::cross_cut(
+                                strands,
+                                source_id,
+                                target_id,
+                                target_nucl,
+                                true,
+                                &mut self.color_idx,
+                            )?;
                         } else {
-                            let new_id = Self::split_strand(strands, &source_nucl, Some(false))?;
-                            Self::cross_cut(strands, source_id, new_id, target_nucl, true)?;
+                            let new_id = Self::split_strand(
+                                strands,
+                                &source_nucl,
+                                Some(false),
+                                &mut self.color_idx,
+                            )?;
+                            Self::cross_cut(
+                                strands,
+                                source_id,
+                                new_id,
+                                target_nucl,
+                                true,
+                                &mut self.color_idx,
+                            )?;
                         }
                     }
                 }

@@ -41,7 +41,7 @@ impl Controller {
             let prime3 = strand_mut
                 .get_3prime()
                 .ok_or(ErrOperation::CouldNotGetPrime3of(s_id))?;
-            Self::split_strand(&mut design.strands, &prime3, None)?;
+            Self::split_strand(&mut design.strands, &prime3, None, &mut self.color_idx)?;
         }
 
         let strand_mut = design
@@ -65,7 +65,12 @@ impl Controller {
             // resulting strand, and therefore be on the 5' end of the split
             let forced_end = Some(!insertion_point.nucl_is_prime5_of_insertion);
 
-            let s_2 = Self::split_strand(&mut design.strands, &insertion_point.nucl, forced_end)?;
+            let s_2 = Self::split_strand(
+                &mut design.strands,
+                &insertion_point.nucl,
+                forced_end,
+                &mut self.color_idx,
+            )?;
             let strand_mut = design
                 .strands
                 .get_mut(&s_id)
