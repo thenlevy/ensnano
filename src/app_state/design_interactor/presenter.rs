@@ -193,6 +193,7 @@ impl Presenter {
                 .take(length)
         }) {
             let mut basis_map = HashMap::clone(self.content.basis_map.as_ref());
+            let mut ran_out = false;
             if let Some(strand) = self
                 .current_design
                 .scaffold_id
@@ -223,7 +224,10 @@ impl Presenter {
                                     }
                                 }
                             } else if basis.is_none() {
-                                log::error!("Ran out of base for nucleotide {:?}. Scaffold sequence is too short", nucl);
+                                if !ran_out {
+                                    log::error!("Ran out of base for nucleotide {:?}. Scaffold sequence is too short", nucl);
+                                    ran_out = true;
+                                }
                             } else {
                                 log::error!("Could not get virtual mapping of {:?}", nucl.compl())
                             }
