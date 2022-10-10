@@ -173,6 +173,7 @@ pub enum Message<S> {
     NewApplicationState(S),
     FogChoice(tabs::FogChoice),
     SetScaffoldSeqButtonPressed,
+    OptimizeScaffoldShiftPressed,
     ResetSimulation,
     EditCameraName(String),
     SubmitCameraName,
@@ -614,10 +615,8 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                             .change_action_mode(action_mode);
                     }
                 }
-                if n != 0 {
-                    if self.application_state.is_building_hyperboloid() {
-                        self.requests.lock().unwrap().finalize_hyperboloid();
-                    }
+                if n != 0 && self.application_state.is_building_hyperboloid() {
+                    self.requests.lock().unwrap().finalize_hyperboloid();
                 }
                 if self.selected_tab == 3 && n != 3 {
                     self.simulation_tab
@@ -641,6 +640,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .lock()
                     .unwrap()
                     .set_scaffold_sequence(self.sequence_tab.get_scaffold_shift());
+            }
+            Message::OptimizeScaffoldShiftPressed => {
+                self.requests.lock().unwrap().optimize_scaffold_shift();
             }
             Message::StapplesRequested => self.requests.lock().unwrap().download_stapples(),
             Message::ToggleText(b) => {

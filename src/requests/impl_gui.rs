@@ -474,6 +474,10 @@ impl GuiRequests for Requests {
             },
         ))
     }
+
+    fn optimize_scaffold_shift(&mut self) {
+        self.keep_proceed.push_back(Action::OptimizeShift)
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

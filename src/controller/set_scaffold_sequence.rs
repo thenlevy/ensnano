@@ -34,6 +34,13 @@ impl SetScaffoldSequence {
             step: Default::default(),
         }
     }
+
+    pub(super) fn optimize_shift() -> Self {
+        Self {
+            shift: 0,
+            step: Step::OptimizeScaffoldPosition { design_id: 0 },
+        }
+    }
 }
 
 impl Default for Step {
