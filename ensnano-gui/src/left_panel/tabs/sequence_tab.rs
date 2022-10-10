@@ -29,6 +29,7 @@ pub struct SequenceTab {
     button_selection_from_scaffold: button::State,
     button_selection_to_scaffold: button::State,
     button_show_sequence: button::State,
+    button_optimize_shift: button::State,
 }
 
 macro_rules! add_show_sequence_button {
@@ -137,6 +138,19 @@ macro_rules! add_scaffold_position_input_row {
         $ret = $ret.push(scaffold_row);
     };
 }
+
+macro_rules! add_optimize_scaffold_shift_button {
+    ($ret: ident, $self: ident, $ui_size: ident) => {
+        let button_scaffold = Button::new(
+            &mut $self.button_optimize_shift,
+            iced::Text::new("Optimize starting position"),
+        )
+        .height(Length::Units($ui_size.button()))
+        .on_press(Message::OptimizeScaffoldShiftPressed);
+        $ret = $ret.push(button_scaffold);
+    };
+}
+
 macro_rules! add_scaffold_start_position {
     ($ret: ident, $ui_size: ident, $app_state: ident) => {
         let starting_nucl = $app_state
@@ -208,6 +222,7 @@ impl SequenceTab {
             button_selection_from_scaffold: Default::default(),
             button_selection_to_scaffold: Default::default(),
             button_show_sequence: Default::default(),
+            button_optimize_shift: Default::default(),
         }
     }
 
@@ -241,6 +256,7 @@ impl SequenceTab {
         extra_jump!(ret);
         add_scaffold_position_input_row!(ret, self);
 
+        add_optimize_scaffold_shift_button!(ret, self, ui_size);
         add_scaffold_start_position!(ret, ui_size, app_state);
         extra_jump!(ret);
         section!(ret, ui_size, "Staples");

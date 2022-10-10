@@ -170,7 +170,7 @@ impl State for YesNo {
                 self
             }
         } else {
-            let yesno = dialog::yes_no_dialog(self.question.clone().into());
+            let yesno = dialog::yes_no_dialog(self.question.clone());
             self.answer = Some(yesno);
             self
         }

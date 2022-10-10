@@ -34,6 +34,13 @@ impl SetScaffoldSequence {
             step: Default::default(),
         }
     }
+
+    pub(super) fn optimize_shift() -> Self {
+        Self {
+            shift: 0,
+            step: Step::OptimizeScaffoldPosition { design_id: 0 },
+        }
+    }
 }
 
 impl Default for Step {
@@ -43,8 +50,8 @@ impl Default for Step {
 }
 
 impl SetScaffoldSequence {
-    fn use_default(shift: usize) -> Self {
-        let sequence = include_str!("p7249-Tilibit.txt").to_string();
+    fn use_default(shift: usize, sequence: StandardSequence) -> Self {
+        let sequence = sequence.sequence().to_string();
         Self {
             step: Step::SetSequence(sequence),
             shift,
@@ -78,7 +85,7 @@ enum Step {
 impl State for SetScaffoldSequence {
     fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State> {
         match self.step {
-            Step::Init => init_set_scaffold_sequence(self.shift),
+            Step::Init => init_set_scaffold_sequence(self.shift, main_state.get_scaffold_length()),
             Step::AskPath { path_input } => ask_path(
                 path_input,
                 self.shift,
@@ -93,10 +100,20 @@ impl State for SetScaffoldSequence {
     }
 }
 
-fn init_set_scaffold_sequence(shift: usize) -> Box<dyn State> {
-    let yes = Box::new(SetScaffoldSequence::use_default(shift));
+fn init_set_scaffold_sequence(shift: usize, scaffold_length: Option<usize>) -> Box<dyn State> {
+    let suggested_sequence = scaffold_length
+        .map(StandardSequence::from_length)
+        .unwrap_or_default();
+    let desc = suggested_sequence.description();
+    let message = format!(
+        "Use {desc} sequence?
+    If you chose no, you will be ask to chose a file containing the scaffold sequence."
+    );
+
+    let yes = Box::new(SetScaffoldSequence::use_default(shift, suggested_sequence));
     let no = Box::new(SetScaffoldSequence::ask_path(shift));
-    Box::new(YesNo::new(messages::USE_DEFAULT_M13, yes, no))
+
+    Box::new(YesNo::new(message, yes, no))
 }
 
 fn ask_path<P: AsRef<Path>>(
@@ -183,6 +200,7 @@ fn optimize_scaffold_position(_design_id: usize, main_state: &mut dyn MainState)
 }
 
 pub trait ScaffoldSetter {
+    fn get_scaffold_length(&self) -> Option<usize>;
     fn set_scaffold_sequence(
         &mut self,
         sequence: String,
@@ -197,3 +215,48 @@ pub struct SetScaffoldSequenceOk {
 
 #[derive(Debug)]
 pub struct SetScaffoldSequenceError(pub String);
+
+#[derive(Debug, Clone, Copy)]
+enum StandardSequence {
+    P7259,
+    P7560,
+    P8064,
+}
+
+impl StandardSequence {
+    fn description(&self) -> &'static str {
+        match self {
+            Self::P7259 => "m13 p7259",
+            Self::P7560 => "m13 p7560",
+            Self::P8064 => "m13 p8064",
+        }
+    }
+
+    fn sequence(&self) -> &'static str {
+        match self {
+            Self::P7259 => include_str!("./p7249-Tilibit.txt"),
+            Self::P7560 => include_str!("./p7560.txt"),
+            Self::P8064 => include_str!("./m13-p8064.txt"),
+        }
+    }
+
+    /// Return the variant of Self whose associated sequence length is closest to n
+    fn from_length(n: usize) -> Self {
+        let mut best_score = isize::MAX;
+        let mut ret = Self::default();
+        for candidate in [Self::P7259, Self::P7560, Self::P8064] {
+            let score = (candidate.sequence().len() as isize - (n as isize)).abs();
+            if score < best_score {
+                best_score = score;
+                ret = candidate;
+            }
+        }
+        ret
+    }
+}
+
+impl Default for StandardSequence {
+    fn default() -> Self {
+        Self::P7259
+    }
+}

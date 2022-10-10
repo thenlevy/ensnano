@@ -53,7 +53,6 @@ pub const SAVE_BEFORE_RELOAD: &'static str =
     "Do you want to save your changes in an other file before reloading?";
 pub const SAVE_BEFORE_NEW: &'static str =
     "Do you want to save your design before starting a new one?";
-pub const USE_DEFAULT_M13: &'static str = "Use default m13 sequence?";
 
 pub fn optimize_scaffold_position_msg(default_position: usize) -> String {
     format!("Optimize the scaffold position ?\n

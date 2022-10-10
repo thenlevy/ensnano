@@ -105,8 +105,8 @@ impl Multiplexer {
         scale_factor: f64,
         device: Rc<Device>,
         requests: Arc<Mutex<Requests>>,
+        ui_size: UiSize,
     ) -> Self {
-        let ui_size: UiSize = Default::default();
         let mut layout_manager = LayoutTree::new();
         let top_pannel_prop =
             exact_proportion(ui_size.top_bar() * scale_factor, window_size.height as f64);

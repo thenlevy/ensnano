@@ -17,7 +17,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 pub const ALL_UI_SIZE: [UiSize; 3] = [UiSize::Small, UiSize::Medium, UiSize::Large];
 
-#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+use serde_derive::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Copy)]
 pub enum UiSize {
     Small,
     Medium,

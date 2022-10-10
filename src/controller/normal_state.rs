@@ -284,6 +284,7 @@ impl State for NormalState {
                     main_state.set_exporting(exporting);
                     self
                 }
+                Action::OptimizeShift => Box::new(SetScaffoldSequence::optimize_shift()),
                 action => {
                     println!("Not implemented {:?}", action);
                     self
@@ -351,7 +352,7 @@ impl NormalState {
     ) -> Box<Self> {
         let grid_ids =
             ensnano_interactor::extract_grids(main_state.get_selection().as_ref().as_ref());
-        if grid_ids.len() > 0 {
+        if !grid_ids.is_empty() {
             main_state.apply_operation(DesignOperation::SetSmallSpheres { grid_ids, small });
         }
         self
@@ -364,7 +365,7 @@ impl NormalState {
     ) -> Box<Self> {
         let grid_ids =
             ensnano_interactor::extract_grids(main_state.get_selection().as_ref().as_ref());
-        if grid_ids.len() > 0 {
+        if !grid_ids.is_empty() {
             main_state.apply_operation(DesignOperation::SetHelicesPersistance {
                 grid_ids,
                 persistant,
@@ -497,4 +498,5 @@ pub enum Action {
     AddBezierPlane,
     SetExporting(bool),
     Import3DObject,
+    OptimizeShift,
 }
