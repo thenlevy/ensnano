@@ -1530,7 +1530,7 @@ struct MainStateView<'a> {
 use controller::{LoadDesignError, MainState as MainStateInteface, StaplesDownloader};
 impl<'a> MainStateInteface for MainStateView<'a> {
     fn pop_action(&mut self) -> Option<Action> {
-        if self.main_state.pending_actions.len() > 0 {
+        if !self.main_state.pending_actions.is_empty() {
             log::debug!("pending actions {:?}", self.main_state.pending_actions);
         }
         self.main_state.pending_actions.pop_front()
@@ -1942,7 +1942,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         let design_path = self
             .get_current_design_directory()
             .map(Path::to_path_buf)
-            .or(dirs::home_dir())
+            .or_else(dirs::home_dir)
             .unwrap();
         self.apply_operation(DesignOperation::Add3DObject {
             file_path: path,
@@ -1975,6 +1975,14 @@ impl<'a> controller::ScaffoldSetter for MainStateView<'a> {
 
     fn optimize_shift(&mut self) {
         self.main_state.optimize_shift();
+    }
+
+    fn get_scaffold_length(&self) -> Option<usize> {
+        use gui::AppState;
+        self.main_state
+            .app_state
+            .get_scaffold_info()
+            .map(|info| info.length)
     }
 }
 
