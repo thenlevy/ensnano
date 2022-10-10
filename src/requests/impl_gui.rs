@@ -16,6 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+//! Implements the [Requests](`crate::gui::Requests`) trait for [Requests](`super::Requests`).
+
 use crate::gui::{Requests as GuiRequests, RigidBodyParametersRequest};
 use ensnano_design::grid::GridId;
 use ensnano_interactor::{InsertionPoint, RigidBodyConstants, RollRequest};

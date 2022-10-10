@@ -16,6 +16,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+//! This module defines the `Request` structure, used by applications to express the user intent.
+//!
+//! The main event loop regularly calls `Request::poll` to see if there are pending requests.
+
 mod impl_flatscene;
 mod impl_gui;
 mod impl_scene;
@@ -43,7 +47,11 @@ use ensnano_interactor::{
 
 use std::collections::VecDeque;
 
-/// A structure that contains all the requests that can be made through the GUI.
+/// A structure that contains all the requests that can be made through the GUI or the
+/// Applications.
+///
+/// The GUI and the applications are given a pointer to a `Mutex<Requests>` to store the user
+/// requests.
 #[derive(Default)]
 pub struct Requests {
     /// A change of the rotation mode

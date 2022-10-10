@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-//! This modules defines the `Controller` struct which handles windows and dialog interactions.
+//! Handles windows and dialog (Alert, and file pickers) interactions.
 
 use crate::PastePosition;
 mod download_intervals;
@@ -59,6 +59,8 @@ impl Controller {
         }
     }
 
+    /// This function is called to update the sate of ENSnano. Its behaviour depends on the state
+    /// of the [Controller](`Controller`).
     pub(crate) fn make_progress(&mut self, main_state: &mut dyn MainState) {
         main_state.check_backup();
         if main_state.need_backup() {
@@ -72,10 +74,14 @@ impl Controller {
     }
 }
 
-trait State {
+pub(crate) trait State {
+    /// Operate on [`main_state`] and return the new State of the automata
     fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State>;
 }
 
+/// A dummy state that shoud never be constructed. 
+///
+/// It is used as an argument to `std::mem::take`.
 struct OhNo;
 
 impl State for OhNo {
@@ -118,7 +124,7 @@ impl State for TransitionMessage {
             }
         } else {
             let ack =
-                dialog::blocking_message(self.content.clone().into(), clone_msg_level(&self.level));
+                dialog::blocking_message(self.content.clone(), clone_msg_level(&self.level));
             self.ack = Some(ack);
             self
         }
