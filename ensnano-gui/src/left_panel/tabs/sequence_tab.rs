@@ -1,3 +1,5 @@
+use ensnano_interactor::StandardSequence;
+
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -116,6 +118,28 @@ macro_rules! add_set_scaffold_sequence_button {
         .on_press(Message::SetScaffoldSeqButtonPressed);
         $ret = $ret.push(button_scaffold);
     };
+}
+
+macro_rules! show_current_sequence_name {
+    ($ret: ident, $self: ident, $app_state: ident ) => {
+        let sequence_name = $app_state
+            .get_reader()
+            .get_scaffold_sequence()
+            .map(get_sequence_name)
+            .unwrap_or("None");
+        let message = format!("current sequence: {sequence_name}");
+        $ret = $ret.push(Text::new(message));
+    };
+}
+
+fn get_sequence_name(sequence: &str) -> &'static str {
+    let n = sequence.len();
+    let candidate = StandardSequence::from_length(n);
+    if sequence == candidate.sequence() {
+        candidate.description()
+    } else {
+        "custom"
+    }
 }
 
 macro_rules! add_scaffold_position_input_row {
@@ -253,6 +277,7 @@ impl SequenceTab {
         extra_jump!(ret);
 
         add_set_scaffold_sequence_button!(ret, self, ui_size);
+        show_current_sequence_name!(ret, self, app_state);
         extra_jump!(ret);
         add_scaffold_position_input_row!(ret, self);
 

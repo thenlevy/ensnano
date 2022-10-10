@@ -242,4 +242,8 @@ impl ReaderGui for DesignReader {
             .get(&vertex_id.path_id)?;
         path.vertices().get(vertex_id.vertex_id).map(|v| v.position)
     }
+
+    fn get_scaffold_sequence(&self) -> Option<&str> {
+        self.presenter.current_design.scaffold_sequence.as_deref()
+    }
 }

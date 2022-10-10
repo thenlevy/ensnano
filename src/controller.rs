@@ -79,7 +79,7 @@ pub(crate) trait State {
     fn make_progress(self: Box<Self>, main_state: &mut dyn MainState) -> Box<dyn State>;
 }
 
-/// A dummy state that shoud never be constructed. 
+/// A dummy state that shoud never be constructed.
 ///
 /// It is used as an argument to `std::mem::take`.
 struct OhNo;
@@ -123,8 +123,7 @@ impl State for TransitionMessage {
                 self
             }
         } else {
-            let ack =
-                dialog::blocking_message(self.content.clone(), clone_msg_level(&self.level));
+            let ack = dialog::blocking_message(self.content.clone(), clone_msg_level(&self.level));
             self.ack = Some(ack);
             self
         }
