@@ -1967,12 +1967,15 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};
+
+use crate::controller::TargetScaffoldLength;
 impl<'a> controller::ScaffoldSetter for MainStateView<'a> {
     fn set_scaffold_sequence(
         &mut self,
         sequence: String,
         shift: usize,
     ) -> Result<SetScaffoldSequenceOk, SetScaffoldSequenceError> {
+        let len = sequence.chars().filter(|c| c.is_alphabetic()).count();
         match self
             .main_state
             .app_state
@@ -1985,7 +1988,19 @@ impl<'a> controller::ScaffoldSetter for MainStateView<'a> {
             Err(e) => return Err(SetScaffoldSequenceError(format!("{:?}", e))),
         };
         let default_shift = self.get_staple_downloader().default_shift();
-        Ok(SetScaffoldSequenceOk { default_shift })
+        let scaffold_length = self.get_scaffold_length().unwrap_or(0);
+        let target_scaffold_length = if len == scaffold_length {
+            TargetScaffoldLength::Ok
+        } else {
+            TargetScaffoldLength::NotOk {
+                design_length: scaffold_length,
+                input_scaffold_length: len,
+            }
+        };
+        Ok(SetScaffoldSequenceOk {
+            default_shift,
+            target_scaffold_length,
+        })
     }
 
     fn optimize_shift(&mut self) {

@@ -32,7 +32,9 @@ use ensnano_interactor::{DesignReader, RigidBodyConstants, Selection};
 use quit::*;
 mod set_scaffold_sequence;
 use set_scaffold_sequence::*;
-pub use set_scaffold_sequence::{ScaffoldSetter, SetScaffoldSequenceError, SetScaffoldSequenceOk};
+pub use set_scaffold_sequence::{
+    ScaffoldSetter, SetScaffoldSequenceError, SetScaffoldSequenceOk, TargetScaffoldLength,
+};
 mod chanel_reader;
 mod messages;
 mod normal_state;

@@ -178,15 +178,32 @@ fn set_sequence(
 ) -> Box<dyn State> {
     let result = scaffold_setter.set_scaffold_sequence(sequence, shift);
     match result {
-        Ok(SetScaffoldSequenceOk { default_shift }) => {
-            let message = messages::optimize_scaffold_position_msg(default_shift.unwrap_or(0));
-            let yes = Box::new(SetScaffoldSequence {
-                step: Step::OptimizeScaffoldPosition { design_id: 0 },
-                shift,
-            });
-            let no = Box::new(super::NormalState);
-            Box::new(YesNo::new(message, yes, no))
-        }
+        Ok(SetScaffoldSequenceOk {
+            default_shift,
+            target_scaffold_length,
+        }) => match target_scaffold_length {
+            TargetScaffoldLength::Ok => {
+                let message = messages::optimize_scaffold_position_msg(default_shift.unwrap_or(0));
+                let yes = Box::new(SetScaffoldSequence {
+                    step: Step::OptimizeScaffoldPosition { design_id: 0 },
+                    shift,
+                });
+                let no = Box::new(super::NormalState);
+                Box::new(YesNo::new(message, yes, no))
+            }
+            TargetScaffoldLength::NotOk {
+                design_length,
+                input_scaffold_length,
+            } => TransitionMessage::new(
+                format!(
+                    "Current scaffold length and input sequence length are different.
+                Current scaffold length: {design_length}
+                Input sequence length: {input_scaffold_length}"
+                ),
+                rfd::MessageLevel::Warning,
+                Box::new(super::NormalState),
+            ),
+        },
         Err(err) => TransitionMessage::new(
             format!("{:?}", err),
             rfd::MessageLevel::Error,
@@ -212,6 +229,15 @@ pub trait ScaffoldSetter {
 
 pub struct SetScaffoldSequenceOk {
     pub default_shift: Option<usize>,
+    pub target_scaffold_length: TargetScaffoldLength,
+}
+
+pub enum TargetScaffoldLength {
+    Ok,
+    NotOk {
+        design_length: usize,
+        input_scaffold_length: usize,
+    },
 }
 
 #[derive(Debug)]

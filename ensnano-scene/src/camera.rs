@@ -730,7 +730,7 @@ impl CameraController {
     pub fn set_surface_point(&mut self, info: SurfaceInfo) {
         let cam_pos =
             info.position + DEFAULT_DIST_TO_SURFACE * Vec3::unit_z().rotated_by(info.local_frame);
-        self.dist_to_surface = Some(DEFAULT_DIST_TO_SURFACE);
+        self.dist_to_surface = self.dist_to_surface.or(Some(DEFAULT_DIST_TO_SURFACE));
         self.teleport_camera(cam_pos, info.local_frame.reversed());
         self.surface_point0 = Some(info.point.clone());
         self.surface_point = Some(info.point);
