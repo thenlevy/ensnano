@@ -266,7 +266,7 @@ impl<R: DesignReader> Design3D<R> {
 
         if let Some(additional_structure) = self.design.get_additional_structure() {
             let positions = additional_structure.position();
-            for (me, next) in additional_structure.right().into_iter().enumerate() {
+            for (me, next) in additional_structure.right().into_iter() {
                 let pos_left = positions[me];
                 let pos_right = positions[next];
                 ret.push(

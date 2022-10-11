@@ -39,54 +39,56 @@ use ensnano_design::{
 
 use crate::app_state::ErrOperation;
 
+trait SpringTopology: Send + Sync + 'static {
+    fn nb_balls(&self) -> usize;
+
+    fn balls_with_successor(&self) -> &[usize];
+    /// Return the identfier of the next ball on the helix,  or `ball_id` if `ball_id` is
+    /// the last ball on an open helix.
+    fn successor(&self, ball_id: usize) -> usize;
+
+    fn balls_with_predecessor(&self) -> &[usize];
+    /// Return the identfier of the previous ball on the helix,  or `ball_id` if `ball_id` is
+    /// the first ball on an open helix.
+    fn predecessor(&self, ball_id: usize) -> usize;
+
+    fn balls_with_predecessor_and_successor(&self) -> &[usize];
+
+    fn balls_involved_in_spring(&self) -> &[usize];
+    fn other_spring_end(&self, ball_id: usize) -> usize;
+
+    fn surface_position(&self, revolution_angle: f64, theta: f64) -> DVec3;
+    fn dpos_dtheta(&self, revolution_angle: f64, theta: f64) -> DVec3;
+    fn revolution_angle_ball(&self, ball_id: usize) -> f64;
+
+    fn theta_ball_init(&self) -> Vec<f64>;
+
+    fn rescale_section(&mut self, scaling_factor: f64);
+    fn rescale_radius(&mut self, scaling_factor: f64);
+
+    fn cloned(&self) -> Box<dyn SpringTopology>;
+
+    fn axis(&self, revolution_angle: f64) -> DVec3;
+
+    fn to_curve_descriptor(&self, thetas: Vec<f64>) -> Vec<CurveDescriptor>;
+}
+
 #[derive(Clone)]
-pub struct RevolutionSurfaceSystem {
+struct CloseSurfaceTopology {
     nb_segment: usize,
     nb_section_per_segment: usize,
-    target: RevolutionSurface,
     prev_section: Vec<usize>,
     next_section: Vec<usize>,
-    dna_parameters: DNAParameters,
-    last_thetas: Option<Vec<f64>>,
-    scaffold_len_target: usize,
+    other_spring_end: Vec<usize>,
+    target: RevolutionSurface,
+    idx_range: Vec<usize>,
 }
 
-pub struct RevolutionSurfaceSystemDescriptor {
-    pub nb_section_per_segment: usize,
-    pub target: RevolutionSurfaceDescriptor,
-    pub dna_parameters: DNAParameters,
-    pub scaffold_len_target: usize,
-}
-
-#[derive(Clone)]
-pub struct RevolutionSurface {
-    curve: CurveDescriptor2D,
-    revolution_radius: f64,
-    nb_helix_per_half_section: usize,
-    half_turns_count: isize,
-    shift_per_turn: isize,
-    junction_smoothening: f64,
-    dna_paramters: DNAParameters,
-    nb_helices: usize,
-    curve_scale_factor: f64,
-}
-
-pub struct RevolutionSurfaceDescriptor {
-    pub curve: CurveDescriptor2D,
-    pub revolution_radius: f64,
-    pub nb_helix_per_half_section: usize,
-    pub half_turns_count: isize,
-    pub shift_per_turn: isize,
-    pub junction_smoothening: f64,
-    pub dna_paramters: DNAParameters,
-}
-
-impl RevolutionSurfaceSystem {
+impl CloseSurfaceTopology {
     pub fn new(desc: RevolutionSurfaceSystemDescriptor) -> Self {
         let nb_segment = 2 * desc.target.nb_helix_per_half_section;
         let nb_section_per_segment = NB_SECTION_PER_SEGMENT;
         let total_nb_section = nb_segment * nb_section_per_segment;
-        let nb_helices = desc.target.nb_helices();
 
         let target = RevolutionSurface::new(desc.target);
         let next_section: Vec<usize> = (0..total_nb_section)
@@ -117,105 +119,64 @@ impl RevolutionSurfaceSystem {
             })
             .collect();
 
+        let other_spring_end: Vec<usize> = (0..total_nb_section)
+            .map(|n| (n + nb_section_per_segment) % total_nb_section)
+            .collect();
+
+        let idx_range: Vec<usize> = (0..total_nb_section).collect();
+
         Self {
             nb_segment,
-            nb_section_per_segment: NB_SECTION_PER_SEGMENT,
+            nb_section_per_segment,
             prev_section,
             next_section,
-            dna_parameters: desc.dna_parameters,
             target,
-            last_thetas: None,
-            scaffold_len_target: desc.scaffold_len_target,
+            other_spring_end,
+            idx_range,
         }
     }
+}
 
-    fn one_radius_optimisation_step(
-        &mut self,
-        first: &mut bool,
-        interface: Option<Arc<Mutex<RevolutionSystemInterface>>>,
-    ) -> usize {
-        let mut current_default;
-        for _ in 0..10 {
-            if let Some(interface) = interface.as_ref() {
-                interface.lock().unwrap().new_state = Some(self.clone());
-            }
-            current_default = self.one_simulation_step(first);
-            if current_default < 1.01 {
-                break;
-            }
-        }
-
-        let curve_desc = self.to_curve_desc().unwrap();
-
-        let thetas = self
-            .last_thetas
-            .clone()
-            .unwrap_or_else(|| self.thetas_init());
-        let mut total_len = 0;
-        for desc in curve_desc {
-            let len = desc.compute_length().unwrap();
-            println!("length ~= {:?}", len);
-            println!("length ~= {:?} nt", len / self.dna_parameters.z_step as f64);
-            total_len += (len / self.dna_parameters.z_step as f64).floor() as usize;
-        }
-
-        println!("total len {total_len}");
-        let len_by_sum =
-            (self.total_length(&thetas) / (self.dna_parameters.z_step as f64)).floor() as usize;
-        println!("total len by sum {len_by_sum}");
-        self.target.revolution_radius /= (total_len as f64) / (self.scaffold_len_target as f64);
-        total_len
+impl SpringTopology for CloseSurfaceTopology {
+    fn nb_balls(&self) -> usize {
+        self.nb_section_per_segment * self.nb_segment
     }
 
-    fn one_simulation_step(&mut self, first: &mut bool) -> f64 {
-        let total_nb_section = self.nb_segment * self.nb_section_per_segment;
-        if *first {
-            let mut spring_relaxation_state = SpringRelaxationState::new();
-            let mut system = RelaxationSystem {
-                thetas: self
-                    .last_thetas
-                    .clone()
-                    .unwrap_or_else(|| self.thetas_init()),
-                forces: vec![DVec3::zero(); total_nb_section],
-                d_thetas: vec![0.; total_nb_section],
-                second_derivative_thetas: vec![0.; total_nb_section],
-            };
-            self.apply_springs(&mut system, Some(&mut spring_relaxation_state));
-            println!("curve scale {}", self.target.curve_scale_factor);
-            self.target.curve_scale_factor /= spring_relaxation_state.avg_ext;
-            *first = false;
-        }
-
-        let solver = FixedStepper::new(1e-1);
-        let method = Ralston4::default();
-
-        let mut spring_relaxation_state = SpringRelaxationState::new();
-        if let Some(last_state) = solver
-            .solve(self, &method)
-            .ok()
-            .and_then(|(_, y)| y.last().cloned())
-        {
-            let mut system = RelaxationSystem::from_mathru(last_state, total_nb_section);
-            self.apply_springs(&mut system, Some(&mut spring_relaxation_state));
-            self.last_thetas = Some(system.thetas.clone());
-        } else {
-            log::error!("error while solving ODE");
-        };
-        /*self.target.curve_scale_factor /= (spring_relaxation_state.min_ext
-        + spring_relaxation_state.max_ext
-        + 2. * spring_relaxation_state.avg_ext)
-        / 4.;*/
-        self.target.curve_scale_factor /=
-            (spring_relaxation_state.min_ext + spring_relaxation_state.max_ext) / 2.;
-
-        println!("spring_relax state {:?}", spring_relaxation_state);
-        println!("curve scale {}", self.target.curve_scale_factor);
-        spring_relaxation_state
-            .max_ext
-            .max(1. / spring_relaxation_state.min_ext)
+    fn balls_with_predecessor(&self) -> &[usize] {
+        &self.idx_range
+    }
+    fn predecessor(&self, ball_id: usize) -> usize {
+        self.prev_section[ball_id]
     }
 
-    fn thetas_init(&self) -> Vec<f64> {
+    fn balls_with_successor(&self) -> &[usize] {
+        &self.idx_range
+    }
+    fn successor(&self, ball_id: usize) -> usize {
+        self.next_section[ball_id]
+    }
+
+    fn balls_with_predecessor_and_successor(&self) -> &[usize] {
+        &self.idx_range
+    }
+
+    fn balls_involved_in_spring(&self) -> &[usize] {
+        &self.idx_range
+    }
+
+    fn other_spring_end(&self, ball_id: usize) -> usize {
+        self.other_spring_end[ball_id]
+    }
+
+    fn surface_position(&self, revolution_angle: f64, theta: f64) -> DVec3 {
+        self.target.position(revolution_angle, theta)
+    }
+
+    fn revolution_angle_ball(&self, ball_id: usize) -> f64 {
+        (ball_id % self.nb_section_per_segment) as f64 * TAU / (self.nb_section_per_segment as f64)
+    }
+
+    fn theta_ball_init(&self) -> Vec<f64> {
         let total_nb_segment = self.nb_segment * self.nb_section_per_segment;
         let mut ret = Vec::with_capacity(total_nb_segment);
 
@@ -234,133 +195,28 @@ impl RevolutionSurfaceSystem {
         ret
     }
 
-    fn next_spring_end(&self, section_idx: usize) -> usize {
-        let total_nb_section = self.nb_segment * self.nb_section_per_segment;
-        (section_idx + self.nb_section_per_segment) % total_nb_section
+    fn dpos_dtheta(&self, revolution_angle: f64, section_t: f64) -> DVec3 {
+        self.target.dpos_dtheta(revolution_angle, section_t)
     }
 
-    fn revolution_angle_section(&self, section_idx: usize) -> f64 {
-        (section_idx % self.nb_section_per_segment) as f64 * TAU
-            / (self.nb_section_per_segment as f64)
+    fn rescale_radius(&mut self, scaling_factor: f64) {
+        self.target.revolution_radius *= scaling_factor;
+        println!("revolution radius {}", self.target.revolution_radius);
     }
 
-    fn position_section(&self, section_idx: usize, thetas: &[f64]) -> DVec3 {
-        let angle = self.revolution_angle_section(section_idx);
-        let theta = thetas[section_idx];
-        self.target.position(angle, theta)
+    fn rescale_section(&mut self, scaling_factor: f64) {
+        self.target.curve_scale_factor *= scaling_factor;
     }
 
-    fn dpos_dtheta(&self, section_idx: usize, thetas: &[f64]) -> DVec3 {
-        let angle = self.revolution_angle_section(section_idx);
-        let theta = thetas[section_idx];
-        self.target.dpos_dtheta(angle, theta)
+    fn cloned(&self) -> Box<dyn SpringTopology> {
+        Box::new(self.clone())
     }
 
-    fn helix_axis(&self, section_idx: usize, thetas: &[f64]) -> DVec3 {
-        (self.position_section(self.next_section[section_idx], thetas)
-            - self.position_section(self.prev_section[section_idx], thetas))
-        .normalized()
+    fn axis(&self, revolution_angle: f64) -> DVec3 {
+        self.target.axis(revolution_angle)
     }
 
-    fn total_length(&self, thetas: &[f64]) -> f64 {
-        let mut ret = 0.;
-        let total_nb_segment = self.nb_segment * self.nb_section_per_segment;
-        for i in 0..total_nb_segment {
-            ret += (self.position_section(self.next_section[i], thetas)
-                - self.position_section(i, thetas))
-            .mag()
-        }
-        ret
-    }
-
-    fn apply_springs(
-        &self,
-        system: &mut RelaxationSystem,
-        mut spring_state: Option<&mut SpringRelaxationState>,
-    ) {
-        let total_nb_segment = self.nb_segment * self.nb_section_per_segment;
-        if let Some(state) = spring_state.as_mut() {
-            state.avg_ext = 0.;
-        }
-        for i in 0..total_nb_segment {
-            let j = self.next_spring_end(i);
-            let pos_i = self.position_section(i, &system.thetas);
-            let pos_j = self.position_section(j, &system.thetas);
-
-            let ui = self.helix_axis(i, &system.thetas);
-            let uj = self.helix_axis(j, &system.thetas);
-
-            let revolution_angle = self.revolution_angle_section(i);
-            let z = self.target.axis(revolution_angle);
-
-            let ri = ((self.dna_parameters.helix_radius as f64
-                + (self.dna_parameters.inter_helix_gap as f64) / 2.)
-                / ui.dot(z))
-            .abs();
-            let rj = ((self.dna_parameters.helix_radius as f64
-                + (self.dna_parameters.inter_helix_gap as f64) / 2.)
-                / uj.dot(z))
-            .abs();
-
-            let len0_ij = ri + rj;
-            let v_ji = pos_i - pos_j;
-            let len_ij = v_ji.mag();
-
-            let f_ij = SPRING_STIFFNESS * (1. - len0_ij / len_ij) * v_ji;
-
-            if let Some(state) = spring_state.as_mut() {
-                let ext = len_ij / len0_ij;
-                state.min_ext = state.min_ext.min(ext);
-                state.max_ext = state.max_ext.max(ext);
-                state.avg_ext += ext;
-            }
-
-            system.forces[i] -= f_ij;
-            system.forces[j] += f_ij;
-        }
-
-        if let Some(state) = spring_state.as_mut() {
-            state.avg_ext /= total_nb_segment as f64;
-        }
-    }
-
-    fn apply_torsions(&self, system: &mut RelaxationSystem) {
-        let total_nb_segment = self.nb_segment * self.nb_section_per_segment;
-        for section_idx in 0..total_nb_segment {
-            let i = self.prev_section[section_idx];
-            let j = section_idx;
-            let k = self.next_section[section_idx];
-
-            let pos_i = self.position_section(i, &system.thetas);
-            let pos_j = self.position_section(j, &system.thetas);
-            let pos_k = self.position_section(k, &system.thetas);
-
-            let u_ij = pos_j - pos_i;
-            let u_jk = pos_k - pos_j;
-            let v = u_jk - u_ij;
-            let f_ijk = TORSION_STIFFNESS * v / v.mag().max(1.);
-            system.forces[i] -= f_ijk / 2.;
-            system.forces[j] += f_ijk;
-            system.forces[k] -= f_ijk / 2.;
-        }
-    }
-
-    fn apply_forces(&self, system: &mut RelaxationSystem) {
-        let total_nb_segment = self.nb_segment * self.nb_section_per_segment;
-        for section_idx in 0..total_nb_segment {
-            let tengent = self.dpos_dtheta(section_idx, &system.thetas);
-            let derivative = &mut system.forces[section_idx];
-            let acceleration_without_friction =
-                system.forces[section_idx].dot(tengent) / tengent.mag_sq();
-            system.second_derivative_thetas[section_idx] += (acceleration_without_friction
-                - FLUID_FRICTION * system.d_thetas[section_idx])
-                / BALL_MASS;
-        }
-    }
-
-    fn to_curve_desc(&self) -> Option<Vec<CurveDescriptor>> {
-        let thetas = self.last_thetas.clone()?;
-
+    fn to_curve_descriptor(&self, thetas: Vec<f64>) -> Vec<CurveDescriptor> {
         let mut ret = Vec::new();
 
         let nb_segment_per_helix = self.nb_segment / self.target.nb_helices;
@@ -407,7 +263,288 @@ impl RevolutionSurfaceSystem {
             ))
         }
 
-        Some(ret)
+        ret
+    }
+}
+
+pub struct RevolutionSurfaceSystem {
+    topology: Box<dyn SpringTopology>,
+    dna_parameters: DNAParameters,
+    last_thetas: Option<Vec<f64>>,
+    scaffold_len_target: usize,
+}
+
+impl Clone for RevolutionSurfaceSystem {
+    fn clone(&self) -> Self {
+        Self {
+            topology: self.topology.cloned(),
+            dna_parameters: self.dna_parameters,
+            last_thetas: self.last_thetas.clone(),
+            scaffold_len_target: self.scaffold_len_target,
+        }
+    }
+}
+
+pub struct RevolutionSurfaceSystemDescriptor {
+    pub nb_section_per_segment: usize,
+    pub target: RevolutionSurfaceDescriptor,
+    pub dna_parameters: DNAParameters,
+    pub scaffold_len_target: usize,
+}
+
+#[derive(Clone)]
+pub struct RevolutionSurface {
+    curve: CurveDescriptor2D,
+    revolution_radius: f64,
+    nb_helix_per_half_section: usize,
+    half_turns_count: isize,
+    shift_per_turn: isize,
+    junction_smoothening: f64,
+    dna_paramters: DNAParameters,
+    nb_helices: usize,
+    curve_scale_factor: f64,
+}
+
+pub struct RevolutionSurfaceDescriptor {
+    pub curve: CurveDescriptor2D,
+    pub revolution_radius: f64,
+    pub nb_helix_per_half_section: usize,
+    pub half_turns_count: isize,
+    pub shift_per_turn: isize,
+    pub junction_smoothening: f64,
+    pub dna_paramters: DNAParameters,
+}
+
+impl RevolutionSurfaceSystem {
+    pub fn new(desc: RevolutionSurfaceSystemDescriptor) -> Self {
+        let scaffold_len_target = desc.scaffold_len_target;
+        let dna_parameters = desc.dna_parameters;
+        let topology: Box<dyn SpringTopology> = if desc.target.curve.is_open() {
+            unimplemented!("Revolution surfaces with open sections")
+        } else {
+            Box::new(CloseSurfaceTopology::new(desc))
+        };
+
+        Self {
+            topology,
+            dna_parameters,
+            last_thetas: None,
+            scaffold_len_target,
+        }
+    }
+
+    fn one_radius_optimisation_step(
+        &mut self,
+        first: &mut bool,
+        interface: Option<Arc<Mutex<RevolutionSystemInterface>>>,
+    ) -> usize {
+        let mut current_default;
+        for _ in 0..10 {
+            if let Some(interface) = interface.as_ref() {
+                interface.lock().unwrap().new_state = Some(self.clone());
+            }
+            current_default = self.one_simulation_step(first);
+            if current_default < 1.01 {
+                break;
+            }
+        }
+
+        let curve_desc = self.to_curve_desc().unwrap();
+
+        let thetas = self
+            .last_thetas
+            .clone()
+            .unwrap_or_else(|| self.topology.theta_ball_init());
+        let mut total_len = 0;
+        for desc in curve_desc {
+            let len = desc.compute_length().unwrap();
+            println!("length ~= {:?}", len);
+            println!("length ~= {:?} nt", len / self.dna_parameters.z_step as f64);
+            total_len += (len / self.dna_parameters.z_step as f64).floor() as usize;
+        }
+
+        println!("total len {total_len}");
+        let len_by_sum =
+            (self.total_length(&thetas) / (self.dna_parameters.z_step as f64)).floor() as usize;
+        println!("total len by sum {len_by_sum}");
+        let rescaling_factor = self.scaffold_len_target as f64 / total_len as f64;
+        self.topology.rescale_radius(rescaling_factor);
+        total_len
+    }
+
+    fn one_simulation_step(&mut self, first: &mut bool) -> f64 {
+        let total_nb_section = self.topology.nb_balls();
+        if *first {
+            let mut spring_relaxation_state = SpringRelaxationState::new();
+            let mut system = RelaxationSystem {
+                thetas: self
+                    .last_thetas
+                    .clone()
+                    .unwrap_or_else(|| self.topology.theta_ball_init()),
+                forces: vec![DVec3::zero(); total_nb_section],
+                d_thetas: vec![0.; total_nb_section],
+                second_derivative_thetas: vec![0.; total_nb_section],
+            };
+            self.apply_springs(&mut system, Some(&mut spring_relaxation_state));
+            let rescaling_factor = 1. / spring_relaxation_state.avg_ext;
+            self.topology.rescale_section(rescaling_factor);
+            *first = false;
+        }
+
+        let solver = FixedStepper::new(1e-1);
+        let method = Ralston4::default();
+
+        let mut spring_relaxation_state = SpringRelaxationState::new();
+        if let Some(last_state) = solver
+            .solve(self, &method)
+            .ok()
+            .and_then(|(_, y)| y.last().cloned())
+        {
+            let mut system = RelaxationSystem::from_mathru(last_state, total_nb_section);
+            self.apply_springs(&mut system, Some(&mut spring_relaxation_state));
+            self.last_thetas = Some(system.thetas.clone());
+        } else {
+            log::error!("error while solving ODE");
+        };
+        /*self.target.curve_scale_factor /= (spring_relaxation_state.min_ext
+        + spring_relaxation_state.max_ext
+        + 2. * spring_relaxation_state.avg_ext)
+        / 4.;*/
+
+        /*
+        self.target.curve_scale_factor /=
+            (spring_relaxation_state.min_ext + spring_relaxation_state.max_ext) / 2.;
+        */
+        let rescaling_factor =
+            2. / (spring_relaxation_state.min_ext + spring_relaxation_state.max_ext);
+        self.topology.rescale_section(rescaling_factor);
+
+        println!("spring_relax state {:?}", spring_relaxation_state);
+        //println!("curve scale {}", self.target.curve_scale_factor);
+        spring_relaxation_state
+            .max_ext
+            .max(1. / spring_relaxation_state.min_ext)
+    }
+
+    fn helix_axis(&self, section_idx: usize, thetas: &[f64]) -> DVec3 {
+        (self.position_section(self.topology.successor(section_idx), thetas)
+            - self.position_section(self.topology.predecessor(section_idx), thetas))
+        .normalized()
+    }
+
+    fn total_length(&self, thetas: &[f64]) -> f64 {
+        let mut ret = 0.;
+        let total_nb_segment = self.topology.nb_balls();
+        for i in self.topology.balls_with_successor() {
+            ret += (self.position_section(self.topology.successor(*i), thetas)
+                - self.position_section(*i, thetas))
+            .mag()
+        }
+        ret
+    }
+
+    fn position_section(&self, section_idx: usize, thetas: &[f64]) -> DVec3 {
+        let revolution_angle = self.topology.revolution_angle_ball(section_idx);
+        let theta = thetas[section_idx];
+        self.topology.surface_position(revolution_angle, theta)
+    }
+
+    fn apply_springs(
+        &self,
+        system: &mut RelaxationSystem,
+        mut spring_state: Option<&mut SpringRelaxationState>,
+    ) {
+        let total_nb_segment = self.topology.nb_balls();
+        if let Some(state) = spring_state.as_mut() {
+            state.avg_ext = 0.;
+        }
+        for i in self.topology.balls_involved_in_spring() {
+            let i = *i;
+            let j = self.topology.other_spring_end(i);
+            let pos_i = self.position_section(i, &system.thetas);
+            let pos_j = self.position_section(j, &system.thetas);
+
+            let ui = self.helix_axis(i, &system.thetas);
+            let uj = self.helix_axis(j, &system.thetas);
+
+            let revolution_angle = self.topology.revolution_angle_ball(i);
+            let z = self.topology.axis(revolution_angle);
+
+            let ri = ((self.dna_parameters.helix_radius as f64
+                + (self.dna_parameters.inter_helix_gap as f64) / 2.)
+                / ui.dot(z))
+            .abs();
+            let rj = ((self.dna_parameters.helix_radius as f64
+                + (self.dna_parameters.inter_helix_gap as f64) / 2.)
+                / uj.dot(z))
+            .abs();
+
+            let len0_ij = ri + rj;
+            let v_ji = pos_i - pos_j;
+            let len_ij = v_ji.mag();
+
+            let f_ij = SPRING_STIFFNESS * (1. - len0_ij / len_ij) * v_ji;
+
+            if let Some(state) = spring_state.as_mut() {
+                let ext = len_ij / len0_ij;
+                state.min_ext = state.min_ext.min(ext);
+                state.max_ext = state.max_ext.max(ext);
+                state.avg_ext += ext;
+            }
+
+            system.forces[i] -= f_ij;
+            system.forces[j] += f_ij;
+        }
+
+        if let Some(state) = spring_state.as_mut() {
+            state.avg_ext /= total_nb_segment as f64;
+        }
+    }
+
+    fn apply_torsions(&self, system: &mut RelaxationSystem) {
+        let total_nb_segment = self.topology.nb_balls();
+        for section_idx in self.topology.balls_with_predecessor_and_successor() {
+            let i = self.topology.predecessor(*section_idx);
+            let j = *section_idx;
+            let k = self.topology.successor(*section_idx);
+
+            let pos_i = self.position_section(i, &system.thetas);
+            let pos_j = self.position_section(j, &system.thetas);
+            let pos_k = self.position_section(k, &system.thetas);
+
+            let u_ij = pos_j - pos_i;
+            let u_jk = pos_k - pos_j;
+            let v = u_jk - u_ij;
+            let f_ijk = TORSION_STIFFNESS * v / v.mag().max(1.);
+            system.forces[i] -= f_ijk / 2.;
+            system.forces[j] += f_ijk;
+            system.forces[k] -= f_ijk / 2.;
+        }
+    }
+
+    fn dpos_dtheta(&self, section_idx: usize, thetas: &[f64]) -> DVec3 {
+        let revolution_angle = self.topology.revolution_angle_ball(section_idx);
+        let theta = thetas[section_idx];
+        self.topology.dpos_dtheta(revolution_angle, theta)
+    }
+
+    fn apply_forces(&self, system: &mut RelaxationSystem) {
+        let total_nb_segment = self.topology.nb_balls();
+        for section_idx in 0..total_nb_segment {
+            let tengent = self.dpos_dtheta(section_idx, &system.thetas);
+            let derivative = &mut system.forces[section_idx];
+            let acceleration_without_friction =
+                system.forces[section_idx].dot(tengent) / tengent.mag_sq();
+            system.second_derivative_thetas[section_idx] += (acceleration_without_friction
+                - FLUID_FRICTION * system.d_thetas[section_idx])
+                / BALL_MASS;
+        }
+    }
+
+    fn to_curve_desc(&self) -> Option<Vec<CurveDescriptor>> {
+        self.last_thetas
+            .clone()
+            .map(|t| self.topology.to_curve_descriptor(t))
     }
 }
 
@@ -458,18 +595,18 @@ impl RelaxationSystem {
 
 impl ExplicitODE<f64> for RevolutionSurfaceSystem {
     fn init_cond(&self) -> Vector<f64> {
-        let total_nb_section = self.nb_segment * self.nb_section_per_segment;
+        let total_nb_section = self.topology.nb_balls();
 
         let mut data = self
             .last_thetas
             .clone()
-            .unwrap_or_else(|| self.thetas_init());
+            .unwrap_or_else(|| self.topology.theta_ball_init());
         data.extend(vec![0.; total_nb_section]);
         Vector::new_row(data)
     }
 
     fn func(&self, _t: &f64, x: &Vector<f64>) -> Vector<f64> {
-        let total_nb_section = self.nb_segment * self.nb_section_per_segment;
+        let total_nb_section = self.topology.nb_balls();
         let mut system = RelaxationSystem::from_mathru(x.clone(), total_nb_section);
         self.apply_springs(&mut system, None);
         self.apply_torsions(&mut system);
@@ -477,7 +614,7 @@ impl ExplicitODE<f64> for RevolutionSurfaceSystem {
         system.to_mathru()
     }
 
-    fn time_span(self: &Self) -> (f64, f64) {
+    fn time_span(&self) -> (f64, f64) {
         (0., 5.)
     }
 }
@@ -658,22 +795,27 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
         let thetas = self
             .last_thetas
             .clone()
-            .unwrap_or_else(|| self.thetas_init());
-        let total_nb_sections = self.nb_segment * self.nb_section_per_segment;
+            .unwrap_or_else(|| self.topology.theta_ball_init());
+        let total_nb_sections = self.topology.nb_balls();
         (0..total_nb_sections)
             .map(|n| dvec_to_vec(self.position_section(n, &thetas)))
             .collect()
     }
 
-    fn next(&self) -> Vec<usize> {
-        let total_nb_sections = self.nb_segment * self.nb_section_per_segment;
-        (0..total_nb_sections)
-            .map(|n| self.next_spring_end(n))
+    fn next(&self) -> Vec<(usize, usize)> {
+        self.topology
+            .balls_involved_in_spring()
+            .iter()
+            .map(|s| (*s, self.topology.other_spring_end(*s)))
             .collect()
     }
 
-    fn right(&self) -> Vec<usize> {
-        self.next_section.clone()
+    fn right(&self) -> Vec<(usize, usize)> {
+        self.topology
+            .balls_with_successor()
+            .iter()
+            .map(|s| (*s, self.topology.successor(*s)))
+            .collect()
     }
 
     fn nt_path(&self) -> Option<Vec<ultraviolet::Vec3>> {

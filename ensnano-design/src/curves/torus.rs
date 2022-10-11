@@ -156,7 +156,6 @@ pub enum CurveDescriptor2D {
 }
 
 impl CurveDescriptor2D {
-
     pub fn is_open(&self) -> bool {
         match self {
             Self::Parrabola { .. } => true,

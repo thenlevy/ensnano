@@ -296,7 +296,8 @@ impl Revolution {
         section_angle: Option<f64>,
     ) -> DVec3 {
         let t = revolution_angle / TAU;
-        let section_rotation = section_angle.unwrap_or_else(|| self.default_section_rotation_angle(t));
+        let section_rotation =
+            section_angle.unwrap_or_else(|| self.default_section_rotation_angle(t));
 
         let x = self.revolution_radius
             + self.curve_scale_factor
