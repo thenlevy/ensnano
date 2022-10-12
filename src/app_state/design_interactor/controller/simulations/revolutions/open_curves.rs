@@ -187,7 +187,35 @@ impl SpringTopology for OpenSurfaceTopology {
     }
 
     fn to_curve_descriptor(&self, thetas: Vec<f64>) -> Vec<CurveDescriptor> {
-        todo!()
+        let mut ret = Vec::with_capacity(self.nb_helices);
+
+        for i in 0..self.nb_helices {
+            let nb_section_per_helix = self.surface_descritization.nb_section_per_helix();
+            let nb_section_to_t1 = self.surface_descritization.nb_section_to_t1();
+            let ts = (0..nb_section_per_helix)
+                .map(|n| n as f64 / nb_section_to_t1 as f64)
+                .collect();
+            let values = (0..nb_section_per_helix)
+                .map(|n| {
+                    let section_idx = i * self.surface_descritization.nb_section_per_helix() + n;
+                    thetas[section_idx]
+                })
+                .collect();
+
+            let interpolator = InterpolationDescriptor::PointsValues { points: ts, values };
+            ret.push(CurveDescriptor::InterpolatedCurve(
+                InterpolatedCurveDescriptor {
+                    curve: self.target.curve.clone(),
+                    half_turns_count: 0,
+                    revolution_radius: 0.,
+                    curve_scale_factor: self.target.curve_scale_factor,
+                    interpolation: vec![interpolator],
+                    chevyshev_smoothening: self.target.junction_smoothening,
+                },
+            ))
+        }
+
+        ret
     }
 }
 
@@ -212,6 +240,10 @@ struct SurfaceDescritization {
 impl SurfaceDescritization {
     fn nb_section_per_helix(&self) -> usize {
         (self.nb_section_per_turn as f64 * self.total_nb_turn_per_helix).floor() as usize
+    }
+
+    fn nb_section_to_t1(&self) -> usize {
+        (self.nb_section_per_turn as f64 * self.nb_turn_to_reach_t1).floor() as usize
     }
 
     fn total_nb_section(&self) -> usize {

@@ -37,7 +37,7 @@ use ensnano_design::{
     InterpolationDescriptor, Parameters as DNAParameters,
 };
 
-use crate::app_state::ErrOperation;
+use crate::app_state::{ErrOperation, design_interactor::controller::simulations::revolutions::open_curves::OpenSurfaceTopology};
 
 mod closed_curves;
 use closed_curves::CloseSurfaceTopology;
@@ -131,7 +131,7 @@ impl RevolutionSurfaceSystem {
         let scaffold_len_target = desc.scaffold_len_target;
         let dna_parameters = desc.dna_parameters;
         let topology: Box<dyn SpringTopology> = if desc.target.curve.is_open() {
-            unimplemented!("Revolution surfaces with open sections")
+            Box::new(OpenSurfaceTopology::new(desc))
         } else {
             Box::new(CloseSurfaceTopology::new(desc))
         };
@@ -154,6 +154,7 @@ impl RevolutionSurfaceSystem {
             if let Some(interface) = interface.as_ref() {
                 interface.lock().unwrap().new_state = Some(self.clone());
             }
+            std::thread::sleep_ms(20_000);
             current_default = self.one_simulation_step(first);
             if current_default < 1.01 {
                 break;
@@ -677,6 +678,7 @@ mod tests {
             scaffold_len_target: 7560,
         };
         let mut system = RevolutionSurfaceSystem::new(system_desc);
+
 
         let mut current_length = 0;
         let mut first = true;

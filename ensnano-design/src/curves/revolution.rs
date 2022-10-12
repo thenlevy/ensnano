@@ -39,10 +39,6 @@ pub struct InterpolatedCurveDescriptor {
 impl InterpolatedCurveDescriptor {
     pub(super) fn instanciate(self, init_interpolators: bool) -> Revolution {
         let curve = self.curve.clone();
-        let mut discontinuities = vec![0.];
-        for i in 0..self.interpolation.len() {
-            discontinuities.push(i as f64 + 1.);
-        }
         let curve = SmoothInterpolatedCurve::from_curve_interpolation(
             curve,
             self.interpolation,
@@ -86,18 +82,34 @@ enum SmoothInterpolatedCurve {
     Open {
         interpolator: ChebyshevPolynomial,
         curve: CurveDescriptor2D,
+        t_max: f64,
     },
 }
 
 impl SmoothInterpolatedCurve {
     fn from_curve_interpolation(
         curve: CurveDescriptor2D,
-        interpolations: Vec<InterpolationDescriptor>,
+        mut interpolations: Vec<InterpolationDescriptor>,
         smoothening_coeff: f64,
         nb_half_turn: isize,
     ) -> Self {
         if curve.is_open() {
-            todo!()
+            let interpolator = match interpolations.swap_remove(0) {
+                InterpolationDescriptor::PointsValues { points, values } => {
+                    let points_values = points.into_iter().zip(values.into_iter()).collect();
+                    chebyshev_polynomials::interpolate_points(points_values, 1e-4)
+                }
+                InterpolationDescriptor::Chebyshev { coeffs, interval } => {
+                    chebyshev_polynomials::ChebyshevPolynomial::from_coeffs_interval(
+                        coeffs, interval,
+                    )
+                }
+            };
+            Self::Open {
+                interpolator,
+                curve,
+                t_max: 1.0,
+            }
         } else {
             let mut interpolators = Vec::with_capacity(interpolations.len());
             for interpolation in interpolations.into_iter() {
@@ -196,7 +208,7 @@ impl SmoothInterpolatedCurve {
     fn t_max(&self) -> f64 {
         match self {
             Self::Closed { interpolators, .. } => interpolators.len() as f64,
-            Self::Open { .. } => todo!(),
+            Self::Open { t_max, .. } => *t_max,
         }
     }
 

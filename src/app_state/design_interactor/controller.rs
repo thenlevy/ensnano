@@ -487,18 +487,15 @@ impl Controller {
                     return Err(ErrOperation::IncompatibleState);
                 }
                 let surface_desc = RevolutionSurfaceDescriptor {
-                    curve: CurveDescriptor2D::TwoBalls {
-                        radius_tube: 0.76.into(),
-                        radius_extern: 2.5.into(),
-                        radius_intern: 1.7.into(),
-                        smooth_ceil: 0.04.into(),
+                    curve: CurveDescriptor2D::Parrabola {
+                        speed: 0.5.into(),
                     },
                     half_turns_count: 0,
-                    revolution_radius: 10.,
+                    revolution_radius: 0.,
                     junction_smoothening: 0.,
-                    nb_helix_per_half_section: 17,
+                    nb_helix_per_half_section: 2,
                     dna_paramters: Parameters::GEARY_2014_DNA,
-                    shift_per_turn: 2,
+                    shift_per_turn: 0,
                 };
                 let system_desc = RevolutionSurfaceSystemDescriptor {
                     nb_section_per_segment: 100,
