@@ -76,11 +76,17 @@ pub enum InterpolationDescriptor {
     },
 }
 
-struct SmoothInterpolatedCurve {
-    interpolators: Vec<ChebyshevPolynomial>,
-    curve: CurveDescriptor2D,
-    smoothening_coeff: f64,
-    half_turn: bool,
+enum SmoothInterpolatedCurve {
+    Closed {
+        interpolators: Vec<ChebyshevPolynomial>,
+        curve: CurveDescriptor2D,
+        smoothening_coeff: f64,
+        half_turn: bool,
+    },
+    Open {
+        interpolator: ChebyshevPolynomial,
+        curve: CurveDescriptor2D,
+    },
 }
 
 impl SmoothInterpolatedCurve {
@@ -90,77 +96,91 @@ impl SmoothInterpolatedCurve {
         smoothening_coeff: f64,
         nb_half_turn: isize,
     ) -> Self {
-        let mut interpolators = Vec::with_capacity(interpolations.len());
-        for interpolation in interpolations.into_iter() {
-            let interpolator = match interpolation {
-                InterpolationDescriptor::PointsValues { points, values } => {
-                    let points_values = points.into_iter().zip(values.into_iter()).collect();
-                    chebyshev_polynomials::interpolate_points(points_values, 1e-4)
-                }
-                InterpolationDescriptor::Chebyshev { coeffs, interval } => {
-                    chebyshev_polynomials::ChebyshevPolynomial::from_coeffs_interval(
-                        coeffs, interval,
-                    )
-                }
-            };
-            interpolators.push(interpolator);
-        }
-        Self {
-            curve,
-            interpolators,
-            smoothening_coeff,
-            half_turn: nb_half_turn.rem_euclid(2) != 0,
+        if curve.is_open() {
+            todo!()
+        } else {
+            let mut interpolators = Vec::with_capacity(interpolations.len());
+            for interpolation in interpolations.into_iter() {
+                let interpolator = match interpolation {
+                    InterpolationDescriptor::PointsValues { points, values } => {
+                        let points_values = points.into_iter().zip(values.into_iter()).collect();
+                        chebyshev_polynomials::interpolate_points(points_values, 1e-4)
+                    }
+                    InterpolationDescriptor::Chebyshev { coeffs, interval } => {
+                        chebyshev_polynomials::ChebyshevPolynomial::from_coeffs_interval(
+                            coeffs, interval,
+                        )
+                    }
+                };
+                interpolators.push(interpolator);
+            }
+            Self::Closed {
+                curve,
+                interpolators,
+                smoothening_coeff,
+                half_turn: nb_half_turn.rem_euclid(2) != 0,
+            }
         }
     }
 
     /// Given a time t, return the time u at which the section must be evaluated.
     /// Smoothen the junction between consecutive one-turn segments.
     fn smooth_chebyshev(&self, t: f64) -> f64 {
-        // the position on the current segment. If u is close the 0, we interpolate with the
-        // previous segment. If u is close to 1, we interpolate with the next segment.
-        let u = t.rem_euclid(1.);
+        match self {
+            Self::Closed {
+                interpolators,
+                smoothening_coeff,
+                half_turn,
+                ..
+            } => {
+                // the position on the current segment. If u is close the 0, we interpolate with the
+                // previous segment. If u is close to 1, we interpolate with the next segment.
+                let u = t.rem_euclid(1.);
 
-        let helix_idx =
-            (t.div_euclid(1.) as isize).rem_euclid(self.interpolators.len() as isize) as usize;
-        let prev_idx =
-            (helix_idx as isize - 1).rem_euclid(self.interpolators.len() as isize) as usize;
-        let next_idx = (helix_idx + 1).rem_euclid(self.interpolators.len());
+                let helix_idx =
+                    (t.div_euclid(1.) as isize).rem_euclid(interpolators.len() as isize) as usize;
+                let prev_idx =
+                    (helix_idx as isize - 1).rem_euclid(interpolators.len() as isize) as usize;
+                let next_idx = (helix_idx + 1).rem_euclid(interpolators.len());
 
-        // Quantify what "close to 0" and "close to 1" mean.
-        let a = self.smoothening_coeff;
+                // Quantify what "close to 0" and "close to 1" mean.
+                let a = *smoothening_coeff;
 
-        let shift = if self.half_turn { 0.5 } else { 0. };
+                let shift = if *half_turn { 0.5 } else { 0. };
 
-        if u < a {
-            // second half of the interpolation region, v = 0.5 + 1/2 ( u / a)
-            let v = (1. + u / a) / 2.;
-            let mut v1 =
-                (self.interpolators[prev_idx].evaluate(1. - a + v * a) + shift).rem_euclid(1.);
-            let v2 = (self.interpolators[helix_idx].evaluate(v * a)).rem_euclid(1.);
+                if u < a {
+                    // second half of the interpolation region, v = 0.5 + 1/2 ( u / a)
+                    let v = (1. + u / a) / 2.;
+                    let mut v1 =
+                        (interpolators[prev_idx].evaluate(1. - a + v * a) + shift).rem_euclid(1.);
+                    let v2 = (interpolators[helix_idx].evaluate(v * a)).rem_euclid(1.);
 
-            while v1 > v2 + 0.5 {
-                v1 -= 1.
+                    while v1 > v2 + 0.5 {
+                        v1 -= 1.
+                    }
+                    while v1 < v2 - 0.5 {
+                        v1 += 1.
+                    }
+                    (1. - v) * v1 + v * v2
+                } else if u > 1. - a {
+                    // first half of the interpolation region
+                    let v = (u - (1. - a)) / a / 2.;
+                    let v1 = (interpolators[helix_idx].evaluate(1. - a + v * a)).rem_euclid(1.);
+                    let mut v2 = (interpolators[next_idx].evaluate(v * a) - shift).rem_euclid(1.);
+
+                    while v2 > v1 + 0.5 {
+                        v2 -= 1.
+                    }
+                    while v2 < v1 - 0.5 {
+                        v2 += 1.
+                    }
+
+                    (1. - v) * v1 + v * v2
+                } else {
+                    interpolators[helix_idx].evaluate(u)
+                }
             }
-            while v1 < v2 - 0.5 {
-                v1 += 1.
-            }
-            (1. - v) * v1 + v * v2
-        } else if u > 1. - a {
-            // first half of the interpolation region
-            let v = (u - (1. - a)) / a / 2.;
-            let v1 = (self.interpolators[helix_idx].evaluate(1. - a + v * a)).rem_euclid(1.);
-            let mut v2 = (self.interpolators[next_idx].evaluate(v * a) - shift).rem_euclid(1.);
-
-            while v2 > v1 + 0.5 {
-                v2 -= 1.
-            }
-            while v2 < v1 - 0.5 {
-                v2 += 1.
-            }
-
-            (1. - v) * v1 + v * v2
-        } else {
-            self.interpolators[helix_idx].evaluate(u)
+            Self::Open { interpolator, .. } => interpolator.evaluate(t),
         }
     }
 
@@ -174,15 +194,24 @@ impl SmoothInterpolatedCurve {
     }
 
     fn t_max(&self) -> f64 {
-        self.interpolators.len() as f64
+        match self {
+            Self::Closed { interpolators, .. } => interpolators.len() as f64,
+            Self::Open { .. } => todo!(),
+        }
     }
 
     fn normalized_tangent_at_s(&self, s: f64) -> DVec2 {
-        self.curve.normalized_tangent(s.rem_euclid(1.))
+        match self {
+            Self::Closed { curve, .. } => curve.normalized_tangent(s.rem_euclid(1.)),
+            Self::Open { curve, .. } => curve.normalized_tangent(s),
+        }
     }
 
     fn point_at_s(&self, s: f64) -> DVec2 {
-        self.curve.point(s.rem_euclid(1.))
+        match self {
+            Self::Closed { curve, .. } => curve.point(s.rem_euclid(1.)),
+            Self::Open { curve, .. } => curve.point(s),
+        }
     }
 }
 
