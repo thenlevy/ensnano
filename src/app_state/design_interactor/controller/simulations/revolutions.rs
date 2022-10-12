@@ -42,6 +42,8 @@ use crate::app_state::ErrOperation;
 mod closed_curves;
 use closed_curves::CloseSurfaceTopology;
 
+mod open_curves;
+
 trait SpringTopology: Send + Sync + 'static {
     fn nb_balls(&self) -> usize;
 
