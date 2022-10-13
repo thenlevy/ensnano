@@ -488,7 +488,7 @@ impl Controller {
                 }
                 let surface_desc = RevolutionSurfaceDescriptor {
                     curve: CurveDescriptor2D::Parrabola {
-                        speed: 0.5.into(),
+                        speed: std::f64::consts::FRAC_1_SQRT_2.into(),
                     },
                     half_turns_count: 0,
                     revolution_radius: 0.,

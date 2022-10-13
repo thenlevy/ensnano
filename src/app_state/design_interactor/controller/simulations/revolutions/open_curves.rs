@@ -18,8 +18,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 #![allow(dead_code)]
 
-const STARTING_NUMBER_OF_TURN: f64 = 10.;
+const STARTING_NUMBER_OF_TURN: f64 = 5.;
 const ADDITIONAL_NB_TURN: f64 = 2.;
+
+use chebyshev_polynomials::ChebyshevPolynomial;
 
 use super::*;
 
@@ -37,10 +39,12 @@ pub(super) struct OpenSurfaceTopology {
     target: RevolutionSurface,
     section_with_other_spring_end: Vec<usize>,
     surface_descritization: SurfaceDescritization,
+    interpolator: ChebyshevPolynomial,
 }
 
 impl OpenSurfaceTopology {
     pub fn new(desc: RevolutionSurfaceSystemDescriptor) -> Self {
+        println!("perimetter {}", desc.target.curve.perimeter());
         let nb_helices = desc.target.nb_helix_per_half_section * 2;
 
         // We want the number of section per turn to be dividable by the number of helices
@@ -53,17 +57,26 @@ impl OpenSurfaceTopology {
         let nb_turn_to_reach_t1 = STARTING_NUMBER_OF_TURN;
         let total_nb_turn_per_helix = nb_turn_to_reach_t1 + ADDITIONAL_NB_TURN;
 
+        let abscissa_on_section_per_turn =
+            nb_helices as f64 * DNAParameters::INTER_CENTER_GAP as f64;
+
+        let initial_abscissa = DNAParameters::INTER_CENTER_GAP as f64 / 2.;
+        let curve_perimeter = desc.target.curve.perimeter();
         let mut target = RevolutionSurface::new(desc.target);
 
         // Due to how RevolutionSurface::new is implemented, the scaling starts with enough room
         // for one turn
         target.curve_scale_factor *= STARTING_NUMBER_OF_TURN;
+        println!("scale {}", target.curve_scale_factor);
 
         let surface_descritization = SurfaceDescritization {
             nb_section_per_turn,
             nb_helices,
             total_nb_turn_per_helix,
             nb_turn_to_reach_t1,
+            abscissa_on_section_per_turn,
+            initial_abscissa,
+            curve_scale_factor: target.curve_scale_factor,
         };
 
         let total_nb_section = surface_descritization.total_nb_section();
@@ -95,6 +108,8 @@ impl OpenSurfaceTopology {
             .filter(|n| surface_descritization.other_spring_end(*n).is_some())
             .collect();
 
+        let interpolator = interpolator_inverse_curvilinear_abscissa(&target.curve);
+
         Self {
             nb_section_per_turn,
             nb_helices,
@@ -108,8 +123,34 @@ impl OpenSurfaceTopology {
             section_with_other_spring_end,
             target,
             surface_descritization,
+            interpolator,
         }
     }
+}
+
+const NB_POINT_INTERPOLATION: usize = 100_000;
+const INTERPOLATION_ERROR: f64 = 1e-4;
+const T_MAX: f64 = 3.;
+fn interpolator_inverse_curvilinear_abscissa(curve: &CurveDescriptor2D) -> ChebyshevPolynomial {
+    let mut abscissa = 0.;
+
+    let mut point = curve.point(0.);
+
+    let mut ts = Vec::with_capacity(NB_POINT_INTERPOLATION);
+    let mut abscissas = Vec::with_capacity(NB_POINT_INTERPOLATION);
+    ts.push(0.);
+    abscissas.push(abscissa);
+    for n in 1..=NB_POINT_INTERPOLATION {
+        let t = T_MAX * n as f64 / NB_POINT_INTERPOLATION as f64;
+        let next_point = curve.point(t);
+        abscissa += (point - next_point).mag();
+        abscissas.push(abscissa);
+        point = next_point;
+        ts.push(t);
+    }
+    log::info!("Interpolating inverse...");
+    let abscissa_t = abscissas.iter().cloned().zip(ts.iter().cloned()).collect();
+    chebyshev_polynomials::interpolate_points(abscissa_t, INTERPOLATION_ERROR)
 }
 
 impl SpringTopology for OpenSurfaceTopology {
@@ -154,7 +195,9 @@ impl SpringTopology for OpenSurfaceTopology {
 
         (0..nb_balls)
             .map(|n| {
-                let coordinate = self.surface_descritization.initial_ball_coordinate(n);
+                let coordinate = self
+                    .surface_descritization
+                    .initial_ball_coordinate(n, &self.interpolator);
                 coordinate.section_parameter
             })
             .collect()
@@ -174,7 +217,7 @@ impl SpringTopology for OpenSurfaceTopology {
 
     fn revolution_angle_ball(&self, ball_id: usize) -> f64 {
         self.surface_descritization
-            .initial_ball_coordinate(ball_id)
+            .initial_ball_coordinate(ball_id, &self.interpolator)
             .revolution_angle
     }
 
@@ -235,6 +278,9 @@ struct SurfaceDescritization {
     total_nb_turn_per_helix: f64,
     /// The number of turn to reach the end of the surface in the initial configuration.
     nb_turn_to_reach_t1: f64,
+    abscissa_on_section_per_turn: f64,
+    initial_abscissa: f64,
+    curve_scale_factor: f64,
 }
 
 impl SurfaceDescritization {
@@ -250,19 +296,25 @@ impl SurfaceDescritization {
         self.nb_helices * self.nb_section_per_helix()
     }
 
-    fn initial_ball_coordinate(&self, ball_id: usize) -> BallCoordinate {
+    fn initial_ball_coordinate(
+        &self,
+        ball_id: usize,
+        reverse_abcissa: &ChebyshevPolynomial,
+    ) -> BallCoordinate {
         let helix_id = ball_id / self.nb_section_per_helix();
         let section_id = ball_id % self.nb_section_per_helix();
 
-        let init_angle = helix_id as f64 * TAU / self.nb_helices as f64;
-        let revolution_angle =
-            init_angle + section_id as f64 * TAU / self.nb_section_per_turn as f64;
+        let current_nb_turn = section_id as f64 / self.nb_section_per_turn as f64;
 
-        let section_parameter = section_id as f64 / self.nb_turn_to_reach_t1;
+        let init_angle = helix_id as f64 * -TAU / self.nb_helices as f64;
+        let revolution_angle = init_angle + current_nb_turn * TAU;
+
+        let section_abcissa =
+            current_nb_turn * self.abscissa_on_section_per_turn + self.initial_abscissa;
 
         BallCoordinate {
             revolution_angle,
-            section_parameter,
+            section_parameter: reverse_abcissa.evaluate(section_abcissa / self.curve_scale_factor),
         }
     }
 

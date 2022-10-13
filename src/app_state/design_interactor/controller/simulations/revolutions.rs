@@ -37,7 +37,10 @@ use ensnano_design::{
     InterpolationDescriptor, Parameters as DNAParameters,
 };
 
-use crate::app_state::{ErrOperation, design_interactor::controller::simulations::revolutions::open_curves::OpenSurfaceTopology};
+use crate::app_state::{
+    design_interactor::controller::simulations::revolutions::open_curves::OpenSurfaceTopology,
+    ErrOperation,
+};
 
 mod closed_curves;
 use closed_curves::CloseSurfaceTopology;
@@ -154,7 +157,6 @@ impl RevolutionSurfaceSystem {
             if let Some(interface) = interface.as_ref() {
                 interface.lock().unwrap().new_state = Some(self.clone());
             }
-            std::thread::sleep_ms(20_000);
             current_default = self.one_simulation_step(first);
             if current_default < 1.01 {
                 break;
@@ -198,6 +200,7 @@ impl RevolutionSurfaceSystem {
                 second_derivative_thetas: vec![0.; total_nb_section],
             };
             self.apply_springs(&mut system, Some(&mut spring_relaxation_state));
+            println!("initial spring relax state: {:?}", spring_relaxation_state);
             let rescaling_factor = 1. / spring_relaxation_state.avg_ext;
             self.topology.rescale_section(rescaling_factor);
             *first = false;
@@ -678,7 +681,6 @@ mod tests {
             scaffold_len_target: 7560,
         };
         let mut system = RevolutionSurfaceSystem::new(system_desc);
-
 
         let mut current_length = 0;
         let mut first = true;

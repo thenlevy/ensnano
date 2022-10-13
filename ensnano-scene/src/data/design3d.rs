@@ -274,6 +274,14 @@ impl<R: DesignReader> Design3D<R> {
                         .to_raw_instance(),
                 )
             }
+            for (me, other) in additional_structure.next().into_iter() {
+                let pos_left = positions[me];
+                let pos_right = positions[other];
+                ret.push(
+                    create_dna_bound(pos_left, pos_right, COLOR_GUANINE, u32::MAX, false)
+                        .to_raw_instance(),
+                )
+            }
         }
         Rc::new(ret)
     }
