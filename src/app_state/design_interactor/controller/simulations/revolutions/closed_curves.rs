@@ -209,4 +209,8 @@ impl SpringTopology for CloseSurfaceTopology {
 
         ret
     }
+
+    fn fixed_points(&self) -> &[usize] {
+        &[]
+    }
 }

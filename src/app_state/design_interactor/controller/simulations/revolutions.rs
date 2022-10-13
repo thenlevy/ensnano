@@ -22,8 +22,8 @@ use std::sync::{Arc, Mutex, Weak};
 
 const SPRING_STIFFNESS: f64 = 8.;
 const TORSION_STIFFNESS: f64 = 30.;
-const FLUID_FRICTION: f64 = 0.1;
-const BALL_MASS: f64 = 10.;
+const FLUID_FRICTION: f64 = 1.;
+const BALL_MASS: f64 = 100.;
 const NB_SECTION_PER_SEGMENT: usize = 100;
 
 use mathru::algebra::linear::vector::vector::Vector;
@@ -79,6 +79,8 @@ trait SpringTopology: Send + Sync + 'static {
     fn axis(&self, revolution_angle: f64) -> DVec3;
 
     fn to_curve_descriptor(&self, thetas: Vec<f64>) -> Vec<CurveDescriptor>;
+
+    fn fixed_points(&self) -> &[usize];
 }
 
 pub struct RevolutionSurfaceSystem {
@@ -206,8 +208,8 @@ impl RevolutionSurfaceSystem {
             *first = false;
         }
 
-        let solver = FixedStepper::new(1e-1);
-        let method = Ralston4::default();
+        let solver = FixedStepper::new(1e-3);
+        let method = ExplicitEuler::default();
 
         let mut spring_relaxation_state = SpringRelaxationState::new();
         if let Some(last_state) = solver
@@ -354,6 +356,10 @@ impl RevolutionSurfaceSystem {
                 - FLUID_FRICTION * system.d_thetas[section_idx])
                 / BALL_MASS;
         }
+
+        for idx in self.topology.fixed_points() {
+            system.second_derivative_thetas[*idx] = 0.;
+        }
     }
 
     fn to_curve_desc(&self) -> Option<Vec<CurveDescriptor>> {
@@ -430,7 +436,7 @@ impl ExplicitODE<f64> for RevolutionSurfaceSystem {
     }
 
     fn time_span(&self) -> (f64, f64) {
-        (0., 5.)
+        (0., 1.)
     }
 }
 

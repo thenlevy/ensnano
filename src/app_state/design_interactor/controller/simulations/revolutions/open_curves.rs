@@ -18,8 +18,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 #![allow(dead_code)]
 
-const STARTING_NUMBER_OF_TURN: f64 = 5.;
+const STARTING_NUMBER_OF_TURN: f64 = 2.;
 const ADDITIONAL_NB_TURN: f64 = 2.;
+const SCALING_ABCISSA: f64 = 1.5;
 
 use chebyshev_polynomials::ChebyshevPolynomial;
 
@@ -40,6 +41,7 @@ pub(super) struct OpenSurfaceTopology {
     section_with_other_spring_end: Vec<usize>,
     surface_descritization: SurfaceDescritization,
     interpolator: ChebyshevPolynomial,
+    fixed_points: Vec<usize>,
 }
 
 impl OpenSurfaceTopology {
@@ -58,7 +60,7 @@ impl OpenSurfaceTopology {
         let total_nb_turn_per_helix = nb_turn_to_reach_t1 + ADDITIONAL_NB_TURN;
 
         let abscissa_on_section_per_turn =
-            nb_helices as f64 * DNAParameters::INTER_CENTER_GAP as f64;
+            nb_helices as f64 * DNAParameters::INTER_CENTER_GAP as f64 * SCALING_ABCISSA;
 
         let initial_abscissa = DNAParameters::INTER_CENTER_GAP as f64 / 2.;
         let curve_perimeter = desc.target.curve.perimeter();
@@ -110,6 +112,10 @@ impl OpenSurfaceTopology {
 
         let interpolator = interpolator_inverse_curvilinear_abscissa(&target.curve);
 
+        let fixed_points = (0..nb_helices)
+            .map(|n| n * surface_descritization.nb_section_per_helix())
+            .collect();
+
         Self {
             nb_section_per_turn,
             nb_helices,
@@ -124,6 +130,7 @@ impl OpenSurfaceTopology {
             target,
             surface_descritization,
             interpolator,
+            fixed_points,
         }
     }
 }
@@ -259,6 +266,10 @@ impl SpringTopology for OpenSurfaceTopology {
         }
 
         ret
+    }
+
+    fn fixed_points(&self) -> &[usize] {
+        &self.fixed_points
     }
 }
 
