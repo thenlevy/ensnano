@@ -22,7 +22,7 @@ use std::sync::{Arc, Mutex, Weak};
 
 const SPRING_STIFFNESS: f64 = 8.;
 const TORSION_STIFFNESS: f64 = 30.;
-const FLUID_FRICTION: f64 = 0.1;
+const FLUID_FRICTION: f64 = 1.;
 const BALL_MASS: f64 = 10.;
 const NB_SECTION_PER_SEGMENT: usize = 100;
 
@@ -91,6 +91,7 @@ pub struct RevolutionSurfaceSystem {
     topology: Box<dyn SpringTopology>,
     dna_parameters: DNAParameters,
     last_thetas: Option<Vec<f64>>,
+    last_dthetas: Option<Vec<f64>>,
     scaffold_len_target: usize,
 }
 
@@ -100,6 +101,7 @@ impl Clone for RevolutionSurfaceSystem {
             topology: self.topology.cloned(),
             dna_parameters: self.dna_parameters,
             last_thetas: self.last_thetas.clone(),
+            last_dthetas: self.last_dthetas.clone(),
             scaffold_len_target: self.scaffold_len_target,
         }
     }
@@ -149,6 +151,7 @@ impl RevolutionSurfaceSystem {
             topology,
             dna_parameters,
             last_thetas: None,
+            last_dthetas: None,
             scaffold_len_target,
         }
     }
@@ -163,6 +166,7 @@ impl RevolutionSurfaceSystem {
             if let Some(interface) = interface.as_ref() {
                 interface.lock().unwrap().new_state = Some(self.clone());
             }
+            //std::thread::sleep_ms(20_000);
             current_default = self.one_simulation_step(first);
             if current_default < 1.01 {
                 break;
@@ -224,6 +228,7 @@ impl RevolutionSurfaceSystem {
             let mut system = RelaxationSystem::from_mathru(last_state, total_nb_section);
             self.apply_springs(&mut system, Some(&mut spring_relaxation_state));
             self.last_thetas = Some(system.thetas.clone());
+            self.last_dthetas = Some(system.d_thetas.clone());
         } else {
             log::error!("error while solving ODE");
         };
@@ -275,7 +280,7 @@ impl RevolutionSurfaceSystem {
         system: &mut RelaxationSystem,
         mut spring_state: Option<&mut SpringRelaxationState>,
     ) {
-        let total_nb_segment = self.topology.nb_balls();
+        let mut nb_spring = 0; 
         if let Some(state) = spring_state.as_mut() {
             state.avg_ext = 0.;
         }
@@ -315,10 +320,11 @@ impl RevolutionSurfaceSystem {
 
             system.forces[i] -= f_ij;
             system.forces[j] += f_ij;
+            nb_spring += 1;
         }
 
         if let Some(state) = spring_state.as_mut() {
-            state.avg_ext /= total_nb_segment as f64;
+            state.avg_ext /= nb_spring as f64;
         }
     }
 
@@ -353,6 +359,7 @@ impl RevolutionSurfaceSystem {
         let total_nb_segment = self.topology.nb_balls();
 
         for (b_id, f) in self.topology.additional_forces(&system.thetas) {
+            //println!("b_id {b_id}, force {:.3?}", f);
             system.forces[b_id] += f;
         }
 
@@ -403,7 +410,7 @@ impl SpringRelaxationState {
 }
 
 impl RelaxationSystem {
-    fn to_mathru(self) -> Vector<f64> {
+    fn into_mathru(self) -> Vector<f64> {
         let mut data = self.d_thetas;
         data.extend(self.second_derivative_thetas);
         Vector::new_row(data)
@@ -431,7 +438,8 @@ impl ExplicitODE<f64> for RevolutionSurfaceSystem {
             .last_thetas
             .clone()
             .unwrap_or_else(|| self.topology.theta_ball_init());
-        data.extend(vec![0.; total_nb_section]);
+        let speeds = self.last_dthetas.clone().unwrap_or_else(|| vec![0. ; total_nb_section]);
+        data.extend(speeds);
         Vector::new_row(data)
     }
 
@@ -441,7 +449,7 @@ impl ExplicitODE<f64> for RevolutionSurfaceSystem {
         self.apply_springs(&mut system, None);
         self.apply_torsions(&mut system);
         self.apply_forces(&mut system);
-        system.to_mathru()
+        system.into_mathru()
     }
 
     fn time_span(&self) -> (f64, f64) {

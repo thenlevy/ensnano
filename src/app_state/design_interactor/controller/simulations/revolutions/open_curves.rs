@@ -19,8 +19,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 #![allow(dead_code)]
 
 const STARTING_NUMBER_OF_TURN: f64 = 2.;
-const ADDITIONAL_NB_TURN: f64 = 2.;
-const SCALING_ABCISSA: f64 = 1.5;
+const ADDITIONAL_NB_TURN: f64 = 0.5;
+const SCALING_ABCISSA: f64 = 1.1;
 
 use chebyshev_polynomials::ChebyshevPolynomial;
 
@@ -63,7 +63,7 @@ impl OpenSurfaceTopology {
         let abscissa_on_section_per_turn =
             nb_helices as f64 * DNAParameters::INTER_CENTER_GAP as f64 * SCALING_ABCISSA;
 
-        let initial_abscissa = DNAParameters::INTER_CENTER_GAP as f64 / 2.;
+        let initial_abscissa = 3. * DNAParameters::INTER_CENTER_GAP as f64 / 2.;
         let curve_perimeter = desc.target.curve.perimeter();
         let mut target = RevolutionSurface::new(desc.target);
 
@@ -283,7 +283,7 @@ impl SpringTopology for OpenSurfaceTopology {
         };
 
         let dist_last_ball = {
-            let s_id = self.surface_descritization.first_section_not_connected_to_pole();
+            let s_id = self.surface_descritization.first_section_not_connected_to_pole() - 1;
             let angle = self.revolution_angle_ball(s_id);
             let theta_init = self.surface_descritization.initial_ball_coordinate(s_id, &self.interpolator).section_parameter;
             self.surface_position(angle, theta_init).mag()
@@ -404,7 +404,7 @@ impl SurfaceDescritization {
 
         (0..self.nb_helices)
             .flat_map(|h_id| {
-                (0..first_connected_ball_id).map(move |s_id| (h_id * self.nb_section_per_helix() + s_id, s_id as f64 / first_connected_ball_id as f64))
+                (0..first_connected_ball_id).map(move |s_id| (h_id * self.nb_section_per_helix() + s_id, s_id as f64 / (first_connected_ball_id as f64 - 1.)))
             })
             .collect()
     }
