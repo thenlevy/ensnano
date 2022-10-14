@@ -22,8 +22,8 @@ use std::sync::{Arc, Mutex, Weak};
 
 const SPRING_STIFFNESS: f64 = 8.;
 const TORSION_STIFFNESS: f64 = 30.;
-const FLUID_FRICTION: f64 = 1.;
-const BALL_MASS: f64 = 100.;
+const FLUID_FRICTION: f64 = 0.1;
+const BALL_MASS: f64 = 10.;
 const NB_SECTION_PER_SEGMENT: usize = 100;
 
 use mathru::algebra::linear::vector::vector::Vector;
@@ -81,6 +81,10 @@ trait SpringTopology: Send + Sync + 'static {
     fn to_curve_descriptor(&self, thetas: Vec<f64>) -> Vec<CurveDescriptor>;
 
     fn fixed_points(&self) -> &[usize];
+
+    fn additional_forces(&self, _thetas: &[f64]) -> Vec<(usize, DVec3)> {
+        vec![]
+    }
 }
 
 pub struct RevolutionSurfaceSystem {
@@ -208,7 +212,7 @@ impl RevolutionSurfaceSystem {
             *first = false;
         }
 
-        let solver = FixedStepper::new(1e-3);
+        let solver = FixedStepper::new(1e-4);
         let method = ExplicitEuler::default();
 
         let mut spring_relaxation_state = SpringRelaxationState::new();
@@ -347,6 +351,11 @@ impl RevolutionSurfaceSystem {
 
     fn apply_forces(&self, system: &mut RelaxationSystem) {
         let total_nb_segment = self.topology.nb_balls();
+
+        for (b_id, f) in self.topology.additional_forces(&system.thetas) {
+            system.forces[b_id] += f;
+        }
+
         for section_idx in 0..total_nb_segment {
             let tengent = self.dpos_dtheta(section_idx, &system.thetas);
             let derivative = &mut system.forces[section_idx];
@@ -436,7 +445,7 @@ impl ExplicitODE<f64> for RevolutionSurfaceSystem {
     }
 
     fn time_span(&self) -> (f64, f64) {
-        (0., 1.)
+        (0., 0.1)
     }
 }
 

@@ -42,6 +42,7 @@ pub(super) struct OpenSurfaceTopology {
     surface_descritization: SurfaceDescritization,
     interpolator: ChebyshevPolynomial,
     fixed_points: Vec<usize>,
+    balls_connected_to_pole: Vec<(usize, f64)>,
 }
 
 impl OpenSurfaceTopology {
@@ -128,10 +129,12 @@ impl OpenSurfaceTopology {
             other_spring_end,
             section_with_other_spring_end,
             target,
+            balls_connected_to_pole: surface_descritization.balls_connected_to_pole(),
             surface_descritization,
             interpolator,
             fixed_points,
         }
+
     }
 }
 
@@ -271,6 +274,35 @@ impl SpringTopology for OpenSurfaceTopology {
     fn fixed_points(&self) -> &[usize] {
         &self.fixed_points
     }
+
+    fn additional_forces(&self, thetas: &[f64]) -> Vec<(usize, DVec3)> {
+        let dist_ball0 = {
+            let angle = self.revolution_angle_ball(0);
+            let theta_init = self.surface_descritization.initial_ball_coordinate(0, &self.interpolator).section_parameter;
+            self.surface_position(angle, theta_init).mag()
+        };
+
+        let dist_last_ball = {
+            let s_id = self.surface_descritization.first_section_not_connected_to_pole();
+            let angle = self.revolution_angle_ball(s_id);
+            let theta_init = self.surface_descritization.initial_ball_coordinate(s_id, &self.interpolator).section_parameter;
+            self.surface_position(angle, theta_init).mag()
+        };
+
+        self.balls_connected_to_pole.iter().map(|(b_id, coeff)| {
+            let l0 = coeff * dist_last_ball + (1. - coeff) * dist_ball0;
+
+            let (pos, len) = {
+                let angle = self.revolution_angle_ball(*b_id);
+                let pos = self.surface_position(angle, thetas[*b_id]);
+                (pos, pos.mag())
+            };
+            (*b_id, super::SPRING_STIFFNESS * (1. - l0/len) * -pos)
+
+        }).collect()
+
+        
+    }
 }
 
 struct BallCoordinate {
@@ -361,5 +393,19 @@ impl SurfaceDescritization {
         } else {
             ball_id
         }
+    }
+
+    fn first_section_not_connected_to_pole(&self) -> usize {
+        self.nb_section_per_turn / self.nb_helices
+    }
+
+    fn balls_connected_to_pole(&self) -> Vec<(usize, f64)> {
+        let first_connected_ball_id = self.nb_section_per_turn / self.nb_helices;
+
+        (0..self.nb_helices)
+            .flat_map(|h_id| {
+                (0..first_connected_ball_id).map(move |s_id| (h_id * self.nb_section_per_helix() + s_id, s_id as f64 / first_connected_ball_id as f64))
+            })
+            .collect()
     }
 }
