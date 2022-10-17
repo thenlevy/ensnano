@@ -280,7 +280,7 @@ impl RevolutionSurfaceSystem {
         system: &mut RelaxationSystem,
         mut spring_state: Option<&mut SpringRelaxationState>,
     ) {
-        let mut nb_spring = 0; 
+        let mut nb_spring = 0;
         if let Some(state) = spring_state.as_mut() {
             state.avg_ext = 0.;
         }
@@ -438,7 +438,10 @@ impl ExplicitODE<f64> for RevolutionSurfaceSystem {
             .last_thetas
             .clone()
             .unwrap_or_else(|| self.topology.theta_ball_init());
-        let speeds = self.last_dthetas.clone().unwrap_or_else(|| vec![0. ; total_nb_section]);
+        let speeds = self
+            .last_dthetas
+            .clone()
+            .unwrap_or_else(|| vec![0.; total_nb_section]);
         data.extend(speeds);
         Vector::new_row(data)
     }

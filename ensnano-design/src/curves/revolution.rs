@@ -34,6 +34,10 @@ pub struct InterpolatedCurveDescriptor {
     pub curve_scale_factor: f64,
     pub interpolation: Vec<InterpolationDescriptor>,
     pub chevyshev_smoothening: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revolution_angle_init: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nb_turn: Option<f64>,
 }
 
 impl InterpolatedCurveDescriptor {
@@ -52,6 +56,8 @@ impl InterpolatedCurveDescriptor {
             half_turns_count: self.half_turns_count,
             inverse_curvilinear_abscissa: vec![],
             curvilinear_abscissa: vec![],
+            init_revolution_angle: self.revolution_angle_init.unwrap_or(0.),
+            nb_turn: self.nb_turn.unwrap_or(1.),
         };
         if init_interpolators {
             ret.init_interpolators();
@@ -234,6 +240,8 @@ pub(super) struct Revolution {
     half_turns_count: isize,
     inverse_curvilinear_abscissa: Vec<ChebyshevPolynomial>,
     curvilinear_abscissa: Vec<ChebyshevPolynomial>,
+    init_revolution_angle: f64,
+    nb_turn: f64,
 }
 
 const NB_POINT_INTERPOLATION: usize = 100_000;
@@ -336,7 +344,7 @@ impl Revolution {
         revolution_angle: f64,
         section_angle: Option<f64>,
     ) -> DVec3 {
-        let t = revolution_angle / TAU;
+        let t = self.revolution_angle_to_t(revolution_angle);
         let section_rotation =
             section_angle.unwrap_or_else(|| self.default_section_rotation_angle(t));
 
@@ -357,11 +365,20 @@ impl Revolution {
     fn default_section_rotation_angle(&self, t: f64) -> f64 {
         PI * self.half_turns_count as f64 * t.rem_euclid(1.)
     }
+
+    fn t_to_revolution_angle(&self, t: f64) -> f64 {
+        self.init_revolution_angle + self.nb_turn * TAU * t
+    }
+
+    fn revolution_angle_to_t(&self, angle: f64) -> f64 {
+        let angle_t1 = TAU * self.nb_turn;
+        (angle - self.init_revolution_angle).rem_euclid(angle_t1) / TAU / self.nb_turn
+    }
 }
 
 impl Curved for Revolution {
     fn position(&self, t: f64) -> DVec3 {
-        let revolution_angle = TAU * t;
+        let revolution_angle = self.t_to_revolution_angle(t);
 
         let section_point = self.curve.point(t);
         self.curve_point_to_3d(section_point, revolution_angle, None)
@@ -419,7 +436,7 @@ impl Curved for Revolution {
 
     fn surface_info_time(&self, t: f64, helix_id: usize) -> Option<SurfaceInfo> {
         let point = super::SurfacePoint {
-            revolution_angle: TAU * t,
+            revolution_angle: self.t_to_revolution_angle(t),
             abscissa_along_section: self.curve.curvilinear_abscissa(t),
             helix_id,
             section_rotation_angle: self.default_section_rotation_angle(t),

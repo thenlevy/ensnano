@@ -203,6 +203,8 @@ impl SpringTopology for CloseSurfaceTopology {
                     interpolation: interpolations,
                     half_turns_count: self.target.half_turns_count,
                     revolution_radius: self.target.revolution_radius,
+                    nb_turn: None,
+                    revolution_angle_init: None,
                 },
             ))
         }

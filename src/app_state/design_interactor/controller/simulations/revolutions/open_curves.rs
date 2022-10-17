@@ -29,7 +29,6 @@ use super::*;
 #[derive(Clone)]
 pub(super) struct OpenSurfaceTopology {
     nb_section_per_turn: usize,
-    nb_turn_per_helix: f64,
     nb_helices: usize,
     prev_section: Vec<usize>,
     next_section: Vec<usize>,
@@ -120,7 +119,6 @@ impl OpenSurfaceTopology {
         Self {
             nb_section_per_turn,
             nb_helices,
-            nb_turn_per_helix: nb_turn_to_reach_t1,
             prev_section,
             next_section,
             section_with_successor,
@@ -134,7 +132,6 @@ impl OpenSurfaceTopology {
             interpolator,
             fixed_points,
         }
-
     }
 }
 
@@ -250,12 +247,16 @@ impl SpringTopology for OpenSurfaceTopology {
                 .collect();
             let values = (0..nb_section_per_helix)
                 .map(|n| {
-                    let section_idx = i * self.surface_descritization.nb_section_per_helix() + n;
+                    let section_idx = i * nb_section_per_helix + n;
                     thetas[section_idx]
                 })
                 .collect();
 
             let interpolator = InterpolationDescriptor::PointsValues { points: ts, values };
+            let revolution_angle_init = self
+                .surface_descritization
+                .initial_ball_coordinate(i * nb_section_per_helix, &self.interpolator)
+                .revolution_angle;
             ret.push(CurveDescriptor::InterpolatedCurve(
                 InterpolatedCurveDescriptor {
                     curve: self.target.curve.clone(),
@@ -264,6 +265,8 @@ impl SpringTopology for OpenSurfaceTopology {
                     curve_scale_factor: self.target.curve_scale_factor,
                     interpolation: vec![interpolator],
                     chevyshev_smoothening: self.target.junction_smoothening,
+                    nb_turn: Some(self.surface_descritization.nb_turn_to_reach_t1),
+                    revolution_angle_init: Some(revolution_angle_init),
                 },
             ))
         }
@@ -278,30 +281,39 @@ impl SpringTopology for OpenSurfaceTopology {
     fn additional_forces(&self, thetas: &[f64]) -> Vec<(usize, DVec3)> {
         let dist_ball0 = {
             let angle = self.revolution_angle_ball(0);
-            let theta_init = self.surface_descritization.initial_ball_coordinate(0, &self.interpolator).section_parameter;
+            let theta_init = self
+                .surface_descritization
+                .initial_ball_coordinate(0, &self.interpolator)
+                .section_parameter;
             self.surface_position(angle, theta_init).mag()
         };
 
         let dist_last_ball = {
-            let s_id = self.surface_descritization.first_section_not_connected_to_pole() - 1;
+            let s_id = self
+                .surface_descritization
+                .first_section_not_connected_to_pole()
+                - 1;
             let angle = self.revolution_angle_ball(s_id);
-            let theta_init = self.surface_descritization.initial_ball_coordinate(s_id, &self.interpolator).section_parameter;
+            let theta_init = self
+                .surface_descritization
+                .initial_ball_coordinate(s_id, &self.interpolator)
+                .section_parameter;
             self.surface_position(angle, theta_init).mag()
         };
 
-        self.balls_connected_to_pole.iter().map(|(b_id, coeff)| {
-            let l0 = coeff * dist_last_ball + (1. - coeff) * dist_ball0;
+        self.balls_connected_to_pole
+            .iter()
+            .map(|(b_id, coeff)| {
+                let l0 = coeff * dist_last_ball + (1. - coeff) * dist_ball0;
 
-            let (pos, len) = {
-                let angle = self.revolution_angle_ball(*b_id);
-                let pos = self.surface_position(angle, thetas[*b_id]);
-                (pos, pos.mag())
-            };
-            (*b_id, super::SPRING_STIFFNESS * (1. - l0/len) * -pos)
-
-        }).collect()
-
-        
+                let (pos, len) = {
+                    let angle = self.revolution_angle_ball(*b_id);
+                    let pos = self.surface_position(angle, thetas[*b_id]);
+                    (pos, pos.mag())
+                };
+                (*b_id, super::SPRING_STIFFNESS * (1. - l0 / len) * -pos)
+            })
+            .collect()
     }
 }
 
@@ -404,7 +416,12 @@ impl SurfaceDescritization {
 
         (0..self.nb_helices)
             .flat_map(|h_id| {
-                (0..first_connected_ball_id).map(move |s_id| (h_id * self.nb_section_per_helix() + s_id, s_id as f64 / (first_connected_ball_id as f64 - 1.)))
+                (0..first_connected_ball_id).map(move |s_id| {
+                    (
+                        h_id * self.nb_section_per_helix() + s_id,
+                        s_id as f64 / (first_connected_ball_id as f64 - 1.),
+                    )
+                })
             })
             .collect()
     }
