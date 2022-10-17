@@ -486,6 +486,7 @@ impl Controller {
                 if self.is_in_persistant_state().is_transitory() {
                     return Err(ErrOperation::IncompatibleState);
                 }
+                /*
                 let surface_desc = RevolutionSurfaceDescriptor {
                     curve: CurveDescriptor2D::Parrabola {
                         speed: std::f64::consts::FRAC_1_SQRT_2.into(),
@@ -496,6 +497,21 @@ impl Controller {
                     nb_helix_per_half_section: 2,
                     dna_paramters: Parameters::GEARY_2014_DNA,
                     shift_per_turn: 0,
+                };*/
+
+                let surface_desc = RevolutionSurfaceDescriptor {
+                    curve: CurveDescriptor2D::TwoBalls {
+                        radius_extern: 2.5.into(),
+                        radius_intern: 1.7.into(),
+                        radius_tube: 0.76.into(),
+                        smooth_ceil: 0.04.into(),
+                    },
+                    revolution_radius: 10.,
+                    nb_helix_per_half_section: 17,
+                    half_turns_count: 0,
+                    shift_per_turn: 2,
+                    junction_smoothening: 0.,
+                    dna_paramters: Parameters::GEARY_2014_DNA,
                 };
                 let system_desc = RevolutionSurfaceSystemDescriptor {
                     nb_section_per_segment: 100,
@@ -593,6 +609,8 @@ impl Controller {
                 } else if let ControllerState::Rolling { .. } = &ret.state {
                     ret.state = ControllerState::Normal
                 } else if let ControllerState::Twisting { .. } = &ret.state {
+                    ret.state = ControllerState::Normal
+                } else if let ControllerState::Relaxing { .. } = &ret.state {
                     ret.state = ControllerState::Normal
                 }
             }

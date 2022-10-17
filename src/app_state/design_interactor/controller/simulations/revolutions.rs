@@ -216,8 +216,8 @@ impl RevolutionSurfaceSystem {
             *first = false;
         }
 
-        let solver = FixedStepper::new(1e-4);
-        let method = ExplicitEuler::default();
+        let solver = FixedStepper::new(1e-1);
+        let method = Ralston4::default();
 
         let mut spring_relaxation_state = SpringRelaxationState::new();
         if let Some(last_state) = solver
@@ -456,7 +456,7 @@ impl ExplicitODE<f64> for RevolutionSurfaceSystem {
     }
 
     fn time_span(&self) -> (f64, f64) {
-        (0., 0.1)
+        (0., 5.)
     }
 }
 
@@ -615,8 +615,11 @@ impl RevolutionSystemThread {
             while let Some(interface_ptr) = self.interface.upgrade() {
                 let current_len = self
                     .system
-                    .one_radius_optimisation_step(&mut first, Some(interface_ptr));
+                    .one_radius_optimisation_step(&mut first, Some(interface_ptr.clone()));
                 if current_len == self.system.scaffold_len_target {
+                    if let Some(descs) = self.system.to_curve_desc() {
+                        interface_ptr.lock().unwrap().curve_descriptor.set(descs);
+                    }
                     break;
                 }
             }
@@ -672,14 +675,97 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
 
 impl SimulationInterface for RevolutionSystemInterface {
     fn get_simulation_state(&mut self) -> Option<Box<dyn SimulationUpdate>> {
-        let s = self.new_state.take()?;
-        Some(Box::new(s))
+        if let Some(descs) = self.curve_descriptor.take() {
+            Some(Box::new(descs))
+        } else {
+            let s = self.new_state.take()?;
+            Some(Box::new(s))
+        }
+    }
+
+    fn still_valid(&self) -> bool {
+        !matches!(self.curve_descriptor, OptionOnce::Taken)
+    }
+}
+
+impl SimulationUpdate for Vec<CurveDescriptor> {
+    fn update_design(&self, design: &mut ensnano_design::Design) {
+        use ensnano_design::{Domain, DomainJunction, Helix, HelixInterval, Strand};
+        let parameters = design.parameters.unwrap_or_default();
+        let mut helices = design.helices.make_mut();
+        let mut strand_to_be_added = Vec::new();
+        for c in self.iter() {
+            let h_id = helices.push_helix(Helix::new_with_curve(c.clone()));
+            if let Some(len) = c.compute_length() {
+                let len_nt = (len / parameters.z_step as f64).floor() as isize;
+                strand_to_be_added.push((h_id, len_nt));
+            }
+        }
+
+        drop(helices);
+
+        let strands = design.mut_strand_and_data().strands;
+
+        for (h_id, len) in strand_to_be_added {
+            for forward in [true, false] {
+                let domain = Domain::HelixDomain(HelixInterval {
+                    helix: h_id,
+                    start: 0,
+                    end: len,
+                    forward,
+                    sequence: None,
+                });
+                strands.push(Strand {
+                    color: ensnano_interactor::consts::REGULAR_H_BOND_COLOR,
+                    domains: vec![domain],
+                    junctions: vec![DomainJunction::Prime3],
+                    name: None,
+                    cyclic: false,
+                    sequence: None,
+                });
+            }
+        }
+        println!("updated");
     }
 }
 
 #[derive(Default)]
 pub struct RevolutionSystemInterface {
     new_state: Option<RevolutionSurfaceSystem>,
+    curve_descriptor: OptionOnce<Vec<CurveDescriptor>>,
+}
+
+enum OptionOnce<T> {
+    NeverTaken(Option<T>),
+    Taken,
+}
+
+impl<T> Default for OptionOnce<T> {
+    fn default() -> Self {
+        Self::NeverTaken(None)
+    }
+}
+
+impl<T> OptionOnce<T> {
+    fn take(&mut self) -> Option<T> {
+        match self {
+            Self::Taken => None,
+            Self::NeverTaken(Some(_)) => {
+                if let Self::NeverTaken(ret) = std::mem::replace(self, Self::Taken) {
+                    ret
+                } else {
+                    unreachable!()
+                }
+            }
+            Self::NeverTaken(None) => None,
+        }
+    }
+
+    fn set(&mut self, ret: T) {
+        if let Self::NeverTaken(_) = self {
+            *self = Self::NeverTaken(Some(ret))
+        }
+    }
 }
 
 #[cfg(test)]

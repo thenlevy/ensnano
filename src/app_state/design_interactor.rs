@@ -246,7 +246,7 @@ impl DesignInteractor {
         }
         log::trace!("Interactor design <- {:p}", new_design);
         self.design = new_design;
-        if let Some(update) = self.simulation_update.clone() {
+        if let Some(update) = self.simulation_update.take() {
             if !self.controller.get_simulation_state().is_runing() {
                 self.simulation_update = None;
             }
