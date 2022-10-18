@@ -252,7 +252,7 @@ pub(super) struct Revolution {
     knwon_helix_id_in_shape: Option<usize>,
 }
 
-const NB_POINT_INTERPOLATION: usize = 20_000;
+const NB_POINT_INTERPOLATION: usize = 100_000;
 const INTERPOLATION_ERROR: f64 = 1e-4;
 impl Revolution {
     fn init_interpolators(&mut self) {
