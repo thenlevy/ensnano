@@ -170,6 +170,7 @@ impl SpringTopology for CloseSurfaceTopology {
                 (i as isize + (n as isize * self.target.total_shift()))
                     .rem_euclid(self.nb_segment as isize)
             });
+            let theta_0 = thetas[i * self.nb_section_per_segment];
             for s_idx in segment_indicies {
                 let start = s_idx as usize * self.nb_section_per_segment;
                 let end = start + self.nb_section_per_segment - 1;
@@ -195,7 +196,7 @@ impl SpringTopology for CloseSurfaceTopology {
                     values: segment_thetas,
                 });
             }
-            ret.push(CurveDescriptor::InterpolatedCurve(
+            ret.push((
                 InterpolatedCurveDescriptor {
                     curve: self.target.curve.clone(),
                     curve_scale_factor: self.target.curve_scale_factor,
@@ -205,11 +206,21 @@ impl SpringTopology for CloseSurfaceTopology {
                     revolution_radius: self.target.revolution_radius,
                     nb_turn: None,
                     revolution_angle_init: None,
+                    known_number_of_helices_in_shape: Some(self.target.nb_helices),
+                    known_helix_id_in_shape: None,
                 },
+                theta_0,
             ))
         }
+        ret.sort_by_key(|(_, k)| ordered_float::OrderedFloat::from(*k));
 
-        ret
+        ret.into_iter()
+            .enumerate()
+            .map(|(d_id, (mut desc, _))| {
+                desc.known_helix_id_in_shape = Some(d_id);
+                CurveDescriptor::InterpolatedCurve(desc)
+            })
+            .collect()
     }
 
     fn fixed_points(&self) -> &[usize] {

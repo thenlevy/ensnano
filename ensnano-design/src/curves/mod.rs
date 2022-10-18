@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ultraviolet::{DMat3, DVec3, Rotor3, Vec2, Vec3};
+use ultraviolet::{DMat3, DVec3, Isometry2, Rotor3, Vec2, Vec3};
 const EPSILON: f64 = 1e-6;
 const DISCRETISATION_STEP: usize = 100;
 
@@ -194,6 +194,12 @@ pub trait Curved {
     /// This method can be overriden to express the fact the a curve is a portion of a surface.
     /// In that case return the information about the surface at the specified point
     fn surface_info(&self, _point: SurfacePoint) -> Option<SurfaceInfo> {
+        None
+    }
+
+    /// This method can be overriden to specify the additional isometry associated to each segment
+    /// of the helix.
+    fn additional_isometry(&self, segment_idx: usize) -> Option<Isometry2> {
         None
     }
 }
@@ -517,14 +523,15 @@ impl Curve {
         segments: &mut Vec<crate::helices::AdditionalHelix2D>,
     ) {
         segments.truncate(self.additional_segment_left.len());
-        let mut iter =
-            self.additional_segment_left
-                .iter()
-                .map(|s| crate::helices::AdditionalHelix2D {
-                    left: *s as isize - self.nucl_t0 as isize,
-                    additional_isometry: None,
-                    additional_symmetry: None,
-                });
+        let mut iter = self
+            .additional_segment_left
+            .iter()
+            .enumerate()
+            .map(|(segment_idx, s)| crate::helices::AdditionalHelix2D {
+                left: *s as isize - self.nucl_t0 as isize,
+                additional_isometry: self.geometry.additional_isometry(segment_idx),
+                additional_symmetry: None,
+            });
 
         for s in segments.iter_mut() {
             if let Some(i) = iter.next() {

@@ -23,6 +23,7 @@ const ADDITIONAL_NB_TURN: f64 = 0.5;
 const SCALING_ABCISSA: f64 = 1.1;
 
 use chebyshev_polynomials::ChebyshevPolynomial;
+use ordered_float::OrderedFloat;
 
 use super::*;
 
@@ -252,12 +253,14 @@ impl SpringTopology for OpenSurfaceTopology {
                 })
                 .collect();
 
+            let theta_0 = thetas[i * nb_section_per_helix];
+
             let interpolator = InterpolationDescriptor::PointsValues { points: ts, values };
             let revolution_angle_init = self
                 .surface_descritization
                 .initial_ball_coordinate(i * nb_section_per_helix, &self.interpolator)
                 .revolution_angle;
-            ret.push(CurveDescriptor::InterpolatedCurve(
+            ret.push((
                 InterpolatedCurveDescriptor {
                     curve: self.target.curve.clone(),
                     half_turns_count: 0,
@@ -267,11 +270,21 @@ impl SpringTopology for OpenSurfaceTopology {
                     chevyshev_smoothening: self.target.junction_smoothening,
                     nb_turn: Some(self.surface_descritization.nb_turn_to_reach_t1),
                     revolution_angle_init: Some(revolution_angle_init),
+                    known_number_of_helices_in_shape: Some(self.target.nb_helices),
+                    known_helix_id_in_shape: None,
                 },
+                theta_0,
             ))
         }
 
-        ret
+        ret.sort_by_key(|(_, k)| OrderedFloat::from(*k));
+        ret.into_iter()
+            .enumerate()
+            .map(|(h_id, (mut desc, _))| {
+                desc.known_helix_id_in_shape = Some(h_id);
+                CurveDescriptor::InterpolatedCurve(desc)
+            })
+            .collect()
     }
 
     fn fixed_points(&self) -> &[usize] {

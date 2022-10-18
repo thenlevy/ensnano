@@ -690,12 +690,20 @@ impl SimulationInterface for RevolutionSystemInterface {
 
 impl SimulationUpdate for Vec<CurveDescriptor> {
     fn update_design(&self, design: &mut ensnano_design::Design) {
-        use ensnano_design::{Domain, DomainJunction, Helix, HelixInterval, Strand};
+        use ensnano_design::{
+            Domain, DomainJunction, HasHelixCollection, Helix, HelixInterval, Rotor2, Strand, Vec2,
+        };
         let parameters = design.parameters.unwrap_or_default();
         let mut helices = design.helices.make_mut();
         let mut strand_to_be_added = Vec::new();
-        for c in self.iter() {
-            let h_id = helices.push_helix(Helix::new_with_curve(c.clone()));
+        let len = helices.get_collection().len();
+        for (c_id, c) in self.iter().enumerate() {
+            let mut helix = Helix::new_with_curve(c.clone());
+            helix.isometry2d = Some(ensnano_design::Isometry2 {
+                translation: 5. * c_id as f32 * Vec2::unit_y(),
+                rotation: Rotor2::identity(),
+            });
+            let h_id = helices.push_helix(helix);
             if let Some(len) = c.compute_length() {
                 let len_nt = (len / parameters.z_step as f64).floor() as isize;
                 strand_to_be_added.push((h_id, len_nt));

@@ -38,6 +38,10 @@ pub struct InterpolatedCurveDescriptor {
     pub revolution_angle_init: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub nb_turn: Option<f64>,
+    #[serde(skip)] // can be skipped because it is only used the first time the helix is created
+    pub known_number_of_helices_in_shape: Option<usize>,
+    #[serde(skip)] // can be skipped because it is only used the first time the helix is created
+    pub known_helix_id_in_shape: Option<usize>,
 }
 
 impl InterpolatedCurveDescriptor {
@@ -58,6 +62,8 @@ impl InterpolatedCurveDescriptor {
             curvilinear_abscissa: vec![],
             init_revolution_angle: self.revolution_angle_init.unwrap_or(0.),
             nb_turn: self.nb_turn.unwrap_or(1.),
+            known_number_of_helices_in_shape: self.known_number_of_helices_in_shape,
+            knwon_helix_id_in_shape: self.known_helix_id_in_shape,
         };
         if init_interpolators {
             ret.init_interpolators();
@@ -242,6 +248,8 @@ pub(super) struct Revolution {
     curvilinear_abscissa: Vec<ChebyshevPolynomial>,
     init_revolution_angle: f64,
     nb_turn: f64,
+    known_number_of_helices_in_shape: Option<usize>,
+    knwon_helix_id_in_shape: Option<usize>,
 }
 
 const NB_POINT_INTERPOLATION: usize = 20_000;
@@ -447,5 +455,16 @@ impl Curved for Revolution {
 
     fn surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo> {
         self.get_surface_info(point)
+    }
+
+    fn additional_isometry(&self, segment_idx: usize) -> Option<Isometry2> {
+        self.known_number_of_helices_in_shape
+            .zip(self.knwon_helix_id_in_shape)
+            .map(|(nb_helices, h_id)| Isometry2 {
+                translation: (h_id as f32 + (segment_idx + 1) as f32 * nb_helices as f32)
+                    * 5.
+                    * Vec2::unit_y(),
+                rotation: ultraviolet::Rotor2::identity(),
+            })
     }
 }
