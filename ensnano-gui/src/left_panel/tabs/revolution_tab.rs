@@ -28,11 +28,12 @@ pub enum ParameterKind {
     Float,
 }
 
-pub enum InstanciatedParameters {
+#[derive(Debug, Clone, Copy)]
+pub enum InstanciatedParameter {
     Float(f64),
 }
 
-impl InstanciatedParameters {
+impl InstanciatedParameter {
     pub fn get_float(&self) -> Option<f64> {
         #[allow(irrefutable_let_patterns)]
         if let Self::Float(x) = self {
@@ -47,6 +48,7 @@ impl InstanciatedParameters {
 pub struct CurveDescriptorParameter {
     pub name: &'static str,
     pub kind: ParameterKind,
+    pub default_value: InstanciatedParameter,
 }
 
 #[derive(Clone)]
@@ -55,7 +57,7 @@ pub struct CurveDescriptorBuilder {
     pub curve_name: &'static str,
     pub parameters: &'static [CurveDescriptorParameter],
     pub build:
-        &'static (dyn Fn(&[InstanciatedParameters]) -> Option<CurveDescriptor2D> + Send + Sync),
+        &'static (dyn Fn(&[InstanciatedParameter]) -> Option<CurveDescriptor2D> + Send + Sync),
 }
 
 use std::fmt;
@@ -88,13 +90,89 @@ enum ParameterWidget {
     },
 }
 
+impl ParameterWidget {
+    fn new_float(initial_value: f64) -> Self {
+        Self::Float {
+            current_text: format!("{:.3}", initial_value),
+            state: Default::default(),
+        }
+    }
+
+    fn input_view<S: AppState>(&mut self, id: usize) -> Element<Message<S>> {
+        match self {
+            Self::Float {
+                current_text,
+                state,
+            } => TextInput::new(state, "", current_text, move |s| {
+                Message::CurveBuilderParameterUpdate {
+                    parameter_id: id,
+                    text: s,
+                }
+            })
+            .into(),
+        }
+    }
+
+    fn set_text(&mut self, text: String) {
+        match self {
+            Self::Float { current_text, .. } => *current_text = text,
+        }
+    }
+
+    fn has_keyboard_priority(&self) -> bool {
+        match self {
+            Self::Float { state, .. } => state.is_focused(),
+        }
+    }
+}
+
 struct CurveDescriptorWidget {
-    parameters: Vec<ParameterWidget>,
+    parameters: Vec<(&'static str, ParameterWidget)>,
+    curve_name: &'static str,
+    builder: CurveDescriptorBuilder,
 }
 
 impl CurveDescriptorWidget {
+    fn new(builder: CurveDescriptorBuilder) -> Self {
+        let parameters = builder
+            .parameters
+            .iter()
+            .map(|builder| match builder.default_value {
+                InstanciatedParameter::Float(x) => (builder.name, ParameterWidget::new_float(x)),
+            })
+            .collect();
+
+        Self {
+            parameters,
+            curve_name: builder.curve_name,
+            builder,
+        }
+    }
+
     fn view<'a, S: AppState>(&'a mut self) -> Element<'a, Message<S>> {
-        todo!()
+        let column: Column<'a, Message<S>> =
+            self.parameters
+                .iter_mut()
+                .enumerate()
+                .fold(Column::new(), |col, (param_id, param)| {
+                    let row = Row::new()
+                        .push(Text::new(param.0))
+                        .push(param.1.input_view(param_id));
+                    col.push(row)
+                });
+        column.into()
+    }
+
+    fn update_builder_parameter(&mut self, param_id: usize, text: String) {
+        self.parameters
+            .get_mut(param_id)
+            .map(|p| p.1.set_text(text));
+    }
+
+    fn has_keyboard_priority(&self) -> bool {
+        self.parameters
+            .iter()
+            .any(|(_, p)| p.has_keyboard_priority())
     }
 }
 
@@ -106,7 +184,15 @@ pub(crate) struct RevolutionTab {
 
 impl RevolutionTab {
     pub fn set_builder(&mut self, builder: CurveDescriptorBuilder) {
-        println!("set {}", builder.to_string());
+        if self.curve_descriptor_widget.as_ref().map(|w| w.curve_name) != Some(builder.curve_name) {
+            self.curve_descriptor_widget = Some(CurveDescriptorWidget::new(builder))
+        }
+    }
+
+    pub fn update_builder_parameter(&mut self, param_id: usize, text: String) {
+        self.curve_descriptor_widget
+            .as_mut()
+            .map(|widget| widget.update_builder_parameter(param_id, text));
     }
 
     pub fn view<'a, S: AppState>(
@@ -120,7 +206,9 @@ impl RevolutionTab {
         let curve_pick_list = PickList::new(
             &mut self.pick_curve_state,
             S::POSSIBLE_CURVES,
-            None,
+            self.curve_descriptor_widget
+                .as_ref()
+                .map(|w| w.builder.clone()),
             |curve| Message::CurveBuilderPicked(curve),
         )
         .placeholder("Pick..");
@@ -131,6 +219,17 @@ impl RevolutionTab {
 
         ret = ret.push(pick_curve_row);
 
+        if let Some(widget) = self.curve_descriptor_widget.as_mut() {
+            ret = ret.push(widget.view())
+        }
+
         ret.into()
+    }
+
+    pub fn has_keyboard_priority(&self) -> bool {
+        self.curve_descriptor_widget
+            .as_ref()
+            .map(CurveDescriptorWidget::has_keyboard_priority)
+            .unwrap_or(false)
     }
 }

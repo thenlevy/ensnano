@@ -211,6 +211,10 @@ pub enum Message<S> {
     },
     Export(ExportType),
     CurveBuilderPicked(CurveDescriptorBuilder),
+    CurveBuilderParameterUpdate {
+        parameter_id: usize,
+        text: String,
+    },
     CancelExport,
 }
 
@@ -331,6 +335,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
             || self.organizer.has_keyboard_priority()
             || self.sequence_tab.has_keyboard_priority()
             || self.camera_shortcut.has_keyboard_priority()
+            || self.revolution_tab.has_keyboard_priority()
     }
 }
 
@@ -850,6 +855,10 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::CurveBuilderPicked(builder) => {
                 self.revolution_tab.set_builder(builder);
+            }
+            Message::CurveBuilderParameterUpdate { parameter_id, text } => {
+                self.revolution_tab
+                    .update_builder_parameter(parameter_id, text);
             }
         };
         Command::none()

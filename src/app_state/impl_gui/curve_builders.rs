@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use ensnano_design::CurveDescriptor2D;
 use ensnano_gui::{
-    CurveDescriptorBuilder, CurveDescriptorParameter, InstanciatedParameters, ParameterKind,
+    CurveDescriptorBuilder, CurveDescriptorParameter, InstanciatedParameter, ParameterKind,
 };
 
 pub(super) const ELLIPSE_BUILDER: CurveDescriptorBuilder = CurveDescriptorBuilder {
@@ -28,22 +28,24 @@ pub(super) const ELLIPSE_BUILDER: CurveDescriptorBuilder = CurveDescriptorBuilde
         CurveDescriptorParameter {
             name: "Semi major axis",
             kind: ParameterKind::Float,
+            default_value: ensnano_gui::InstanciatedParameter::Float(2.0),
         },
         CurveDescriptorParameter {
             name: "Semi minor axis",
             kind: ParameterKind::Float,
+            default_value: ensnano_gui::InstanciatedParameter::Float(1.0),
         },
     ],
     build: &build_ellipse,
 };
 
-fn build_ellipse(parameters: &[InstanciatedParameters]) -> Option<CurveDescriptor2D> {
+fn build_ellipse(parameters: &[InstanciatedParameter]) -> Option<CurveDescriptor2D> {
     let a = parameters
         .get(0)
-        .and_then(InstanciatedParameters::get_float)?;
+        .and_then(InstanciatedParameter::get_float)?;
     let b = parameters
         .get(0)
-        .and_then(InstanciatedParameters::get_float)?;
+        .and_then(InstanciatedParameter::get_float)?;
     Some(CurveDescriptor2D::Ellipse {
         semi_minor_axis: b.into(),
         semi_major_axis: a.into(),
@@ -57,39 +59,43 @@ pub(super) const TWO_SPHERES_BUILDER: CurveDescriptorBuilder = CurveDescriptorBu
         CurveDescriptorParameter {
             name: "Radius extern",
             kind: ParameterKind::Float,
+            default_value: ensnano_gui::InstanciatedParameter::Float(2.5),
         },
         CurveDescriptorParameter {
             name: "Radius intern",
             kind: ParameterKind::Float,
+            default_value: ensnano_gui::InstanciatedParameter::Float(1.7),
         },
         CurveDescriptorParameter {
             name: "Radius tube",
             kind: ParameterKind::Float,
+            default_value: ensnano_gui::InstanciatedParameter::Float(0.76),
         },
         CurveDescriptorParameter {
             name: "Smooth ceil",
             kind: ParameterKind::Float,
+            default_value: ensnano_gui::InstanciatedParameter::Float(0.04),
         },
     ],
     build: &build_two_spheres,
 };
 
-fn build_two_spheres(parameters: &[InstanciatedParameters]) -> Option<CurveDescriptor2D> {
+fn build_two_spheres(parameters: &[InstanciatedParameter]) -> Option<CurveDescriptor2D> {
     let radius_extern = parameters
         .get(0)
-        .and_then(InstanciatedParameters::get_float)?
+        .and_then(InstanciatedParameter::get_float)?
         .into();
     let radius_intern = parameters
         .get(1)
-        .and_then(InstanciatedParameters::get_float)?
+        .and_then(InstanciatedParameter::get_float)?
         .into();
     let radius_tube = parameters
         .get(2)
-        .and_then(InstanciatedParameters::get_float)?
+        .and_then(InstanciatedParameter::get_float)?
         .into();
     let smooth_ceil = parameters
         .get(3)
-        .and_then(InstanciatedParameters::get_float)?
+        .and_then(InstanciatedParameter::get_float)?
         .into();
 
     Some(CurveDescriptor2D::TwoBalls {
