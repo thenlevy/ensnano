@@ -32,18 +32,30 @@ pub enum InstanciatedParameters {
     Float(f64),
 }
 
+impl InstanciatedParameters {
+    pub fn get_float(&self) -> Option<f64> {
+        #[allow(irrefutable_let_patterns)]
+        if let Self::Float(x) = self {
+            Some(*x)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct CurveDescriptorParameter {
-    name: &'static str,
-    kind: ParameterKind,
+    pub name: &'static str,
+    pub kind: ParameterKind,
 }
 
 #[derive(Clone)]
 pub struct CurveDescriptorBuilder {
-    nb_parameters: usize,
-    curve_name: &'static str,
-    parameters: &'static [CurveDescriptorParameter],
-    build: &'static (dyn Fn(&[InstanciatedParameters]) -> CurveDescriptor2D + Send + Sync),
+    pub nb_parameters: usize,
+    pub curve_name: &'static str,
+    pub parameters: &'static [CurveDescriptorParameter],
+    pub build:
+        &'static (dyn Fn(&[InstanciatedParameters]) -> Option<CurveDescriptor2D> + Send + Sync),
 }
 
 use std::fmt;
@@ -110,9 +122,10 @@ impl RevolutionTab {
             S::POSSIBLE_CURVES,
             None,
             |curve| Message::CurveBuilderPicked(curve),
-        );
+        )
+        .placeholder("Pick..");
 
-        let mut pick_curve_row = Row::new()
+        let pick_curve_row = Row::new()
             .push(Text::new("Curve type"))
             .push(curve_pick_list);
 

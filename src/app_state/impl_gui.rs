@@ -21,8 +21,12 @@ use crate::gui::AppState as GuiState;
 use ensnano_design::{elements::DnaElementKey, Parameters};
 use ensnano_interactor::{ScaffoldInfo, SelectionConversion, SimulationState};
 
+mod curve_builders;
+use curve_builders::*;
+
 impl GuiState for AppState {
-    const POSSIBLE_CURVES: &'static [ensnano_gui::CurveDescriptorBuilder] = &[];
+    const POSSIBLE_CURVES: &'static [ensnano_gui::CurveDescriptorBuilder] =
+        &[ELLIPSE_BUILDER, TWO_SPHERES_BUILDER];
 
     fn get_selection_mode(&self) -> SelectionMode {
         self.0.selection_mode

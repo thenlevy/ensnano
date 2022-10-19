@@ -29,8 +29,8 @@ pub use top_bar::TopBar;
 /// Draw the left pannel of the GUI
 pub mod left_panel;
 pub use left_panel::{
-    ColorOverlay, CurveDescriptorBuilder, InstanciatedParameters, LeftPanel, ParameterKind,
-    RigidBodyParametersRequest,
+    ColorOverlay, CurveDescriptorBuilder, CurveDescriptorParameter, InstanciatedParameters,
+    LeftPanel, ParameterKind, RigidBodyParametersRequest,
 };
 pub mod status_bar;
 mod ui_size;
