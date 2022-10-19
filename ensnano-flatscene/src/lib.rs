@@ -465,13 +465,7 @@ impl<S: AppState> FlatScene<S> {
                 let glob_png = Globals::from_selection_rectangle(corner1, corner2);
                 use chrono::{Timelike, Utc};
                 let now = Utc::now();
-                let hour = now.hour();
-                let name = format!(
-                    "export_2d_{:02}_{:02}_{:02}.png",
-                    hour,
-                    now.minute(),
-                    now.second()
-                );
+                let name = now.format("export_2d_%Y_%m_%d_%H_%M_%S.png").to_string();
                 self.export_png(&name, glob_png);
                 self.view[self.selected_design]
                     .borrow_mut()

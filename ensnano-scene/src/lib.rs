@@ -358,13 +358,7 @@ impl<S: AppState> Scene<S> {
             Consequence::ToggleWidget => {
                 use chrono::{Timelike, Utc};
                 let now = Utc::now();
-                let hour = now.hour();
-                let name = format!(
-                    "export_3d_{:02}_{:02}_{:02}.png",
-                    hour,
-                    now.minute(),
-                    now.second()
-                );
+                let name = now.format("export_3d_%Y_%m_%d_%H_%M_%S.png").to_string();
                 self.export_png(&name);
                 self.requests.lock().unwrap().toggle_widget_basis();
             }
