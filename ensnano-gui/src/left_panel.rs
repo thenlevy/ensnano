@@ -102,6 +102,7 @@ pub struct LeftPanel<R: Requests, S: AppState> {
     sequence_tab: SequenceTab,
     parameters_tab: ParametersTab,
     pen_tab: PenTab,
+    revolution_tab: RevolutionTab,
     contextual_panel: ContextualPanel<S>,
     camera_shortcut: CameraShortcut,
     application_state: S,
@@ -209,6 +210,7 @@ pub enum Message<S> {
         cyclic: bool,
     },
     Export(ExportType),
+    CurveBuilderPicked(CurveDescriptorBuilder),
     CancelExport,
 }
 
@@ -251,6 +253,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
             sequence_tab: SequenceTab::new(),
             parameters_tab: ParametersTab::new(state),
             pen_tab: Default::default(),
+            revolution_tab: Default::default(),
             contextual_panel: ContextualPanel::new(logical_size.width as u32),
             camera_shortcut: CameraShortcut::new(),
             application_state: state.clone(),
@@ -845,6 +848,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::CancelExport => {
                 self.requests.lock().unwrap().set_exporting(false);
             }
+            Message::CurveBuilderPicked(builder) => {
+                self.revolution_tab.set_builder(builder);
+            }
         };
         Command::none()
     }
@@ -884,6 +890,11 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Draw))),
                 self.pen_tab.view(self.ui_size, &self.application_state),
+            )
+            .push(
+                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::AutoMode))),
+                self.revolution_tab
+                    .view(self.ui_size, &self.application_state),
             )
             .text_size(self.ui_size.icon())
             .text_font(ICONFONT)
