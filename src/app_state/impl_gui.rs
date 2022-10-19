@@ -22,6 +22,8 @@ use ensnano_design::{elements::DnaElementKey, Parameters};
 use ensnano_interactor::{ScaffoldInfo, SelectionConversion, SimulationState};
 
 impl GuiState for AppState {
+    const POSSIBLE_CURVES: &'static [ensnano_gui::CurveDescriptorBuilder] = &[];
+
     fn get_selection_mode(&self) -> SelectionMode {
         self.0.selection_mode
     }

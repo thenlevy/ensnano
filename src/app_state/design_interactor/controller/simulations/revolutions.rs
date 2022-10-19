@@ -733,7 +733,7 @@ impl SimulationUpdate for Vec<CurveDescriptor> {
                 });
             }
         }
-        
+
         design.additional_structure = None;
     }
 }

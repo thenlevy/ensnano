@@ -69,6 +69,7 @@ use contextual_panel::{ContextualPanel, InstanciatedValue, ValueKind};
 use export_menu::ExportMenu;
 
 use ensnano_interactor::{CheckXoversParameter, HyperboloidRequest, Selection};
+pub use tabs::revolution_tab::*;
 use tabs::{
     CameraShortcut, CameraTab, EditionTab, GridTab, ParametersTab, PenTab, SequenceTab,
     SimulationTab,

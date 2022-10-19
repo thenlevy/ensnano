@@ -28,7 +28,10 @@ use ensnano_organizer::GroupId;
 pub use top_bar::TopBar;
 /// Draw the left pannel of the GUI
 pub mod left_panel;
-pub use left_panel::{ColorOverlay, LeftPanel, RigidBodyParametersRequest};
+pub use left_panel::{
+    ColorOverlay, CurveDescriptorBuilder, InstanciatedParameters, LeftPanel, ParameterKind,
+    RigidBodyParametersRequest,
+};
 pub mod status_bar;
 mod ui_size;
 pub use ui_size::*;
@@ -904,6 +907,7 @@ mod slider_style {
 }
 
 use std::collections::VecDeque;
+
 /// Message sent to the gui component
 pub struct IcedMessages<S: AppState> {
     left_panel: VecDeque<left_panel::Message<S>>,
@@ -1005,6 +1009,7 @@ pub trait Multiplexer {
 pub trait AppState:
     Default + PartialEq + Clone + 'static + Send + std::fmt::Debug + std::fmt::Pointer
 {
+    const POSSIBLE_CURVES: &'static [CurveDescriptorBuilder];
     fn get_selection_mode(&self) -> SelectionMode;
     fn get_action_mode(&self) -> ActionMode;
     fn get_build_helix_mode(&self) -> ActionMode;
