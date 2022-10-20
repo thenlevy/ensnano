@@ -480,8 +480,8 @@ impl Controller {
         match operation {
             SimulationOperation::ExampleRelaxation { reader } => {
                 use ensnano_design::{CurveDescriptor2D, Parameters};
-                use simulations::RevolutionSurfaceDescriptor;
-                use simulations::RevolutionSurfaceSystemDescriptor;
+                use ensnano_interactor::RevolutionSurfaceDescriptor;
+                use ensnano_interactor::RevolutionSurfaceSystemDescriptor;
 
                 if self.is_in_persistant_state().is_transitory() {
                     return Err(ErrOperation::IncompatibleState);

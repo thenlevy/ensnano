@@ -42,9 +42,11 @@ pub(super) const ELLIPSE_BUILDER: CurveDescriptorBuilder = CurveDescriptorBuilde
 fn build_ellipse(parameters: &[InstanciatedParameter]) -> Option<CurveDescriptor2D> {
     let a = parameters
         .get(0)
+        .cloned()
         .and_then(InstanciatedParameter::get_float)?;
     let b = parameters
         .get(0)
+        .cloned()
         .and_then(InstanciatedParameter::get_float)?;
     Some(CurveDescriptor2D::Ellipse {
         semi_minor_axis: b.into(),
@@ -83,18 +85,22 @@ pub(super) const TWO_SPHERES_BUILDER: CurveDescriptorBuilder = CurveDescriptorBu
 fn build_two_spheres(parameters: &[InstanciatedParameter]) -> Option<CurveDescriptor2D> {
     let radius_extern = parameters
         .get(0)
+        .cloned()
         .and_then(InstanciatedParameter::get_float)?
         .into();
     let radius_intern = parameters
         .get(1)
+        .cloned()
         .and_then(InstanciatedParameter::get_float)?
         .into();
     let radius_tube = parameters
         .get(2)
+        .cloned()
         .and_then(InstanciatedParameter::get_float)?
         .into();
     let smooth_ceil = parameters
         .get(3)
+        .cloned()
         .and_then(InstanciatedParameter::get_float)?
         .into();
 

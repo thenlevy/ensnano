@@ -18,7 +18,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use ensnano_design::CurveDescriptor2D;
+use ensnano_interactor::{RevolutionSurfaceDescriptor, RevolutionSurfaceSystemDescriptor};
 use iced_native::widget::{
+    button::{self, Button},
     pick_list::{self, PickList},
     text_input::{self, TextInput},
 };
@@ -49,25 +51,25 @@ pub enum RevolutionParameterId {
 }
 
 impl InstanciatedParameter {
-    pub fn get_float(&self) -> Option<f64> {
+    pub fn get_float(self) -> Option<f64> {
         if let Self::Float(x) = self {
-            Some(*x)
+            Some(x)
         } else {
             None
         }
     }
 
-    pub fn get_int(&self) -> Option<isize> {
+    pub fn get_int(self) -> Option<isize> {
         if let Self::Int(x) = self {
-            Some(*x)
+            Some(x)
         } else {
             None
         }
     }
 
-    pub fn get_uint(&self) -> Option<usize> {
+    pub fn get_uint(self) -> Option<usize> {
         if let Self::Uint(x) = self {
-            Some(*x)
+            Some(x)
         } else {
             None
         }
@@ -226,6 +228,17 @@ impl CurveDescriptorWidget {
             .iter()
             .any(|(_, p)| p.has_keyboard_priority())
     }
+
+    fn instanciated_parameters(&self) -> Vec<InstanciatedParameter> {
+        self.parameters
+            .iter()
+            .filter_map(|p| p.1.get_value())
+            .collect()
+    }
+
+    fn build_curve(&self) -> Option<CurveDescriptor2D> {
+        (self.builder.build)(&self.instanciated_parameters())
+    }
 }
 
 pub(crate) struct RevolutionTab {
@@ -238,6 +251,8 @@ pub(crate) struct RevolutionTab {
 
     nb_section_per_segment_input: ParameterWidget,
     scaffold_len_target: ParameterWidget,
+
+    go_button: button::State,
 }
 
 impl Default for RevolutionTab {
@@ -245,12 +260,13 @@ impl Default for RevolutionTab {
         Self {
             curve_descriptor_widget: None,
             pick_curve_state: Default::default(),
-            half_turn_count: ParameterWidget::new(InstanciatedParameter::Uint(0)),
+            half_turn_count: ParameterWidget::new(InstanciatedParameter::Int(0)),
             radius_input: ParameterWidget::new(InstanciatedParameter::Float(0.)),
             nb_helix_per_half_section_input: ParameterWidget::new(InstanciatedParameter::Uint(1)),
             shift_per_turn_state_input: ParameterWidget::new(InstanciatedParameter::Int(0)),
             nb_section_per_segment_input: ParameterWidget::new(InstanciatedParameter::Uint(100)),
             scaffold_len_target: ParameterWidget::new(InstanciatedParameter::Uint(7249)),
+            go_button: Default::default(),
         }
     }
 }
@@ -291,9 +307,10 @@ impl RevolutionTab {
     pub fn view<'a, S: AppState>(
         &'a mut self,
         ui_size: UiSize,
-        _app_state: &S,
+        app_state: &S,
     ) -> Element<'a, Message<S>> {
         let mut ret = Column::new();
+        let desc = self.get_revolution_system(app_state);
         section!(ret, ui_size, "Revolution Surfaces");
 
         subsection!(ret, ui_size, "Section parameters");
@@ -317,6 +334,7 @@ impl RevolutionTab {
             ret = ret.push(widget.view())
         }
 
+        extra_jump!(ret);
         subsection!(ret, ui_size, "Revolution parameter");
 
         ret = ret.push(
@@ -346,6 +364,7 @@ impl RevolutionTab {
             ),
         );
 
+        extra_jump!(ret);
         subsection!(ret, ui_size, "Discretisation paramters");
         ret = ret.push(
             Row::new().push(Text::new("Nb section per segments")).push(
@@ -359,6 +378,14 @@ impl RevolutionTab {
                     .input_view(RevolutionParameterId::ScaffoldLenTarget),
             ),
         );
+
+        extra_jump!(ret);
+        section!(ret, ui_size, "Relaxation computation");
+        let mut button = Button::new(&mut self.go_button, Text::new("Start"));
+        if let Some(desc) = desc {
+            button = button.on_press(Message::InitRevolutionRelaxation(desc));
+        }
+        ret = ret.push(button);
         ret.into()
     }
 
@@ -373,5 +400,50 @@ impl RevolutionTab {
             || self.nb_helix_per_half_section_input.has_keyboard_priority()
             || self.scaffold_len_target.has_keyboard_priority()
             || self.shift_per_turn_state_input.has_keyboard_priority()
+    }
+
+    fn get_revolution_system<S: AppState>(
+        &self,
+        app_state: &S,
+    ) -> Option<RevolutionSurfaceSystemDescriptor> {
+        let surface_descriptor = RevolutionSurfaceDescriptor {
+            dna_paramters: app_state.get_dna_parameters(),
+            curve: self
+                .curve_descriptor_widget
+                .as_ref()
+                .and_then(|w| w.build_curve())?,
+            half_turns_count: self
+                .half_turn_count
+                .get_value()
+                .and_then(InstanciatedParameter::get_int)?,
+            nb_helix_per_half_section: self
+                .nb_helix_per_half_section_input
+                .get_value()
+                .and_then(InstanciatedParameter::get_uint)?,
+            revolution_radius: self
+                .radius_input
+                .get_value()
+                .and_then(InstanciatedParameter::get_float)?,
+            shift_per_turn: self
+                .shift_per_turn_state_input
+                .get_value()
+                .and_then(InstanciatedParameter::get_int)?,
+            junction_smoothening: 0.,
+        };
+
+        let system = RevolutionSurfaceSystemDescriptor {
+            target: surface_descriptor,
+            nb_section_per_segment: self
+                .nb_section_per_segment_input
+                .get_value()
+                .and_then(InstanciatedParameter::get_uint)?,
+            dna_parameters: app_state.get_dna_parameters(),
+            scaffold_len_target: self
+                .scaffold_len_target
+                .get_value()
+                .and_then(InstanciatedParameter::get_uint)?,
+        };
+
+        Some(system)
     }
 }

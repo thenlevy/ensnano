@@ -36,6 +36,7 @@ use ensnano_design::{
     CurveDescriptor, CurveDescriptor2D, DVec3, InterpolatedCurveDescriptor,
     InterpolationDescriptor, Parameters as DNAParameters,
 };
+use ensnano_interactor::{RevolutionSurfaceDescriptor, RevolutionSurfaceSystemDescriptor};
 
 use crate::app_state::{
     design_interactor::controller::simulations::revolutions::open_curves::OpenSurfaceTopology,
@@ -107,13 +108,6 @@ impl Clone for RevolutionSurfaceSystem {
     }
 }
 
-pub struct RevolutionSurfaceSystemDescriptor {
-    pub nb_section_per_segment: usize,
-    pub target: RevolutionSurfaceDescriptor,
-    pub dna_parameters: DNAParameters,
-    pub scaffold_len_target: usize,
-}
-
 #[derive(Clone)]
 pub struct RevolutionSurface {
     curve: CurveDescriptor2D,
@@ -125,16 +119,6 @@ pub struct RevolutionSurface {
     dna_paramters: DNAParameters,
     nb_helices: usize,
     curve_scale_factor: f64,
-}
-
-pub struct RevolutionSurfaceDescriptor {
-    pub curve: CurveDescriptor2D,
-    pub revolution_radius: f64,
-    pub nb_helix_per_half_section: usize,
-    pub half_turns_count: isize,
-    pub shift_per_turn: isize,
-    pub junction_smoothening: f64,
-    pub dna_paramters: DNAParameters,
 }
 
 impl RevolutionSurfaceSystem {
@@ -457,49 +441,6 @@ impl ExplicitODE<f64> for RevolutionSurfaceSystem {
 
     fn time_span(&self) -> (f64, f64) {
         (0., 5.)
-    }
-}
-
-/*
- * let q be the total shift and n be the number of sections
- * Helices seen as set of section are class of equivalence for the relation ~
- * where a ~ b iff there exists k1, k2 st a = b  + k1 q + k2 n
- *
- * let d = gcd(q, n). If a ~ b then a = b (mod d)
- *
- * Recp. if a = b (mod d) there exists x y st xq + yn = d
- *
- * a = k (xq + yn) + b
- * so a ~ b
- *
- * So ~ is the relation of equivalence modulo d and has d classes.
- */
-
-fn gcd(a: isize, b: isize) -> usize {
-    let mut a = a.abs() as usize;
-    let mut b = b.abs() as usize;
-
-    if a < b {
-        std::mem::swap(&mut a, &mut b);
-    }
-
-    while b > 0 {
-        let b_ = b;
-        b = a % b;
-        a = b_;
-    }
-    return a;
-}
-
-impl RevolutionSurfaceDescriptor {
-    fn nb_helices(&self) -> usize {
-        let additional_shift = if self.half_turns_count % 2 == 1 {
-            self.nb_helix_per_half_section / 2
-        } else {
-            0
-        };
-        let total_shift = self.shift_per_turn + additional_shift as isize;
-        gcd(total_shift, self.nb_helix_per_half_section as isize * 2)
     }
 }
 

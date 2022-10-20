@@ -1,4 +1,4 @@
-use ensnano_interactor::graphics::HBoundDisplay;
+use ensnano_interactor::{graphics::HBoundDisplay, RevolutionSurfaceSystemDescriptor};
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -215,6 +215,7 @@ pub enum Message<S> {
         parameter_id: RevolutionParameterId,
         text: String,
     },
+    InitRevolutionRelaxation(RevolutionSurfaceSystemDescriptor),
     CancelExport,
 }
 
@@ -859,6 +860,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::RevolutionParameterUpdate { parameter_id, text } => {
                 self.revolution_tab
                     .update_builder_parameter(parameter_id, text);
+            }
+            Message::InitRevolutionRelaxation(desc) => {
+                println!("got {:?}", desc);
             }
         };
         Command::none()

@@ -25,8 +25,8 @@ use ensnano_design::{
     elements::{DnaAttribute, DnaElementKey},
     grid::{GridDescriptor, GridId, GridObject, GridTypeDescr, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
-    BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, BezierVertexId, Nucl,
-    Parameters,
+    BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, BezierVertexId,
+    CurveDescriptor2D, Nucl, Parameters,
 };
 use serde::{Deserialize, Serialize};
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -471,6 +471,68 @@ pub enum SimulationState {
     Paused,
     Twisting { grid_id: GridId },
     Relaxing,
+}
+
+#[derive(Debug, Clone)]
+pub struct RevolutionSurfaceSystemDescriptor {
+    pub nb_section_per_segment: usize,
+    pub target: RevolutionSurfaceDescriptor,
+    pub dna_parameters: Parameters,
+    pub scaffold_len_target: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct RevolutionSurfaceDescriptor {
+    pub curve: CurveDescriptor2D,
+    pub revolution_radius: f64,
+    pub nb_helix_per_half_section: usize,
+    pub half_turns_count: isize,
+    pub shift_per_turn: isize,
+    pub junction_smoothening: f64,
+    pub dna_paramters: Parameters,
+}
+
+/*
+ * let q be the total shift and n be the number of sections
+ * Helices seen as set of section are class of equivalence for the relation ~
+ * where a ~ b iff there exists k1, k2 st a = b  + k1 q + k2 n
+ *
+ * let d = gcd(q, n). If a ~ b then a = b (mod d)
+ *
+ * Recp. if a = b (mod d) there exists x y st xq + yn = d
+ *
+ * a = k (xq + yn) + b
+ * so a ~ b
+ *
+ * So ~ is the relation of equivalence modulo d and has d classes.
+ */
+
+fn gcd(a: isize, b: isize) -> usize {
+    let mut a = a.abs() as usize;
+    let mut b = b.abs() as usize;
+
+    if a < b {
+        std::mem::swap(&mut a, &mut b);
+    }
+
+    while b > 0 {
+        let b_ = b;
+        b = a % b;
+        a = b_;
+    }
+    return a;
+}
+
+impl RevolutionSurfaceDescriptor {
+    pub fn nb_helices(&self) -> usize {
+        let additional_shift = if self.half_turns_count % 2 == 1 {
+            self.nb_helix_per_half_section / 2
+        } else {
+            0
+        };
+        let total_shift = self.shift_per_turn + additional_shift as isize;
+        gcd(total_shift, self.nb_helix_per_half_section as isize * 2)
+    }
 }
 
 impl SimulationState {
