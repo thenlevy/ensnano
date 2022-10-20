@@ -23,7 +23,9 @@ use super::messages::CHANGING_DNA_PARAMETERS_WARNING;
 use super::*;
 use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::{grid::GridId, Parameters};
-use ensnano_interactor::{graphics::FogParameters, HyperboloidOperation};
+use ensnano_interactor::{
+    graphics::FogParameters, HyperboloidOperation, RevolutionSurfaceSystemDescriptor,
+};
 
 /// User is interacting with graphical components.
 pub(super) struct NormalState;
@@ -175,6 +177,10 @@ impl State for NormalState {
                 }
                 Action::RigidGridSimulation { parameters } => {
                     main_state.start_grid_simulation(parameters);
+                    self
+                }
+                Action::RevolutionSimulation { desc } => {
+                    main_state.start_revolution_simulation(desc);
                     self
                 }
                 Action::StopSimulation => {
@@ -459,6 +465,9 @@ pub enum Action {
     Duplicate,
     RigidGridSimulation {
         parameters: RigidBodyConstants,
+    },
+    RevolutionSimulation {
+        desc: RevolutionSurfaceSystemDescriptor,
     },
     RigidHelicesSimulation {
         parameters: RigidBodyConstants,

@@ -22,8 +22,8 @@ use ensnano_design::{
 };
 use ensnano_exports::{ExportResult, ExportType};
 use ensnano_interactor::{
-    operation::Operation, DesignOperation, RigidBodyConstants, Selection, SimulationState,
-    StrandBuilder, SuggestionParameters,
+    operation::Operation, DesignOperation, RevolutionSurfaceSystemDescriptor, RigidBodyConstants,
+    Selection, SimulationState, StrandBuilder, SuggestionParameters,
 };
 
 mod presenter;
@@ -153,6 +153,12 @@ impl DesignInteractor {
             },
             SimulationTarget::Relaxation => {
                 controller::SimulationOperation::ExampleRelaxation { reader }
+            }
+            SimulationTarget::Revolution { desc } => {
+                controller::SimulationOperation::RevolutionRelaxation {
+                    system: desc,
+                    reader,
+                }
             }
         };
         let result = self
@@ -1853,7 +1859,14 @@ mod tests {
 pub enum SimulationTarget {
     Grids,
     Helices,
-    Roll { target_helices: Option<Vec<usize>> },
-    Twist { grid_id: GridId },
+    Roll {
+        target_helices: Option<Vec<usize>>,
+    },
+    Twist {
+        grid_id: GridId,
+    },
     Relaxation,
+    Revolution {
+        desc: RevolutionSurfaceSystemDescriptor,
+    },
 }

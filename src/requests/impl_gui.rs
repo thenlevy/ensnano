@@ -480,6 +480,11 @@ impl GuiRequests for Requests {
     fn optimize_scaffold_shift(&mut self) {
         self.keep_proceed.push_back(Action::OptimizeShift)
     }
+
+    fn start_revolution_relaxation(&mut self, desc: RevolutionSurfaceSystemDescriptor) {
+        self.keep_proceed
+            .push_back(Action::RevolutionSimulation { desc })
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

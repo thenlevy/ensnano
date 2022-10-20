@@ -23,7 +23,7 @@ pub use revolutions::*;
 use super::*;
 
 use ensnano_design::{grid::Grid, Parameters};
-use ensnano_interactor::RigidBodyConstants;
+use ensnano_interactor::{RevolutionSurfaceSystemDescriptor, RigidBodyConstants};
 use mathru::algebra::linear::vector::vector::Vector;
 use mathru::analysis::differential_equation::ordinary::{
     solver::runge_kutta::{explicit::fixed::FixedStepper, ExplicitEuler, Kutta3},
@@ -1342,6 +1342,10 @@ pub enum SimulationOperation<'pres, 'reader> {
         reader: &'reader mut dyn SimulationReader,
     },
     ExampleRelaxation {
+        reader: &'reader mut dyn SimulationReader,
+    },
+    RevolutionRelaxation {
+        system: RevolutionSurfaceSystemDescriptor,
         reader: &'reader mut dyn SimulationReader,
     },
 }

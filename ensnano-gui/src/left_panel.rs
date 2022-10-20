@@ -1,4 +1,3 @@
-use ensnano_interactor::{graphics::HBoundDisplay, RevolutionSurfaceSystemDescriptor};
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -16,6 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+use ensnano_interactor::{graphics::HBoundDisplay, RevolutionSurfaceSystemDescriptor};
 use ensnano_organizer::{Organizer, OrganizerMessage, OrganizerTree};
 use std::sync::{Arc, Mutex};
 
@@ -862,7 +862,10 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .update_builder_parameter(parameter_id, text);
             }
             Message::InitRevolutionRelaxation(desc) => {
-                println!("got {:?}", desc);
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .start_revolution_relaxation(desc);
             }
         };
         Command::none()

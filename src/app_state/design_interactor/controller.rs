@@ -525,6 +525,16 @@ impl Controller {
                     initial_design: AddressPointer::new(design.clone()),
                 };
             }
+            SimulationOperation::RevolutionRelaxation { system, reader } => {
+                if self.is_in_persistant_state().is_transitory() {
+                    return Err(ErrOperation::IncompatibleState);
+                }
+                let interface = RevolutionSystemThread::start_new(system, reader)?;
+                ret.state = ControllerState::Relaxing {
+                    interface,
+                    initial_design: AddressPointer::new(design.clone()),
+                };
+            }
             SimulationOperation::StartHelices {
                 presenter,
                 parameters,

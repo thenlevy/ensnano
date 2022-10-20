@@ -84,7 +84,10 @@ use std::time::{Duration, Instant};
 use controller::{ChanelReader, ChanelReaderUpdate, SimulationRequest};
 use ensnano_design::{grid::GridId, Camera};
 use ensnano_exports::{ExportResult, ExportType};
-use ensnano_interactor::application::{Application, Notification};
+use ensnano_interactor::{
+    application::{Application, Notification},
+    RevolutionSurfaceSystemDescriptor,
+};
 use ensnano_interactor::{
     CenterOfSelection, CursorIcon, DesignOperation, DesignReader, RigidBodyConstants,
     SuggestionParameters,
@@ -1155,6 +1158,15 @@ impl MainState {
         self.apply_operation_result(result)
     }
 
+    fn start_revolution_simulation(&mut self, desc: RevolutionSurfaceSystemDescriptor) {
+        let result = self.app_state.start_simulation(
+            Default::default(),
+            &mut self.chanel_reader,
+            SimulationTarget::Revolution { desc },
+        );
+        self.apply_operation_result(result)
+    }
+
     fn start_twist(&mut self, grid_id: GridId) {
         let result = self.app_state.start_simulation(
             Default::default(),
@@ -1770,6 +1782,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn start_grid_simulation(&mut self, parameters: RigidBodyConstants) {
         self.main_state.start_grid_simulation(parameters);
+    }
+
+    fn start_revolution_simulation(&mut self, desc: RevolutionSurfaceSystemDescriptor) {
+        self.main_state.start_revolution_simulation(desc)
     }
 
     fn start_roll_simulation(&mut self, target_helices: Option<Vec<usize>>) {

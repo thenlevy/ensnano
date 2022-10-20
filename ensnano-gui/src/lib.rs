@@ -55,11 +55,14 @@ use ensnano_design::{
     grid::GridTypeDescr,
     ultraviolet, BezierPathId, BezierVertexId, Nucl, Parameters,
 };
-use ensnano_interactor::graphics::{FogParameters, HBoundDisplay};
 use ensnano_interactor::{
     graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
     CheckXoversParameter, InsertionPoint, Selection, SimulationState, SuggestionParameters,
     WidgetBasis,
+};
+use ensnano_interactor::{
+    graphics::{FogParameters, HBoundDisplay},
+    RevolutionSurfaceSystemDescriptor,
 };
 use ensnano_interactor::{operation::Operation, ScaffoldInfo};
 use ensnano_interactor::{ActionMode, HyperboloidRequest, RollRequest, SelectionMode};
@@ -218,6 +221,7 @@ pub trait Requests: 'static + Send {
     fn import_3d_object(&mut self);
     fn set_position_of_bezier_vertex(&mut self, vertex_id: BezierVertexId, position: Vec2);
     fn optimize_scaffold_shift(&mut self);
+    fn start_revolution_relaxation(&mut self, desc: RevolutionSurfaceSystemDescriptor);
 }
 
 #[derive(Clone, Debug, PartialEq)]
