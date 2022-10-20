@@ -62,7 +62,7 @@ use text_input_style::BadValue;
 mod discrete_value;
 use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
 mod tabs;
-use crate::consts::*;
+use crate::{consts::*, left_panel::tabs::RevolutionParameterId};
 mod contextual_panel;
 mod export_menu;
 use contextual_panel::{ContextualPanel, InstanciatedValue, ValueKind};
@@ -211,8 +211,8 @@ pub enum Message<S> {
     },
     Export(ExportType),
     CurveBuilderPicked(CurveDescriptorBuilder),
-    CurveBuilderParameterUpdate {
-        parameter_id: usize,
+    RevolutionParameterUpdate {
+        parameter_id: RevolutionParameterId,
         text: String,
     },
     CancelExport,
@@ -856,7 +856,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::CurveBuilderPicked(builder) => {
                 self.revolution_tab.set_builder(builder);
             }
-            Message::CurveBuilderParameterUpdate { parameter_id, text } => {
+            Message::RevolutionParameterUpdate { parameter_id, text } => {
                 self.revolution_tab
                     .update_builder_parameter(parameter_id, text);
             }

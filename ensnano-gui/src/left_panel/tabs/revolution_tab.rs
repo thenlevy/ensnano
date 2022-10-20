@@ -26,17 +26,47 @@ use iced_native::widget::{
 #[derive(Debug, Clone, Copy)]
 pub enum ParameterKind {
     Float,
+    Int,
+    Uint,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum InstanciatedParameter {
     Float(f64),
+    Int(isize),
+    Uint(usize),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum RevolutionParameterId {
+    SectionParameter(usize),
+    HalfTurnCount,
+    RevolutionRadius,
+    NbHelixHalfSection,
+    ShiftPerTurn,
+    NbSectionPerSegment,
+    ScaffoldLenTarget,
 }
 
 impl InstanciatedParameter {
     pub fn get_float(&self) -> Option<f64> {
-        #[allow(irrefutable_let_patterns)]
         if let Self::Float(x) = self {
+            Some(*x)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_int(&self) -> Option<isize> {
+        if let Self::Int(x) = self {
+            Some(*x)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_uint(&self) -> Option<usize> {
+        if let Self::Uint(x) = self {
             Some(*x)
         } else {
             None
@@ -83,45 +113,67 @@ impl PartialEq for CurveDescriptorBuilder {
 
 impl Eq for CurveDescriptorBuilder {}
 
-enum ParameterWidget {
-    Float {
-        current_text: String,
-        state: text_input::State,
-    },
+struct ParameterWidget {
+    current_text: String,
+    state: text_input::State,
+    parameter_kind: ParameterKind,
 }
 
 impl ParameterWidget {
-    fn new_float(initial_value: f64) -> Self {
-        Self::Float {
-            current_text: format!("{:.3}", initial_value),
+    fn new(initial_value: InstanciatedParameter) -> Self {
+        let (current_text, parameter_kind) = match initial_value {
+            InstanciatedParameter::Float(x) => (format!("{:.3}", x), ParameterKind::Float),
+            InstanciatedParameter::Int(x) => (x.to_string(), ParameterKind::Int),
+            InstanciatedParameter::Uint(x) => (x.to_string(), ParameterKind::Uint),
+        };
+        Self {
+            current_text,
             state: Default::default(),
+            parameter_kind,
         }
     }
 
-    fn input_view<S: AppState>(&mut self, id: usize) -> Element<Message<S>> {
-        match self {
-            Self::Float {
-                current_text,
-                state,
-            } => TextInput::new(state, "", current_text, move |s| {
-                Message::CurveBuilderParameterUpdate {
-                    parameter_id: id,
-                    text: s,
-                }
-            })
-            .into(),
-        }
+    fn input_view<S: AppState>(&mut self, id: RevolutionParameterId) -> Element<Message<S>> {
+        let style = super::BadValue(self.contains_valid_input());
+        TextInput::new(&mut self.state, "", &self.current_text, move |s| {
+            Message::RevolutionParameterUpdate {
+                parameter_id: id,
+                text: s,
+            }
+        })
+        .style(style)
+        .into()
     }
 
     fn set_text(&mut self, text: String) {
-        match self {
-            Self::Float { current_text, .. } => *current_text = text,
-        }
+        self.current_text = text;
     }
 
     fn has_keyboard_priority(&self) -> bool {
-        match self {
-            Self::Float { state, .. } => state.is_focused(),
+        self.state.is_focused()
+    }
+
+    fn contains_valid_input(&self) -> bool {
+        self.get_value().is_some()
+    }
+
+    fn get_value(&self) -> Option<InstanciatedParameter> {
+        match self.parameter_kind {
+            ParameterKind::Float => self
+                .current_text
+                .parse::<f64>()
+                .ok()
+                .map(InstanciatedParameter::Float),
+            ParameterKind::Int => self
+                .current_text
+                .parse::<isize>()
+                .ok()
+                .map(InstanciatedParameter::Int),
+            ParameterKind::Uint => self
+                .current_text
+                .parse::<usize>()
+                .ok()
+                .map(InstanciatedParameter::Uint),
         }
     }
 }
@@ -137,9 +189,7 @@ impl CurveDescriptorWidget {
         let parameters = builder
             .parameters
             .iter()
-            .map(|builder| match builder.default_value {
-                InstanciatedParameter::Float(x) => (builder.name, ParameterWidget::new_float(x)),
-            })
+            .map(|builder| (builder.name, ParameterWidget::new(builder.default_value)))
             .collect();
 
         Self {
@@ -155,18 +205,20 @@ impl CurveDescriptorWidget {
                 .iter_mut()
                 .enumerate()
                 .fold(Column::new(), |col, (param_id, param)| {
-                    let row = Row::new()
-                        .push(Text::new(param.0))
-                        .push(param.1.input_view(param_id));
+                    let row = Row::new().push(Text::new(param.0)).push(
+                        param
+                            .1
+                            .input_view(RevolutionParameterId::SectionParameter(param_id)),
+                    );
                     col.push(row)
                 });
         column.into()
     }
 
     fn update_builder_parameter(&mut self, param_id: usize, text: String) {
-        self.parameters
-            .get_mut(param_id)
-            .map(|p| p.1.set_text(text));
+        if let Some(p) = self.parameters.get_mut(param_id) {
+            p.1.set_text(text)
+        }
     }
 
     fn has_keyboard_priority(&self) -> bool {
@@ -176,10 +228,31 @@ impl CurveDescriptorWidget {
     }
 }
 
-#[derive(Default)]
 pub(crate) struct RevolutionTab {
     curve_descriptor_widget: Option<CurveDescriptorWidget>,
     pick_curve_state: pick_list::State<CurveDescriptorBuilder>,
+    half_turn_count: ParameterWidget,
+    radius_input: ParameterWidget,
+    nb_helix_per_half_section_input: ParameterWidget,
+    shift_per_turn_state_input: ParameterWidget,
+
+    nb_section_per_segment_input: ParameterWidget,
+    scaffold_len_target: ParameterWidget,
+}
+
+impl Default for RevolutionTab {
+    fn default() -> Self {
+        Self {
+            curve_descriptor_widget: None,
+            pick_curve_state: Default::default(),
+            half_turn_count: ParameterWidget::new(InstanciatedParameter::Uint(0)),
+            radius_input: ParameterWidget::new(InstanciatedParameter::Float(0.)),
+            nb_helix_per_half_section_input: ParameterWidget::new(InstanciatedParameter::Uint(1)),
+            shift_per_turn_state_input: ParameterWidget::new(InstanciatedParameter::Int(0)),
+            nb_section_per_segment_input: ParameterWidget::new(InstanciatedParameter::Uint(100)),
+            scaffold_len_target: ParameterWidget::new(InstanciatedParameter::Uint(7249)),
+        }
+    }
 }
 
 impl RevolutionTab {
@@ -189,20 +262,41 @@ impl RevolutionTab {
         }
     }
 
-    pub fn update_builder_parameter(&mut self, param_id: usize, text: String) {
-        self.curve_descriptor_widget
-            .as_mut()
-            .map(|widget| widget.update_builder_parameter(param_id, text));
+    pub fn update_builder_parameter(&mut self, param_id: RevolutionParameterId, text: String) {
+        match param_id {
+            RevolutionParameterId::SectionParameter(id) => {
+                if let Some(widget) = self.curve_descriptor_widget.as_mut() {
+                    widget.update_builder_parameter(id, text)
+                }
+            }
+            param => {
+                let widget = match param {
+                    RevolutionParameterId::SectionParameter(_) => unreachable!(),
+                    RevolutionParameterId::HalfTurnCount => &mut self.half_turn_count,
+                    RevolutionParameterId::ShiftPerTurn => &mut self.shift_per_turn_state_input,
+                    RevolutionParameterId::RevolutionRadius => &mut self.radius_input,
+                    RevolutionParameterId::ScaffoldLenTarget => &mut self.scaffold_len_target,
+                    RevolutionParameterId::NbHelixHalfSection => {
+                        &mut self.nb_helix_per_half_section_input
+                    }
+                    RevolutionParameterId::NbSectionPerSegment => {
+                        &mut self.nb_section_per_segment_input
+                    }
+                };
+                widget.set_text(text);
+            }
+        }
     }
 
     pub fn view<'a, S: AppState>(
         &'a mut self,
         ui_size: UiSize,
-        app_state: &S,
+        _app_state: &S,
     ) -> Element<'a, Message<S>> {
         let mut ret = Column::new();
         section!(ret, ui_size, "Revolution Surfaces");
 
+        subsection!(ret, ui_size, "Section parameters");
         let curve_pick_list = PickList::new(
             &mut self.pick_curve_state,
             S::POSSIBLE_CURVES,
@@ -223,6 +317,48 @@ impl RevolutionTab {
             ret = ret.push(widget.view())
         }
 
+        subsection!(ret, ui_size, "Revolution parameter");
+
+        ret = ret.push(
+            Row::new().push(Text::new("Nb Half Turns")).push(
+                self.half_turn_count
+                    .input_view(RevolutionParameterId::HalfTurnCount),
+            ),
+        );
+        ret = ret.push(
+            Row::new()
+                .push(Text::new("Nb Helix per Half section"))
+                .push(
+                    self.nb_helix_per_half_section_input
+                        .input_view(RevolutionParameterId::NbHelixHalfSection),
+                ),
+        );
+        ret = ret.push(
+            Row::new().push(Text::new("Shift per turn")).push(
+                self.shift_per_turn_state_input
+                    .input_view(RevolutionParameterId::ShiftPerTurn),
+            ),
+        );
+        ret = ret.push(
+            Row::new().push(Text::new("Revolution Radius")).push(
+                self.radius_input
+                    .input_view(RevolutionParameterId::RevolutionRadius),
+            ),
+        );
+
+        subsection!(ret, ui_size, "Discretisation paramters");
+        ret = ret.push(
+            Row::new().push(Text::new("Nb section per segments")).push(
+                self.nb_section_per_segment_input
+                    .input_view(RevolutionParameterId::NbSectionPerSegment),
+            ),
+        );
+        ret = ret.push(
+            Row::new().push(Text::new("Targent length")).push(
+                self.scaffold_len_target
+                    .input_view(RevolutionParameterId::ScaffoldLenTarget),
+            ),
+        );
         ret.into()
     }
 
@@ -231,5 +367,11 @@ impl RevolutionTab {
             .as_ref()
             .map(CurveDescriptorWidget::has_keyboard_priority)
             .unwrap_or(false)
+            || self.radius_input.has_keyboard_priority()
+            || self.nb_section_per_segment_input.has_keyboard_priority()
+            || self.half_turn_count.has_keyboard_priority()
+            || self.nb_helix_per_half_section_input.has_keyboard_priority()
+            || self.scaffold_len_target.has_keyboard_priority()
+            || self.shift_per_turn_state_input.has_keyboard_priority()
     }
 }
