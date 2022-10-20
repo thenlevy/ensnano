@@ -1124,7 +1124,7 @@ impl InstanciatedCurveDescriptor_ {
                 parameters,
             )),
             Self::InterpolatedCurve(desc) => Some(Curve::compute_length(
-                desc.clone().instanciate(false),
+                desc.clone().instanciate(true),
                 parameters,
             )),
         }
