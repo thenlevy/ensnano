@@ -200,7 +200,7 @@ impl RevolutionSurfaceSystem {
             *first = false;
         }
 
-        let solver = FixedStepper::new(1e-1);
+        let solver = FixedStepper::new(1e-2);
         let method = Ralston4::default();
 
         let mut spring_relaxation_state = SpringRelaxationState::new();

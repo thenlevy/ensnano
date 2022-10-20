@@ -529,6 +529,7 @@ impl Controller {
                 if self.is_in_persistant_state().is_transitory() {
                     return Err(ErrOperation::IncompatibleState);
                 }
+                println!("system {:#?}", system);
                 let interface = RevolutionSystemThread::start_new(system, reader)?;
                 ret.state = ControllerState::Relaxing {
                     interface,

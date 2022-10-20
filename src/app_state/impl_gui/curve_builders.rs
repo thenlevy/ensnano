@@ -45,7 +45,7 @@ fn build_ellipse(parameters: &[InstanciatedParameter]) -> Option<CurveDescriptor
         .cloned()
         .and_then(InstanciatedParameter::get_float)?;
     let b = parameters
-        .get(0)
+        .get(1)
         .cloned()
         .and_then(InstanciatedParameter::get_float)?;
     Some(CurveDescriptor2D::Ellipse {
