@@ -148,6 +148,10 @@ impl RevolutionSurfaceSystem {
         let mut current_default;
         for _ in 0..10 {
             if let Some(interface) = interface.as_ref() {
+                if !interface.lock().unwrap().still_valid() {
+                    // no need to continue the computations
+                    return 0;
+                }
                 interface.lock().unwrap().new_state = Some(self.clone());
             }
             //std::thread::sleep_ms(20_000);
@@ -683,6 +687,12 @@ impl SimulationUpdate for Vec<CurveDescriptor> {
 pub struct RevolutionSystemInterface {
     new_state: Option<RevolutionSurfaceSystem>,
     curve_descriptor: OptionOnce<Vec<CurveDescriptor>>,
+}
+
+impl RevolutionSystemInterface {
+    pub fn kill(&mut self) {
+        self.curve_descriptor = OptionOnce::Taken;
+    }
 }
 
 enum OptionOnce<T> {

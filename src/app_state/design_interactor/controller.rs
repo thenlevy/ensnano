@@ -473,7 +473,7 @@ impl Controller {
 
     pub(super) fn apply_simulation_operation(
         &self,
-        design: Design,
+        mut design: Design,
         operation: SimulationOperation,
     ) -> Result<(OkOperation, Self), ErrOperation> {
         let mut ret = self.clone();
@@ -621,7 +621,9 @@ impl Controller {
                     ret.state = ControllerState::Normal
                 } else if let ControllerState::Twisting { .. } = &ret.state {
                     ret.state = ControllerState::Normal
-                } else if let ControllerState::Relaxing { .. } = &ret.state {
+                } else if let ControllerState::Relaxing { interface, .. } = &ret.state {
+                    interface.lock().unwrap().kill();
+                    design.additional_structure = None;
                     ret.state = ControllerState::Normal
                 }
             }
