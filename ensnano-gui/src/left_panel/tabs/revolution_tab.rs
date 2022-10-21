@@ -253,6 +253,7 @@ pub(crate) struct RevolutionTab {
     scaffold_len_target: ParameterWidget,
 
     go_button: button::State,
+    abbort_button: button::State,
 }
 
 impl Default for RevolutionTab {
@@ -267,6 +268,7 @@ impl Default for RevolutionTab {
             nb_section_per_segment_input: ParameterWidget::new(InstanciatedParameter::Uint(100)),
             scaffold_len_target: ParameterWidget::new(InstanciatedParameter::Uint(7249)),
             go_button: Default::default(),
+            abbort_button: Default::default(),
         }
     }
 }
@@ -381,11 +383,19 @@ impl RevolutionTab {
 
         extra_jump!(ret);
         section!(ret, ui_size, "Relaxation computation");
-        let mut button = Button::new(&mut self.go_button, Text::new("Start"));
-        if let Some(desc) = desc {
-            button = button.on_press(Message::InitRevolutionRelaxation(desc));
+        if let SimulationState::Relaxing = app_state.get_simulation_state() {
+            let button = Button::new(&mut self.abbort_button, Text::new("Abort"))
+                .on_press(Message::StopSimulation);
+            ret = ret.push(button);
+        } else {
+            let mut button = Button::new(&mut self.go_button, Text::new("Start"));
+            if let SimulationState::None = app_state.get_simulation_state() {
+                if let Some(desc) = desc {
+                    button = button.on_press(Message::InitRevolutionRelaxation(desc));
+                }
+            }
+            ret = ret.push(button);
         }
-        ret = ret.push(button);
         ret.into()
     }
 
