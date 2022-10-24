@@ -24,10 +24,15 @@ use super::ElementType;
 
 const RESIZE_REGION_WIDTH: f64 = 0.001;
 
-/// A node of a `LayoutTree`
+/// A node of a [LayoutTree](self::LayoutTree), representing a region of the window.
+///
+/// It represents a part of the window that can be split vertically
+/// ([VSplit](self::LayoutNode::VSplit)), split horizontally ([HSplit](self::LayoutNode::HSplit))
+/// or be an actual –drawable– layout ([Area](self::LayoutNode::Area)).
+///
 #[derive(Clone, Debug)]
 enum LayoutNode {
-    /// A leaf of a `LayoutTree`. Represents an area that can be drawn on.
+    /// A leaf of a  [LayoutTree](self::LayoutTree). It represents an area that can be drawn on.
     /// The first 4 attributes represents the boundaries of the area, expressed between 0. and 1.,
     /// the last attribute is the identifier of the area.
     Area {
@@ -65,6 +70,8 @@ enum LayoutNode {
 
 type LayoutNodePtr = Rc<RefCell<LayoutNode>>;
 
+/// Data structure representing parts of a window.
+///
 pub struct LayoutTree {
     /// The root node of the LayoutTree.
     root: LayoutNodePtr,

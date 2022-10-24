@@ -167,14 +167,14 @@ fn convert_size_u32(size: PhySize) -> Size<u32> {
     Size::new(size.width, size.height)
 }
 
-#[cfg(not(feature = "log_after_renderer_setup"))]
-const EARLY_LOG: bool = true;
-#[cfg(feature = "log_after_renderer_setup")]
 /// Determine if log messages can be printed before the renderer setup.
 ///
 /// Setting it to true will print information in the terminal that are not usefull for regular use.
 /// By default the value is `false`. It can be set to `true` by enabling the
 /// `log_after_renderer_setup` feature.
+#[cfg(not(feature = "log_after_renderer_setup"))]
+const EARLY_LOG: bool = true;
+#[cfg(feature = "log_after_renderer_setup")]
 const EARLY_LOG: bool = false;
 
 // On some windows machine, only the DX12 backends will work. So the `dx12_only` feature forces its
