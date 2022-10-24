@@ -640,6 +640,11 @@ impl Controller {
                     ));
                 }
             }
+            SimulationOperation::FinishRelaxation => {
+                if let ControllerState::Relaxing { interface, .. } = &ret.state {
+                    interface.lock().unwrap().finish();
+                }
+            }
         }
         Ok((self.return_design(design, "Simulation".into()), ret))
     }

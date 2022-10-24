@@ -22,6 +22,7 @@ use ensnano_interactor::{RevolutionSurfaceDescriptor, RevolutionSurfaceSystemDes
 use iced_native::widget::{
     button::{self, Button},
     pick_list::{self, PickList},
+    scrollable::{self, Scrollable},
     text_input::{self, TextInput},
 };
 
@@ -252,13 +253,17 @@ pub(crate) struct RevolutionTab {
     nb_section_per_segment_input: ParameterWidget,
     scaffold_len_target: ParameterWidget,
 
+    scroll_state: scrollable::State,
+
     go_button: button::State,
     abbort_button: button::State,
+    finish_button: button::State,
 }
 
 impl Default for RevolutionTab {
     fn default() -> Self {
         Self {
+            scroll_state: Default::default(),
             curve_descriptor_widget: None,
             pick_curve_state: Default::default(),
             half_turn_count: ParameterWidget::new(InstanciatedParameter::Int(0)),
@@ -269,6 +274,7 @@ impl Default for RevolutionTab {
             scaffold_len_target: ParameterWidget::new(InstanciatedParameter::Uint(7249)),
             go_button: Default::default(),
             abbort_button: Default::default(),
+            finish_button: Default::default(),
         }
     }
 }
@@ -311,8 +317,8 @@ impl RevolutionTab {
         ui_size: UiSize,
         app_state: &S,
     ) -> Element<'a, Message<S>> {
-        let mut ret = Column::new();
         let desc = self.get_revolution_system(app_state);
+        let mut ret = Scrollable::new(&mut self.scroll_state);
         section!(ret, ui_size, "Revolution Surfaces");
 
         subsection!(ret, ui_size, "Section parameters");
@@ -384,9 +390,12 @@ impl RevolutionTab {
         extra_jump!(ret);
         section!(ret, ui_size, "Relaxation computation");
         if let SimulationState::Relaxing = app_state.get_simulation_state() {
-            let button = Button::new(&mut self.abbort_button, Text::new("Abort"))
+            let button_abbort = Button::new(&mut self.abbort_button, Text::new("Abort"))
                 .on_press(Message::StopSimulation);
-            ret = ret.push(button);
+            let button_relaxation = Button::new(&mut self.finish_button, Text::new("Finish"))
+                .on_press(Message::FinishRelaxation);
+            ret = ret.push(button_abbort);
+            ret = ret.push(button_relaxation);
         } else {
             let mut button = Button::new(&mut self.go_button, Text::new("Start"));
             if let SimulationState::None = app_state.get_simulation_state() {

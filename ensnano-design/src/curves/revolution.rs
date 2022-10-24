@@ -66,6 +66,7 @@ impl InterpolatedCurveDescriptor {
             nb_turn: self.nb_turn.unwrap_or(1.),
             known_number_of_helices_in_shape: self.known_number_of_helices_in_shape,
             knwon_helix_id_in_shape: self.known_helix_id_in_shape,
+            objective_nb_nt: self.objective_number_of_nts,
         };
         if init_interpolators {
             ret.init_interpolators();
@@ -252,6 +253,7 @@ pub(super) struct Revolution {
     nb_turn: f64,
     known_number_of_helices_in_shape: Option<usize>,
     knwon_helix_id_in_shape: Option<usize>,
+    objective_nb_nt: Option<usize>,
 }
 
 const NB_POINT_INTERPOLATION: usize = 100_000;
@@ -468,5 +470,9 @@ impl Curved for Revolution {
                     * Vec2::unit_y(),
                 rotation: ultraviolet::Rotor2::identity(),
             })
+    }
+
+    fn objective_nb_nt(&self) -> Option<usize> {
+        self.objective_nb_nt
     }
 }

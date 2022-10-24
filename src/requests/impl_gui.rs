@@ -485,6 +485,11 @@ impl GuiRequests for Requests {
         self.keep_proceed
             .push_back(Action::RevolutionSimulation { desc })
     }
+
+    fn finish_revolutiion_relaxation(&mut self) {
+        self.keep_proceed
+            .push_back(Action::FinishRelaxationSimulation)
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

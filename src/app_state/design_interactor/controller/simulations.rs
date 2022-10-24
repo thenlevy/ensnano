@@ -1348,6 +1348,7 @@ pub enum SimulationOperation<'pres, 'reader> {
         system: RevolutionSurfaceSystemDescriptor,
         reader: &'reader mut dyn SimulationReader,
     },
+    FinishRelaxation,
 }
 
 pub trait SimulationReader {

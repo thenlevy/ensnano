@@ -294,5 +294,6 @@ impl SaveDesignError {
 pub enum SimulationRequest {
     Stop,
     UpdateParameters(RigidBodyConstants),
+    FinishRelaxation,
     Reset,
 }

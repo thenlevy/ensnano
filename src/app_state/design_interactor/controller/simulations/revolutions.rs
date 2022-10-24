@@ -148,11 +148,15 @@ impl RevolutionSurfaceSystem {
         let mut current_default;
         for _ in 0..10 {
             if let Some(interface) = interface.as_ref() {
-                if !interface.lock().unwrap().still_valid() {
+                let mut interface_lock = interface.lock().unwrap();
+                if !interface_lock.still_valid() {
                     // no need to continue the computations
                     return 0;
                 }
-                interface.lock().unwrap().new_state = Some(self.clone());
+                if interface_lock.finished {
+                    break;
+                }
+                interface_lock.new_state = Some(self.clone());
             }
             //std::thread::sleep_ms(20_000);
             current_default = self.one_simulation_step(first);
@@ -204,7 +208,7 @@ impl RevolutionSurfaceSystem {
             *first = false;
         }
 
-        let solver = FixedStepper::new(1e-2);
+        let solver = FixedStepper::new(1e-1);
         let method = Ralston4::default();
 
         let mut spring_relaxation_state = SpringRelaxationState::new();
@@ -561,7 +565,9 @@ impl RevolutionSystemThread {
                 let current_len = self
                     .system
                     .one_radius_optimisation_step(&mut first, Some(interface_ptr.clone()));
-                if current_len == self.system.scaffold_len_target {
+                if interface_ptr.lock().unwrap().finished
+                    || current_len == self.system.scaffold_len_target
+                {
                     if let Some(descs) = self.system.to_curve_desc(true) {
                         interface_ptr.lock().unwrap().curve_descriptor.set(descs);
                     }
@@ -649,8 +655,15 @@ impl SimulationUpdate for Vec<CurveDescriptor> {
                 rotation: Rotor2::identity(),
             });
             let h_id = helices.push_helix(helix);
-            if let Some(len) = c.compute_length() {
-                let len_nt = (len / parameters.z_step as f64).floor() as isize;
+            let len = if let CurveDescriptor::InterpolatedCurve(desc) = c {
+                desc.objective_number_of_nts.map(|x| x as isize)
+            } else {
+                None
+            };
+            if let Some(len_nt) = len.or_else(|| {
+                c.compute_length()
+                    .map(|len| (len / parameters.z_step as f64).floor() as isize)
+            }) {
                 strand_to_be_added.push((h_id, len_nt));
             }
         }
@@ -687,11 +700,16 @@ impl SimulationUpdate for Vec<CurveDescriptor> {
 pub struct RevolutionSystemInterface {
     new_state: Option<RevolutionSurfaceSystem>,
     curve_descriptor: OptionOnce<Vec<CurveDescriptor>>,
+    finished: bool,
 }
 
 impl RevolutionSystemInterface {
     pub fn kill(&mut self) {
         self.curve_descriptor = OptionOnce::Taken;
+    }
+
+    pub fn finish(&mut self) {
+        self.finished = true
     }
 }
 

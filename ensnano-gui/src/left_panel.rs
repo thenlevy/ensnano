@@ -193,6 +193,7 @@ pub enum Message<S> {
     ShowHBonds(HBoundDisplay),
     RainbowScaffold(bool),
     StopSimulation,
+    FinishRelaxation,
     StartTwist,
     NewDnaParameters(NamedParameter),
     SetExpandInsertions(bool),
@@ -867,6 +868,11 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .unwrap()
                     .start_revolution_relaxation(desc);
             }
+            Message::FinishRelaxation => self
+                .requests
+                .lock()
+                .unwrap()
+                .finish_revolutiion_relaxation(),
         };
         Command::none()
     }

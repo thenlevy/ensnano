@@ -187,6 +187,10 @@ impl State for NormalState {
                     main_state.update_simulation(SimulationRequest::Stop);
                     self
                 }
+                Action::FinishRelaxationSimulation => {
+                    main_state.update_simulation(SimulationRequest::FinishRelaxation);
+                    self
+                }
                 Action::RollHelices(roll) => {
                     main_state.set_roll_of_selected_helices(roll);
                     self
@@ -469,6 +473,7 @@ pub enum Action {
     RevolutionSimulation {
         desc: RevolutionSurfaceSystemDescriptor,
     },
+    FinishRelaxationSimulation,
     RigidHelicesSimulation {
         parameters: RigidBodyConstants,
     },

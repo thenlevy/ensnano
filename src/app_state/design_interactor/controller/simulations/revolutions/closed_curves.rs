@@ -198,6 +198,14 @@ impl SpringTopology for CloseSurfaceTopology {
                     values: segment_thetas,
                 });
             }
+            let rem = self.target_scaffold_length % self.target.nb_helices;
+
+            let target_len = if i >= self.target.nb_helices - rem {
+                self.target_scaffold_length / self.target.nb_helices + 1
+            } else {
+                self.target_scaffold_length / self.target.nb_helices
+            };
+
             ret.push((
                 InterpolatedCurveDescriptor {
                     curve: self.target.curve.clone(),
@@ -210,7 +218,7 @@ impl SpringTopology for CloseSurfaceTopology {
                     revolution_angle_init: None,
                     known_number_of_helices_in_shape: Some(self.target.nb_helices),
                     known_helix_id_in_shape: None,
-                    objective_number_of_nts: finished.then_some(self.target_scaffold_length),
+                    objective_number_of_nts: finished.then_some(target_len),
                 },
                 theta_0,
             ))

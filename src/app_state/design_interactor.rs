@@ -177,6 +177,9 @@ impl DesignInteractor {
             SimulationRequest::UpdateParameters(new_parameters) => {
                 controller::SimulationOperation::UpdateParameters { new_parameters }
             }
+            SimulationRequest::FinishRelaxation => {
+                controller::SimulationOperation::FinishRelaxation
+            }
         };
         let result = self
             .controller
@@ -725,6 +728,7 @@ mod tests {
                 forward: true,
             },
             Some(true),
+            &mut 0,
         )
         .ok()
         .unwrap();
