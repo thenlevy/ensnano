@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 //! Functions that create [states](`crate::controller::State`) in which the user is interacting
-//! with a dialog box (alert, file picker,...).
+//! with a dialog box (alert, file picker, ...).
 
 macro_rules! log_err {
     ($x:expr) => {

@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-//! This modules defines the `AppState` struct which implements various traits used by the
+//! This module defines the `AppState` struct which implements various traits used by the
 //! different components of ENSnano.
 //!
 //! The role of AppState is to provide information about the global state of the program, for

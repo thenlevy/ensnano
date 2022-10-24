@@ -66,20 +66,20 @@ enum LayoutNode {
 type LayoutNodePtr = Rc<RefCell<LayoutNode>>;
 
 pub struct LayoutTree {
-    /// The root of the LayoutTree
+    /// The root node of the LayoutTree.
     root: LayoutNodePtr,
-    /// An array mapping area identifier to leaves of the LayoutTree
+    /// An array mapping area identifier to leaves of the LayoutTree.
     area: Vec<LayoutNodePtr>,
-    /// An array mapping area identifier to ElementType
+    /// An array mapping area identifier to ElementType.
     element_type: Vec<ElementType>,
-    /// A HashMap mapping element types to area identifer
+    /// A HashMap mapping element types to area identifer.
     area_identifer: HashMap<ElementType, usize>,
-    /// An array mapping area to their parent node
+    /// An array mapping area to their parent node.
     parent: Vec<usize>,
 }
 
 impl LayoutTree {
-    /// Create a new Layout Tree.
+    /// Create a new Layout Tree with a single area.
     pub fn new() -> Self {
         let root = Rc::new(RefCell::new(LayoutNode::Area {
             left: 0.,
@@ -101,18 +101,18 @@ impl LayoutTree {
         }
     }
 
-    /// Vertically split an area in two.
+    /// Split an area vertically in two.
     ///
     /// # Arguments
     ///
-    /// * `parent_idx` the idenfier of the area beein split.
+    /// * `parent_idx`: the idenfier of the area being split.
     ///
-    /// * `left_proportion`, the proportion of the initial area attributed to the left child
+    /// * `left_proportion`: the proportion of the initial area attributed to the left part.
     ///
     /// # Return value
     ///
-    /// A pair `(l, r)` where `l` is the identifier of the top area and `r` the identifier of the
-    /// bottom area
+    /// A pair `(l, r)` where `l` is the identifier of the left area and `r` the identifier of the
+    /// right area.
     pub fn vsplit(
         &mut self,
         parent_idx: usize,
@@ -137,18 +137,18 @@ impl LayoutTree {
         (left_idx, right_idx)
     }
 
-    /// Horizontally split an area in two.
+    /// Split an area horizontally in two.
     ///
     /// # Arguments
     ///
-    /// * `parent_idx` the idenfier of the area beein split.
+    /// * `parent_idx`: the identifier of the area being split.
     ///
-    /// * `top_proportion`, the proportion of the initial area attributed to the top child
+    /// * `top_proportion`: the proportion of the initial area attributed to the top part.
     ///
     /// # Return value
     ///
-    /// A pair `(t, b)` where `t` is the identifier of the left area and `b` the identifier of the
-    /// right area
+    /// A pair `(t, b)` where `t` is the identifier of the top area and `b` the identifier of the
+    /// bottom area.
     #[allow(dead_code)]
     pub fn hsplit(
         &mut self,
