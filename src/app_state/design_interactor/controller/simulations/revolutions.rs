@@ -79,7 +79,7 @@ trait SpringTopology: Send + Sync + 'static {
 
     fn axis(&self, revolution_angle: f64) -> DVec3;
 
-    fn to_curve_descriptor(&self, thetas: Vec<f64>) -> Vec<CurveDescriptor>;
+    fn to_curve_descriptor(&self, thetas: Vec<f64>, finished: bool) -> Vec<CurveDescriptor>;
 
     fn fixed_points(&self) -> &[usize];
 
@@ -161,7 +161,7 @@ impl RevolutionSurfaceSystem {
             }
         }
 
-        let curve_desc = self.to_curve_desc().unwrap();
+        let curve_desc = self.to_curve_desc(false).unwrap();
 
         let thetas = self
             .last_thetas
@@ -366,10 +366,10 @@ impl RevolutionSurfaceSystem {
         }
     }
 
-    fn to_curve_desc(&self) -> Option<Vec<CurveDescriptor>> {
+    fn to_curve_desc(&self, finished: bool) -> Option<Vec<CurveDescriptor>> {
         self.last_thetas
             .clone()
-            .map(|t| self.topology.to_curve_descriptor(t))
+            .map(|t| self.topology.to_curve_descriptor(t, finished))
     }
 }
 
@@ -562,7 +562,7 @@ impl RevolutionSystemThread {
                     .system
                     .one_radius_optimisation_step(&mut first, Some(interface_ptr.clone()));
                 if current_len == self.system.scaffold_len_target {
-                    if let Some(descs) = self.system.to_curve_desc() {
+                    if let Some(descs) = self.system.to_curve_desc(true) {
                         interface_ptr.lock().unwrap().curve_descriptor.set(descs);
                     }
                     break;
@@ -609,7 +609,7 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
 
     fn nt_path(&self) -> Option<Vec<ultraviolet::Vec3>> {
         let mut ret = Vec::new();
-        let curve_desc = self.to_curve_desc()?;
+        let curve_desc = self.to_curve_desc(false)?;
         for desc in curve_desc {
             let nts = desc.path()?;
             ret.extend(nts.into_iter().map(ensnano_design::utils::dvec_to_vec));

@@ -26,6 +26,7 @@ pub(super) struct CloseSurfaceTopology {
     other_spring_end: Vec<usize>,
     target: RevolutionSurface,
     idx_range: Vec<usize>,
+    target_scaffold_length: usize,
 }
 
 impl CloseSurfaceTopology {
@@ -77,6 +78,7 @@ impl CloseSurfaceTopology {
             target,
             other_spring_end,
             idx_range,
+            target_scaffold_length: desc.scaffold_len_target,
         }
     }
 }
@@ -160,7 +162,7 @@ impl SpringTopology for CloseSurfaceTopology {
         self.target.axis(revolution_angle)
     }
 
-    fn to_curve_descriptor(&self, thetas: Vec<f64>) -> Vec<CurveDescriptor> {
+    fn to_curve_descriptor(&self, thetas: Vec<f64>, finished: bool) -> Vec<CurveDescriptor> {
         let mut ret = Vec::new();
 
         let nb_segment_per_helix = self.nb_segment / self.target.nb_helices;
@@ -208,6 +210,7 @@ impl SpringTopology for CloseSurfaceTopology {
                     revolution_angle_init: None,
                     known_number_of_helices_in_shape: Some(self.target.nb_helices),
                     known_helix_id_in_shape: None,
+                    objective_number_of_nts: finished.then_some(self.target_scaffold_length),
                 },
                 theta_0,
             ))

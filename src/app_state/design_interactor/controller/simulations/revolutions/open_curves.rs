@@ -237,7 +237,7 @@ impl SpringTopology for OpenSurfaceTopology {
         Box::new(self.clone())
     }
 
-    fn to_curve_descriptor(&self, thetas: Vec<f64>) -> Vec<CurveDescriptor> {
+    fn to_curve_descriptor(&self, thetas: Vec<f64>, _finished: bool) -> Vec<CurveDescriptor> {
         let mut ret = Vec::with_capacity(self.nb_helices);
 
         for i in 0..self.nb_helices {
@@ -272,6 +272,7 @@ impl SpringTopology for OpenSurfaceTopology {
                     revolution_angle_init: Some(revolution_angle_init),
                     known_number_of_helices_in_shape: Some(self.target.nb_helices),
                     known_helix_id_in_shape: None,
+                    objective_number_of_nts: None,
                 },
                 theta_0,
             ))

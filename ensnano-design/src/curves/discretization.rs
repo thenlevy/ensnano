@@ -28,25 +28,30 @@ impl Curve {
         if let Some(last_t) = self.geometry.full_turn_at_t() {
             let synchronization_length =
                 self.length_by_descretisation(self.geometry.t_min(), last_t, nb_points);
-            let epsilon = synchronization_length.rem_euclid(len_segment);
 
-            log::info!("Synchronization length by descretisation {synchronization_length}");
-
-            if epsilon > len_segment / 2. {
-                // n and espilon are chosen so that
-                // synchronization_length = n * len_segment - epsilon
-                //                        = n * (len_segment - epsilon / n)
-
-                let n: f64 = synchronization_length.div_euclid(len_segment) + 1.;
-                let epsilon = len_segment - epsilon; // epsilon > 0
-                len_segment = len_segment - epsilon / n;
+            if let Some(n) = self.geometry.objective_nb_nt() {
+                len_segment = synchronization_length / n as f64;
             } else {
-                // n and espilon are chosen so that
-                // synchronization_length = n * len_segment + epsilon
-                //                        = n * (len_segment + epsilon / n)
+                let epsilon = synchronization_length.rem_euclid(len_segment);
 
-                let n: f64 = synchronization_length.div_euclid(len_segment) + 1.;
-                len_segment = len_segment + epsilon / n;
+                log::info!("Synchronization length by descretisation {synchronization_length}");
+
+                if epsilon > len_segment / 2. {
+                    // n and espilon are chosen so that
+                    // synchronization_length = n * len_segment - epsilon
+                    //                        = n * (len_segment - epsilon / n)
+
+                    let n: f64 = synchronization_length.div_euclid(len_segment) + 1.;
+                    let epsilon = len_segment - epsilon; // epsilon > 0
+                    len_segment -= epsilon / n;
+                } else {
+                    // n and espilon are chosen so that
+                    // synchronization_length = n * len_segment + epsilon
+                    //                        = n * (len_segment + epsilon / n)
+
+                    let n: f64 = synchronization_length.div_euclid(len_segment) + 1.;
+                    len_segment += epsilon / n;
+                }
             }
             self.nucl_pos_full_turn = Some(synchronization_length / len_segment);
         }
@@ -105,12 +110,10 @@ impl Curve {
                     abscissa_forward.min(abscissa_backward),
                     abscissa_forward <= abscissa_backward,
                 )
+            } else if first_forward {
+                (abscissa_backward, false)
             } else {
-                if first_forward {
-                    (abscissa_backward, false)
-                } else {
-                    (abscissa_forward, true)
-                }
+                (abscissa_forward, true)
             };
             let mut translation_axis = current_axis;
             if let Some(frame) = self.geometry.initial_frame() {
@@ -216,7 +219,7 @@ impl Curve {
     }
 
     fn translation_axis(&self, t: f64, current_axis: &DMat3) -> DMat3 {
-        let mut ret = current_axis.clone();
+        let mut ret = *current_axis;
         if let Some(frame) = self.geometry.initial_frame() {
             let up = frame[1];
             ret[1] = up;

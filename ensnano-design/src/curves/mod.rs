@@ -162,6 +162,10 @@ pub trait Curved {
         None
     }
 
+    fn objective_nb_nt(&self) -> Option<usize> {
+        None
+    }
+
     /// This method can be overriden to express the fact that a curve needs to be represented by
     /// several helices segments in 2D.
     /// If that is the case, return the index of the corresponding segment for t. This methods must

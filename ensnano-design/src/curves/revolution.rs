@@ -42,6 +42,8 @@ pub struct InterpolatedCurveDescriptor {
     pub known_number_of_helices_in_shape: Option<usize>,
     #[serde(skip)] // can be skipped because it is only used the first time the helix is created
     pub known_helix_id_in_shape: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub objective_number_of_nts: Option<usize>,
 }
 
 impl InterpolatedCurveDescriptor {
