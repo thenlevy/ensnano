@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::{SimulationInterface, SimulationReader, SimulationUpdate};
-use std::f64::consts::{PI, TAU};
+use std::f64::consts::TAU;
 use std::sync::{Arc, Mutex, Weak};
 
 const SPRING_STIFFNESS: f64 = 8.;
@@ -94,6 +94,7 @@ pub struct RevolutionSurfaceSystem {
     last_thetas: Option<Vec<f64>>,
     last_dthetas: Option<Vec<f64>>,
     scaffold_len_target: usize,
+    current_scaffold_length: Option<usize>,
 }
 
 impl Clone for RevolutionSurfaceSystem {
@@ -104,6 +105,7 @@ impl Clone for RevolutionSurfaceSystem {
             last_thetas: self.last_thetas.clone(),
             last_dthetas: self.last_dthetas.clone(),
             scaffold_len_target: self.scaffold_len_target,
+            current_scaffold_length: self.current_scaffold_length,
         }
     }
 }
@@ -116,7 +118,6 @@ pub struct RevolutionSurface {
     half_turns_count: isize,
     shift_per_turn: isize,
     junction_smoothening: f64,
-    dna_paramters: DNAParameters,
     nb_helices: usize,
     curve_scale_factor: f64,
 }
@@ -137,6 +138,7 @@ impl RevolutionSurfaceSystem {
             last_thetas: None,
             last_dthetas: None,
             scaffold_len_target,
+            current_scaffold_length: None,
         }
     }
 
@@ -252,7 +254,6 @@ impl RevolutionSurfaceSystem {
 
     fn total_length(&self, thetas: &[f64]) -> f64 {
         let mut ret = 0.;
-        let total_nb_segment = self.topology.nb_balls();
         for i in self.topology.balls_with_successor() {
             ret += (self.position_section(self.topology.successor(*i), thetas)
                 - self.position_section(*i, thetas))
@@ -321,7 +322,6 @@ impl RevolutionSurfaceSystem {
     }
 
     fn apply_torsions(&self, system: &mut RelaxationSystem) {
-        let total_nb_segment = self.topology.nb_balls();
         for section_idx in self.topology.balls_with_predecessor_and_successor() {
             let i = self.topology.predecessor(*section_idx);
             let j = *section_idx;
@@ -357,7 +357,6 @@ impl RevolutionSurfaceSystem {
 
         for section_idx in 0..total_nb_segment {
             let tengent = self.dpos_dtheta(section_idx, &system.thetas);
-            let derivative = &mut system.forces[section_idx];
             let acceleration_without_friction =
                 system.forces[section_idx].dot(tengent) / tengent.mag_sq();
             system.second_derivative_thetas[section_idx] += (acceleration_without_friction
@@ -465,7 +464,6 @@ impl RevolutionSurface {
             nb_helices,
             nb_helix_per_half_section: desc.nb_helix_per_half_section,
             shift_per_turn: desc.shift_per_turn,
-            dna_paramters: desc.dna_paramters,
             half_turns_count: desc.half_turns_count,
             curve_scale_factor,
             junction_smoothening: desc.junction_smoothening,
@@ -572,6 +570,8 @@ impl RevolutionSystemThread {
                         interface_ptr.lock().unwrap().curve_descriptor.set(descs);
                     }
                     break;
+                } else {
+                    self.system.current_scaffold_length = Some(current_len);
                 }
             }
         });
@@ -622,6 +622,10 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
         }
         Some(ret)
     }
+
+    fn current_length(&self) -> Option<usize> {
+        self.current_scaffold_length
+    }
 }
 
 impl SimulationInterface for RevolutionSystemInterface {
@@ -641,13 +645,10 @@ impl SimulationInterface for RevolutionSystemInterface {
 
 impl SimulationUpdate for Vec<CurveDescriptor> {
     fn update_design(&self, design: &mut ensnano_design::Design) {
-        use ensnano_design::{
-            Domain, DomainJunction, HasHelixCollection, Helix, HelixInterval, Rotor2, Strand, Vec2,
-        };
+        use ensnano_design::{Domain, DomainJunction, Helix, HelixInterval, Rotor2, Strand, Vec2};
         let parameters = design.parameters.unwrap_or_default();
         let mut helices = design.helices.make_mut();
         let mut strand_to_be_added = Vec::new();
-        let len = helices.get_collection().len();
         for (c_id, c) in self.iter().enumerate() {
             let mut helix = Helix::new_with_curve(c.clone());
             helix.isometry2d = Some(ensnano_design::Isometry2 {

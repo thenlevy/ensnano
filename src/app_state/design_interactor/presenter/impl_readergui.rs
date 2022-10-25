@@ -76,7 +76,7 @@ impl ReaderGui for DesignReader {
             .strands
             .get(&s_id)
             .and_then(|s| s.name.as_ref().map(|n| n.to_string()))
-            .unwrap_or(String::from("Unamed strand"))
+            .unwrap_or_else(|| String::from("Unamed strand"))
     }
 
     fn get_all_cameras(&self) -> Vec<(CameraId, &str)> {
@@ -145,11 +145,11 @@ impl ReaderGui for DesignReader {
                     .content
                     .identifier_bound
                     .get(&(*n1, *n2))
-                    .or(self.presenter.content.identifier_bound.get(&(*n2, *n1)))?;
+                    .or_else(|| self.presenter.content.identifier_bound.get(&(*n2, *n1)))?;
                 self.presenter
                     .content
                     .insertion_length
-                    .get(&bond_id)
+                    .get(bond_id)
                     .cloned()
                     .or(Some(0))
             }
@@ -160,11 +160,11 @@ impl ReaderGui for DesignReader {
                     .content
                     .identifier_bound
                     .get(&(n1, n2))
-                    .or(self.presenter.content.identifier_bound.get(&(n2, n1)))?;
+                    .or_else(|| self.presenter.content.identifier_bound.get(&(n2, n1)))?;
                 self.presenter
                     .content
                     .insertion_length
-                    .get(&bond_id)
+                    .get(bond_id)
                     .cloned()
                     .or(Some(0))
             }
@@ -180,7 +180,7 @@ impl ReaderGui for DesignReader {
                     self.presenter
                         .content
                         .insertion_length
-                        .get(&nucl_id)
+                        .get(nucl_id)
                         .cloned()
                         .or(Some(0))
                 } else {
@@ -210,13 +210,12 @@ impl ReaderGui for DesignReader {
                         nucl: *nucl,
                         nucl_is_prime5_of_insertion: false,
                     })
-                } else if let Some(_s_id) = self.prime3_of_which_strand(*nucl) {
-                    Some(InsertionPoint {
-                        nucl: *nucl,
-                        nucl_is_prime5_of_insertion: true,
-                    })
                 } else {
-                    None
+                    self.prime3_of_which_strand(*nucl)
+                        .map(|_s_id| InsertionPoint {
+                            nucl: *nucl,
+                            nucl_is_prime5_of_insertion: true,
+                        })
                 }
             }
             _ => None,
@@ -245,5 +244,13 @@ impl ReaderGui for DesignReader {
 
     fn get_scaffold_sequence(&self) -> Option<&str> {
         self.presenter.current_design.scaffold_sequence.as_deref()
+    }
+
+    fn get_current_length_of_relaxed_shape(&self) -> Option<usize> {
+        self.presenter
+            .current_design
+            .additional_structure
+            .as_ref()
+            .and_then(|s| s.current_length())
     }
 }

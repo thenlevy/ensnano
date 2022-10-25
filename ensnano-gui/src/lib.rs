@@ -1071,6 +1071,7 @@ pub trait DesignReader: 'static {
     fn is_bezier_path_cyclic(&self, path_id: BezierPathId) -> Option<bool>;
     fn get_bezier_vertex_position(&self, vertex_id: BezierVertexId) -> Option<Vec2>;
     fn get_scaffold_sequence(&self) -> Option<&str>;
+    fn get_current_length_of_relaxed_shape(&self) -> Option<usize>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

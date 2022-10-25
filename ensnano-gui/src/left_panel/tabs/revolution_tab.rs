@@ -392,9 +392,13 @@ impl RevolutionTab {
         if let SimulationState::Relaxing = app_state.get_simulation_state() {
             let button_abbort = Button::new(&mut self.abbort_button, Text::new("Abort"))
                 .on_press(Message::StopSimulation);
+            ret = ret.push(button_abbort);
+            extra_jump!(2, ret);
+            if let Some(len) = app_state.get_reader().get_current_length_of_relaxed_shape() {
+                ret = ret.push(Text::new(format!("Current total length: {len}")));
+            }
             let button_relaxation = Button::new(&mut self.finish_button, Text::new("Finish"))
                 .on_press(Message::FinishRelaxation);
-            ret = ret.push(button_abbort);
             ret = ret.push(button_relaxation);
         } else {
             let mut button = Button::new(&mut self.go_button, Text::new("Start"));
