@@ -716,7 +716,7 @@ pub struct GridData {
     center_of_gravity: HashMap<GridId, CenterOfGravity>,
     paths_data: Option<BezierPathData>,
     path_time_maps: Arc<BTreeMap<BezierPathId, Arc<PathTimeMaps>>>,
-    revolution_curve_time_maps: Arc<BTreeMap<CurveDescriptor2D, Arc<RevolutionCurveTimeMaps>>>,
+    revolution_curve_time_maps: Arc<HashMap<CurveDescriptor2D, Arc<RevolutionCurveTimeMaps>>>,
 }
 
 #[derive(Default, Debug, Clone)]

@@ -138,7 +138,7 @@ impl Curved for Torus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum CurveDescriptor2D {
     Ellipse {
         semi_minor_axis: OrderedFloat<f64>,
