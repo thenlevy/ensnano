@@ -333,7 +333,7 @@ struct BezierInstantiator {
     path_3d: bool,
 }
 
-impl PieceWiseBezierInstantiator for BezierInstantiator {
+impl PieceWiseBezierInstantiator<Vec3> for BezierInstantiator {
     fn vector_in(&self, i: usize) -> Option<Vec3> {
         let vertex = self.source_path.vertices().get(i)?;
         vertex.position_in.and_then(|position_in| {

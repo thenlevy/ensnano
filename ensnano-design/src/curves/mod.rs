@@ -950,7 +950,7 @@ struct PieceWiseBezierInstantiator_<'a, 'b> {
     grid_reader: &'b dyn CurveInstantiator,
 }
 
-impl<'a, 'b> PieceWiseBezierInstantiator for PieceWiseBezierInstantiator_<'a, 'b> {
+impl<'a, 'b> PieceWiseBezierInstantiator<Vec3> for PieceWiseBezierInstantiator_<'a, 'b> {
     fn nb_vertices(&self) -> usize {
         self.points.len()
     }
