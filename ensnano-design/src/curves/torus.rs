@@ -267,6 +267,8 @@ impl CurveDescriptor2D {
                 }
             }
             Self::Bezier(bezier) => {
+                let t = if bezier.cyclic { t.rem_euclid(1.) } else { t };
+
                 let t0 = bezier.t_min.unwrap_or(0.);
                 let t1 = bezier.t_max.unwrap_or(1.);
                 let t_rescaled = t0 + (t1 - t0) * t;

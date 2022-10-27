@@ -183,9 +183,14 @@ pub(crate) trait PieceWiseBezierInstantiator<T: BezierEndCoordinateUnit> {
             None
         }?;
         let mut rng = rand::thread_rng();
+        let t_max = if self.cyclic() {
+            Some(descriptor.len() as f64)
+        } else {
+            Some(descriptor.len() as f64 - 1.)
+        };
         Some(InstanciatedPiecewiseBezier {
             t_min: None,
-            t_max: Some(descriptor.len() as f64 - 1.),
+            t_max,
             ends: descriptor,
             cyclic: self.cyclic(),
             id: rng.gen(),
