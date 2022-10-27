@@ -980,6 +980,8 @@ impl InstanciatedPiecewiseBezierDescriptor {
         t_min: Option<f64>,
         t_max: Option<f64>,
     ) -> Self {
+        use rand::prelude::*;
+        let mut rng = rand::thread_rng();
         log::debug!("Instanciating {:?}", points);
         let instanciator = PieceWiseBezierInstantiator_ {
             points,
@@ -992,6 +994,7 @@ impl InstanciatedPiecewiseBezierDescriptor {
                 t_min: None,
                 t_max: None,
                 cyclic: false,
+                id: rng.gen(),
             });
 
         desc.t_max = t_max;

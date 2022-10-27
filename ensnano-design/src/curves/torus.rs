@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::Parameters;
+use crate::{InstanciatedPiecewiseBezier, Parameters};
 
 use super::Curved;
 use std::sync::Arc;
@@ -150,6 +150,7 @@ pub enum CurveDescriptor2D {
         radius_tube: OrderedFloat<f64>,
         smooth_ceil: OrderedFloat<f64>,
     },
+    Bezier(InstanciatedPiecewiseBezier),
     Parrabola {
         speed: OrderedFloat<f64>,
     },
@@ -161,6 +162,7 @@ impl CurveDescriptor2D {
             Self::Parrabola { .. } => true,
             Self::Ellipse { .. } => false,
             Self::TwoBalls { .. } => false,
+            Self::Bezier(bezier) => !bezier.cyclic,
         }
     }
 
@@ -263,6 +265,12 @@ impl CurveDescriptor2D {
                     x: t,
                     y: speed * speed * t * t,
                 }
+            }
+            Self::Bezier(bezier) => {
+                let t0 = bezier.t_min.unwrap_or(0.);
+                let t1 = bezier.t_max.unwrap_or(1.);
+                let t_rescaled = t0 + (t1 - t0) * t;
+                bezier.position(t_rescaled).truncated()
             }
         }
     }

@@ -370,6 +370,34 @@ impl PieceWiseBezierInstantiator<Vec3> for BezierInstantiator {
     }
 }
 
+impl PieceWiseBezierInstantiator<Vec2> for BezierInstantiator {
+    fn vector_in(&self, i: usize) -> Option<Vec2> {
+        let vertex = self.source_path.vertices().get(i)?;
+        vertex
+            .position_in
+            .map(|position_in| vertex.position - position_in)
+    }
+
+    fn vector_out(&self, i: usize) -> Option<Vec2> {
+        let vertex = self.source_path.vertices().get(i)?;
+        vertex
+            .position_out
+            .map(|position_out| position_out - vertex.position)
+    }
+
+    fn position(&self, i: usize) -> Option<Vec2> {
+        self.source_path.vertices().get(i).map(|v| v.position)
+    }
+
+    fn nb_vertices(&self) -> usize {
+        self.source_path.vertices.len()
+    }
+
+    fn cyclic(&self) -> bool {
+        self.source_path.cyclic
+    }
+}
+
 fn path_to_curve_descriptor(
     source_planes: BezierPlanes,
     source_path: Arc<BezierPath>,
@@ -380,7 +408,7 @@ fn path_to_curve_descriptor(
         source_path,
         path_3d,
     };
-    instanciator.instantiate()
+    <BezierInstantiator as PieceWiseBezierInstantiator<Vec3>>::instantiate(&instanciator)
 }
 
 fn curve_descriptor_to_frame(

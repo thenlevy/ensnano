@@ -17,6 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
+use ultraviolet::Vec2;
 
 const DEFAULT_BEZIER_TENGENT_NORM: f32 = 1. / 3.;
 
@@ -60,6 +61,33 @@ impl BezierEndCoordinateUnit for Vec3 {
     }
 }
 
+impl BezierEndCoordinateUnit for Vec2 {
+    fn instanciate_bezier_end(
+        position: Self,
+        vector_in: Self,
+        vector_out: Self,
+    ) -> BezierEndCoordinates {
+        let to_vec3 = |v: Vec2| Vec3 {
+            x: v.x,
+            y: v.y,
+            z: 0.0,
+        };
+        BezierEndCoordinates {
+            position: to_vec3(position),
+            vector_in: to_vec3(vector_in),
+            vector_out: to_vec3(vector_out),
+        }
+    }
+
+    fn one() -> Self {
+        Self::one()
+    }
+
+    fn from_projection(v: Vec3) -> Self {
+        Self { x: v.x, y: v.y }
+    }
+}
+
 /// An object capable of instantiating PieceWiseBezier curves.
 pub(crate) trait PieceWiseBezierInstantiator<T: BezierEndCoordinateUnit> {
     fn nb_vertices(&self) -> usize;
@@ -69,6 +97,7 @@ pub(crate) trait PieceWiseBezierInstantiator<T: BezierEndCoordinateUnit> {
     fn cyclic(&self) -> bool;
 
     fn instantiate(&self) -> Option<InstanciatedPiecewiseBezier> {
+        use rand::prelude::*;
         let descriptor = if self.nb_vertices() > 2 {
             let n = self.nb_vertices();
             let idx_iterator: Box<dyn Iterator<Item = ((usize, usize), usize)>> = if self.cyclic() {
@@ -153,11 +182,13 @@ pub(crate) trait PieceWiseBezierInstantiator<T: BezierEndCoordinateUnit> {
         } else {
             None
         }?;
+        let mut rng = rand::thread_rng();
         Some(InstanciatedPiecewiseBezier {
             t_min: None,
             t_max: Some(descriptor.len() as f64 - 1.),
             ends: descriptor,
             cyclic: self.cyclic(),
+            id: rng.gen(),
         })
     }
 }

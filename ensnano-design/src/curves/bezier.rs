@@ -220,15 +220,31 @@ impl super::Curved for CubicBezier {
 /// A curve that is the concatenation of several cubic bezier curves.
 ///
 /// The process to derive a curve from `ends` is decribed in [BezierEnd](The documentation on `BezierEnd`).
-#[derive(Clone, Debug)]
-pub(crate) struct InstanciatedPiecewiseBezier {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InstanciatedPiecewiseBezier {
     pub ends: Vec<BezierEndCoordinates>,
     pub t_min: Option<f64>,
     pub t_max: Option<f64>,
     pub cyclic: bool,
+    /// An identifier of the PiecewiseBezier generated at random.
+    pub id: u64,
 }
 
-#[derive(Clone, Debug)]
+impl PartialEq for InstanciatedPiecewiseBezier {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for InstanciatedPiecewiseBezier {}
+
+impl std::hash::Hash for InstanciatedPiecewiseBezier {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BezierEndCoordinates {
     pub position: Vec3,
     pub vector_in: Vec3,
