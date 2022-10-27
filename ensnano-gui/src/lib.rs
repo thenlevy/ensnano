@@ -1014,7 +1014,7 @@ pub trait Multiplexer {
 pub trait AppState:
     Default + PartialEq + Clone + 'static + Send + std::fmt::Debug + std::fmt::Pointer
 {
-    const POSSIBLE_CURVES: &'static [CurveDescriptorBuilder];
+    const POSSIBLE_CURVES: &'static [CurveDescriptorBuilder<Self>];
     fn get_selection_mode(&self) -> SelectionMode;
     fn get_action_mode(&self) -> ActionMode;
     fn get_build_helix_mode(&self) -> ActionMode;

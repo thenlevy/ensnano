@@ -102,7 +102,7 @@ pub struct LeftPanel<R: Requests, S: AppState> {
     sequence_tab: SequenceTab,
     parameters_tab: ParametersTab,
     pen_tab: PenTab,
-    revolution_tab: RevolutionTab,
+    revolution_tab: RevolutionTab<S>,
     contextual_panel: ContextualPanel<S>,
     camera_shortcut: CameraShortcut,
     application_state: S,
@@ -110,7 +110,7 @@ pub struct LeftPanel<R: Requests, S: AppState> {
 }
 
 #[derive(Debug, Clone)]
-pub enum Message<S> {
+pub enum Message<S: AppState> {
     Resized(LogicalSize<f64>, LogicalPosition<f64>),
     #[allow(dead_code)]
     OpenColor,
@@ -211,7 +211,7 @@ pub enum Message<S> {
         cyclic: bool,
     },
     Export(ExportType),
-    CurveBuilderPicked(CurveDescriptorBuilder),
+    CurveBuilderPicked(CurveDescriptorBuilder<S>),
     RevolutionParameterUpdate {
         parameter_id: RevolutionParameterId,
         text: String,

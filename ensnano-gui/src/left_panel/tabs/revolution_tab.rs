@@ -85,16 +85,16 @@ pub struct CurveDescriptorParameter {
 }
 
 #[derive(Clone)]
-pub struct CurveDescriptorBuilder {
+pub struct CurveDescriptorBuilder<S: AppState> {
     pub nb_parameters: usize,
     pub curve_name: &'static str,
     pub parameters: &'static [CurveDescriptorParameter],
     pub build:
-        &'static (dyn Fn(&[InstanciatedParameter]) -> Option<CurveDescriptor2D> + Send + Sync),
+        &'static (dyn Fn(&[InstanciatedParameter], &S) -> Option<CurveDescriptor2D> + Send + Sync),
 }
 
 use std::fmt;
-impl fmt::Debug for CurveDescriptorBuilder {
+impl<S: AppState> fmt::Debug for CurveDescriptorBuilder<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("CurveDecriptorBuilder")
             .field("curve_name", &self.curve_name)
@@ -102,19 +102,19 @@ impl fmt::Debug for CurveDescriptorBuilder {
     }
 }
 
-impl ToString for CurveDescriptorBuilder {
+impl<S: AppState> ToString for CurveDescriptorBuilder<S> {
     fn to_string(&self) -> String {
         self.curve_name.to_string()
     }
 }
 
-impl PartialEq for CurveDescriptorBuilder {
+impl<S: AppState> PartialEq for CurveDescriptorBuilder<S> {
     fn eq(&self, other: &Self) -> bool {
         self.curve_name == other.curve_name
     }
 }
 
-impl Eq for CurveDescriptorBuilder {}
+impl<S: AppState> Eq for CurveDescriptorBuilder<S> {}
 
 struct ParameterWidget {
     current_text: String,
@@ -181,14 +181,14 @@ impl ParameterWidget {
     }
 }
 
-struct CurveDescriptorWidget {
+struct CurveDescriptorWidget<S: AppState> {
     parameters: Vec<(&'static str, ParameterWidget)>,
     curve_name: &'static str,
-    builder: CurveDescriptorBuilder,
+    builder: CurveDescriptorBuilder<S>,
 }
 
-impl CurveDescriptorWidget {
-    fn new(builder: CurveDescriptorBuilder) -> Self {
+impl<S: AppState> CurveDescriptorWidget<S> {
+    fn new(builder: CurveDescriptorBuilder<S>) -> Self {
         let parameters = builder
             .parameters
             .iter()
@@ -202,7 +202,7 @@ impl CurveDescriptorWidget {
         }
     }
 
-    fn view<'a, S: AppState>(&'a mut self) -> Element<'a, Message<S>> {
+    fn view<'a>(&'a mut self) -> Element<'a, Message<S>> {
         let column: Column<'a, Message<S>> =
             self.parameters
                 .iter_mut()
@@ -237,14 +237,14 @@ impl CurveDescriptorWidget {
             .collect()
     }
 
-    fn build_curve(&self) -> Option<CurveDescriptor2D> {
-        (self.builder.build)(&self.instanciated_parameters())
+    fn build_curve(&self, app_state: &S) -> Option<CurveDescriptor2D> {
+        (self.builder.build)(&self.instanciated_parameters(), app_state)
     }
 }
 
-pub(crate) struct RevolutionTab {
-    curve_descriptor_widget: Option<CurveDescriptorWidget>,
-    pick_curve_state: pick_list::State<CurveDescriptorBuilder>,
+pub(crate) struct RevolutionTab<S: AppState> {
+    curve_descriptor_widget: Option<CurveDescriptorWidget<S>>,
+    pick_curve_state: pick_list::State<CurveDescriptorBuilder<S>>,
     half_turn_count: ParameterWidget,
     radius_input: ParameterWidget,
     nb_helix_per_half_section_input: ParameterWidget,
@@ -260,7 +260,7 @@ pub(crate) struct RevolutionTab {
     finish_button: button::State,
 }
 
-impl Default for RevolutionTab {
+impl<S: AppState> Default for RevolutionTab<S> {
     fn default() -> Self {
         Self {
             scroll_state: Default::default(),
@@ -279,8 +279,8 @@ impl Default for RevolutionTab {
     }
 }
 
-impl RevolutionTab {
-    pub fn set_builder(&mut self, builder: CurveDescriptorBuilder) {
+impl<S: AppState> RevolutionTab<S> {
+    pub fn set_builder(&mut self, builder: CurveDescriptorBuilder<S>) {
         if self.curve_descriptor_widget.as_ref().map(|w| w.curve_name) != Some(builder.curve_name) {
             self.curve_descriptor_widget = Some(CurveDescriptorWidget::new(builder))
         }
@@ -312,11 +312,7 @@ impl RevolutionTab {
         }
     }
 
-    pub fn view<'a, S: AppState>(
-        &'a mut self,
-        ui_size: UiSize,
-        app_state: &S,
-    ) -> Element<'a, Message<S>> {
+    pub fn view<'a>(&'a mut self, ui_size: UiSize, app_state: &S) -> Element<'a, Message<S>> {
         let desc = self.get_revolution_system(app_state);
         let mut ret = Scrollable::new(&mut self.scroll_state);
         section!(ret, ui_size, "Revolution Surfaces");
@@ -425,16 +421,13 @@ impl RevolutionTab {
             || self.shift_per_turn_state_input.has_keyboard_priority()
     }
 
-    fn get_revolution_system<S: AppState>(
-        &self,
-        app_state: &S,
-    ) -> Option<RevolutionSurfaceSystemDescriptor> {
+    fn get_revolution_system(&self, app_state: &S) -> Option<RevolutionSurfaceSystemDescriptor> {
         let surface_descriptor = RevolutionSurfaceDescriptor {
             dna_paramters: app_state.get_dna_parameters(),
             curve: self
                 .curve_descriptor_widget
                 .as_ref()
-                .and_then(|w| w.build_curve())?,
+                .and_then(|w| w.build_curve(app_state))?,
             half_turns_count: self
                 .half_turn_count
                 .get_value()

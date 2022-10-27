@@ -239,9 +239,13 @@ impl BezierPath {
     }
 
     pub fn set_vector_out(&mut self, i: usize, vector_out: Vec3, planes: &BezierPlanes) {
-        self.vertices_mut()
-            .get_mut(i)
-            .map(|v| v.set_vector_out(vector_out, planes));
+        if let Some(v) = self.vertices_mut().get_mut(i) {
+            v.set_vector_out(vector_out, planes)
+        }
+    }
+
+    pub fn to_instanciated_path_2d(&self) -> Option<InstanciatedPiecewiseBezier> {
+        self.instantiate()
     }
 }
 
@@ -370,31 +374,31 @@ impl PieceWiseBezierInstantiator<Vec3> for BezierInstantiator {
     }
 }
 
-impl PieceWiseBezierInstantiator<Vec2> for BezierInstantiator {
+impl PieceWiseBezierInstantiator<Vec2> for BezierPath {
     fn vector_in(&self, i: usize) -> Option<Vec2> {
-        let vertex = self.source_path.vertices().get(i)?;
+        let vertex = self.vertices().get(i)?;
         vertex
             .position_in
             .map(|position_in| vertex.position - position_in)
     }
 
     fn vector_out(&self, i: usize) -> Option<Vec2> {
-        let vertex = self.source_path.vertices().get(i)?;
+        let vertex = self.vertices().get(i)?;
         vertex
             .position_out
             .map(|position_out| position_out - vertex.position)
     }
 
     fn position(&self, i: usize) -> Option<Vec2> {
-        self.source_path.vertices().get(i).map(|v| v.position)
+        self.vertices().get(i).map(|v| v.position)
     }
 
     fn nb_vertices(&self) -> usize {
-        self.source_path.vertices.len()
+        self.vertices.len()
     }
 
     fn cyclic(&self) -> bool {
-        self.source_path.cyclic
+        self.cyclic
     }
 }
 

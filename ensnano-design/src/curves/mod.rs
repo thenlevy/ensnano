@@ -41,12 +41,13 @@ mod tube_spiral;
 mod twist;
 use super::GridId;
 use crate::grid::*;
+pub use bezier::InstanciatedPiecewiseBezier;
+pub(crate) use bezier::PieceWiseBezierInstantiator;
 use bezier::TranslatedPiecewiseBezier;
 pub use bezier::{
     BezierControlPoint, BezierEnd, BezierEndCoordinates, CubicBezierConstructor,
     CubicBezierControlPoint,
 };
-pub(crate) use bezier::{InstanciatedPiecewiseBezier, PieceWiseBezierInstantiator};
 pub use revolution::{InterpolatedCurveDescriptor, InterpolationDescriptor};
 pub use sphere_like_spiral::{SphereLikeSpiralDescriptor, SphereOrientation};
 use std::collections::HashMap;

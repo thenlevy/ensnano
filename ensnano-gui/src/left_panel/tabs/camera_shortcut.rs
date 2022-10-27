@@ -23,7 +23,7 @@ struct TargetShortcut {
 }
 
 impl TargetShortcut {
-    fn message<S>(&self) -> Message<S> {
+    fn message<S: AppState>(&self) -> Message<S> {
         Message::FixPoint(self.target_axis.0, self.target_axis.1)
     }
 }

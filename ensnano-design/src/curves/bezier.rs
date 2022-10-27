@@ -84,10 +84,10 @@ impl CubicBezier {
             vec_to_dvec(constructor.start),
             vec_to_dvec(constructor.control1),
             vec_to_dvec(constructor.control2),
-            vec_to_dvec(constructor.end.into()),
+            vec_to_dvec(constructor.end),
         );
-        let ret = Self { polynomial };
-        ret
+
+        Self { polynomial }
     }
 }
 
@@ -258,7 +258,7 @@ impl InstanciatedPiecewiseBezier {
             0
         } else {
             // for t = self.t_max() - 1 we take i = self.t_max() - 2
-            if self.cyclic && self.ends.len() > 0 {
+            if self.cyclic && !self.ends.is_empty() {
                 t.floor() as usize
             } else {
                 (t.floor() as usize).min(self.ends.len() - 2)
