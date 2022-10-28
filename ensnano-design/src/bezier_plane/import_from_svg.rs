@@ -24,6 +24,9 @@ use svg::parser::Event;
 
 use super::*;
 
+const SCALE: Vec2 = Vec2 { x:0.1, y: 0.1 };
+const ORIGIN: Vec2 = Vec2 { x: 124.23425, y: 3.5557};
+
 pub fn read_first_svg_path(file_path: &StdPath) -> Result<BezierPath, SvgImportError> {
     let mut content = String::new();
     let events = svg::open(file_path, &mut content)?;
@@ -70,7 +73,7 @@ impl PathBuilder {
         if self.vertices.is_empty() {
             self.vertices = vec![BezierVertex {
                 plane_id: BezierPlaneId(0),
-                position: at,
+                position: SCALE * at - ORIGIN,
                 position_in: None,
                 position_out: None,
                 grid_translation: Vec3::zero(),
@@ -88,13 +91,13 @@ impl PathBuilder {
             .vertices
             .last_mut()
             .ok_or_else(|| SvgImportError::UnexpectedCommand(String::from("CubicCurve")))?;
-        prev_vertex.position_out = Some(parameters.control_1);
+        prev_vertex.position_out = Some(SCALE * parameters.control_1 - ORIGIN);
 
         let new_vertex = BezierVertex {
             plane_id: BezierPlaneId(0),
-            position: parameters.position,
+            position: SCALE * parameters.position - ORIGIN,
             position_out: None,
-            position_in: Some(parameters.control_2),
+            position_in: Some(SCALE * parameters.control_2 - ORIGIN),
             grid_translation: Vec3::zero(),
             angle_with_plane: 0.,
         };
