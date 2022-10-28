@@ -26,6 +26,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use ultraviolet::{DMat3, DVec3, Mat3, Rotor3, Vec2, Vec3};
 
+mod import_from_svg;
+pub use import_from_svg::*;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BezierPlaneDescriptor {
     pub position: Vec3,

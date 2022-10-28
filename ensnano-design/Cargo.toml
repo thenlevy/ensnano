@@ -50,3 +50,4 @@ relative-path = "1.7.0"
 pathdiff = "0.2.1"
 chebyshev_polynomials = { git = "https://github.com/thenlevy/chebyshev_polynomials" }
 quadrature = "0.1.2"
+svg = "0.12.0"
