@@ -243,6 +243,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn set_expand_insertions(&mut self, expand: bool);
     fn set_exporting(&mut self, exporting: bool);
     fn load_3d_object(&mut self, path: PathBuf);
+    fn load_svg(&mut self, path: PathBuf);
 }
 
 pub enum LoadDesignError {

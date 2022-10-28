@@ -490,6 +490,10 @@ impl GuiRequests for Requests {
         self.keep_proceed
             .push_back(Action::FinishRelaxationSimulation)
     }
+
+    fn load_svg(&mut self) {
+        self.keep_proceed.push_back(Action::ImportSvg)
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

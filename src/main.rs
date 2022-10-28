@@ -1980,6 +1980,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             design_path,
         })
     }
+
+    fn load_svg(&mut self, path: PathBuf) {
+        self.apply_operation(DesignOperation::ImportSvgPath { path });
+    }
 }
 
 use controller::{SetScaffoldSequenceError, SetScaffoldSequenceOk};

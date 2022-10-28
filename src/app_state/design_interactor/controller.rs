@@ -359,6 +359,9 @@ impl Controller {
                 file_path,
                 design_path,
             } => self.apply(|c, d| c.add_3d_object(d, file_path, design_path), design),
+            DesignOperation::ImportSvgPath { path } => {
+                self.apply(|c, d| c.import_svg_path(d, path), design)
+            }
         };
 
         if let Ok(ret) = &mut ret {
@@ -1909,11 +1912,18 @@ pub enum ErrOperation {
     VertexDoesNotExist(BezierPathId, usize),
     GridIsNotEmpty(GridId),
     CouldNotMake3DObject,
+    SvgImportError(ensnano_design::SvgImportError),
 }
 
 impl From<ensnano_design::design_operations::ErrOperation> for ErrOperation {
     fn from(e: ensnano_design::design_operations::ErrOperation) -> Self {
         Self::DesignOperationError(e)
+    }
+}
+
+impl From<ensnano_design::SvgImportError> for ErrOperation {
+    fn from(e: ensnano_design::SvgImportError) -> Self {
+        Self::SvgImportError(e)
     }
 }
 
@@ -3345,6 +3355,27 @@ impl Controller {
         .ok_or(ErrOperation::CouldNotMake3DObject)?;
 
         design.external_3d_objects.add_object(object);
+
+        Ok(design)
+    }
+
+    fn import_svg_path(
+        &mut self,
+        mut design: Design,
+        path: PathBuf,
+    ) -> Result<Design, ErrOperation> {
+        use ensnano_design::BezierPlaneId;
+
+        // The imported bezier path will be attached to plane 0 so we need to ensure that it exists
+        if design.bezier_planes.get(&BezierPlaneId(0)).is_none() {
+            design = self.add_bezier_plane(design, Default::default());
+        }
+
+        let mut paths = design.bezier_paths.make_mut();
+        let path = ensnano_design::read_first_svg_path(&path)?;
+        paths.push(path);
+
+        drop(paths);
 
         Ok(design)
     }

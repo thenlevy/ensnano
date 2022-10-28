@@ -114,6 +114,7 @@ impl State for NormalState {
                         )
                     }
                 }
+                Action::ImportSvg => Load::load(None, LoadType::SvgPath),
                 Action::SuspendOp => {
                     log::info!("Suspending operation");
                     main_state.finish_operation();
@@ -512,5 +513,6 @@ pub enum Action {
     AddBezierPlane,
     SetExporting(bool),
     Import3DObject,
+    ImportSvg,
     OptimizeShift,
 }

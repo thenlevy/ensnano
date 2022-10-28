@@ -312,6 +312,9 @@ pub enum DesignOperation {
         file_path: PathBuf,
         design_path: PathBuf,
     },
+    ImportSvgPath {
+        path: PathBuf,
+    },
 }
 
 #[derive(Clone, Debug, Copy)]

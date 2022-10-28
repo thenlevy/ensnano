@@ -132,14 +132,15 @@ impl MoveToParameter {
             Err(SvgImportError::BadParameters)
         } else {
             Ok(Self {
-                position: Vec2::new(parameters[0], parameters[1]),
-                control_1: Vec2::new(parameters[2], parameters[3]),
-                control_2: Vec2::new(parameters[4], parameters[5]),
+                control_1: Vec2::new(parameters[0], parameters[1]),
+                control_2: Vec2::new(parameters[2], parameters[3]),
+                position: Vec2::new(parameters[4], parameters[5]),
             })
         }
     }
 }
 
+#[derive(Debug)]
 pub enum SvgImportError {
     IOError(std::io::Error),
     SvgParserError(svg::parser::Error),

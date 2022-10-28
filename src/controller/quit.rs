@@ -130,6 +130,7 @@ enum LoadStep {
 pub(super) enum LoadType {
     Design,
     Object3D,
+    SvgPath,
 }
 
 impl Load {
@@ -160,6 +161,7 @@ impl State for Load {
             LoadStep::GotPath(path) => match self.load_type {
                 LoadType::Design => load_design(path, state),
                 LoadType::Object3D => load_3d_object(path, state),
+                LoadType::SvgPath => load_svg(path, state),
             },
         }
     }
@@ -234,6 +236,7 @@ fn ask_path<P: AsRef<Path>>(
         let filters = match load_type {
             LoadType::Object3D => messages::OBJECT3D_FILTERS,
             LoadType::Design => messages::DESIGN_LOAD_FILTER,
+            LoadType::SvgPath => messages::SVG_FILTERS,
         };
         let path_input = dialog::load(starting_directory, filters);
         Box::new(Load {
@@ -259,6 +262,11 @@ fn load_design(path: PathBuf, state: &mut dyn MainState) -> Box<dyn State> {
 
 fn load_3d_object(path: PathBuf, state: &mut dyn MainState) -> Box<dyn State> {
     state.load_3d_object(path);
+    Box::new(super::NormalState)
+}
+
+fn load_svg(path: PathBuf, state: &mut dyn MainState) -> Box<dyn State> {
+    state.load_svg(path);
     Box::new(super::NormalState)
 }
 

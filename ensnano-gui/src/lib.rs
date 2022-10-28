@@ -223,6 +223,7 @@ pub trait Requests: 'static + Send {
     fn optimize_scaffold_shift(&mut self);
     fn start_revolution_relaxation(&mut self, desc: RevolutionSurfaceSystemDescriptor);
     fn finish_revolutiion_relaxation(&mut self);
+    fn load_svg(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]

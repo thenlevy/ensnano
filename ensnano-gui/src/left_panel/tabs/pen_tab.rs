@@ -26,6 +26,7 @@ pub struct PenTab {
     edit_path_btn: button::State,
     make_square_grid_btn: button::State,
     make_honeycomb_grid_btn: button::State,
+    load_svg_btn: button::State,
 }
 
 macro_rules! add_buttons {
@@ -81,6 +82,10 @@ impl PenTab {
     ) -> Element<'a, Message<S>> {
         let mut ret = Column::new().spacing(5);
         section!(ret, ui_size, "Bezier Planes");
+        ret = ret.push(
+            light_icon_btn(&mut self.load_svg_btn, LightIcon::FileOpen, ui_size)
+                .on_press(Message::LoadSvgFile),
+        );
         add_buttons!(ret, self, ui_size);
         add_grid_buttons!(ret, self, ui_size, app_state);
         let selected_path_id = app_state.get_selected_bezier_path();

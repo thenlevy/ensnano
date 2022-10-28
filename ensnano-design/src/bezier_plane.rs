@@ -35,6 +35,15 @@ pub struct BezierPlaneDescriptor {
     pub orientation: Rotor3,
 }
 
+impl Default for BezierPlaneDescriptor {
+    fn default() -> Self {
+        Self {
+            position: Vec3::zero(),
+            orientation: Rotor3::identity(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct BezierPlaneId(pub u32);
 
@@ -206,6 +215,16 @@ impl<'a> BezierPathsMut<'a> {
 
     pub fn values_mut(&mut self) -> impl Iterator<Item = &mut BezierPath> {
         self.new_map.values_mut().map(Arc::make_mut)
+    }
+
+    pub fn push(&mut self, path: BezierPath) {
+        let id = self
+            .new_map
+            .keys()
+            .max()
+            .map(|BezierPathId(n)| BezierPathId(n + 1))
+            .unwrap_or(BezierPathId(0));
+        self.new_map.insert(id, Arc::new(path));
     }
 }
 
