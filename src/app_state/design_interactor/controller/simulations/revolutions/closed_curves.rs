@@ -16,6 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::*;
+use chebyshev_polynomials::ChebyshevPolynomial;
 
 #[derive(Clone)]
 pub(super) struct CloseSurfaceTopology {
@@ -27,6 +28,7 @@ pub(super) struct CloseSurfaceTopology {
     target: RevolutionSurface,
     idx_range: Vec<usize>,
     target_scaffold_length: usize,
+    interpolator: ChebyshevPolynomial,
 }
 
 impl CloseSurfaceTopology {
@@ -70,6 +72,8 @@ impl CloseSurfaceTopology {
 
         let idx_range: Vec<usize> = (0..total_nb_section).collect();
 
+        let interpolator = interpolator_inverse_curvilinear_abscissa(&target.curve);
+
         Self {
             nb_segment,
             nb_section_per_segment,
@@ -79,8 +83,42 @@ impl CloseSurfaceTopology {
             other_spring_end,
             idx_range,
             target_scaffold_length: desc.scaffold_len_target,
+            interpolator,
         }
     }
+}
+
+const NB_POINT_INTERPOLATION: usize = 100_000;
+const INTERPOLATION_ERROR: f64 = 1e-4;
+const T_MAX: f64 = 1.;
+fn interpolator_inverse_curvilinear_abscissa(curve: &CurveDescriptor2D) -> ChebyshevPolynomial {
+    let mut abscissa = 0.;
+
+    let mut point = curve.point(0.);
+
+    let mut ts = Vec::with_capacity(NB_POINT_INTERPOLATION);
+    let mut abscissas = Vec::with_capacity(NB_POINT_INTERPOLATION);
+    ts.push(0.);
+    abscissas.push(abscissa);
+    for n in 1..=NB_POINT_INTERPOLATION {
+        let t = T_MAX * n as f64 / NB_POINT_INTERPOLATION as f64;
+        let next_point = curve.point(t);
+        abscissa += (point - next_point).mag();
+        abscissas.push(abscissa);
+        point = next_point;
+        ts.push(t);
+    }
+
+    let perimetter = *abscissas.last().unwrap();
+
+    for x in abscissas.iter_mut() {
+        *x /= perimetter;
+    }
+
+
+    log::info!("Interpolating inverse...");
+    let abscissa_t = abscissas.iter().cloned().zip(ts.iter().cloned()).collect();
+    chebyshev_polynomials::interpolate_points(abscissa_t, INTERPOLATION_ERROR)
 }
 
 impl SpringTopology for CloseSurfaceTopology {
@@ -135,7 +173,7 @@ impl SpringTopology for CloseSurfaceTopology {
                 let a = section_idx as f64 / self.nb_section_per_segment as f64;
 
                 let theta_section = theta_init + a * delta_theta;
-                ret.push(theta_section);
+                ret.push(theta_section.div_euclid(1.) + self.interpolator.evaluate(theta_section.rem_euclid(1.)));
             }
         }
         ret

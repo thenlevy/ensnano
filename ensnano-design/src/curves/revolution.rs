@@ -396,6 +396,11 @@ impl Curved for Revolution {
         self.curve_point_to_3d(section_point, revolution_angle, None)
     }
 
+    fn speed(&self, t: f64) -> DVec3 {
+        (self.position(t + EPSILON_DERIVATIVE) - self.position(t))
+            / EPSILON_DERIVATIVE
+    }
+
     fn bounds(&self) -> CurveBounds {
         CurveBounds::Finite
     }
@@ -443,7 +448,7 @@ impl Curved for Revolution {
                     .map(|p| p.evaluate(x));
             }
         }
-        None
+        self.inverse_curvilinear_abscissa.last().map(|p| p.evaluate(x))
     }
 
     fn surface_info_time(&self, t: f64, helix_id: usize) -> Option<SurfaceInfo> {
