@@ -24,8 +24,11 @@ use svg::parser::Event;
 
 use super::*;
 
-const SCALE: Vec2 = Vec2 { x:0.1, y: 0.1 };
-const ORIGIN: Vec2 = Vec2 { x: 134.23425, y: 13.5557};
+const SCALE: Vec2 = Vec2 { x: 0.1, y: 0.1 };
+const ORIGIN: Vec2 = Vec2 {
+    x: 134.23425,
+    y: 13.5557,
+};
 
 pub fn read_first_svg_path(file_path: &StdPath) -> Result<BezierPath, SvgImportError> {
     let mut content = String::new();

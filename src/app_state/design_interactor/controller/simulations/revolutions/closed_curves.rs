@@ -115,7 +115,6 @@ fn interpolator_inverse_curvilinear_abscissa(curve: &CurveDescriptor2D) -> Cheby
         *x /= perimetter;
     }
 
-
     log::info!("Interpolating inverse...");
     let abscissa_t = abscissas.iter().cloned().zip(ts.iter().cloned()).collect();
     chebyshev_polynomials::interpolate_points(abscissa_t, INTERPOLATION_ERROR)
@@ -173,7 +172,10 @@ impl SpringTopology for CloseSurfaceTopology {
                 let a = section_idx as f64 / self.nb_section_per_segment as f64;
 
                 let theta_section = theta_init + a * delta_theta;
-                ret.push(theta_section.div_euclid(1.) + self.interpolator.evaluate(theta_section.rem_euclid(1.)));
+                ret.push(
+                    theta_section.div_euclid(1.)
+                        + self.interpolator.evaluate(theta_section.rem_euclid(1.)),
+                );
             }
         }
         ret

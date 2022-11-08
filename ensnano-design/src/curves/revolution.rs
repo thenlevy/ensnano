@@ -397,8 +397,7 @@ impl Curved for Revolution {
     }
 
     fn speed(&self, t: f64) -> DVec3 {
-        (self.position(t + EPSILON_DERIVATIVE) - self.position(t))
-            / EPSILON_DERIVATIVE
+        (self.position(t + EPSILON_DERIVATIVE) - self.position(t)) / EPSILON_DERIVATIVE
     }
 
     fn bounds(&self) -> CurveBounds {
@@ -448,7 +447,9 @@ impl Curved for Revolution {
                     .map(|p| p.evaluate(x));
             }
         }
-        self.inverse_curvilinear_abscissa.last().map(|p| p.evaluate(x))
+        self.inverse_curvilinear_abscissa
+            .last()
+            .map(|p| p.evaluate(x))
     }
 
     fn surface_info_time(&self, t: f64, helix_id: usize) -> Option<SurfaceInfo> {
