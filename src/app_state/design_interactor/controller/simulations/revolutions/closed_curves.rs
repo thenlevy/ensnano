@@ -259,6 +259,7 @@ impl SpringTopology for CloseSurfaceTopology {
                     known_number_of_helices_in_shape: Some(self.target.nb_helices),
                     known_helix_id_in_shape: None,
                     objective_number_of_nts: finished.then_some(target_len),
+                    full_turn_at_nt: None,
                 },
                 theta_0,
             ))

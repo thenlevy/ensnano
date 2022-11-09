@@ -163,6 +163,10 @@ pub trait Curved {
         None
     }
 
+    fn nucl_pos_full_turn(&self) -> Option<isize> {
+        None
+    }
+
     fn objective_nb_nt(&self) -> Option<usize> {
         None
     }
@@ -388,11 +392,7 @@ impl Curve {
             let final_angle =
                 pos_full_turn as f64 * TAU / -parameters.bases_per_turn as f64 + additional_angle;
             let rem = final_angle.rem_euclid(TAU);
-            /*
-            let mut full_delta = if rem > PI { TAU - rem } else { -rem } + FRAC_PI_2;
-            if full_delta > PI {
-                full_delta -= TAU;
-            }*/
+
             let mut full_delta = -rem;
             full_delta = full_delta.rem_euclid(TAU);
             if full_delta > PI {

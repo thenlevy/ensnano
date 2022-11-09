@@ -55,6 +55,14 @@ impl Curve {
             }
             self.nucl_pos_full_turn = Some(synchronization_length / len_segment);
         }
+
+        //overide nucl_pos_full_turn with the value given by the geometry if it exists
+        self.nucl_pos_full_turn = self
+            .geometry
+            .nucl_pos_full_turn()
+            .map(|x| x as f64)
+            .or(self.nucl_pos_full_turn);
+
         if let Some(n) = self.nucl_pos_full_turn {
             log::info!("nucl_pos_full_turn = {n}");
         }

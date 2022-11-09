@@ -44,6 +44,10 @@ pub struct InterpolatedCurveDescriptor {
     pub known_helix_id_in_shape: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub objective_number_of_nts: Option<usize>,
+
+    // There is currently no way to set this value through the GUI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub full_turn_at_nt: Option<isize>,
 }
 
 impl InterpolatedCurveDescriptor {
@@ -67,6 +71,7 @@ impl InterpolatedCurveDescriptor {
             known_number_of_helices_in_shape: self.known_number_of_helices_in_shape,
             knwon_helix_id_in_shape: self.known_helix_id_in_shape,
             objective_nb_nt: self.objective_number_of_nts,
+            full_turn_at_nt: self.full_turn_at_nt,
         };
         if init_interpolators {
             ret.init_interpolators();
@@ -254,6 +259,7 @@ pub(super) struct Revolution {
     known_number_of_helices_in_shape: Option<usize>,
     knwon_helix_id_in_shape: Option<usize>,
     objective_nb_nt: Option<usize>,
+    full_turn_at_nt: Option<isize>,
 }
 
 const NB_POINT_INTERPOLATION: usize = 100_000;
@@ -480,5 +486,9 @@ impl Curved for Revolution {
 
     fn objective_nb_nt(&self) -> Option<usize> {
         self.objective_nb_nt
+    }
+
+    fn nucl_pos_full_turn(&self) -> Option<isize> {
+        self.full_turn_at_nt
     }
 }

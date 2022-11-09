@@ -273,6 +273,7 @@ impl SpringTopology for OpenSurfaceTopology {
                     known_number_of_helices_in_shape: Some(self.target.nb_helices),
                     known_helix_id_in_shape: None,
                     objective_number_of_nts: None,
+                    full_turn_at_nt: None,
                 },
                 theta_0,
             ))
