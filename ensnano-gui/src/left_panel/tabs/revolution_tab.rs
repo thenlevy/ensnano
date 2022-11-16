@@ -144,6 +144,7 @@ impl ParameterWidget {
                 text: s,
             }
         })
+        .width(iced::Length::Units(50))
         .style(style)
         .into()
     }
@@ -348,12 +349,10 @@ impl<S: AppState> RevolutionTab<S> {
             ),
         );
         ret = ret.push(
-            Row::new()
-                .push(Text::new("Nb Helix per Half section"))
-                .push(
-                    self.nb_helix_per_half_section_input
-                        .input_view(RevolutionParameterId::NbHelixHalfSection),
-                ),
+            Row::new().push(Text::new("Half Nb Helix")).push(
+                self.nb_helix_per_half_section_input
+                    .input_view(RevolutionParameterId::NbHelixHalfSection),
+            ),
         );
         ret = ret.push(
             Row::new().push(Text::new("Shift per turn")).push(
@@ -369,7 +368,7 @@ impl<S: AppState> RevolutionTab<S> {
         );
 
         extra_jump!(ret);
-        subsection!(ret, ui_size, "Discretisation paramters");
+        subsection!(ret, ui_size, "Discretization parameters");
         ret = ret.push(
             Row::new().push(Text::new("Nb section per segments")).push(
                 self.nb_section_per_segment_input
@@ -377,7 +376,7 @@ impl<S: AppState> RevolutionTab<S> {
             ),
         );
         ret = ret.push(
-            Row::new().push(Text::new("Targent length")).push(
+            Row::new().push(Text::new("Target length")).push(
                 self.scaffold_len_target
                     .input_view(RevolutionParameterId::ScaffoldLenTarget),
             ),
