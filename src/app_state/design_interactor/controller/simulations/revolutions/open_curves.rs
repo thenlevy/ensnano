@@ -49,12 +49,13 @@ impl OpenSurfaceTopology {
     pub fn new(desc: RevolutionSurfaceSystemDescriptor) -> Self {
         println!("perimetter {}", desc.target.curve.perimeter());
         let nb_helices = desc.target.nb_helix_per_half_section * 2;
+        let nb_section_per_segment = desc.simulation_parameters.nb_section_per_segment;
 
         // We want the number of section per turn to be dividable by the number of helices
-        let nb_section_per_turn = if desc.nb_section_per_segment % nb_helices == 0 {
-            desc.nb_section_per_segment
+        let nb_section_per_turn = if nb_section_per_segment % nb_helices == 0 {
+            nb_section_per_segment
         } else {
-            desc.nb_section_per_segment + nb_helices - (desc.nb_section_per_segment % nb_helices)
+            nb_section_per_segment + nb_helices - (nb_section_per_segment % nb_helices)
         };
 
         let nb_turn_to_reach_t1 = STARTING_NUMBER_OF_TURN;
@@ -293,7 +294,11 @@ impl SpringTopology for OpenSurfaceTopology {
         &self.fixed_points
     }
 
-    fn additional_forces(&self, thetas: &[f64]) -> Vec<(usize, DVec3)> {
+    fn additional_forces(
+        &self,
+        thetas: &[f64],
+        parameters: &RevolutionSimulationParameters,
+    ) -> Vec<(usize, DVec3)> {
         let dist_ball0 = {
             let angle = self.revolution_angle_ball(0);
             let theta_init = self
@@ -326,7 +331,7 @@ impl SpringTopology for OpenSurfaceTopology {
                     let pos = self.surface_position(angle, thetas[*b_id]);
                     (pos, pos.mag())
                 };
-                (*b_id, super::SPRING_STIFFNESS * (1. - l0 / len) * -pos)
+                (*b_id, parameters.spring_stiffness * (1. - l0 / len) * -pos)
             })
             .collect()
     }

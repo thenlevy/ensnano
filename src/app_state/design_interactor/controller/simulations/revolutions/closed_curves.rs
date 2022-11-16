@@ -34,7 +34,7 @@ pub(super) struct CloseSurfaceTopology {
 impl CloseSurfaceTopology {
     pub fn new(desc: RevolutionSurfaceSystemDescriptor) -> Self {
         let nb_segment = 2 * desc.target.nb_helix_per_half_section;
-        let nb_section_per_segment = NB_SECTION_PER_SEGMENT;
+        let nb_section_per_segment = desc.simulation_parameters.nb_section_per_segment;
         let total_nb_section = nb_segment * nb_section_per_segment;
 
         let target = RevolutionSurface::new(desc.target);

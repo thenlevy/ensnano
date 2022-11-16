@@ -20,12 +20,6 @@ use super::{SimulationInterface, SimulationReader, SimulationUpdate};
 use std::f64::consts::TAU;
 use std::sync::{Arc, Mutex, Weak};
 
-const SPRING_STIFFNESS: f64 = 8.;
-const TORSION_STIFFNESS: f64 = 30.;
-const FLUID_FRICTION: f64 = 1.;
-const BALL_MASS: f64 = 10.;
-const NB_SECTION_PER_SEGMENT: usize = 100;
-
 use mathru::algebra::linear::vector::vector::Vector;
 use mathru::analysis::differential_equation::ordinary::{
     solver::runge_kutta::{explicit::fixed::FixedStepper, ExplicitEuler, Ralston4},
@@ -36,7 +30,10 @@ use ensnano_design::{
     CurveDescriptor, CurveDescriptor2D, DVec3, InterpolatedCurveDescriptor,
     InterpolationDescriptor, Parameters as DNAParameters,
 };
-use ensnano_interactor::{RevolutionSurfaceDescriptor, RevolutionSurfaceSystemDescriptor};
+use ensnano_interactor::{
+    EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceDescriptor,
+    RevolutionSurfaceSystemDescriptor,
+};
 
 use crate::app_state::{
     design_interactor::controller::simulations::revolutions::open_curves::OpenSurfaceTopology,
@@ -52,7 +49,7 @@ trait SpringTopology: Send + Sync + 'static {
     fn nb_balls(&self) -> usize;
 
     fn balls_with_successor(&self) -> &[usize];
-    /// Return the identfier of the next ball on the helix,  or `ball_id` if `ball_id` is
+    /// Return the identifier of the next ball on the helix,  or `ball_id` if `ball_id` is
     /// the last ball on an open helix.
     fn successor(&self, ball_id: usize) -> usize;
 
@@ -83,7 +80,11 @@ trait SpringTopology: Send + Sync + 'static {
 
     fn fixed_points(&self) -> &[usize];
 
-    fn additional_forces(&self, _thetas: &[f64]) -> Vec<(usize, DVec3)> {
+    fn additional_forces(
+        &self,
+        _thetas: &[f64],
+        _parameters: &RevolutionSimulationParameters,
+    ) -> Vec<(usize, DVec3)> {
         vec![]
     }
 }
@@ -95,6 +96,7 @@ pub struct RevolutionSurfaceSystem {
     last_dthetas: Option<Vec<f64>>,
     scaffold_len_target: usize,
     current_scaffold_length: Option<usize>,
+    simulation_parameters: RevolutionSimulationParameters,
 }
 
 impl Clone for RevolutionSurfaceSystem {
@@ -106,6 +108,7 @@ impl Clone for RevolutionSurfaceSystem {
             last_dthetas: self.last_dthetas.clone(),
             scaffold_len_target: self.scaffold_len_target,
             current_scaffold_length: self.current_scaffold_length,
+            simulation_parameters: self.simulation_parameters.clone(),
         }
     }
 }
@@ -126,6 +129,7 @@ impl RevolutionSurfaceSystem {
     pub fn new(desc: RevolutionSurfaceSystemDescriptor) -> Self {
         let scaffold_len_target = desc.scaffold_len_target;
         let dna_parameters = desc.dna_parameters;
+        let simulation_parameters = desc.simulation_parameters.clone();
         let topology: Box<dyn SpringTopology> = if desc.target.curve.is_open() {
             Box::new(OpenSurfaceTopology::new(desc))
         } else {
@@ -139,6 +143,7 @@ impl RevolutionSurfaceSystem {
             last_dthetas: None,
             scaffold_len_target,
             current_scaffold_length: None,
+            simulation_parameters,
         }
     }
 
@@ -210,15 +215,15 @@ impl RevolutionSurfaceSystem {
             *first = false;
         }
 
-        let solver = FixedStepper::new(1e-1);
-        let method = Ralston4::default();
+        let solver = FixedStepper::new(self.simulation_parameters.simulation_step);
+
+        let solver_solution = match self.simulation_parameters.method {
+            EquadiffSolvingMethod::Euler => solver.solve(self, &ExplicitEuler::default()),
+            EquadiffSolvingMethod::Ralston => solver.solve(self, &Ralston4::default()),
+        };
 
         let mut spring_relaxation_state = SpringRelaxationState::new();
-        if let Some(last_state) = solver
-            .solve(self, &method)
-            .ok()
-            .and_then(|(_, y)| y.last().cloned())
-        {
+        if let Some(last_state) = solver_solution.ok().and_then(|(_, y)| y.last().cloned()) {
             let mut system = RelaxationSystem::from_mathru(last_state, total_nb_section);
             self.apply_springs(&mut system, Some(&mut spring_relaxation_state));
             self.last_thetas = Some(system.thetas.clone());
@@ -302,7 +307,7 @@ impl RevolutionSurfaceSystem {
             let v_ji = pos_i - pos_j;
             let len_ij = v_ji.mag();
 
-            let f_ij = SPRING_STIFFNESS * (1. - len0_ij / len_ij) * v_ji;
+            let f_ij = self.simulation_parameters.spring_stiffness * (1. - len0_ij / len_ij) * v_ji;
 
             if let Some(state) = spring_state.as_mut() {
                 let ext = len_ij / len0_ij;
@@ -334,7 +339,7 @@ impl RevolutionSurfaceSystem {
             let u_ij = pos_j - pos_i;
             let u_jk = pos_k - pos_j;
             let v = u_jk - u_ij;
-            let f_ijk = TORSION_STIFFNESS * v / v.mag().max(1.);
+            let f_ijk = self.simulation_parameters.torsion_stiffness * v / v.mag().max(1.);
             system.forces[i] -= f_ijk / 2.;
             system.forces[j] += f_ijk;
             system.forces[k] -= f_ijk / 2.;
@@ -350,7 +355,10 @@ impl RevolutionSurfaceSystem {
     fn apply_forces(&self, system: &mut RelaxationSystem) {
         let total_nb_segment = self.topology.nb_balls();
 
-        for (b_id, f) in self.topology.additional_forces(&system.thetas) {
+        for (b_id, f) in self
+            .topology
+            .additional_forces(&system.thetas, &self.simulation_parameters)
+        {
             //println!("b_id {b_id}, force {:.3?}", f);
             system.forces[b_id] += f;
         }
@@ -360,8 +368,8 @@ impl RevolutionSurfaceSystem {
             let acceleration_without_friction =
                 system.forces[section_idx].dot(tengent) / tengent.mag_sq();
             system.second_derivative_thetas[section_idx] += (acceleration_without_friction
-                - FLUID_FRICTION * system.d_thetas[section_idx])
-                / BALL_MASS;
+                - self.simulation_parameters.fluid_friction * system.d_thetas[section_idx])
+                / self.simulation_parameters.ball_mass;
         }
 
         for idx in self.topology.fixed_points() {
@@ -447,7 +455,7 @@ impl ExplicitODE<f64> for RevolutionSurfaceSystem {
     }
 
     fn time_span(&self) -> (f64, f64) {
-        (0., 5.)
+        (0., self.simulation_parameters.time_span)
     }
 }
 
@@ -749,6 +757,7 @@ impl<T> OptionOnce<T> {
 
 #[cfg(test)]
 mod tests {
+    const NB_SECTION_PER_SEGMENT: usize = 100;
     use super::*;
 
     #[test]
@@ -766,7 +775,7 @@ mod tests {
             shift_per_turn: -12,
         };
         let system_desc = RevolutionSurfaceSystemDescriptor {
-            nb_section_per_segment: NB_SECTION_PER_SEGMENT,
+            simulation_parameters: Default::default(),
             dna_parameters: DNAParameters::GEARY_2014_DNA,
             target: surface_desc,
             scaffold_len_target: 7560,

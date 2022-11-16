@@ -1402,7 +1402,7 @@ impl MainState {
                         Instant::now() + Duration::from_secs(crate::consts::SEC_PER_YEAR);
                     SaveDesignError::cannot_open_default_dir()
                 })?;
-            ret.push(crate::consts::ENS_UNAMED_FILE_NAME);
+            ret.push(crate::consts::ENS_UNNAMED_FILE_NAME);
             ret.set_extension(crate::consts::ENS_BACKUP_EXTENSION);
             ret
         };

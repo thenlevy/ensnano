@@ -517,7 +517,7 @@ impl Controller {
                     dna_paramters: Parameters::GEARY_2014_DNA,
                 };
                 let system_desc = RevolutionSurfaceSystemDescriptor {
-                    nb_section_per_segment: 100,
+                    simulation_parameters: Default::default(),
                     dna_parameters: Parameters::GEARY_2014_DNA,
                     target: surface_desc,
                     scaffold_len_target: 8064,

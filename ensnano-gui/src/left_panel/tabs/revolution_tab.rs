@@ -18,7 +18,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::*;
 use ensnano_design::CurveDescriptor2D;
-use ensnano_interactor::{RevolutionSurfaceDescriptor, RevolutionSurfaceSystemDescriptor};
+use ensnano_interactor::{
+    EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceDescriptor,
+    RevolutionSurfaceSystemDescriptor,
+};
 use iced_native::widget::{
     button::{self, Button},
     pick_list::{self, PickList},
@@ -49,6 +52,12 @@ pub enum RevolutionParameterId {
     ShiftPerTurn,
     NbSectionPerSegment,
     ScaffoldLenTarget,
+    SpringStiffness,
+    TorsionStiffness,
+    FluidFriction,
+    BallMass,
+    TimeSpan,
+    SimulationStep,
 }
 
 impl InstanciatedParameter {
@@ -251,9 +260,17 @@ pub(crate) struct RevolutionTab<S: AppState> {
     nb_helix_per_half_section_input: ParameterWidget,
     shift_per_turn_state_input: ParameterWidget,
 
-    nb_section_per_segment_input: ParameterWidget,
     scaffold_len_target: ParameterWidget,
 
+    nb_section_per_segment_input: ParameterWidget,
+    spring_stiffness: ParameterWidget,
+    torsion_stiffness: ParameterWidget,
+    fluid_friction: ParameterWidget,
+    ball_mass: ParameterWidget,
+    time_span: ParameterWidget,
+    simulation_step: ParameterWidget,
+    pick_method_state: pick_list::State<EquadiffSolvingMethod>,
+    equadiff_method: EquadiffSolvingMethod,
     scroll_state: scrollable::State,
 
     go_button: button::State,
@@ -263,6 +280,7 @@ pub(crate) struct RevolutionTab<S: AppState> {
 
 impl<S: AppState> Default for RevolutionTab<S> {
     fn default() -> Self {
+        let init_parameter = RevolutionSimulationParameters::default();
         Self {
             scroll_state: Default::default(),
             curve_descriptor_widget: None,
@@ -271,7 +289,25 @@ impl<S: AppState> Default for RevolutionTab<S> {
             radius_input: ParameterWidget::new(InstanciatedParameter::Float(0.)),
             nb_helix_per_half_section_input: ParameterWidget::new(InstanciatedParameter::Uint(1)),
             shift_per_turn_state_input: ParameterWidget::new(InstanciatedParameter::Int(0)),
-            nb_section_per_segment_input: ParameterWidget::new(InstanciatedParameter::Uint(100)),
+            nb_section_per_segment_input: ParameterWidget::new(InstanciatedParameter::Uint(
+                init_parameter.nb_section_per_segment,
+            )),
+            spring_stiffness: ParameterWidget::new(InstanciatedParameter::Float(
+                init_parameter.spring_stiffness,
+            )),
+            torsion_stiffness: ParameterWidget::new(InstanciatedParameter::Float(
+                init_parameter.torsion_stiffness,
+            )),
+            fluid_friction: ParameterWidget::new(InstanciatedParameter::Float(
+                init_parameter.fluid_friction,
+            )),
+            ball_mass: ParameterWidget::new(InstanciatedParameter::Float(init_parameter.ball_mass)),
+            time_span: ParameterWidget::new(InstanciatedParameter::Float(init_parameter.time_span)),
+            simulation_step: ParameterWidget::new(InstanciatedParameter::Float(
+                init_parameter.simulation_step,
+            )),
+            pick_method_state: Default::default(),
+            equadiff_method: init_parameter.method,
             scaffold_len_target: ParameterWidget::new(InstanciatedParameter::Uint(7249)),
             go_button: Default::default(),
             abbort_button: Default::default(),
@@ -287,6 +323,10 @@ impl<S: AppState> RevolutionTab<S> {
         }
     }
 
+    pub fn set_method(&mut self, method: EquadiffSolvingMethod) {
+        self.equadiff_method = method;
+    }
+
     pub fn update_builder_parameter(&mut self, param_id: RevolutionParameterId, text: String) {
         match param_id {
             RevolutionParameterId::SectionParameter(id) => {
@@ -295,18 +335,21 @@ impl<S: AppState> RevolutionTab<S> {
                 }
             }
             param => {
+                use RevolutionParameterId::*;
                 let widget = match param {
-                    RevolutionParameterId::SectionParameter(_) => unreachable!(),
-                    RevolutionParameterId::HalfTurnCount => &mut self.half_turn_count,
-                    RevolutionParameterId::ShiftPerTurn => &mut self.shift_per_turn_state_input,
-                    RevolutionParameterId::RevolutionRadius => &mut self.radius_input,
-                    RevolutionParameterId::ScaffoldLenTarget => &mut self.scaffold_len_target,
-                    RevolutionParameterId::NbHelixHalfSection => {
-                        &mut self.nb_helix_per_half_section_input
-                    }
-                    RevolutionParameterId::NbSectionPerSegment => {
-                        &mut self.nb_section_per_segment_input
-                    }
+                    SectionParameter(_) => unreachable!(),
+                    HalfTurnCount => &mut self.half_turn_count,
+                    ShiftPerTurn => &mut self.shift_per_turn_state_input,
+                    RevolutionRadius => &mut self.radius_input,
+                    ScaffoldLenTarget => &mut self.scaffold_len_target,
+                    NbHelixHalfSection => &mut self.nb_helix_per_half_section_input,
+                    NbSectionPerSegment => &mut self.nb_section_per_segment_input,
+                    SpringStiffness => &mut self.spring_stiffness,
+                    TorsionStiffness => &mut self.torsion_stiffness,
+                    FluidFriction => &mut self.fluid_friction,
+                    BallMass => &mut self.ball_mass,
+                    TimeSpan => &mut self.time_span,
+                    SimulationStep => &mut self.simulation_step,
                 };
                 widget.set_text(text);
             }
@@ -383,6 +426,56 @@ impl<S: AppState> RevolutionTab<S> {
         );
 
         extra_jump!(ret);
+        subsection!(ret, ui_size, "Simulation parameters");
+        ret = ret.push(
+            Row::new().push(Text::new("Spring Stiffness")).push(
+                self.spring_stiffness
+                    .input_view(RevolutionParameterId::SpringStiffness),
+            ),
+        );
+        ret = ret.push(
+            Row::new().push(Text::new("Torsion Stiffness")).push(
+                self.torsion_stiffness
+                    .input_view(RevolutionParameterId::TorsionStiffness),
+            ),
+        );
+        ret = ret.push(
+            Row::new().push(Text::new("Fluid Friction")).push(
+                self.fluid_friction
+                    .input_view(RevolutionParameterId::FluidFriction),
+            ),
+        );
+        ret = ret.push(
+            Row::new()
+                .push(Text::new("Ball Mass"))
+                .push(self.ball_mass.input_view(RevolutionParameterId::BallMass)),
+        );
+        let method_pick_list = PickList::new(
+            &mut self.pick_method_state,
+            EquadiffSolvingMethod::ALL_METHODS,
+            Some(self.equadiff_method),
+            |method| Message::RevolutionEquadiffSolvingMethodPicked(method),
+        );
+
+        let pick_method_row = Row::new()
+            .push(Text::new("Solving Method"))
+            .push(method_pick_list);
+
+        ret = ret.push(pick_method_row);
+
+        ret = ret.push(
+            Row::new()
+                .push(Text::new("Time Span"))
+                .push(self.time_span.input_view(RevolutionParameterId::TimeSpan)),
+        );
+        ret = ret.push(
+            Row::new().push(Text::new("Simulation Step")).push(
+                self.simulation_step
+                    .input_view(RevolutionParameterId::SimulationStep),
+            ),
+        );
+
+        extra_jump!(ret);
         section!(ret, ui_size, "Relaxation computation");
         if let SimulationState::Relaxing = app_state.get_simulation_state() {
             let button_abbort = Button::new(&mut self.abbort_button, Text::new("Abort"))
@@ -418,6 +511,12 @@ impl<S: AppState> RevolutionTab<S> {
             || self.nb_helix_per_half_section_input.has_keyboard_priority()
             || self.scaffold_len_target.has_keyboard_priority()
             || self.shift_per_turn_state_input.has_keyboard_priority()
+            || self.spring_stiffness.has_keyboard_priority()
+            || self.torsion_stiffness.has_keyboard_priority()
+            || self.fluid_friction.has_keyboard_priority()
+            || self.ball_mass.has_keyboard_priority()
+            || self.time_span.has_keyboard_priority()
+            || self.simulation_step.has_keyboard_priority()
     }
 
     fn get_revolution_system(&self, app_state: &S) -> Option<RevolutionSurfaceSystemDescriptor> {
@@ -446,19 +545,60 @@ impl<S: AppState> RevolutionTab<S> {
             junction_smoothening: 0.,
         };
 
+        let simulation_parameters = self.get_simulation_parameters()?;
         let system = RevolutionSurfaceSystemDescriptor {
             target: surface_descriptor,
-            nb_section_per_segment: self
-                .nb_section_per_segment_input
-                .get_value()
-                .and_then(InstanciatedParameter::get_uint)?,
-            dna_parameters: app_state.get_dna_parameters(),
             scaffold_len_target: self
                 .scaffold_len_target
                 .get_value()
                 .and_then(InstanciatedParameter::get_uint)?,
+            dna_parameters: app_state.get_dna_parameters(),
+            simulation_parameters,
         };
 
         Some(system)
+    }
+
+    fn get_simulation_parameters(&self) -> Option<RevolutionSimulationParameters> {
+        let nb_section_per_segment = self
+            .nb_section_per_segment_input
+            .get_value()
+            .and_then(InstanciatedParameter::get_uint)?;
+        let spring_stiffness = self
+            .spring_stiffness
+            .get_value()
+            .and_then(InstanciatedParameter::get_float)?;
+        let torsion_stiffness = self
+            .torsion_stiffness
+            .get_value()
+            .and_then(InstanciatedParameter::get_float)?;
+        let fluid_friction = self
+            .fluid_friction
+            .get_value()
+            .and_then(InstanciatedParameter::get_float)?;
+        let ball_mass = self
+            .ball_mass
+            .get_value()
+            .and_then(InstanciatedParameter::get_float)?;
+        let time_span = self
+            .time_span
+            .get_value()
+            .and_then(InstanciatedParameter::get_float)?;
+        let simulation_step = self
+            .simulation_step
+            .get_value()
+            .and_then(InstanciatedParameter::get_float)?;
+        let method = self.equadiff_method;
+
+        Some(RevolutionSimulationParameters {
+            nb_section_per_segment,
+            spring_stiffness,
+            torsion_stiffness,
+            fluid_friction,
+            ball_mass,
+            simulation_step,
+            time_span,
+            method,
+        })
     }
 }

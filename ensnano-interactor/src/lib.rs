@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 //! This modules defines types and operation used  by the graphical component of ENSnano to
-//! interract with the design.
+//! interact with the design.
 
 use std::path::PathBuf;
 
@@ -53,17 +53,11 @@ pub enum ObjectType {
 
 impl ObjectType {
     pub fn is_nucl(&self) -> bool {
-        match self {
-            ObjectType::Nucleotide(_) => true,
-            _ => false,
-        }
+        matches!(self, ObjectType::Nucleotide(_))
     }
 
     pub fn is_bound(&self) -> bool {
-        match self {
-            ObjectType::Bound(_, _) => true,
-            _ => false,
-        }
+        matches!(self, ObjectType::Bound(_, _))
     }
 
     pub fn same_type(&self, other: Self) -> bool {
@@ -80,10 +74,7 @@ pub enum Referential {
 
 impl Referential {
     pub fn is_world(&self) -> bool {
-        match self {
-            Referential::World => true,
-            _ => false,
-        }
+        matches!(self, Referential::World)
     }
 }
 
@@ -478,10 +469,10 @@ pub enum SimulationState {
 
 #[derive(Debug, Clone)]
 pub struct RevolutionSurfaceSystemDescriptor {
-    pub nb_section_per_segment: usize,
+    pub scaffold_len_target: usize,
     pub target: RevolutionSurfaceDescriptor,
     pub dna_parameters: Parameters,
-    pub scaffold_len_target: usize,
+    pub simulation_parameters: RevolutionSimulationParameters,
 }
 
 #[derive(Debug, Clone)]
@@ -511,8 +502,8 @@ pub struct RevolutionSurfaceDescriptor {
  */
 
 fn gcd(a: isize, b: isize) -> usize {
-    let mut a = a.abs() as usize;
-    let mut b = b.abs() as usize;
+    let mut a = a.unsigned_abs();
+    let mut b = b.unsigned_abs();
 
     if a < b {
         std::mem::swap(&mut a, &mut b);
@@ -523,7 +514,8 @@ fn gcd(a: isize, b: isize) -> usize {
         b = a % b;
         a = b_;
     }
-    return a;
+
+    a
 }
 
 impl RevolutionSurfaceDescriptor {
@@ -540,50 +532,27 @@ impl RevolutionSurfaceDescriptor {
 
 impl SimulationState {
     pub fn is_none(&self) -> bool {
-        if let Self::None = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::None)
     }
 
     pub fn is_rolling(&self) -> bool {
-        if let Self::Rolling = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::Rolling)
     }
 
     pub fn simulating_grid(&self) -> bool {
-        if let Self::RigidGrid = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::RigidGrid)
     }
 
     pub fn simulating_helices(&self) -> bool {
-        if let Self::RigidHelices = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::RigidHelices)
     }
 
     pub fn is_paused(&self) -> bool {
-        if let Self::Paused = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::Paused)
     }
 
     pub fn is_runing(&self) -> bool {
-        match self {
-            Self::Paused | Self::None => false,
-            _ => true,
-        }
+        !matches!(self, Self::Paused | Self::None)
     }
 }
 
@@ -730,7 +699,7 @@ pub struct BezierPlaneHomothethy {
 }
 
 #[derive(Debug, Clone, Copy)]
-/// One of the stardard scaffold sequence shipped with ENSnano
+/// One of the standard scaffold sequence shipped with ENSnano
 pub enum StandardSequence {
     P7259,
     P7560,
@@ -775,5 +744,42 @@ impl StandardSequence {
 impl Default for StandardSequence {
     fn default() -> Self {
         Self::P7259
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RevolutionSimulationParameters {
+    pub nb_section_per_segment: usize,
+    pub spring_stiffness: f64,
+    pub torsion_stiffness: f64,
+    pub fluid_friction: f64,
+    pub ball_mass: f64,
+    pub time_span: f64,
+    pub simulation_step: f64,
+    pub method: EquadiffSolvingMethod,
+}
+
+impl Default for RevolutionSimulationParameters {
+    fn default() -> Self {
+        consts::DEFAULT_REVOLUTION_SIMULATION_PARAMETERS
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EquadiffSolvingMethod {
+    Euler,
+    Ralston,
+}
+
+impl EquadiffSolvingMethod {
+    pub const ALL_METHODS: &'static [Self] = &[Self::Euler, Self::Ralston];
+}
+
+impl ToString for EquadiffSolvingMethod {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Euler => "Euler".to_string(),
+            Self::Ralston => "Ralston".to_string(),
+        }
     }
 }
