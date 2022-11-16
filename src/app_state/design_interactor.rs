@@ -747,12 +747,12 @@ mod tests {
             .unwrap();
 
         let strand = strands.get(&s_id_prime5).expect("No strand 5'");
-        let exptected_result = format!("[->] [x] [3']");
+        let exptected_result = "[->] [x] [3']".to_string();
         assert_good_junctions(strand, exptected_result);
         println!("OK for 5' end");
 
         let strand = strands.get(&s_id_prime3).expect("No strand 3'");
-        let exptected_result = format!("[3']");
+        let exptected_result = "[3']".to_string();
         assert_good_junctions(strand, exptected_result);
     }
 
@@ -806,7 +806,7 @@ mod tests {
             .strands
             .get(&0)
             .expect("No strand 0");
-        let exptected_result = format!("[->] [x] [->] [x] [3']");
+        let exptected_result = "[->] [x] [->] [x] [3']".to_string();
         assert_good_junctions(strand, exptected_result);
     }
 
@@ -872,7 +872,7 @@ mod tests {
             .strands
             .get(&0)
             .expect("No strand 0");
-        let exptected_result = format!("[->] [x] [->] [x] [->] [3']");
+        let exptected_result = "[->] [x] [->] [x] [->] [3']".to_string();
         assert_good_junctions(strand, exptected_result);
     }
 
@@ -1159,7 +1159,7 @@ mod tests {
     }
 
     fn test_sane_strand(strand: &Strand) {
-        let mut strand = Strand::clone(&strand);
+        let mut strand = Strand::clone(strand);
         let mut xover_ids = ensnano_utils::id_generator::IdGenerator::default();
         strand.read_junctions(&mut xover_ids, true);
         strand.read_junctions(&mut xover_ids, false);
@@ -1456,12 +1456,6 @@ mod tests {
         assert_eq!(app_state.0.design.design.strands.len(), 3);
     }
 
-    #[ignore]
-    #[test]
-    fn correct_simulation_state() {
-        assert!(false)
-    }
-
     #[test]
     fn pasting_candidate_position_are_accessible() {
         let mut app_state = pastable_design();
@@ -1479,7 +1473,12 @@ mod tests {
                 .map(PastePosition::Nucl),
             ))
             .unwrap();
-        assert!(app_state.0.design.controller.get_pasted_position().len() > 0);
+        assert!(!app_state
+            .0
+            .design
+            .controller
+            .get_pasted_position()
+            .is_empty());
     }
 
     #[test]
@@ -1720,7 +1719,7 @@ mod tests {
         let s_id = app_state
             .get_design_reader()
             .get_id_of_strand_containing_nucl(&first_nucl)
-            .expect(&format!("no strand containing {:?}", first_nucl));
+            .unwrap_or_else(|| panic!("no strand containing {:?}", first_nucl));
         let strand = app_state
             .0
             .design
@@ -1728,7 +1727,7 @@ mod tests {
             .current_design
             .strands
             .get(&s_id)
-            .expect(&format!("No strand {s_id}"));
+            .unwrap_or_else(|| panic!("No strand {s_id}"));
 
         assert_good_strand(strand, "[H1: 6 -> 10] [H1: 0 -> 5]");
     }
@@ -1748,11 +1747,11 @@ mod tests {
         let s_id_first = app_state
             .get_design_reader()
             .get_id_of_strand_containing_nucl(&first_nucl)
-            .expect(&format!("no strand containing {:?}", first_nucl));
+            .unwrap_or_else(|| panic!("no strand containing {:?}", first_nucl));
         let s_id_last = app_state
             .get_design_reader()
             .get_id_of_strand_containing_nucl(&last_nucl)
-            .expect(&format!("no strand containing {:?}", last_nucl));
+            .unwrap_or_else(|| panic!("no strand containing {:?}", last_nucl));
         app_state
             .apply_design_op(DesignOperation::Xover {
                 prime5_id: s_id_last,
@@ -1764,7 +1763,7 @@ mod tests {
         let s_id = app_state
             .get_design_reader()
             .get_id_of_strand_containing_nucl(&first_nucl)
-            .expect(&format!("no strand containing {:?}", first_nucl));
+            .unwrap_or_else(|| panic!("no strand containing {:?}", first_nucl));
         let strand = app_state
             .0
             .design
@@ -1772,7 +1771,7 @@ mod tests {
             .current_design
             .strands
             .get(&s_id)
-            .expect(&format!("No strand {s_id}"));
+            .unwrap_or_else(|| panic!("No strand {s_id}"));
 
         assert_good_strand(strand, "[H1: 6 -> 10] [H1: 0 -> 5]");
     }
@@ -1808,7 +1807,7 @@ mod tests {
         let s_id = app_state
             .get_design_reader()
             .get_id_of_strand_containing_nucl(&source_nucl)
-            .expect(&format!("no strand containing {:?}", source_nucl));
+            .unwrap_or_else(|| panic!("no strand containing {:?}", source_nucl));
         let strand = app_state
             .0
             .design
@@ -1816,8 +1815,8 @@ mod tests {
             .current_design
             .strands
             .get(&s_id)
-            .expect(&format!("No strand {s_id}"));
-        let mut strand = Strand::clone(&strand);
+            .unwrap_or_else(|| panic!("No strand {s_id}"));
+        let mut strand = Strand::clone(strand);
         strand.read_junctions(&mut xover_ids, true);
         strand.read_junctions(&mut xover_ids, false);
     }
@@ -1851,7 +1850,7 @@ mod tests {
         let s_id = app_state
             .get_design_reader()
             .get_id_of_strand_containing_nucl(&source_nucl)
-            .expect(&format!("no strand containing {:?}", source_nucl));
+            .unwrap_or_else(|| panic!("no strand containing {:?}", source_nucl));
         let strand = app_state
             .0
             .design
@@ -1859,7 +1858,7 @@ mod tests {
             .current_design
             .strands
             .get(&s_id)
-            .expect(&format!("No strand {s_id}"));
+            .unwrap_or_else(|| panic!("No strand {s_id}"));
 
         assert_good_strand(strand, "[H1: 0 -> 10] [@20] [H2: 0 <- 10]");
     }

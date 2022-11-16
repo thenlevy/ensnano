@@ -398,7 +398,7 @@ impl Controller {
         match operation {
             CopyOperation::CopyStrands(strand_ids) => self.apply_no_op(
                 |c, _d| c.set_templates(&up_to_date_design, strand_ids),
-                &up_to_date_design.design,
+                up_to_date_design.design,
             ),
             CopyOperation::CopyXovers(xovers) => {
                 self.apply_no_op(|c, _d| c.copy_xovers(xovers), up_to_date_design.design)
@@ -430,7 +430,7 @@ impl Controller {
                     };
                     Ok(())
                 },
-                &up_to_date_design.design,
+                up_to_date_design.design,
             ),
             CopyOperation::Duplicate => {
                 self.apply(|c, d| c.apply_duplication(d), up_to_date_design.design)
@@ -525,7 +525,7 @@ impl Controller {
                 let interface = RevolutionSystemThread::start_new(system_desc, reader)?;
                 ret.state = ControllerState::Relaxing {
                     interface,
-                    initial_design: AddressPointer::new(design.clone()),
+                    _initial_design: AddressPointer::new(design.clone()),
                 };
             }
             SimulationOperation::RevolutionRelaxation { system, reader } => {
@@ -536,7 +536,7 @@ impl Controller {
                 let interface = RevolutionSystemThread::start_new(system, reader)?;
                 ret.state = ControllerState::Relaxing {
                     interface,
-                    initial_design: AddressPointer::new(design.clone()),
+                    _initial_design: AddressPointer::new(design.clone()),
                 };
             }
             SimulationOperation::StartHelices {
@@ -841,7 +841,7 @@ impl Controller {
                 let g_id = ensnano_design::grid::FreeGridId(*g_id);
                 let grid = grids_mut
                     .get_mut(&g_id)
-                    .ok_or(ErrOperation::GridDoesNotExist(g_id.to_grid_id()))?;
+                    .ok_or_else(|| ErrOperation::GridDoesNotExist(g_id.to_grid_id()))?;
                 grid.invisible = !grid.invisible;
                 drop(grids_mut);
             }
@@ -916,8 +916,8 @@ impl Controller {
                     initial_design,
                 } = &self.state
                 {
-                    let position = position.clone();
-                    let orientation = orientation.clone();
+                    let position = *position;
+                    let orientation = *orientation;
                     design = initial_design.clone_inner();
                     let hyperboloid = request.to_grid();
                     let grid_descriptor =
@@ -950,11 +950,7 @@ impl Controller {
     }
 
     pub(super) fn is_building_hyperboloid(&self) -> bool {
-        if let ControllerState::MakingHyperboloid { .. } = &self.state {
-            true
-        } else {
-            false
-        }
+        matches!(&self.state, ControllerState::MakingHyperboloid { .. })
     }
 
     pub fn can_iterate_duplication(&self) -> bool {
@@ -962,10 +958,11 @@ impl Controller {
             true
         } else if let ControllerState::WithPendingXoverDuplication { .. } = self.state {
             true
-        } else if let ControllerState::WithPendingHelicesDuplication { .. } = self.state {
-            true
         } else {
-            false
+            matches!(
+                self.state,
+                ControllerState::WithPendingHelicesDuplication { .. }
+            )
         }
     }
 
@@ -1114,6 +1111,7 @@ impl Controller {
         }
     }
 
+    #[allow(clippy::needless_return)] // I just like to make it explicit
     fn update_state_not_design(&mut self, design: &Design) {
         if let ControllerState::ApplyingOperation { .. } = &self.state {
             return;
@@ -1414,7 +1412,7 @@ impl Controller {
                 let norm = vertex
                     .position_out
                     .map(|p| (vertex.position - p).mag())
-                    .unwrap_or(request.new_vector.mag());
+                    .unwrap_or_else(|| request.new_vector.mag());
                 let out_vec = request.new_vector.normalized() * -norm;
                 log::info!("norm {:?}", norm);
                 log::info!("new vec {:?}", request.new_vector);
@@ -1429,7 +1427,7 @@ impl Controller {
                 let norm = vertex
                     .position_in
                     .map(|p| (vertex.position - p).mag())
-                    .unwrap_or(request.new_vector.mag());
+                    .unwrap_or_else(|| request.new_vector.mag());
                 let in_vec = request.new_vector.normalized() * -norm;
                 vertex.position_in = Some(vertex.position + in_vec);
             }
@@ -1562,11 +1560,7 @@ impl Controller {
     }
 
     pub(super) fn is_changing_color(&self) -> bool {
-        if let ControllerState::ChangingColor = self.state {
-            true
-        } else {
-            false
-        }
+        matches!(self.state, ControllerState::ChangingColor)
     }
 
     pub(super) fn get_strand_builders(&self) -> &[StrandBuilder] {
@@ -1726,7 +1720,7 @@ impl Controller {
         let mut new_helices = design.helices.make_mut();
         for ((h_id, control), translation) in control_points.iter().zip(translations.iter()) {
             let translation = translation.ok_or(ErrOperation::BadSelection)?;
-            if let Some(helix) = new_helices.get_mut(&h_id) {
+            if let Some(helix) = new_helices.get_mut(h_id) {
                 helix.translate_bezier_point(*control, translation)?;
             }
         }
@@ -2175,7 +2169,7 @@ impl Controller {
         let strand_id = desc.identifier.strand;
         let filter =
             |d: &NeighbourDescriptor| !(d.identifier.is_same_domain_than(&desc.identifier));
-        let neighbour_desc = left.filter(filter).or(right.filter(filter));
+        let neighbour_desc = left.filter(filter).or_else(|| right.filter(filter));
         // stick to the neighbour if it is its direct neighbour. This is because we want don't want
         // to create a gap between neighbouring domains
         let stick = neighbour_desc
@@ -2319,7 +2313,7 @@ impl Controller {
             } else {
                 for builder in builders.iter_mut() {
                     let to = builder.get_moving_end_position() + delta;
-                    builder.move_to(to, &mut design, &ignored_domains)
+                    builder.move_to(to, &mut design, ignored_domains)
                 }
             }
             *initializing = false;
@@ -2335,7 +2329,7 @@ impl Controller {
         xovers: &[(Nucl, Nucl)],
     ) -> Result<Design, ErrOperation> {
         for (n1, _) in xovers.iter() {
-            let _ = Self::split_strand(&mut design.strands, &n1, None, &mut self.color_idx)?;
+            let _ = Self::split_strand(&mut design.strands, n1, None, &mut self.color_idx)?;
         }
         Ok(design)
     }
@@ -2643,7 +2637,7 @@ impl Controller {
                 .ok_or(ErrOperation::GridDoesNotExist(end.grid))?;
             return self.add_bezier_point(design, obj, start.light(), tengent, false);
         }
-        let helix = Helix::new_bezier_two_points(&grid_manager, start, end)?;
+        let helix = Helix::new_bezier_two_points(grid_manager, start, end)?;
         let mut new_helices = design.helices.make_mut();
 
         let length = helix.nb_bezier_nucls();
@@ -2747,11 +2741,7 @@ impl Controller {
             let skip_domain;
             let skip_junction;
             let last_helix = domains.last().and_then(|d| d.half_helix());
-            let next_helix = strand3prime
-                .domains
-                .iter()
-                .next()
-                .and_then(|d| d.half_helix());
+            let next_helix = strand3prime.domains.first().and_then(|d| d.half_helix());
             if last_helix == next_helix
                 && domains
                     .last()
@@ -2764,7 +2754,7 @@ impl Controller {
                     .last_mut()
                     .as_mut()
                     .unwrap()
-                    .merge(strand3prime.domains.iter().next().unwrap());
+                    .merge(strand3prime.domains.first().unwrap());
                 junctions.pop();
             } else {
                 if let Some(j) = junctions.iter_mut().last() {
@@ -2793,14 +2783,12 @@ impl Controller {
                 .clone()
                 .zip(strand3prime.sequence.clone())
             {
-                let new_seq = seq5.into_owned() + &seq3.into_owned();
+                let new_seq = seq5.into_owned() + &seq3;
                 Some(Cow::Owned(new_seq))
             } else if let Some(ref seq5) = strand5prime.sequence {
                 Some(seq5.clone())
-            } else if let Some(ref seq3) = strand3prime.sequence {
-                Some(seq3.clone())
             } else {
-                None
+                strand3prime.sequence.as_ref().cloned()
             };
             let mut new_strand = Strand {
                 domains,
@@ -2834,15 +2822,14 @@ impl Controller {
             .get_mut(&strand_id)
             .ok_or(ErrOperation::StrandDoesNotExist(strand_id))?;
         if cyclic {
-            let first_last_domains = (strand.domains.iter().next(), strand.domains.iter().last());
+            let first_last_domains = (strand.domains.first(), strand.domains.iter().last());
             let (merge_insertions, replace) = if let (
                 Some(Domain::Insertion { nb_nucl: n1, .. }),
                 Some(Domain::Insertion { nb_nucl: n2, .. }),
             ) = first_last_domains
             {
                 (Some(n1 + n2), true)
-            } else if let Some(Domain::Insertion { nb_nucl: n1, .. }) = strand.domains.iter().next()
-            {
+            } else if let Some(Domain::Insertion { nb_nucl: n1, .. }) = strand.domains.first() {
                 if cfg!(test) {
                     println!("First domain is insertion");
                 }
@@ -2866,7 +2853,7 @@ impl Controller {
                 strand.junctions.remove(0);
             }
 
-            let first_last_domains = (strand.domains.iter().next(), strand.domains.iter().last());
+            let first_last_domains = (strand.domains.first(), strand.domains.iter().last());
             let skip_last = if let (_, Some(Domain::Insertion { .. })) = first_last_domains {
                 1
             } else {
@@ -2878,7 +2865,7 @@ impl Controller {
                 0
             };
             let last_first_intervals = (
-                strand.domains.iter().rev().skip(skip_last).next(),
+                strand.domains.iter().rev().nth(skip_last),
                 strand.domains.get(skip_first),
             );
             if let (Some(Domain::HelixDomain(i1)), Some(Domain::HelixDomain(i2))) =
@@ -3481,7 +3468,7 @@ enum ControllerState {
     },
     Relaxing {
         interface: Arc<Mutex<RevolutionSystemInterface>>,
-        initial_design: AddressPointer<Design>,
+        _initial_design: AddressPointer<Design>,
     },
     WithPausedSimulation {
         initial_design: AddressPointer<Design>,
