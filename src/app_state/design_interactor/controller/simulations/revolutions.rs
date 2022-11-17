@@ -680,6 +680,13 @@ impl SimulationUpdate for Vec<CurveDescriptor> {
         drop(helices);
 
         let strands = design.mut_strand_and_data().strands;
+        use std::time::{Duration, SystemTime, UNIX_EPOCH};
+        let mut now_s = (SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+            % 10_000) as usize
+            + 1_000_000;
 
         for (h_id, len) in strand_to_be_added {
             for forward in [true, false] {
@@ -690,8 +697,10 @@ impl SimulationUpdate for Vec<CurveDescriptor> {
                     forward,
                     sequence: None,
                 });
+                let color = ensnano_utils::new_color(&mut now_s);
+
                 strands.push(Strand {
-                    color: ensnano_interactor::consts::REGULAR_H_BOND_COLOR,
+                    color,
                     domains: vec![domain],
                     junctions: vec![DomainJunction::Prime3],
                     name: None,
