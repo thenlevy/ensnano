@@ -275,9 +275,9 @@ pub enum DesignOperation {
         path_id: BezierPathId,
         vertex: BezierVertex,
     },
+    /// Move the first vertex to `position` and apply the same translation to the other vertices
     MoveBezierVertex {
-        path_id: BezierPathId,
-        vertex_id: usize,
+        vertices: Vec<BezierVertexId>,
         position: Vec2,
     },
     SetBezierVertexPosition {

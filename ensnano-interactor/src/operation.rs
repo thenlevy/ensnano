@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use crate::BezierControlPoint;
 
 use super::{DesignOperation, DesignRotation, DesignTranslation, GroupId, IsometryTarget};
-use ensnano_design::{grid::*, BezierPathId, BezierPlaneId, Nucl};
+use ensnano_design::{grid::*, BezierPlaneId, BezierVertexId, Nucl};
 use ultraviolet::{Bivec3, Rotor3, Vec2, Vec3};
 
 pub enum ParameterField {
@@ -367,9 +367,7 @@ impl Operation for BezierControlPointTranslation {
 
 #[derive(Debug, Clone)]
 pub struct TranslateBezierPathVertex {
-    pub design_id: usize,
-    pub path_id: BezierPathId,
-    pub vertex_id: usize,
+    pub vertices: Vec<BezierVertexId>,
     pub x: f32,
     pub y: f32,
 }
@@ -381,8 +379,7 @@ impl Operation for TranslateBezierPathVertex {
 
     fn effect(&self) -> DesignOperation {
         DesignOperation::MoveBezierVertex {
-            path_id: self.path_id,
-            vertex_id: self.vertex_id,
+            vertices: self.vertices.clone(),
             position: Vec2::new(self.x, self.y),
         }
     }
@@ -692,9 +689,9 @@ impl Operation for Xover {
 
     fn description(&self) -> String {
         if self.undo {
-            format!("Undo Cut")
+            "Undo Cut".to_string()
         } else {
-            format!("Do Cut")
+            "Do Cut".to_string()
         }
     }
 }

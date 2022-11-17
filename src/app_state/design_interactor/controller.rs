@@ -323,14 +323,9 @@ impl Controller {
                 |c, d| c.append_vertex_to_bezier_path(d, path_id, vertex),
                 design,
             ),
-            DesignOperation::MoveBezierVertex {
-                path_id,
-                vertex_id,
-                position,
-            } => self.apply(
-                |c, d| c.move_bezier_vertex(d, path_id, vertex_id, position),
-                design,
-            ),
+            DesignOperation::MoveBezierVertex { vertices, position } => {
+                self.apply(|c, d| c.move_bezier_vertices(d, vertices, position), design)
+            }
             DesignOperation::SetBezierVertexPosition {
                 vertex_id,
                 position,
@@ -1276,9 +1271,10 @@ impl Controller {
         self.state = ControllerState::ApplyingOperation {
             design: AddressPointer::new(design.clone()),
             operation: Some(Arc::new(TranslateBezierPathVertex {
-                design_id: 0,
-                path_id,
-                vertex_id: 0,
+                vertices: vec![BezierVertexId {
+                    path_id,
+                    vertex_id: 0,
+                }],
                 x: first_vertex.position.x,
                 y: first_vertex.position.y,
             })),
@@ -1305,9 +1301,7 @@ impl Controller {
         self.state = ControllerState::ApplyingOperation {
             design: AddressPointer::new(design.clone()),
             operation: Some(Arc::new(TranslateBezierPathVertex {
-                design_id: 0,
-                path_id,
-                vertex_id,
+                vertices: vec![BezierVertexId { path_id, vertex_id }],
                 x: vertex.position.x,
                 y: vertex.position.y,
             })),
@@ -1320,33 +1314,53 @@ impl Controller {
     }
 
     /// Move a bezier vertex to a given position and transition to a transitory state.
-    fn move_bezier_vertex(
+    fn move_bezier_vertices(
         &mut self,
         mut design: Design,
-        path_id: BezierPathId,
-        vertex_id: usize,
+        mut vertices: Vec<BezierVertexId>,
         position: Vec2,
     ) -> Result<Design, ErrOperation> {
-        self.update_state_and_design(&mut design);
+        if let Some(BezierVertexId { path_id, vertex_id }) = vertices.first().cloned() {
+            self.update_state_and_design(&mut design);
+            vertices.sort();
+            vertices.dedup();
 
-        let mut new_paths = design.bezier_paths.make_mut();
-        let path = new_paths
-            .get_mut(&path_id)
-            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
-        let vertex = path
-            .get_vertex_mut(vertex_id)
-            .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
-        let old_tengent_in = vertex.position_in.map(|p| p - vertex.position);
-        let old_tengent_out = vertex.position_out.map(|p| p - vertex.position);
-        vertex.position = position;
-        vertex.position_out = old_tengent_out.map(|t| vertex.position + t);
-        vertex.position_in = old_tengent_in.map(|t| vertex.position + t);
-        drop(new_paths);
-        self.next_selection = Some(vec![Selection::BezierVertex(BezierVertexId {
-            path_id,
-            vertex_id,
-        })]);
-        Ok(design)
+            let path = design
+                .bezier_paths
+                .get(&path_id)
+                .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+            let vertex = path
+                .vertices()
+                .get(vertex_id)
+                .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
+
+            let translation = position - vertex.position;
+
+            let mut new_paths = design.bezier_paths.make_mut();
+            let mut next_selection = Vec::new();
+            for BezierVertexId { path_id, vertex_id } in vertices.into_iter() {
+                let path = new_paths
+                    .get_mut(&path_id)
+                    .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+                let vertex = path
+                    .get_vertex_mut(vertex_id)
+                    .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
+                let old_tengent_in = vertex.position_in.map(|p| p - vertex.position);
+                let old_tengent_out = vertex.position_out.map(|p| p - vertex.position);
+                vertex.position += translation;
+                vertex.position_out = old_tengent_out.map(|t| vertex.position + t);
+                vertex.position_in = old_tengent_in.map(|t| vertex.position + t);
+                next_selection.push(Selection::BezierVertex(BezierVertexId {
+                    path_id,
+                    vertex_id,
+                }));
+            }
+            drop(new_paths);
+            self.next_selection = Some(next_selection);
+            Ok(design)
+        } else {
+            Err(ErrOperation::NotImplemented)
+        }
     }
 
     /// Set the position of a bezier vertex as a single revertible operation.
@@ -2188,7 +2202,7 @@ impl Controller {
             .other_end()
             .filter(|d| !ignored_domains.contains(d))
             .is_some()
-            .then(|| desc.fixed_end);
+            .then_some(desc.fixed_end);
         match design.strands.get(&strand_id).map(|s| s.length()) {
             Some(n) if n > 1 => Some(StrandBuilder::init_existing(
                 desc.identifier,
@@ -2854,11 +2868,13 @@ impl Controller {
             }
 
             let first_last_domains = (strand.domains.first(), strand.domains.iter().last());
+            #[allow(clippy::bool_to_int_with_if)]
             let skip_last = if let (_, Some(Domain::Insertion { .. })) = first_last_domains {
                 1
             } else {
                 0
             };
+            #[allow(clippy::bool_to_int_with_if)]
             let skip_first = if let (Some(Domain::Insertion { .. }), _) = first_last_domains {
                 1
             } else {
