@@ -16,8 +16,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use crate::AppState;
+use ensnano_interactor::Selection;
 use super::*;
-use ensnano_design::BezierEndCoordinates;
+use ensnano_design::{BezierVertexId, BezierEndCoordinates};
 
 impl<R: DesignReader> Design3D<R> {
     pub fn get_bezier_elements(&self, h_id: usize) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
@@ -123,22 +125,26 @@ impl<R: DesignReader> Design3D<R> {
             .map(|v| v.position)
     }
 
-    pub fn get_bezier_paths_elements(&self) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
+    pub fn get_bezier_paths_elements<S: AppState>(&self, app_state: &S) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
         let mut spheres = Vec::new();
         let mut tubes = Vec::new();
+        let selection = app_state.get_selection();
         if let Some(paths) = self.design.get_bezier_paths() {
             for (path_id, path) in paths.iter() {
                 for (vertex_id, coordinates) in path.bezier_controls().iter().enumerate() {
                     add_raw_instances_representing_bezier_vertex(
                         BezierVertex {
                             coordinates: coordinates.clone(),
-                            path_id: *path_id,
-                            vertex_id,
+                            id: BezierVertexId {
+                                path_id: *path_id,
+                                vertex_id,
+                            },
                         },
                         RawDnaInstances {
                             tubes: &mut tubes,
                             spheres: &mut spheres,
                         },
+                        selection,
                     )
                 }
                 for point in path.get_curve_points().iter() {
@@ -258,8 +264,7 @@ fn make_bezier_squelton(source: Vec3, dest: Vec3) -> RawDnaInstance {
 
 struct BezierVertex {
     coordinates: BezierEndCoordinates,
-    path_id: BezierPathId,
-    vertex_id: usize,
+    id: BezierVertexId,
 }
 
 struct RawDnaInstances<'a> {
@@ -270,14 +275,21 @@ struct RawDnaInstances<'a> {
 fn add_raw_instances_representing_bezier_vertex(
     vertex: BezierVertex,
     mut instances: RawDnaInstances<'_>,
+    selection: &[Selection],
 ) {
     let tubes = &mut instances.tubes;
     let spheres = &mut instances.spheres;
+    let color = if selection.iter().any(|s| *s == Selection::BezierVertex(vertex.id)) {
+        [0., 0., 1., 1.].into()
+
+    } else {
+        [1., 0., 0., 1.].into()
+    };
     spheres.push(
         SphereInstance {
             position: vertex.coordinates.position,
-            color: [1., 0., 0., 1.].into(),
-            id: crate::element_selector::bezier_vertex_id(vertex.path_id, vertex.vertex_id),
+            color,
+            id: crate::element_selector::bezier_vertex_id(vertex.id.path_id, vertex.id.vertex_id),
             radius: 10.0,
         }
         .to_raw_instance(),
@@ -286,7 +298,7 @@ fn add_raw_instances_representing_bezier_vertex(
         SphereInstance {
             position: vertex.coordinates.position + vertex.coordinates.vector_out,
             color: Instance::color_from_u32(BEZIER_CONTROL1_COLOR),
-            id: crate::element_selector::bezier_tengent_id(vertex.path_id, vertex.vertex_id, false),
+            id: crate::element_selector::bezier_tengent_id(vertex.id.path_id, vertex.id.vertex_id, false),
             radius: 5.0,
         }
         .to_raw_instance(),
@@ -295,7 +307,7 @@ fn add_raw_instances_representing_bezier_vertex(
         SphereInstance {
             position: vertex.coordinates.position - vertex.coordinates.vector_in,
             color: Instance::color_from_u32(BEZIER_CONTROL1_COLOR),
-            id: crate::element_selector::bezier_tengent_id(vertex.path_id, vertex.vertex_id, true),
+            id: crate::element_selector::bezier_tengent_id(vertex.id.path_id, vertex.id.vertex_id, true),
             radius: 5.0,
         }
         .to_raw_instance(),

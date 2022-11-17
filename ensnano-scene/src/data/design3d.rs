@@ -474,23 +474,22 @@ impl<R: DesignReader> Design3D<R> {
         filter: &dyn Fn(&Nucl) -> bool,
     ) -> Option<RawDnaInstance> {
         let kind = self.get_object_type(id)?;
-        let raw_instance = match kind {
+        
+        match kind {
             ObjectType::Bound(id1, id2) => {
                 let pos1 =
                     self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id1))?;
                 let pos2 =
                     self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id2))?;
-                let n1 = self.design.get_nucl_with_id(id1).filter(filter);
-                if n1.is_none() {
-                    return None;
-                }
+
+                self.design.get_nucl_with_id(id1).filter(filter)?;
+
                 let color = self.get_color(id).unwrap_or(0);
                 let cone = create_prime3_cone(pos1, pos2, color);
                 Some(cone)
             }
             ObjectType::Nucleotide(_) => None,
-        };
-        raw_instance
+        }
     }
 
     /// Convert return an instance representing the object with identifier `id`
@@ -657,10 +656,10 @@ impl<R: DesignReader> Design3D<R> {
                     .get_position_of_nucl_on_helix(nucl.left(), referential, on_axis)?;
             Some((nucl_1 + nucl_2) / 2.)
         } else {
-            let nucl_coord = self
+            
+            self
                 .design
-                .get_position_of_nucl_on_helix(nucl, referential, on_axis);
-            nucl_coord
+                .get_position_of_nucl_on_helix(nucl, referential, on_axis)
         }
     }
 
@@ -1043,13 +1042,13 @@ impl<R: DesignReader> Design3D<R> {
     pub fn get_helices_grid_coord(&self, g_id: GridId) -> Vec<(isize, isize)> {
         self.design
             .get_used_coordinates_on_grid(g_id)
-            .unwrap_or(Vec::new())
+            .unwrap_or_default()
     }
 
     pub fn get_helices_grid_key_coord(&self, g_id: GridId) -> Vec<((isize, isize), usize)> {
         self.design
             .get_helices_grid_key_coord(g_id)
-            .unwrap_or(Vec::new())
+            .unwrap_or_default()
     }
 
     pub fn get_helix_grid(&self, position: GridPosition) -> Option<u32> {
@@ -1135,6 +1134,7 @@ impl<R: DesignReader> Design3D<R> {
         prime5_1.and(prime5_2).is_some()
     }
 
+    #[allow(dead_code)]
     pub fn get_all_prime3_cone(&self) -> Vec<RawDnaInstance> {
         if !self.thick_helices {
             return vec![];
