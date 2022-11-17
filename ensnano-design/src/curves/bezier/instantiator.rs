@@ -167,10 +167,14 @@ pub(crate) trait PieceWiseBezierInstantiator<T: BezierEndCoordinateUnit> {
         } else if self.nb_vertices() == 2 {
             let pos_first = self.position(0)?;
             let pos_last = self.position(1)?;
-            let vec = (pos_last - pos_first) / 3.;
+            let default_vec = (pos_last - pos_first) / 3.;
+            let vec_in_first = self.vector_in(0).unwrap_or(default_vec);
+            let vec_out_first = self.vector_out(0).unwrap_or(default_vec);
+            let vec_in_last = self.vector_in(1).unwrap_or(default_vec);
+            let vec_out_last = self.vector_out(1).unwrap_or(default_vec);
             Some(vec![
-                T::instanciate_bezier_end(pos_first, vec, vec),
-                T::instanciate_bezier_end(pos_last, vec, vec),
+                T::instanciate_bezier_end(pos_first, vec_in_first, vec_out_first),
+                T::instanciate_bezier_end(pos_last, vec_in_last, vec_out_last),
             ])
         } else if self.nb_vertices() == 1 {
             let pos_first = self.position(0)?;
