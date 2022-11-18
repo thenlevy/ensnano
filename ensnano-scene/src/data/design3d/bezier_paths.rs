@@ -16,10 +16,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::AppState;
-use ensnano_interactor::Selection;
 use super::*;
-use ensnano_design::{BezierVertexId, BezierEndCoordinates};
+use crate::AppState;
+use ensnano_design::{BezierEndCoordinates, BezierVertexId};
+use ensnano_interactor::Selection;
 
 impl<R: DesignReader> Design3D<R> {
     pub fn get_bezier_elements(&self, h_id: usize) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
@@ -125,7 +125,10 @@ impl<R: DesignReader> Design3D<R> {
             .map(|v| v.position)
     }
 
-    pub fn get_bezier_paths_elements<S: AppState>(&self, app_state: &S) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
+    pub fn get_bezier_paths_elements<S: AppState>(
+        &self,
+        app_state: &S,
+    ) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
         let mut spheres = Vec::new();
         let mut tubes = Vec::new();
         let selection = app_state.get_selection();
@@ -279,9 +282,11 @@ fn add_raw_instances_representing_bezier_vertex(
 ) {
     let tubes = &mut instances.tubes;
     let spheres = &mut instances.spheres;
-    let color = if selection.iter().any(|s| *s == Selection::BezierVertex(vertex.id)) {
+    let color = if selection
+        .iter()
+        .any(|s| *s == Selection::BezierVertex(vertex.id))
+    {
         [0., 0., 1., 1.].into()
-
     } else {
         [1., 0., 0., 1.].into()
     };
@@ -298,7 +303,11 @@ fn add_raw_instances_representing_bezier_vertex(
         SphereInstance {
             position: vertex.coordinates.position + vertex.coordinates.vector_out,
             color: Instance::color_from_u32(BEZIER_CONTROL1_COLOR),
-            id: crate::element_selector::bezier_tengent_id(vertex.id.path_id, vertex.id.vertex_id, false),
+            id: crate::element_selector::bezier_tengent_id(
+                vertex.id.path_id,
+                vertex.id.vertex_id,
+                false,
+            ),
             radius: 5.0,
         }
         .to_raw_instance(),
@@ -307,7 +316,11 @@ fn add_raw_instances_representing_bezier_vertex(
         SphereInstance {
             position: vertex.coordinates.position - vertex.coordinates.vector_in,
             color: Instance::color_from_u32(BEZIER_CONTROL1_COLOR),
-            id: crate::element_selector::bezier_tengent_id(vertex.id.path_id, vertex.id.vertex_id, true),
+            id: crate::element_selector::bezier_tengent_id(
+                vertex.id.path_id,
+                vertex.id.vertex_id,
+                true,
+            ),
             radius: 5.0,
         }
         .to_raw_instance(),

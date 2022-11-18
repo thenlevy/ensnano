@@ -474,7 +474,7 @@ impl<R: DesignReader> Design3D<R> {
         filter: &dyn Fn(&Nucl) -> bool,
     ) -> Option<RawDnaInstance> {
         let kind = self.get_object_type(id)?;
-        
+
         match kind {
             ObjectType::Bound(id1, id2) => {
                 let pos1 =
@@ -656,9 +656,7 @@ impl<R: DesignReader> Design3D<R> {
                     .get_position_of_nucl_on_helix(nucl.left(), referential, on_axis)?;
             Some((nucl_1 + nucl_2) / 2.)
         } else {
-            
-            self
-                .design
+            self.design
                 .get_position_of_nucl_on_helix(nucl, referential, on_axis)
         }
     }

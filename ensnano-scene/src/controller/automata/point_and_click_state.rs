@@ -287,8 +287,10 @@ fn tilt_camera<S: AppState>(click: ClickInfo) -> Option<Box<dyn ControllerState<
     Some(Box::new(dragging_state::tilting_camera(click)))
 }
 
-fn back_to_normal_state<S: AppState>(_: ClickInfo) -> Option<Box<dyn ControllerState<S>>> {
-    None
+fn back_to_normal_state<S: AppState>(click: ClickInfo) -> Option<Box<dyn ControllerState<S>>> {
+    Some(Box::new(NormalState {
+        mouse_position: click.current_position,
+    }))
 }
 
 fn leaving_selection<'a, S: AppState>(
@@ -354,7 +356,7 @@ impl<S: AppState> PointAndClicking<S> {
             away_state: Default::default(),
             away_state_maker: None,
             clicked_date,
-            description: "Waiting for double click",
+            description: "Reversing surface direction",
             pressed_button: MouseButton::Middle,
             release_consequences: Consequence::ReverseSurfaceDirection,
             release_transition: Default::default(),
