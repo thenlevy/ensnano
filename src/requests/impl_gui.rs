@@ -494,6 +494,14 @@ impl GuiRequests for Requests {
     fn load_svg(&mut self) {
         self.keep_proceed.push_back(Action::ImportSvg)
     }
+
+    fn set_bezier_revolution_id(&mut self, id: Option<usize>) {
+        self.new_bezier_revolution_id = Some(id);
+    }
+
+    fn set_bezier_revolution_radius(&mut self, radius: Option<f64>) {
+        self.new_bezier_revolution_radius = Some(radius);
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

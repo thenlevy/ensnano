@@ -167,6 +167,14 @@ impl App3D for AppState {
             Some(Selection::Grid(_, GridId::BezierPathGrid(_)))
         )
     }
+
+    fn get_current_bezier_revolution(&self) -> &RevolutionOfBezierPath {
+        &self.0.current_revolution
+    }
+
+    fn revolution_bezier_updated(&self, other: &Self) -> bool {
+        self.0.current_revolution != other.0.current_revolution
+    }
 }
 
 #[cfg(test)]

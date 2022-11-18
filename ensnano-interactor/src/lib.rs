@@ -783,3 +783,21 @@ impl ToString for EquadiffSolvingMethod {
         }
     }
 }
+
+/// The bezier path Id and revolution radius of a revolution surface being created from a bezier
+/// path.
+/// This is for example used to draw the dotted line on the bezier sheets.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RevolutionOfBezierPath {
+    pub path: Option<BezierPathId>,
+    pub radius: Option<f64>,
+}
+
+impl Default for RevolutionOfBezierPath {
+    fn default() -> Self {
+        Self {
+            path: None,
+            radius: Some(0.),
+        }
+    }
+}

@@ -98,6 +98,7 @@ pub struct CurveDescriptorBuilder<S: AppState> {
     pub nb_parameters: usize,
     pub curve_name: &'static str,
     pub parameters: &'static [CurveDescriptorParameter],
+    pub bezier_path_id: &'static (dyn Fn(&[InstanciatedParameter]) -> Option<usize> + Send + Sync),
     pub build:
         &'static (dyn Fn(&[InstanciatedParameter], &S) -> Option<CurveDescriptor2D> + Send + Sync),
 }
@@ -250,6 +251,10 @@ impl<S: AppState> CurveDescriptorWidget<S> {
     fn build_curve(&self, app_state: &S) -> Option<CurveDescriptor2D> {
         (self.builder.build)(&self.instanciated_parameters(), app_state)
     }
+
+    fn get_bezier_path_id(&self) -> Option<usize> {
+        (self.builder.bezier_path_id)(&self.instanciated_parameters())
+    }
 }
 
 pub(crate) struct RevolutionTab<S: AppState> {
@@ -325,6 +330,12 @@ impl<S: AppState> RevolutionTab<S> {
 
     pub fn set_method(&mut self, method: EquadiffSolvingMethod) {
         self.equadiff_method = method;
+    }
+
+    pub fn get_current_bezier_path_id(&self) -> Option<usize> {
+        self.curve_descriptor_widget
+            .as_ref()
+            .and_then(|w| w.get_bezier_path_id())
     }
 
     pub fn update_builder_parameter(&mut self, param_id: RevolutionParameterId, text: String) {

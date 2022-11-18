@@ -24,17 +24,20 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //! Each component of ENSnano has specific needs and express them via its own `AppState` trait.
 
-use ensnano_design::group_attributes::GroupPivot;
+use ensnano_design::{group_attributes::GroupPivot, BezierPathId};
 use ensnano_exports::{ExportResult, ExportType};
 use ensnano_gui::UiSize;
-use ensnano_interactor::graphics::{Background3D, HBoundDisplay, RenderingMode};
+use ensnano_interactor::{
+    graphics::{Background3D, HBoundDisplay, RenderingMode},
+    RevolutionOfBezierPath,
+};
 use ensnano_interactor::{
     operation::Operation, ActionMode, CenterOfSelection, CheckXoversParameter, Selection,
     SelectionMode, WidgetBasis,
 };
 
-use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
+use std::{ops::Add, path::PathBuf};
 mod address_pointer;
 mod design_interactor;
 mod transitions;
@@ -456,6 +459,18 @@ impl AppState {
         self.with_updated_parameters(|p| p.thick_helices = thick)
     }
 
+    pub fn set_bezier_revolution_id(&self, id: Option<usize>) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.current_revolution.path = id.map(|id| BezierPathId(id as u32));
+        Self(AddressPointer::new(new_state))
+    }
+
+    pub fn set_bezier_revolution_radius(&self, radius: Option<f64>) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.current_revolution.radius = radius;
+        Self(AddressPointer::new(new_state))
+    }
+
     pub fn with_toggled_thick_helices(&self) -> Self {
         self.with_updated_parameters(|p| p.thick_helices ^= true)
     }
@@ -681,6 +696,7 @@ struct AppState_ {
     show_insertion_representents: bool,
     exporting: bool,
     path_to_current_design: Option<PathBuf>,
+    current_revolution: RevolutionOfBezierPath,
 }
 
 #[derive(Clone, Default)]

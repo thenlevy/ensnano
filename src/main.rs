@@ -1483,6 +1483,14 @@ impl MainState {
         self.modify_state(|s| s.with_thick_helices(thick), None)
     }
 
+    fn set_bezier_revolution_id(&mut self, id: Option<usize>) {
+        self.modify_state(|s| s.set_bezier_revolution_id(id), None)
+    }
+
+    fn set_bezier_revolution_radius(&mut self, radius: Option<f64>) {
+        self.modify_state(|s| s.set_bezier_revolution_radius(radius), None)
+    }
+
     fn toggle_thick_helices(&mut self) {
         self.modify_state(|s| s.with_toggled_thick_helices(), None)
     }

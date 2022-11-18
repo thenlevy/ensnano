@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 use crate::AppState;
 use ensnano_design::{BezierEndCoordinates, BezierVertexId};
-use ensnano_interactor::Selection;
+use ensnano_interactor::{RevolutionOfBezierPath, Selection};
 
 impl<R: DesignReader> Design3D<R> {
     pub fn get_bezier_elements(&self, h_id: usize) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
@@ -102,6 +102,7 @@ impl<R: DesignReader> Design3D<R> {
     ) -> (Vec<Sheet2D>, Vec<RawDnaInstance>) {
         let mut sheets = Vec::new();
         let mut spheres = Vec::new();
+        let current_revolution = app_state.get_current_bezier_revolution();
         for (plane_id, desc) in self.design.get_bezier_planes().iter() {
             let corners = self.design.get_corners_of_plane(*plane_id);
             let sheet = get_sheet_instance(SheetDescriptor {
@@ -109,7 +110,7 @@ impl<R: DesignReader> Design3D<R> {
                 plane_descritor: desc,
                 plane_id: *plane_id,
                 parameters: self.design.get_parameters(),
-                rotation_radius: None,
+                current_revolution,
             });
             spheres.extend_from_slice(corners_of_sheet(&sheet).as_slice());
             sheets.push(sheet);
@@ -197,7 +198,7 @@ struct SheetDescriptor<'a> {
     plane_id: BezierPlaneId,
     plane_descritor: &'a BezierPlaneDescriptor,
     parameters: Parameters,
-    rotation_radius: Option<f32>,
+    current_revolution: &'a RevolutionOfBezierPath,
 }
 
 fn get_sheet_instance(desc: SheetDescriptor<'_>) -> Sheet2D {
@@ -205,6 +206,11 @@ fn get_sheet_instance(desc: SheetDescriptor<'_>) -> Sheet2D {
     let grad_step = 48.0 * parameters.z_step;
     let delta_corners = grad_step / 5.;
     let corners = &desc.corners;
+    let rotation_radius = desc
+        .current_revolution
+        .radius
+        .map(|x| x as f32)
+        .filter(|_| desc.current_revolution.path.is_some());
     Sheet2D {
         plane_id: desc.plane_id,
         position: desc.plane_descritor.position,
@@ -216,7 +222,7 @@ fn get_sheet_instance(desc: SheetDescriptor<'_>) -> Sheet2D {
             * grad_step,
         max_y: ((3. * grad_step).max(corners[3].y + delta_corners) / grad_step).ceil() * grad_step,
         graduation_unit: 48.0 * parameters.z_step,
-        rotation_radius: desc.rotation_radius,
+        rotation_radius,
     }
 }
 

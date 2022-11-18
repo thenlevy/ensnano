@@ -365,4 +365,12 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     if let Some(()) = requests.toggle_thick_helices.take() {
         main_state.toggle_thick_helices();
     }
+
+    if let Some(id) = requests.new_bezier_revolution_id.take() {
+        main_state.set_bezier_revolution_id(id)
+    }
+
+    if let Some(radius) = requests.new_bezier_revolution_radius.take() {
+        main_state.set_bezier_revolution_radius(radius)
+    }
 }

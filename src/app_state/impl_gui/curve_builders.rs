@@ -38,6 +38,7 @@ pub(super) const ELLIPSE_BUILDER: CurveDescriptorBuilder<super::AppState> =
             },
         ],
         build: &build_ellipse,
+        bezier_path_id: &no_bezier_path_id,
     };
 
 fn build_ellipse(
@@ -85,6 +86,7 @@ pub(super) const TWO_SPHERES_BUILDER: CurveDescriptorBuilder<super::AppState> =
             },
         ],
         build: &build_two_spheres,
+        bezier_path_id: &no_bezier_path_id,
     };
 
 fn build_two_spheres(
@@ -130,6 +132,7 @@ pub(super) const BEZIER_CURVE_BUILDER: CurveDescriptorBuilder<super::AppState> =
             default_value: ensnano_gui::InstanciatedParameter::Uint(0),
         }],
         build: &build_bezier,
+        bezier_path_id: &get_bezier_path_id,
     };
 
 fn build_bezier(
@@ -146,4 +149,15 @@ fn build_bezier(
         .get_design_reader()
         .get_bezier_path_2d(BezierPathId(curve_id as u32))
         .map(CurveDescriptor2D::Bezier)
+}
+
+fn no_bezier_path_id(_: &[InstanciatedParameter]) -> Option<usize> {
+    None
+}
+
+fn get_bezier_path_id(parameters: &[InstanciatedParameter]) -> Option<usize> {
+    parameters
+        .get(0)
+        .cloned()
+        .and_then(InstanciatedParameter::get_uint)
 }

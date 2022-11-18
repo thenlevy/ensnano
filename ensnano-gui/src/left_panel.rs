@@ -861,13 +861,30 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::CurveBuilderPicked(builder) => {
                 self.revolution_tab.set_builder(builder);
+                let bezier_path_id = self.revolution_tab.get_current_bezier_path_id();
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_bezier_revolution_id(bezier_path_id);
             }
             Message::RevolutionEquadiffSolvingMethodPicked(method) => {
                 self.revolution_tab.set_method(method);
             }
             Message::RevolutionParameterUpdate { parameter_id, text } => {
+                if let RevolutionParameterId::RevolutionRadius = parameter_id {
+                    let radius = text.parse::<f64>().ok();
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .set_bezier_revolution_radius(radius);
+                }
                 self.revolution_tab
                     .update_builder_parameter(parameter_id, text);
+                let bezier_path_id = self.revolution_tab.get_current_bezier_path_id();
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_bezier_revolution_id(bezier_path_id);
             }
             Message::InitRevolutionRelaxation(desc) => {
                 self.requests

@@ -146,6 +146,7 @@ impl<R: DesignReader> Data<R> {
             || app_state.draw_options_were_updated(older_app_state)
             || app_state.insertion_bond_display_was_modified(older_app_state)
             || app_state.selection_was_updated(older_app_state)
+            || app_state.revolution_bezier_updated(older_app_state)
         {
             for d in self.designs.iter_mut() {
                 d.thick_helices = app_state.get_draw_options().thick_helices;

@@ -224,6 +224,8 @@ pub trait Requests: 'static + Send {
     fn start_revolution_relaxation(&mut self, desc: RevolutionSurfaceSystemDescriptor);
     fn finish_revolutiion_relaxation(&mut self);
     fn load_svg(&mut self);
+    fn set_bezier_revolution_radius(&mut self, radius: Option<f64>);
+    fn set_bezier_revolution_id(&mut self, id: Option<usize>);
 }
 
 #[derive(Clone, Debug, PartialEq)]

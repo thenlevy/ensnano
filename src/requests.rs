@@ -139,4 +139,6 @@ pub struct Requests {
     pub toggle_thick_helices: Option<()>,
     pub twist_simulation: Option<GridId>,
     pub horizon_targeted: Option<()>,
+    pub new_bezier_revolution_id: Option<Option<usize>>,
+    pub new_bezier_revolution_radius: Option<Option<f64>>,
 }
