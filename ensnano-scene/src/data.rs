@@ -1405,7 +1405,7 @@ impl<R: DesignReader> Data<R> {
         }
         self.update_free_xover(app_state.get_candidates());
         let (sheet_instances, corner_spheres) = if app_state.show_bezier_paths() {
-            self.designs[0].get_bezier_sheets()
+            self.designs[0].get_bezier_sheets(app_state)
         } else {
             (Default::default(), Default::default())
         };

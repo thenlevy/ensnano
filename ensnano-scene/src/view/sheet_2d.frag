@@ -3,11 +3,16 @@
 
 layout(location=0) in vec2 v_tex_pos;
 layout(location=1) in float graduation_unit;
+layout(location=2) in float rotation_radius;
 
 layout(location=0) out vec4 out_color;
 
 void main() {
     vec4 color;
+
+
+
+
 
     // #005fa4
     float vignette = clamp(0.7 * length(v_tex_pos), 0.0, 1.0);
@@ -35,4 +40,13 @@ void main() {
     darken = 1.2 - 0.2 * smoothstep(grid_width * 0.9, grid_width, big_bar_coeff);
     out_color /= darken;
     out_color.w = 0.8;
+
+    float x = v_tex_pos.x;
+    float y = v_tex_pos.y;
+
+    bool is_in_dotted = (mod(abs(y) / 2., 1.) < 0.7);
+    if (abs((x - rotation_radius)) < grid_width / 2. && is_in_dotted) {
+      out_color = vec4(0., 0., 1., 0.9);
+
+    }
 }

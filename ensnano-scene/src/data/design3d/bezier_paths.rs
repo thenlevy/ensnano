@@ -96,7 +96,10 @@ impl<R: DesignReader> Design3D<R> {
         }
     }
 
-    pub fn get_bezier_sheets(&self) -> (Vec<Sheet2D>, Vec<RawDnaInstance>) {
+    pub fn get_bezier_sheets<S: AppState>(
+        &self,
+        app_state: &S,
+    ) -> (Vec<Sheet2D>, Vec<RawDnaInstance>) {
         let mut sheets = Vec::new();
         let mut spheres = Vec::new();
         for (plane_id, desc) in self.design.get_bezier_planes().iter() {
@@ -106,6 +109,7 @@ impl<R: DesignReader> Design3D<R> {
                 plane_descritor: desc,
                 plane_id: *plane_id,
                 parameters: self.design.get_parameters(),
+                rotation_radius: None,
             });
             spheres.extend_from_slice(corners_of_sheet(&sheet).as_slice());
             sheets.push(sheet);
@@ -193,6 +197,7 @@ struct SheetDescriptor<'a> {
     plane_id: BezierPlaneId,
     plane_descritor: &'a BezierPlaneDescriptor,
     parameters: Parameters,
+    rotation_radius: Option<f32>,
 }
 
 fn get_sheet_instance(desc: SheetDescriptor<'_>) -> Sheet2D {
@@ -211,6 +216,7 @@ fn get_sheet_instance(desc: SheetDescriptor<'_>) -> Sheet2D {
             * grad_step,
         max_y: ((3. * grad_step).max(corners[3].y + delta_corners) / grad_step).ceil() * grad_step,
         graduation_unit: 48.0 * parameters.z_step,
+        rotation_radius: desc.rotation_radius,
     }
 }
 
