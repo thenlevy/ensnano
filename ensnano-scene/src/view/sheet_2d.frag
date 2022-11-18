@@ -7,12 +7,16 @@ layout(location=2) in float rotation_radius;
 
 layout(location=0) out vec4 out_color;
 
+float arith_mod(float x, float y) {
+    if (x >= 0) {
+        return mod(x, y);
+    } else {
+        return y + mod(x, y);
+    }
+}
+
 void main() {
     vec4 color;
-
-
-
-
 
     // #005fa4
     float vignette = clamp(0.7 * length(v_tex_pos), 0.0, 1.0);
@@ -27,15 +31,15 @@ void main() {
     float grid_width = grid_scale * 0.1;
 
     float small_bar_coeff = min(
-            abs(mod(v_tex_pos.x + grid_width / 2., grid_scale)),
-            abs(mod(v_tex_pos.y + grid_width / 2., grid_scale))
+            arith_mod(v_tex_pos.x + grid_width / 2., grid_scale),
+            arith_mod(v_tex_pos.y + grid_width / 2., grid_scale)
             );
     float darken = 1.2 - 0.2 * smoothstep(grid_width * 0.9, grid_width, small_bar_coeff);
     out_color /= darken;
 
     float big_bar_coeff = min(
-            abs(mod(v_tex_pos.x + grid_width / 2., 5.0 * grid_scale)),
-            abs(mod(v_tex_pos.y + grid_width / 2., 5.0 * grid_scale))
+            arith_mod(v_tex_pos.x + grid_width / 2., 5.0 * grid_scale),
+            arith_mod(v_tex_pos.y + grid_width / 2., 5.0 * grid_scale)
             );
     darken = 1.2 - 0.2 * smoothstep(grid_width * 0.9, grid_width, big_bar_coeff);
     out_color /= darken;
@@ -44,9 +48,10 @@ void main() {
     float x = v_tex_pos.x;
     float y = v_tex_pos.y;
 
-    bool is_in_dotted = (mod(abs(y) / 2., 1.) < 0.7);
-    if (abs((x - rotation_radius)) < grid_width / 2. && is_in_dotted) {
+    bool is_in_dotted = (mod(abs(y) / 6., 1.) < 0.7);
+    if (abs((x - rotation_radius)) < grid_width / 6. && is_in_dotted) {
       out_color = vec4(0., 0., 1., 0.9);
 
     }
 }
+
