@@ -226,6 +226,16 @@ impl<'a> BezierPathsMut<'a> {
             .unwrap_or(BezierPathId(0));
         self.new_map.insert(id, Arc::new(path));
     }
+
+    #[must_use]
+    pub fn remove_path(&mut self, path_id: &BezierPathId) -> Option<()> {
+        if self.new_map.contains_key(path_id) {
+            self.new_map.remove(path_id);
+            Some(())
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a> Drop for BezierPathsMut<'a> {
@@ -258,6 +268,16 @@ impl BezierPath {
 
     pub fn vertices_mut(&mut self) -> &mut [BezierVertex] {
         self.vertices.as_mut_slice()
+    }
+
+    #[must_use]
+    pub fn remove_vertex(&mut self, v_id: usize) -> Option<()> {
+        if self.vertices.len() > v_id {
+            self.vertices.remove(v_id);
+            Some(())
+        } else {
+            None
+        }
     }
 
     pub fn set_vector_out(&mut self, i: usize, vector_out: Vec3, planes: &BezierPlanes) {

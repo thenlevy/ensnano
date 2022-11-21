@@ -350,6 +350,9 @@ impl Controller {
             DesignOperation::RmFreeGrids { grid_ids } => {
                 self.apply(|c, d| c.delete_free_grids(d, grid_ids), design)
             }
+            DesignOperation::RmBezierVertices { vertices } => {
+                self.apply(|c, d| c.rm_bezier_vertices(d, vertices), design)
+            }
             DesignOperation::Add3DObject {
                 file_path,
                 design_path,
@@ -1310,6 +1313,42 @@ impl Controller {
             path_id,
             vertex_id,
         })]);
+        Ok(design)
+    }
+
+    fn rm_bezier_vertices(
+        &mut self,
+        mut design: Design,
+        mut vertices: Vec<BezierVertexId>,
+    ) -> Result<Design, ErrOperation> {
+        vertices.sort();
+        let mut paths_id: Vec<_> = vertices.iter().map(|v| v.path_id).collect();
+        paths_id.dedup();
+
+        let mut new_paths = design.bezier_paths.make_mut();
+        let mut iterator = vertices.into_iter().rev();
+
+        let mut vertex_id = iterator.next();
+        for p_id in paths_id.into_iter().rev() {
+            let path = new_paths
+                .get_mut(&p_id)
+                .ok_or(ErrOperation::PathDoesNotExist(p_id))?;
+            while let Some(BezierVertexId {
+                vertex_id: v_id, ..
+            }) = vertex_id.filter(|v_id| v_id.path_id == p_id)
+            {
+                path.remove_vertex(v_id)
+                    .ok_or(ErrOperation::VertexDoesNotExist(p_id, v_id))?;
+                vertex_id = iterator.next();
+            }
+            if path.vertices().is_empty() {
+                new_paths
+                    .remove_path(&p_id)
+                    .ok_or(ErrOperation::PathDoesNotExist(p_id))?;
+            }
+        }
+
+        drop(new_paths);
         Ok(design)
     }
 

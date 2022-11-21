@@ -1768,6 +1768,12 @@ impl<'a> MainStateInteface for MainStateView<'a> {
             self.main_state.update_selection(vec![], None);
             self.main_state
                 .apply_operation(DesignOperation::RmFreeGrids { grid_ids })
+        } else if let Some(vertices) =
+            ensnano_interactor::list_of_bezier_vertices(selection.as_ref().as_ref())
+        {
+            self.main_state.update_selection(vec![], None);
+            self.main_state
+                .apply_operation(DesignOperation::RmBezierVertices { vertices })
         }
     }
 

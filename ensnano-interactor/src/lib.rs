@@ -299,6 +299,9 @@ pub enum DesignOperation {
     RmFreeGrids {
         grid_ids: Vec<usize>,
     },
+    RmBezierVertices {
+        vertices: Vec<BezierVertexId>,
+    },
     Add3DObject {
         file_path: PathBuf,
         design_path: PathBuf,
