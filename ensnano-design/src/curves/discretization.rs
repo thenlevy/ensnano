@@ -27,6 +27,7 @@ impl Curve {
         );
         let nb_points = (len / len_segment) as usize;
         let small_step = 1. / (nb_step as f64 * nb_points as f64);
+        log::info!("small step = {small_step}");
 
         if let Some(last_t) = self.geometry.full_turn_at_t() {
             let synchronization_length =
@@ -192,7 +193,7 @@ impl Curve {
             //}
         }
         log::info!("Synchronization length by old method {synchronization_length}");
-        log::info!("t_nucl {:.4?}", t_nucl);
+        log::debug!("t_nucl {:.4?}", t_nucl);
 
         self.axis_backward = axis_backward;
         self.positions_backward = points_backward;

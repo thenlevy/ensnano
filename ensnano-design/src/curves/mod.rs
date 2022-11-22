@@ -381,8 +381,8 @@ impl Curve {
         } else if let Some(pos_full_turn) = self.nucl_pos_full_turn {
             let additional_angle = self
                 .axis_forward
-                //.get(pos_full_turn.round() as usize + 1)
-                .last()
+                .get(pos_full_turn.round() as usize + 1)
+                //.last()
                 .zip(self.axis_forward.first())
                 .map(|(f1, f2)| {
                     let y = f2[0].dot(f1[1]);

@@ -395,7 +395,7 @@ impl super::Curved for TranslatedPiecewiseBezier {
 
     fn t_max(&self) -> f64 {
         if self.original_curve.cyclic {
-            self.original_curve.t_max() * 2.
+            self.original_curve.t_max() + 2.
         } else {
             self.original_curve.t_max() + 1.
         }
