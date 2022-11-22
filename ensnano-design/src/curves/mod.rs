@@ -18,7 +18,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use ultraviolet::{DMat3, DVec3, Isometry2, Rotor3, Vec2, Vec3};
 const EPSILON: f64 = 1e-6;
-const DISCRETISATION_STEP: usize = 100;
+const DISCRETISATION_STEP: usize = 1_000;
 
 /// To compute curvilinear abcissa over long distances
 const DELTA_MAX: f64 = 256.0;
@@ -381,6 +381,7 @@ impl Curve {
         } else if let Some(pos_full_turn) = self.nucl_pos_full_turn {
             let additional_angle = self
                 .axis_forward
+                //.get(pos_full_turn.round() as usize + 1)
                 .last()
                 .zip(self.axis_forward.first())
                 .map(|(f1, f2)| {
