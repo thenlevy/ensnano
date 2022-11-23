@@ -18,14 +18,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use ultraviolet::{DMat3, DVec3, Isometry2, Rotor3, Vec2, Vec3};
 const EPSILON: f64 = 1e-6;
-const DISCRETISATION_STEP: usize = 1_000;
 
 /// To compute curvilinear abcissa over long distances
 const DELTA_MAX: f64 = 256.0;
 use crate::{
     grid::{Edge, GridPosition},
     utils::vec_to_dvec,
-    BezierPathData, BezierPathId, NAMED_DNA_PARAMETERS,
+    BezierPathData, BezierPathId,
 };
 
 use super::{Helix, Parameters};
@@ -61,6 +60,7 @@ pub use tube_spiral::TubeSpiralDescritor;
 pub use twist::{nb_turn_per_100_nt_to_omega, twist_to_omega, Twist};
 
 const EPSILON_DERIVATIVE: f64 = 1e-6;
+
 /// Types that implements this trait represents curves.
 pub trait Curved {
     /// A function that maps a `0.0 <= t <= Self::t_max` to a point in Space.
@@ -121,6 +121,8 @@ pub trait Curved {
         None
     }
 
+    /// Curved for which there exists a closed formula for the inverse curvilinear abscissa can override
+    /// this method.
     fn inverse_curvilinear_abscissa(&self, _x: f64) -> Option<f64> {
         None
     }
@@ -155,18 +157,26 @@ pub trait Curved {
         None
     }
 
+    /// This method can be overriden to express the fact that a specific frame should be used to
+    /// position nucleotides arround the first point of the curve.
     fn initial_frame(&self) -> Option<DMat3> {
         None
     }
 
+    /// This method can be overriden to express the fact that the curve is closed.
+    /// In that case, return `Some(t)` if the curve is closed with period `t`.
     fn full_turn_at_t(&self) -> Option<f64> {
         None
     }
 
+    /// This method can be overriden to express the fact that the curve is closed and should
+    /// contain a specific number of nucleotide between `self.t_min()` and `self.full_turn_at_t()`.
     fn nucl_pos_full_turn(&self) -> Option<isize> {
         None
     }
 
+    /// This method can be overriden to express the fact that the curve should contain a specific
+    /// number of nucleotides between `self.t_min()` and `self.t_max()`.
     fn objective_nb_nt(&self) -> Option<usize> {
         None
     }
@@ -208,7 +218,7 @@ pub trait Curved {
 
     /// This method can be overriden to specify the additional isometry associated to each segment
     /// of the helix.
-    fn additional_isometry(&self, segment_idx: usize) -> Option<Isometry2> {
+    fn additional_isometry(&self, _segment_idx: usize) -> Option<Isometry2> {
         None
     }
 }
@@ -286,11 +296,7 @@ impl Curve {
             abscissa_converter: None,
         };
         let len_segment = ret.geometry.z_step_ratio().unwrap_or(1.0) * parameters.z_step as f64;
-        ret.discretize(
-            len_segment,
-            DISCRETISATION_STEP,
-            parameters.inclination as f64,
-        );
+        ret.discretize(len_segment, parameters.inclination as f64);
         ret
     }
 
@@ -452,78 +458,6 @@ impl Curve {
         self.nucl_t0
     }
 
-    /// Return a value of t_min that would allow self to have nucl
-    pub fn left_extension_to_have_nucl(&self, nucl: isize, parameters: &Parameters) -> Option<f64> {
-        let nucl_min = -(self.nucl_t0 as isize);
-        if nucl < nucl_min {
-            if let CurveBounds::BiInfinite = self.geometry.bounds() {
-                let objective = (-nucl) as f64
-                    * parameters.z_step as f64
-                    * self.geometry.z_step_ratio().unwrap_or(1.);
-                if let Some(t_min) = self.geometry.inverse_curvilinear_abscissa(objective) {
-                    return Some(t_min);
-                }
-                let mut delta = 1.0;
-                while delta < DELTA_MAX {
-                    let new_tmin = self.geometry.t_min() - delta;
-                    if self.length_by_descretisation(
-                        new_tmin,
-                        0.0,
-                        nucl.abs() as usize * DISCRETISATION_STEP,
-                    ) > objective
-                    {
-                        return Some(new_tmin);
-                    }
-                    delta *= 2.0;
-                }
-                None
-            } else {
-                None
-            }
-        } else {
-            Some(self.geometry.t_min())
-        }
-    }
-
-    /// Return a value of t_max that would allow self to have nucl
-    pub fn right_extension_to_have_nucl(
-        &self,
-        nucl: isize,
-        parameters: &Parameters,
-    ) -> Option<f64> {
-        let nucl_max = (self.nb_points() - self.nucl_t0) as isize;
-        if nucl >= nucl_max - 1 {
-            match self.geometry.bounds() {
-                CurveBounds::BiInfinite | CurveBounds::PositiveInfinite => {
-                    let objective = nucl as f64
-                        * parameters.z_step as f64
-                        * self.geometry.z_step_ratio().unwrap_or(1.)
-                        + parameters.inclination as f64;
-                    if let Some(t_max) = self.geometry.inverse_curvilinear_abscissa(objective) {
-                        return Some(t_max);
-                    }
-                    let mut delta = 1.0;
-                    while delta < DELTA_MAX {
-                        let new_tmax = self.geometry.t_max() + delta;
-                        if self.length_by_descretisation(
-                            0.0,
-                            new_tmax,
-                            nucl as usize * DISCRETISATION_STEP,
-                        ) > objective
-                        {
-                            return Some(new_tmax);
-                        }
-                        delta *= 2.0;
-                    }
-                    None
-                }
-                CurveBounds::Finite => None,
-            }
-        } else {
-            Some(self.geometry.t_max())
-        }
-    }
-
     pub fn update_additional_segments(
         &self,
         segments: &mut Vec<crate::helices::AdditionalHelix2D>,
@@ -555,6 +489,9 @@ impl Curve {
         self.geometry.last_theta()
     }
 
+    /// If `true`, then this means that the position and orientation of the helix are encoded in
+    /// the `CurveDescriptor`, and that the `position` and `orientation` fields of the helix should
+    /// be ignored.
     pub fn has_its_own_encoded_frame(&self) -> bool {
         self.geometry.translation().is_some()
     }

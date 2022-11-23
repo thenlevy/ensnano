@@ -16,55 +16,38 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+//! Implementation of the curve discretization alogrithm.
+
 use super::*;
 
+/// The number of points used in the iterative version of the discretization algorithm.
+const DISCRETISATION_STEP: usize = 100_000;
+
 impl Curve {
-    pub(super) fn discretize(&mut self, mut len_segment: f64, nb_step: usize, inclination: f64) {
+    /// Pre-compute the frames arround which the nucleotides will be positioned.
+    ///
+    /// This is done by an iterative discretization algorithm that computes forward positions
+    /// (f_0,... f_n) (for the forward strand) and backwards positions (b_0,..., b_n) (for the backward strand), so that
+    /// * The curvinilear distance between f_{i} and f_{i + 1} is `nucl_rise`.
+    /// * The curvinilear distance between b_{i} and b_{i + 1} is `nucl_rise`.
+    /// * The curvilinear distance between f_{i} and b_{i} is `inclination`.
+    ///
+    /// Note that the actual value used for `nucl_rise` may be slightly different from the value
+    /// given in argument. This happen when the implementation of `Curved` for `self.geometry`
+    /// specifies that a certain number of nucleotides must fit on a specific portion of the curve
+    /// (i.e. at least one of the method `full_turn_at_t`, `nucl_pos_full_turn` or
+    /// `objective_nb_nt` has been overriden).
+    pub(super) fn discretize(&mut self, mut nucl_rise: f64, inclination: f64) {
         let len = self.length_by_descretisation(
             self.geometry.t_min(),
             self.geometry.t_max(),
-            100 * nb_step,
+            DISCRETISATION_STEP,
         );
-        let nb_points = (len / len_segment) as usize;
-        let small_step = 1. / (nb_step as f64 * nb_points as f64);
+        let nb_points = (len / nucl_rise) as usize;
+        let small_step = 0.1 / (DISCRETISATION_STEP as f64);
         log::info!("small step = {small_step}");
 
-        if let Some(last_t) = self.geometry.full_turn_at_t() {
-            let synchronization_length =
-                self.length_by_descretisation(self.geometry.t_min(), last_t, nb_points * nb_step);
-
-            if let Some(n) = self.geometry.objective_nb_nt() {
-                len_segment = synchronization_length / n as f64;
-            } else {
-                let epsilon = synchronization_length.rem_euclid(len_segment);
-
-                log::info!("Synchronization length by descretisation {synchronization_length}");
-
-                if epsilon > len_segment / 2. {
-                    // n and espilon are chosen so that
-                    // synchronization_length = n * len_segment - epsilon
-                    //                        = n * (len_segment - epsilon / n)
-
-                    let n: f64 = synchronization_length.div_euclid(len_segment);
-
-                    // synchronization_length = len_segment * n + epsilon
-                    //                        = len_segment * (n + 1) - len_segment + epsilon
-                    //                        = len_segment * (n + 1) - epsilon_
-
-                    let epsilon_ = len_segment - epsilon; // epsilon > 0
-
-                    len_segment -= epsilon_ / (n + 1.);
-                } else {
-                    // n and espilon are chosen so that
-                    // synchronization_length = n * len_segment + epsilon
-                    //                        = n * (len_segment + epsilon / n)
-
-                    let n: f64 = synchronization_length.div_euclid(len_segment);
-                    len_segment += epsilon / n;
-                }
-            }
-            self.nucl_pos_full_turn = Some(synchronization_length / len_segment);
-        }
+        self.adjust_rise(&mut nucl_rise);
 
         //overide nucl_pos_full_turn with the value given by the geometry if it exists
         self.nucl_pos_full_turn = self
@@ -90,9 +73,11 @@ impl Curve {
         let point = self.point_at_t(t, &current_axis);
 
         let mut t_nucl = Vec::new();
-        let mut abscissa_forward;
-        let mut abscissa_backward;
+        let mut next_abscissa_forward;
+        let mut next_abscissa_backward;
 
+        // Decide if the the point at t = self.geometry.t_min() belongs to the backward or the
+        // forward strand.
         let first_forward;
         if inclination >= 0. {
             // The forward strand is behind
@@ -100,15 +85,15 @@ impl Curve {
             axis_forward.push(current_axis);
             curvature.push(self.geometry.curvature(t));
             t_nucl.push(t);
-            abscissa_forward = len_segment;
-            abscissa_backward = inclination;
+            next_abscissa_forward = nucl_rise;
+            next_abscissa_backward = inclination;
             first_forward = true;
         } else {
             // The backward strand is behind
             points_backward.push(point);
             axis_backward.push(current_axis);
-            abscissa_backward = len_segment;
-            abscissa_forward = -inclination;
+            next_abscissa_backward = nucl_rise;
+            next_abscissa_forward = -inclination;
             first_forward = false;
         }
 
@@ -117,22 +102,30 @@ impl Curve {
 
         let mut synchronization_length = 0.;
 
-        while t <= self.geometry.t_max() || abscissa_backward < abscissa_forward + inclination {
-            log::debug!("backward {abscissa_backward}, forward {abscissa_forward}");
+        // The descritisation stops when t > t_max and when we have as many forward as backwards
+        // point
+        while t <= self.geometry.t_max()
+            || next_abscissa_backward < next_abscissa_forward + inclination
+        {
+            log::debug!("backward {next_abscissa_backward}, forward {next_abscissa_forward}");
             if first_non_negative && t >= 0.0 {
                 first_non_negative = false;
                 self.nucl_t0 = points_forward.len();
             }
-            let (objective, forward) = if t <= self.geometry.t_max() {
+
+            // Decide on which strand belongs the next point that we are looking for and it's
+            // curvilinear abcissa
+            let (next_point_abscissa, next_point_forward) = if t <= self.geometry.t_max() {
                 (
-                    abscissa_forward.min(abscissa_backward),
-                    abscissa_forward <= abscissa_backward,
+                    next_abscissa_forward.min(next_abscissa_backward),
+                    next_abscissa_forward <= next_abscissa_backward,
                 )
             } else if first_forward {
-                (abscissa_backward, false)
+                (next_abscissa_backward, false)
             } else {
-                (abscissa_forward, true)
+                (next_abscissa_forward, true)
             };
+
             let mut translation_axis = current_axis;
             if let Some(frame) = self.geometry.initial_frame() {
                 let up = frame[1];
@@ -140,21 +133,22 @@ impl Curve {
                 translation_axis[0] = up.cross(self.geometry.speed(t).normalized());
                 translation_axis[2] = translation_axis[0].cross(translation_axis[1]);
             }
-            /*let mut p = self.geometry.position(t)
-            + translation_axis * self.geometry.translation().unwrap_or_else(DVec3::zero);*/
 
             let mut p = self.point_at_t(t, &current_axis);
 
-            if let Some(t_x) = self.geometry.inverse_curvilinear_abscissa(objective) {
+            if let Some(t_x) = self
+                .geometry
+                .inverse_curvilinear_abscissa(next_point_abscissa)
+            {
                 t = t_x;
-                current_abcissa = objective;
+                current_abcissa = next_point_abscissa;
                 current_axis = self.itterative_axis(t, Some(&current_axis));
                 p = self.geometry.position(t);
                 if let Some(t) = self.geometry.translation() {
                     p += current_axis * t;
                 }
             } else {
-                while current_abcissa < objective {
+                while current_abcissa < next_point_abscissa {
                     t += small_step;
 
                     current_axis = self.itterative_axis(t, Some(&current_axis));
@@ -171,8 +165,8 @@ impl Curve {
                     p = q;
                 }
             }
-            //if t <= self.geometry.t_max() || forward != first_forward {
-            if forward {
+
+            if next_point_forward {
                 if t <= self.geometry.t_max() {
                     t_nucl.push(t);
                     let segment_idx = self.geometry.subdivision_for_t(t).unwrap_or(0);
@@ -183,14 +177,13 @@ impl Curve {
                     points_forward.push(p);
                     axis_forward.push(current_axis);
                     curvature.push(self.geometry.curvature(t));
-                    abscissa_forward = current_abcissa + len_segment;
+                    next_abscissa_forward = current_abcissa + nucl_rise;
                 }
             } else {
                 points_backward.push(p);
                 axis_backward.push(current_axis);
-                abscissa_backward = current_abcissa + len_segment;
+                next_abscissa_backward = current_abcissa + nucl_rise;
             }
-            //}
         }
         log::info!("Synchronization length by old method {synchronization_length}");
         log::debug!("t_nucl {:.4?}", t_nucl);
@@ -203,6 +196,51 @@ impl Curve {
         self.t_nucl = Arc::new(t_nucl);
         if self.geometry.is_time_maps_singleton() {
             self.abscissa_converter = AbscissaConverter::from_single_map(self.t_nucl.clone());
+        }
+    }
+
+    /// If `self.geometry` sepcifies that a certain number of nucleotide must fit on a given
+    /// portion of the curve, adjust the value of nucl_rise accordingly.
+    fn adjust_rise(&mut self, nucl_rise: &mut f64) {
+        if let Some(last_t) = self.geometry.full_turn_at_t() {
+            let synchronization_length =
+                self.length_by_descretisation(self.geometry.t_min(), last_t, DISCRETISATION_STEP);
+
+            if let Some(n) = self.geometry.objective_nb_nt() {
+                // If a given number of nucleotide is specified we adjust nucl_rise accordingly
+                *nucl_rise = synchronization_length / n as f64;
+            } else {
+                // Otherwise, we just adjust nucl_rise in order to obtain an integer number of
+                // nucleotide
+
+                // The remaining curvilinear length after positioning the last nucleotide.
+                let epsilon = synchronization_length.rem_euclid(*nucl_rise);
+
+                log::info!("Synchronization length by descretisation {synchronization_length}");
+
+                if epsilon > *nucl_rise / 2. {
+                    // n and espilon are chosen so that
+                    // synchronization_length = n * len_segment - epsilon
+                    //                        = n * (len_segment - epsilon / n)
+                    let n: f64 = synchronization_length.div_euclid(*nucl_rise);
+
+                    // synchronization_length = len_segment * n + epsilon
+                    //                        = len_segment * (n + 1) - len_segment + epsilon
+                    //                        = len_segment * (n + 1) - epsilon_
+                    let epsilon_ = *nucl_rise - epsilon; // epsilon_ > 0
+
+                    *nucl_rise -= epsilon_ / (n + 1.);
+                } else {
+                    // n and espilon are chosen so that
+                    // synchronization_length = n * len_segment + epsilon
+                    //                        = n * (len_segment + epsilon / n)
+                    let n: f64 = synchronization_length.div_euclid(*nucl_rise);
+
+                    *nucl_rise += epsilon / n;
+                }
+            }
+
+            self.nucl_pos_full_turn = Some(synchronization_length / *nucl_rise);
         }
     }
 
@@ -276,6 +314,72 @@ impl Curve {
         } else {
             let previous = perpendicular_basis(speed);
             self.itterative_axis(t, Some(&previous))
+        }
+    }
+
+    /// Return a value of t_min that would allow self to have nucl
+    pub fn left_extension_to_have_nucl(&self, nucl: isize, parameters: &Parameters) -> Option<f64> {
+        let nucl_min = -(self.nucl_t0 as isize);
+        if nucl < nucl_min {
+            if let CurveBounds::BiInfinite = self.geometry.bounds() {
+                let objective = (-nucl) as f64
+                    * parameters.z_step as f64
+                    * self.geometry.z_step_ratio().unwrap_or(1.);
+                if let Some(t_min) = self.geometry.inverse_curvilinear_abscissa(objective) {
+                    return Some(t_min);
+                }
+                let mut delta = 1.0;
+                while delta < DELTA_MAX {
+                    let new_tmin = self.geometry.t_min() - delta;
+                    if self.length_by_descretisation(new_tmin, 0.0, DISCRETISATION_STEP / 100)
+                        > objective
+                    {
+                        return Some(new_tmin);
+                    }
+                    delta *= 2.0;
+                }
+                None
+            } else {
+                None
+            }
+        } else {
+            Some(self.geometry.t_min())
+        }
+    }
+
+    /// Return a value of t_max that would allow self to have nucl
+    pub fn right_extension_to_have_nucl(
+        &self,
+        nucl: isize,
+        parameters: &Parameters,
+    ) -> Option<f64> {
+        let nucl_max = (self.nb_points() - self.nucl_t0) as isize;
+        if nucl >= nucl_max - 1 {
+            match self.geometry.bounds() {
+                CurveBounds::BiInfinite | CurveBounds::PositiveInfinite => {
+                    let objective = nucl as f64
+                        * parameters.z_step as f64
+                        * self.geometry.z_step_ratio().unwrap_or(1.)
+                        + parameters.inclination as f64;
+                    if let Some(t_max) = self.geometry.inverse_curvilinear_abscissa(objective) {
+                        return Some(t_max);
+                    }
+                    let mut delta = 1.0;
+                    while delta < DELTA_MAX {
+                        let new_tmax = self.geometry.t_max() + delta;
+                        if self.length_by_descretisation(0.0, new_tmax, DISCRETISATION_STEP / 100)
+                            > objective
+                        {
+                            return Some(new_tmax);
+                        }
+                        delta *= 2.0;
+                    }
+                    None
+                }
+                CurveBounds::Finite => None,
+            }
+        } else {
+            Some(self.geometry.t_max())
         }
     }
 }
