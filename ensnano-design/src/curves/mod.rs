@@ -221,6 +221,12 @@ pub trait Curved {
     fn additional_isometry(&self, _segment_idx: usize) -> Option<Isometry2> {
         None
     }
+
+    /// This method can be overriden to indicate that the curve can mutst be discretized quickly,
+    /// even at the cost of precision.
+    fn discretize_quickly(&self) -> bool {
+        false
+    }
 }
 
 /// The bounds of the curve. This describe the interval in which t can be taken
@@ -934,6 +940,7 @@ impl InstanciatedPiecewiseBezierDescriptor {
                 t_max: None,
                 cyclic: false,
                 id: rng.gen(),
+                discretize_quickly: false,
             });
 
         desc.t_max = t_max;

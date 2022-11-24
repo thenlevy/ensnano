@@ -228,6 +228,13 @@ pub struct InstanciatedPiecewiseBezier {
     pub cyclic: bool,
     /// An identifier of the PiecewiseBezier generated at random.
     pub id: u64,
+    #[serde(default, skip_serializing_if = "is_false")]
+    /// Indicate that this curve must be discretized quickly, even at the cost of precision.
+    pub discretize_quickly: bool,
+}
+
+fn is_false(b: &bool) -> bool {
+    !b
 }
 
 impl PartialEq for InstanciatedPiecewiseBezier {
@@ -367,6 +374,10 @@ impl super::Curved for InstanciatedPiecewiseBezier {
 
     fn bounds(&self) -> super::CurveBounds {
         super::CurveBounds::BiInfinite
+    }
+
+    fn discretize_quickly(&self) -> bool {
+        self.discretize_quickly
     }
 }
 

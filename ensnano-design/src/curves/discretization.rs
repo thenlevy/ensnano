@@ -21,7 +21,10 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 
 /// The number of points used in the iterative version of the discretization algorithm.
-const DISCRETISATION_STEP: usize = 100_000;
+const NB_DISCRETISATION_STEP: usize = 100_000;
+
+/// The number of points used in the quick iterative version of the discretization algorithm.
+const NB_FAST_DISCRETIZATION_STEP: usize = 1_000;
 
 impl Curve {
     /// Pre-compute the frames arround which the nucleotides will be positioned.
@@ -38,13 +41,15 @@ impl Curve {
     /// (i.e. at least one of the method `full_turn_at_t`, `nucl_pos_full_turn` or
     /// `objective_nb_nt` has been overriden).
     pub(super) fn discretize(&mut self, mut nucl_rise: f64, inclination: f64) {
-        let len = self.length_by_descretisation(
-            self.geometry.t_min(),
-            self.geometry.t_max(),
-            DISCRETISATION_STEP,
-        );
+        let nb_step = if self.geometry.discretize_quickly() {
+            NB_FAST_DISCRETIZATION_STEP
+        } else {
+            NB_DISCRETISATION_STEP
+        };
+        let len =
+            self.length_by_descretisation(self.geometry.t_min(), self.geometry.t_max(), nb_step);
         let nb_points = (len / nucl_rise) as usize;
-        let small_step = 0.1 / (DISCRETISATION_STEP as f64);
+        let small_step = 0.1 / (nb_step as f64);
         log::info!("small step = {small_step}");
 
         self.adjust_rise(&mut nucl_rise);
@@ -202,9 +207,14 @@ impl Curve {
     /// If `self.geometry` sepcifies that a certain number of nucleotide must fit on a given
     /// portion of the curve, adjust the value of nucl_rise accordingly.
     fn adjust_rise(&mut self, nucl_rise: &mut f64) {
+        let nb_step = if self.geometry.discretize_quickly() {
+            NB_FAST_DISCRETIZATION_STEP
+        } else {
+            NB_DISCRETISATION_STEP
+        };
         if let Some(last_t) = self.geometry.full_turn_at_t() {
             let synchronization_length =
-                self.length_by_descretisation(self.geometry.t_min(), last_t, DISCRETISATION_STEP);
+                self.length_by_descretisation(self.geometry.t_min(), last_t, nb_step);
 
             if let Some(n) = self.geometry.objective_nb_nt() {
                 // If a given number of nucleotide is specified we adjust nucl_rise accordingly
@@ -331,7 +341,7 @@ impl Curve {
                 let mut delta = 1.0;
                 while delta < DELTA_MAX {
                     let new_tmin = self.geometry.t_min() - delta;
-                    if self.length_by_descretisation(new_tmin, 0.0, DISCRETISATION_STEP / 100)
+                    if self.length_by_descretisation(new_tmin, 0.0, NB_DISCRETISATION_STEP / 100)
                         > objective
                     {
                         return Some(new_tmin);
@@ -367,8 +377,11 @@ impl Curve {
                     let mut delta = 1.0;
                     while delta < DELTA_MAX {
                         let new_tmax = self.geometry.t_max() + delta;
-                        if self.length_by_descretisation(0.0, new_tmax, DISCRETISATION_STEP / 100)
-                            > objective
+                        if self.length_by_descretisation(
+                            0.0,
+                            new_tmax,
+                            NB_DISCRETISATION_STEP / 100,
+                        ) > objective
                         {
                             return Some(new_tmax);
                         }
