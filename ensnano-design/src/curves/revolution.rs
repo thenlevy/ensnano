@@ -270,6 +270,8 @@ impl Revolution {
 
         let mut point = self.position(0.);
         let mut t0 = 0.;
+        let mut curvilinear_abscissa_interpolation_points = Vec::new();
+        let mut inverse_ca_interpolation_points = Vec::new();
         while t0 < self.t_max() {
             let mut ts = Vec::with_capacity(NB_POINT_INTERPOLATION);
             let mut abscissas = Vec::with_capacity(NB_POINT_INTERPOLATION);
@@ -284,12 +286,15 @@ impl Revolution {
                 ts.push(t);
             }
             log::info!("Interpolating inverse...");
-            let abscissa_t = abscissas
+            let abscissa_t: Vec<_> = abscissas
                 .iter()
                 .cloned()
                 .zip(ts.iter().cloned())
                 .step_by(10)
                 .collect();
+
+            inverse_ca_interpolation_points.push(abscissa_t);
+            /*
             self.inverse_curvilinear_abscissa
                 .push(chebyshev_polynomials::interpolate_points(
                     abscissa_t,
@@ -303,12 +308,17 @@ impl Revolution {
                     .coeffs
                     .len()
             );
+            */
 
-            let t_abscissa = ts
+            let t_abscissa: Vec<_> = ts
                 .into_iter()
                 .zip(abscissas.into_iter())
                 .step_by(10)
                 .collect();
+
+            curvilinear_abscissa_interpolation_points.push(t_abscissa);
+
+            /*
             log::info!("Interpolating abscissa...");
             self.curvilinear_abscissa
                 .push(chebyshev_polynomials::interpolate_points(
@@ -319,8 +329,18 @@ impl Revolution {
                 "OK, deg = {}",
                 self.curvilinear_abscissa.last().unwrap().coeffs.len()
             );
+            */
             t0 += 1.;
         }
+        use rayon::prelude::*;
+        self.curvilinear_abscissa = curvilinear_abscissa_interpolation_points
+            .into_par_iter()
+            .map(|v| chebyshev_polynomials::interpolate_points(v, 10. * INTERPOLATION_ERROR))
+            .collect();
+        self.inverse_curvilinear_abscissa = inverse_ca_interpolation_points
+            .into_par_iter()
+            .map(|v| chebyshev_polynomials::interpolate_points(v, INTERPOLATION_ERROR))
+            .collect()
     }
 
     fn get_surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo> {
