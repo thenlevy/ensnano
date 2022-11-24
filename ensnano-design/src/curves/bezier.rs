@@ -431,4 +431,8 @@ impl super::Curved for TranslatedPiecewiseBezier {
             Some(self.original_curve.ends.len() as f64 - 1.)
         }
     }
+
+    fn pre_compute_polynomials(&self) -> bool {
+        true
+    }
 }

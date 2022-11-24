@@ -284,7 +284,12 @@ impl Revolution {
                 ts.push(t);
             }
             log::info!("Interpolating inverse...");
-            let abscissa_t = abscissas.iter().cloned().zip(ts.iter().cloned()).collect();
+            let abscissa_t = abscissas
+                .iter()
+                .cloned()
+                .zip(ts.iter().cloned())
+                .step_by(10)
+                .collect();
             self.inverse_curvilinear_abscissa
                 .push(chebyshev_polynomials::interpolate_points(
                     abscissa_t,
@@ -299,7 +304,11 @@ impl Revolution {
                     .len()
             );
 
-            let t_abscissa = ts.into_iter().zip(abscissas.into_iter()).collect();
+            let t_abscissa = ts
+                .into_iter()
+                .zip(abscissas.into_iter())
+                .step_by(10)
+                .collect();
             log::info!("Interpolating abscissa...");
             self.curvilinear_abscissa
                 .push(chebyshev_polynomials::interpolate_points(

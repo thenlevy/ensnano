@@ -19,6 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! Implementation of the curve discretization alogrithm.
 
 use super::*;
+use chebyshev_polynomials::ChebyshevPolynomial;
 
 /// The number of points used in the iterative version of the discretization algorithm.
 const NB_DISCRETISATION_STEP: usize = 100_000;
@@ -41,18 +42,28 @@ impl Curve {
     /// (i.e. at least one of the method `full_turn_at_t`, `nucl_pos_full_turn` or
     /// `objective_nb_nt` has been overriden).
     pub(super) fn discretize(&mut self, mut nucl_rise: f64, inclination: f64) {
+        let polynomials = self.compute_polynomials();
+
         let nb_step = if self.geometry.discretize_quickly() {
             NB_FAST_DISCRETIZATION_STEP
         } else {
             NB_DISCRETISATION_STEP
         };
-        let len =
-            self.length_by_descretisation(self.geometry.t_min(), self.geometry.t_max(), nb_step);
+        let len = polynomials
+            .as_ref()
+            .map(|p| p.curvilinear_abcsissa.evaluate(self.geometry.t_max()))
+            .unwrap_or_else(|| {
+                self.length_by_descretisation(self.geometry.t_min(), self.geometry.t_max(), nb_step)
+            });
         let nb_points = (len / nucl_rise) as usize;
         let small_step = 0.1 / (nb_step as f64);
         log::info!("small step = {small_step}");
+        log::info!(
+            "len = {}",
+            self.length_by_descretisation(self.geometry.t_min(), self.geometry.t_max(), nb_step)
+        );
 
-        self.adjust_rise(&mut nucl_rise);
+        self.adjust_rise(&mut nucl_rise, polynomials.as_ref());
 
         //overide nucl_pos_full_turn with the value given by the geometry if it exists
         self.nucl_pos_full_turn = self
@@ -131,27 +142,30 @@ impl Curve {
                 (next_abscissa_forward, true)
             };
 
+            /*
             let mut translation_axis = current_axis;
             if let Some(frame) = self.geometry.initial_frame() {
                 let up = frame[1];
                 translation_axis[1] = up;
                 translation_axis[0] = up.cross(self.geometry.speed(t).normalized());
                 translation_axis[2] = translation_axis[0].cross(translation_axis[1]);
-            }
+            }*/
 
             let mut p = self.point_at_t(t, &current_axis);
 
             if let Some(t_x) = self
                 .geometry
                 .inverse_curvilinear_abscissa(next_point_abscissa)
+                .or_else(|| {
+                    polynomials
+                        .as_ref()
+                        .and_then(|p| p.inverse_abscissa(next_point_abscissa))
+                })
             {
                 t = t_x;
                 current_abcissa = next_point_abscissa;
                 current_axis = self.itterative_axis(t, Some(&current_axis));
-                p = self.geometry.position(t);
-                if let Some(t) = self.geometry.translation() {
-                    p += current_axis * t;
-                }
+                p = self.point_at_t(t, &current_axis);
             } else {
                 while current_abcissa < next_point_abscissa {
                     t += small_step;
@@ -206,15 +220,18 @@ impl Curve {
 
     /// If `self.geometry` sepcifies that a certain number of nucleotide must fit on a given
     /// portion of the curve, adjust the value of nucl_rise accordingly.
-    fn adjust_rise(&mut self, nucl_rise: &mut f64) {
+    fn adjust_rise(&mut self, nucl_rise: &mut f64, polynomials: Option<&PreComputedPolynomials>) {
         let nb_step = if self.geometry.discretize_quickly() {
             NB_FAST_DISCRETIZATION_STEP
         } else {
             NB_DISCRETISATION_STEP
         };
         if let Some(last_t) = self.geometry.full_turn_at_t() {
-            let synchronization_length =
-                self.length_by_descretisation(self.geometry.t_min(), last_t, nb_step);
+            let synchronization_length = polynomials
+                .map(|p| p.curvilinear_abcsissa.evaluate(last_t))
+                .unwrap_or_else(|| {
+                    self.length_by_descretisation(self.geometry.t_min(), last_t, nb_step)
+                });
 
             if let Some(n) = self.geometry.objective_nb_nt() {
                 // If a given number of nucleotide is specified we adjust nucl_rise accordingly
@@ -394,5 +411,66 @@ impl Curve {
         } else {
             Some(self.geometry.t_max())
         }
+    }
+
+    fn compute_polynomials(&self) -> Option<PreComputedPolynomials> {
+        self.geometry.pre_compute_polynomials().then(|| {
+            let mut t = self.geometry.t_min();
+            let mut abscissa = 0.;
+            let mut current_axis = self.itterative_axis(t, None);
+            current_axis = self.itterative_axis(t, Some(&current_axis));
+            let mut p = self.point_at_t(t, &current_axis);
+
+            let mut ts = vec![t];
+            let mut abscissas = vec![abscissa];
+            let t0 = self.geometry.t_min();
+            let t1 = self.geometry.t_max();
+
+            let nb_step = NB_DISCRETISATION_STEP / 10;
+            for i in 1..=nb_step {
+                t = t0 + (i as f64) / (nb_step as f64) * (t1 - t0);
+                current_axis = self.itterative_axis(t, Some(&current_axis));
+                let q = self.point_at_t(t, &current_axis);
+                abscissa += (p - q).mag();
+                ts.push(t);
+                abscissas.push(abscissa);
+                p = q;
+            }
+
+            let abscissa_t = abscissas
+                .iter()
+                .cloned()
+                .zip(ts.iter().cloned())
+                .step_by(10)
+                .collect();
+            let t_abscissa = ts
+                .into_iter()
+                .zip(abscissas.into_iter())
+                .step_by(10)
+                .collect();
+
+            let curvilinear_abcsissa = chebyshev_polynomials::interpolate_points(t_abscissa, 1e-4);
+            let inverse_abcsissa = chebyshev_polynomials::interpolate_points(abscissa_t, 1e-4);
+
+            PreComputedPolynomials {
+                curvilinear_abcsissa,
+                inverse_abscissa: inverse_abcsissa,
+            }
+        })
+    }
+}
+
+/// Polynomials computed at the start of the discretization procedure
+struct PreComputedPolynomials {
+    curvilinear_abcsissa: ChebyshevPolynomial,
+    inverse_abscissa: ChebyshevPolynomial,
+}
+
+impl PreComputedPolynomials {
+    /// If x is in the interval on which `self.inverse_abscissa` is defined, return the evaluation
+    /// at x.
+    fn inverse_abscissa(&self, x: f64) -> Option<f64> {
+        let interval = self.inverse_abscissa.definition_interval();
+        (x >= interval[0] && x <= interval[1]).then(|| self.inverse_abscissa.evaluate(x))
     }
 }

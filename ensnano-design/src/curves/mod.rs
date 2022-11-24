@@ -227,6 +227,12 @@ pub trait Curved {
     fn discretize_quickly(&self) -> bool {
         false
     }
+
+    /// Return true if the discretization algorithm should precompute polynomials for the
+    /// curvilinear abscissa
+    fn pre_compute_polynomials(&self) -> bool {
+        false
+    }
 }
 
 /// The bounds of the curve. This describe the interval in which t can be taken
