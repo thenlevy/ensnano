@@ -252,7 +252,12 @@ pub(super) struct Revolution {
     revolution_radius: f64,
     curve_scale_factor: f64,
     half_turns_count: isize,
+    /// The element at index i of this vector is a polynomial interpolating the function that maps
+    /// a point x in [curvilinear_abscissa(i), curvilinear_abscissa(i+1)] to a time t so that
+    /// curvilinear_abscissa(t) = x
     inverse_curvilinear_abscissa: Vec<ChebyshevPolynomial>,
+    /// The element at index i of this vector is a polynomial interpolating the curvilinear
+    /// abscissa between 0 and t for t in [i, i+1]
     curvilinear_abscissa: Vec<ChebyshevPolynomial>,
     init_revolution_angle: f64,
     nb_turn: f64,
@@ -265,11 +270,15 @@ pub(super) struct Revolution {
 const NB_POINT_INTERPOLATION: usize = 100_000;
 const INTERPOLATION_ERROR: f64 = 1e-4;
 impl Revolution {
+    /// Computes the polynomials that interpolate the curvilinear function and its inverse
     fn init_interpolators(&mut self) {
         let mut abscissa = 0.;
 
         let mut point = self.position(0.);
         let mut t0 = 0.;
+
+        // The interpolating polynomials are computed in parallel. First we compute the
+        // interpolation points for each polynomial.
         let mut curvilinear_abscissa_interpolation_points = Vec::new();
         let mut inverse_ca_interpolation_points = Vec::new();
         while t0 < self.t_max() {
@@ -290,48 +299,25 @@ impl Revolution {
                 .iter()
                 .cloned()
                 .zip(ts.iter().cloned())
-                .step_by(10)
+                .step_by(10) // (1)
                 .collect();
 
             inverse_ca_interpolation_points.push(abscissa_t);
-            /*
-            self.inverse_curvilinear_abscissa
-                .push(chebyshev_polynomials::interpolate_points(
-                    abscissa_t,
-                    INTERPOLATION_ERROR,
-                ));
-            log::info!(
-                "OK, deg = {}",
-                self.inverse_curvilinear_abscissa
-                    .last()
-                    .unwrap()
-                    .coeffs
-                    .len()
-            );
-            */
 
             let t_abscissa: Vec<_> = ts
                 .into_iter()
                 .zip(abscissas.into_iter())
-                .step_by(10)
+                .step_by(10) // (1)
                 .collect();
 
             curvilinear_abscissa_interpolation_points.push(t_abscissa);
 
-            /*
-            log::info!("Interpolating abscissa...");
-            self.curvilinear_abscissa
-                .push(chebyshev_polynomials::interpolate_points(
-                    t_abscissa,
-                    10. * INTERPOLATION_ERROR,
-                ));
-            log::info!(
-                "OK, deg = {}",
-                self.curvilinear_abscissa.last().unwrap().coeffs.len()
-            );
-            */
+            // (1) Allows for quicker computation of the interpolating polynomial with little
+            // impact on the quality of the interpolation
+
             t0 += 1.;
         }
+
         use rayon::prelude::*;
         self.curvilinear_abscissa = curvilinear_abscissa_interpolation_points
             .into_par_iter()

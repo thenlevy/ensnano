@@ -142,15 +142,6 @@ impl Curve {
                 (next_abscissa_forward, true)
             };
 
-            /*
-            let mut translation_axis = current_axis;
-            if let Some(frame) = self.geometry.initial_frame() {
-                let up = frame[1];
-                translation_axis[1] = up;
-                translation_axis[0] = up.cross(self.geometry.speed(t).normalized());
-                translation_axis[2] = translation_axis[0].cross(translation_axis[1]);
-            }*/
-
             let mut p = self.point_at_t(t, &current_axis);
 
             if let Some(t_x) = self
@@ -441,13 +432,16 @@ impl Curve {
                 .iter()
                 .cloned()
                 .zip(ts.iter().cloned())
-                .step_by(10)
+                .step_by(10) // (1)
                 .collect();
             let t_abscissa = ts
                 .into_iter()
                 .zip(abscissas.into_iter())
-                .step_by(10)
+                .step_by(10) // (1)
                 .collect();
+
+            // (1) This allows the interpolation to run much quicker with very little impact on
+            // precision.
 
             let curvilinear_abcsissa = chebyshev_polynomials::interpolate_points(t_abscissa, 1e-4);
             let inverse_abcsissa = chebyshev_polynomials::interpolate_points(abscissa_t, 1e-4);
