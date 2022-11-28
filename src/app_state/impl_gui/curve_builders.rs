@@ -20,6 +20,7 @@ use ensnano_design::{BezierPathId, CurveDescriptor2D};
 use ensnano_gui::{
     CurveDescriptorBuilder, CurveDescriptorParameter, InstanciatedParameter, ParameterKind,
 };
+use ultraviolet::{Rotor3, Vec3};
 
 pub(super) const ELLIPSE_BUILDER: CurveDescriptorBuilder<super::AppState> =
     CurveDescriptorBuilder {
@@ -39,6 +40,7 @@ pub(super) const ELLIPSE_BUILDER: CurveDescriptorBuilder<super::AppState> =
         ],
         build: &build_ellipse,
         bezier_path_id: &no_bezier_path_id,
+        frame: &default_frame,
     };
 
 fn build_ellipse(
@@ -87,6 +89,7 @@ pub(super) const TWO_SPHERES_BUILDER: CurveDescriptorBuilder<super::AppState> =
         ],
         build: &build_two_spheres,
         bezier_path_id: &no_bezier_path_id,
+        frame: &default_frame,
     };
 
 fn build_two_spheres(
@@ -133,6 +136,7 @@ pub(super) const BEZIER_CURVE_BUILDER: CurveDescriptorBuilder<super::AppState> =
         }],
         build: &build_bezier,
         bezier_path_id: &get_bezier_path_id,
+        frame: &get_bezier_frame,
     };
 
 fn build_bezier(
@@ -160,4 +164,20 @@ fn get_bezier_path_id(parameters: &[InstanciatedParameter]) -> Option<usize> {
         .get(0)
         .cloned()
         .and_then(InstanciatedParameter::get_uint)
+}
+
+fn get_bezier_frame(
+    parameters: &[InstanciatedParameter],
+    app: &super::AppState,
+) -> Option<(Vec3, Rotor3)> {
+    let path_id = get_bezier_path_id(parameters)?;
+    app.0
+        .design
+        .get_design_reader()
+        .get_first_bezier_plane(BezierPathId(path_id as u32))
+        .map(|plane| (plane.position, plane.orientation))
+}
+
+fn default_frame(_: &[InstanciatedParameter], _: &super::AppState) -> Option<(Vec3, Rotor3)> {
+    Some((Vec3::zero(), Rotor3::identity()))
 }

@@ -18,8 +18,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::AddressPointer;
 use ensnano_design::{
-    grid::GridId, group_attributes::GroupAttribute, BezierPathId, Design, HelixCollection,
-    InstanciatedPiecewiseBezier, Parameters,
+    grid::GridId, group_attributes::GroupAttribute, BezierPathId, BezierPlaneDescriptor, Design,
+    HelixCollection, InstanciatedPiecewiseBezier, Parameters,
 };
 use ensnano_exports::{ExportResult, ExportType};
 use ensnano_interactor::{
@@ -430,6 +430,23 @@ impl DesignReader {
 
     pub fn get_bezier_path_2d(&self, path_id: BezierPathId) -> Option<InstanciatedPiecewiseBezier> {
         self.presenter.get_bezier_path_2d(path_id)
+    }
+
+    pub fn get_first_bezier_plane(&self, path_id: BezierPathId) -> Option<&BezierPlaneDescriptor> {
+        use ensnano_design::Collection;
+        let path = self
+            .presenter
+            .current_design
+            .as_ref()
+            .bezier_paths
+            .get(&path_id)?;
+        let vertex_0 = path.vertices().get(0)?;
+        let plane_id = vertex_0.plane_id;
+        self.presenter
+            .current_design
+            .as_ref()
+            .bezier_planes
+            .get(&plane_id)
     }
 }
 

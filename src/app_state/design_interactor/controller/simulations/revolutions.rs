@@ -19,6 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::{SimulationInterface, SimulationReader, SimulationUpdate};
 use std::f64::consts::TAU;
 use std::sync::{Arc, Mutex, Weak};
+use ultraviolet::{Rotor3, Vec3};
 
 use mathru::algebra::linear::vector::vector::Vector;
 use mathru::analysis::differential_equation::ordinary::{
@@ -97,6 +98,8 @@ pub struct RevolutionSurfaceSystem {
     scaffold_len_target: usize,
     current_scaffold_length: Option<usize>,
     simulation_parameters: RevolutionSimulationParameters,
+    plane_position: Vec3,
+    plane_orientation: Rotor3,
 }
 
 impl Clone for RevolutionSurfaceSystem {
@@ -109,6 +112,8 @@ impl Clone for RevolutionSurfaceSystem {
             scaffold_len_target: self.scaffold_len_target,
             current_scaffold_length: self.current_scaffold_length,
             simulation_parameters: self.simulation_parameters.clone(),
+            plane_position: self.plane_position,
+            plane_orientation: self.plane_orientation,
         }
     }
 }
@@ -130,6 +135,8 @@ impl RevolutionSurfaceSystem {
         let scaffold_len_target = desc.scaffold_len_target;
         let dna_parameters = desc.dna_parameters;
         let simulation_parameters = desc.simulation_parameters.clone();
+        let plane_orientation = desc.target.plane_orientation;
+        let plane_position = desc.target.plane_position;
         let topology: Box<dyn SpringTopology> = if desc.target.curve.is_open() {
             Box::new(OpenSurfaceTopology::new(desc))
         } else {
@@ -144,6 +151,8 @@ impl RevolutionSurfaceSystem {
             scaffold_len_target,
             current_scaffold_length: None,
             simulation_parameters,
+            plane_position,
+            plane_orientation,
         }
     }
 
@@ -634,6 +643,10 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
     fn current_length(&self) -> Option<usize> {
         self.current_scaffold_length
     }
+
+    fn frame(&self) -> (ultraviolet::Vec3, ultraviolet::Rotor3) {
+        (self.plane_position, self.plane_orientation)
+    }
 }
 
 impl SimulationInterface for RevolutionSystemInterface {
@@ -680,7 +693,9 @@ impl SimulationUpdate for Vec<CurveDescriptor> {
         drop(helices);
 
         let strands = design.mut_strand_and_data().strands;
-        use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+        // Use "random" integer to determine new strands color
+        use std::time::{SystemTime, UNIX_EPOCH};
         let mut now_s = (SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -782,6 +797,8 @@ mod tests {
             nb_helix_per_half_section: 7,
             dna_paramters: DNAParameters::GEARY_2014_DNA,
             shift_per_turn: -12,
+            plane_orientation: Rotor3::identity(),
+            plane_position: Vec3::zero(),
         };
         let system_desc = RevolutionSurfaceSystemDescriptor {
             simulation_parameters: Default::default(),

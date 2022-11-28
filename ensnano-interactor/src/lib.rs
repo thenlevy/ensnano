@@ -487,6 +487,8 @@ pub struct RevolutionSurfaceDescriptor {
     pub shift_per_turn: isize,
     pub junction_smoothening: f64,
     pub dna_paramters: Parameters,
+    pub plane_position: Vec3,
+    pub plane_orientation: Rotor3,
 }
 
 /*

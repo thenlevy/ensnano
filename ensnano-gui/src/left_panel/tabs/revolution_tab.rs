@@ -93,6 +93,7 @@ pub struct CurveDescriptorParameter {
     pub default_value: InstanciatedParameter,
 }
 
+pub type Frame = (ultraviolet::Vec3, ultraviolet::Rotor3);
 #[derive(Clone)]
 pub struct CurveDescriptorBuilder<S: AppState> {
     pub nb_parameters: usize,
@@ -101,6 +102,7 @@ pub struct CurveDescriptorBuilder<S: AppState> {
     pub bezier_path_id: &'static (dyn Fn(&[InstanciatedParameter]) -> Option<usize> + Send + Sync),
     pub build:
         &'static (dyn Fn(&[InstanciatedParameter], &S) -> Option<CurveDescriptor2D> + Send + Sync),
+    pub frame: &'static (dyn Fn(&[InstanciatedParameter], &S) -> Option<Frame> + Send + Sync),
 }
 
 use std::fmt;
@@ -254,6 +256,10 @@ impl<S: AppState> CurveDescriptorWidget<S> {
 
     fn get_bezier_path_id(&self) -> Option<usize> {
         (self.builder.bezier_path_id)(&self.instanciated_parameters())
+    }
+
+    fn get_frame(&self, app_state: &S) -> Option<Frame> {
+        (self.builder.frame)(&self.instanciated_parameters(), app_state)
     }
 }
 
@@ -531,6 +537,10 @@ impl<S: AppState> RevolutionTab<S> {
     }
 
     fn get_revolution_system(&self, app_state: &S) -> Option<RevolutionSurfaceSystemDescriptor> {
+        let (plane_position, plane_orientation) = self
+            .curve_descriptor_widget
+            .as_ref()
+            .and_then(|w| w.get_frame(app_state))?;
         let surface_descriptor = RevolutionSurfaceDescriptor {
             dna_paramters: app_state.get_dna_parameters(),
             curve: self
@@ -554,6 +564,8 @@ impl<S: AppState> RevolutionTab<S> {
                 .get_value()
                 .and_then(InstanciatedParameter::get_int)?,
             junction_smoothening: 0.,
+            plane_position,
+            plane_orientation,
         };
 
         let simulation_parameters = self.get_simulation_parameters()?;

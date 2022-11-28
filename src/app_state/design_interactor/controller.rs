@@ -513,6 +513,8 @@ impl Controller {
                     shift_per_turn: 2,
                     junction_smoothening: 0.,
                     dna_paramters: Parameters::GEARY_2014_DNA,
+                    plane_position: Vec3::zero(),
+                    plane_orientation: Rotor3::identity(),
                 };
                 let system_desc = RevolutionSurfaceSystemDescriptor {
                     simulation_parameters: Default::default(),

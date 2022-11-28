@@ -175,6 +175,7 @@ pub struct Design {
 }
 
 pub trait AdditionalStructure: Send + Sync {
+    fn frame(&self) -> (Vec3, Rotor3);
     fn position(&self) -> Vec<Vec3>;
     fn right(&self) -> Vec<(usize, usize)>;
     fn next(&self) -> Vec<(usize, usize)>;
