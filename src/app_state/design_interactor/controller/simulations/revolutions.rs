@@ -639,6 +639,14 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
             let nts = desc.path()?;
             ret.extend(nts.into_iter().map(ensnano_design::utils::dvec_to_vec));
         }
+
+        for n in 0..1000 {
+            ret.push(ensnano_design::utils::dvec_to_vec(
+                self.topology
+                    .surface_position(-std::f64::consts::FRAC_PI_2, n as f64 / 1000.),
+            ));
+        }
+
         Some(ret)
     }
 
@@ -648,8 +656,8 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
 
     fn frame(&self) -> (ultraviolet::Vec3, ultraviolet::Rotor3) {
         (
-            self.plane_position - Vec3::unit_x() * self.topology.revolution_radius() as f32,
-            Rotor3::from_rotation_xy(std::f32::consts::FRAC_PI_2) * self.plane_orientation,
+            self.plane_position + Vec3::unit_x() * self.topology.revolution_radius() as f32,
+            Rotor3::from_rotation_xy(-std::f32::consts::FRAC_PI_2) * self.plane_orientation,
         )
     }
 }

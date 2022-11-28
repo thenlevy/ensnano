@@ -266,18 +266,19 @@ impl<R: DesignReader> Design3D<R> {
         }
 
         if let Some(additional_structure) = self.design.get_additional_structure() {
+            let (position, orientation) = additional_structure.frame();
             let positions = additional_structure.position();
             for (me, next) in additional_structure.right().into_iter() {
-                let pos_left = positions[me];
-                let pos_right = positions[next];
+                let pos_left = positions[me].rotated_by(orientation) + position;
+                let pos_right = positions[next].rotated_by(orientation) + position;
                 ret.push(
                     create_dna_bound(pos_left, pos_right, REGULAR_H_BOND_COLOR, u32::MAX, false)
                         .to_raw_instance(),
                 )
             }
             for (me, other) in additional_structure.next().into_iter() {
-                let pos_left = positions[me];
-                let pos_right = positions[other];
+                let pos_left = positions[me].rotated_by(orientation) + position;
+                let pos_right = positions[other].rotated_by(orientation) + position;
                 ret.push(
                     create_dna_bound(pos_left, pos_right, COLOR_GUANINE, u32::MAX, false)
                         .to_raw_instance(),
