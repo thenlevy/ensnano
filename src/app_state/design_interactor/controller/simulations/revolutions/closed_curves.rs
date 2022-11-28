@@ -278,4 +278,8 @@ impl SpringTopology for CloseSurfaceTopology {
     fn fixed_points(&self) -> &[usize] {
         &[]
     }
+
+    fn revolution_radius(&self) -> f64 {
+        self.target.revolution_radius
+    }
 }

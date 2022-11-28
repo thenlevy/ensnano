@@ -88,6 +88,8 @@ trait SpringTopology: Send + Sync + 'static {
     ) -> Vec<(usize, DVec3)> {
         vec![]
     }
+
+    fn revolution_radius(&self) -> f64;
 }
 
 pub struct RevolutionSurfaceSystem {
@@ -645,7 +647,10 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
     }
 
     fn frame(&self) -> (ultraviolet::Vec3, ultraviolet::Rotor3) {
-        (self.plane_position, self.plane_orientation)
+        (
+            self.plane_position - Vec3::unit_x() * self.topology.revolution_radius() as f32,
+            Rotor3::from_rotation_xy(std::f32::consts::FRAC_PI_2) * self.plane_orientation,
+        )
     }
 }
 

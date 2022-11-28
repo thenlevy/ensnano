@@ -335,6 +335,10 @@ impl SpringTopology for OpenSurfaceTopology {
             })
             .collect()
     }
+
+    fn revolution_radius(&self) -> f64 {
+        self.target.revolution_radius
+    }
 }
 
 struct BallCoordinate {

@@ -114,10 +114,11 @@ impl<R: DesignReader> Design3D<R> {
             }
         }
         if let Some(additional_structure) = self.design.get_additional_structure() {
+            let (position, orientation) = additional_structure.frame();
             for p in additional_structure.position() {
                 ret.push(
                     SphereInstance {
-                        position: p,
+                        position: p.rotated_by(orientation) + position,
                         color: Instance::color_from_u32(SURFACE_PIVOT_SPHERE_COLOR),
                         id: u32::MAX,
                         radius: 1.,
@@ -129,7 +130,7 @@ impl<R: DesignReader> Design3D<R> {
                 for p in path {
                     ret.push(
                         SphereInstance {
-                            position: p,
+                            position: p.rotated_by(orientation) + position,
                             color: Instance::color_from_u32(PIVOT_SPHERE_COLOR),
                             id: u32::MAX,
                             radius: 1.,
