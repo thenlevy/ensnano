@@ -491,6 +491,13 @@ pub struct RevolutionSurfaceDescriptor {
     pub plane_orientation: Rotor3,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnrootedRevolutionSurfaceDescriptor {
+    pub curve: CurveDescriptor2D,
+    pub revolution_radius: f64,
+    pub half_turn_count: isize,
+}
+
 /*
  * let q be the total shift and n be the number of sections
  * Helices seen as set of section are class of equivalence for the relation ~
