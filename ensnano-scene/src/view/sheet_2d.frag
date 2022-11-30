@@ -53,5 +53,10 @@ void main() {
       out_color = vec4(0., 0., 1., 0.9);
 
     }
+
+    bool is_in_center = (min(abs(x), abs(y)) < 2. && max(abs(x), abs(y)) < 5.);
+    if (is_in_center) {
+        out_color += vec4(0., 1., 0., 0.);
+    }
 }
 

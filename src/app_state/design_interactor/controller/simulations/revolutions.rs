@@ -659,14 +659,13 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
 
         // First inverse the transformation that is performed by the construction of the curve
         ret.append_rotation(Rotor3::from_rotation_yz(-std::f32::consts::FRAC_PI_2));
-        ret.append_translation(Vec3::unit_x() * -self.topology.revolution_radius() as f32);
 
         // Then convert into the plane's frame
         ret.append_translation(self.plane_position);
         ret.append_rotation(self.plane_orientation);
 
         // Center on the rotation axis as drawn on the plane
-        let rotation_axis_translation = (Vec3::unit_x() * self.topology.revolution_radius() as f32)
+        let rotation_axis_translation = (Vec3::unit_z() * self.topology.revolution_radius() as f32)
             .rotated_by(self.plane_orientation);
         ret.append_translation(rotation_axis_translation);
 
