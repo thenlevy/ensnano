@@ -177,13 +177,17 @@ const EARLY_LOG: bool = true;
 #[cfg(feature = "log_after_renderer_setup")]
 const EARLY_LOG: bool = false;
 
-// On some windows machine, only the DX12 backends will work. So the `dx12_only` feature forces its
-// use.
+/// Determine wgpu backends.
+///
+/// On some windows machine, only the DX12 backends will work. So the `dx12_only` feature forces
+/// its use.
 #[cfg(not(feature = "dx12_only"))]
 const BACKEND: wgpu::Backends = wgpu::Backends::PRIMARY;
 #[cfg(feature = "dx12_only")]
 const BACKEND: wgpu::Backends = wgpu::Backends::DX12;
 
+/// Determine if wgpu errors should panic.
+///
 /// Set to true because there should not be any "false-positive" in wgpu errors.
 ///
 /// TODO: Make a feature that would set this constant to `false`.
