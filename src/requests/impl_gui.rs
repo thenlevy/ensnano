@@ -480,6 +480,10 @@ impl GuiRequests for Requests {
     fn optimize_scaffold_shift(&mut self) {
         self.keep_proceed.push_back(Action::OptimizeShift)
     }
+
+    fn request_screenshot_3d(&mut self) {
+        self.keep_proceed.push_back(Action::NotifyApps(Notification::ScreenShot3D))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {
