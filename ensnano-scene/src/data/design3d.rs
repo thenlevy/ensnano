@@ -114,7 +114,11 @@ impl<R: DesignReader> Design3D<R> {
             }
         }
         if let Some(additional_structure) = self.design.get_additional_structure() {
-            let (position, orientation) = additional_structure.frame();
+            use ultraviolet::Isometry3;
+            let Isometry3 {
+                rotation: orientation,
+                translation: position,
+            } = additional_structure.frame();
             for p in additional_structure.position() {
                 ret.push(
                     SphereInstance {
@@ -266,7 +270,11 @@ impl<R: DesignReader> Design3D<R> {
         }
 
         if let Some(additional_structure) = self.design.get_additional_structure() {
-            let (position, orientation) = additional_structure.frame();
+            use ultraviolet::Isometry3;
+            let Isometry3 {
+                rotation: orientation,
+                translation: position,
+            } = additional_structure.frame();
             let positions = additional_structure.position();
             for (me, next) in additional_structure.right().into_iter() {
                 let pos_left = positions[me].rotated_by(orientation) + position;

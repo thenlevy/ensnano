@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::{SimulationInterface, SimulationReader, SimulationUpdate};
 use std::f64::consts::TAU;
 use std::sync::{Arc, Mutex, Weak};
-use ultraviolet::{Rotor3, Vec3};
+use ultraviolet::{Isometry3, Rotor3, Vec3};
 
 use mathru::algebra::linear::vector::vector::Vector;
 use mathru::analysis::differential_equation::ordinary::{
@@ -654,11 +654,23 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
         self.current_scaffold_length
     }
 
-    fn frame(&self) -> (ultraviolet::Vec3, ultraviolet::Rotor3) {
-        (
-            self.plane_position + Vec3::unit_x() * self.topology.revolution_radius() as f32,
-            Rotor3::from_rotation_xy(-std::f32::consts::FRAC_PI_2) * self.plane_orientation,
-        )
+    fn frame(&self) -> Isometry3 {
+        let mut ret = Isometry3::identity();
+
+        // First inverse the transformation that is performed by the construction of the curve
+        ret.append_rotation(Rotor3::from_rotation_yz(-std::f32::consts::FRAC_PI_2));
+        ret.append_translation(Vec3::unit_x() * -self.topology.revolution_radius() as f32);
+
+        // Then convert into the plane's frame
+        ret.append_translation(self.plane_position);
+        ret.append_rotation(self.plane_orientation);
+
+        // Center on the rotation axis as drawn on the plane
+        let rotation_axis_translation = (Vec3::unit_x() * self.topology.revolution_radius() as f32)
+            .rotated_by(self.plane_orientation);
+        ret.append_translation(rotation_axis_translation);
+
+        ret
     }
 }
 

@@ -381,6 +381,7 @@ impl Revolution {
         let section_rotation =
             section_angle.unwrap_or_else(|| self.default_section_rotation_angle(t));
 
+        // (x, y) := position in the revolution plane
         let x = self.revolution_radius
             + self.curve_scale_factor
                 * (section_point.x * section_rotation.cos()
@@ -388,6 +389,7 @@ impl Revolution {
         let y = self.curve_scale_factor
             * (section_point.x * section_rotation.sin() + section_rotation.cos() * section_point.y);
 
+        // 3D position: obtained by making the revolution plane rotate in the xy 3D plane
         DVec3 {
             x: revolution_angle.cos() * x,
             y: revolution_angle.sin() * x,
