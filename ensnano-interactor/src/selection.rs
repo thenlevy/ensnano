@@ -74,10 +74,7 @@ pub enum CenterOfSelection {
 
 impl Selection {
     pub fn is_strand(&self) -> bool {
-        match self {
-            Selection::Strand(_, _) => true,
-            _ => false,
-        }
+        matches!(self, Selection::Strand(_, _))
     }
 
     pub fn get_design(&self) -> Option<u32> {
@@ -444,7 +441,7 @@ pub fn extract_nucls_from_selection(selection: &[Selection]) -> Vec<Nucl> {
     let mut ret = vec![];
     for s in selection.iter() {
         if let Selection::Nucleotide(_, nucl) = s {
-            ret.push(nucl.clone())
+            ret.push(*nucl)
         }
     }
     ret
@@ -535,14 +532,26 @@ impl std::fmt::Display for ActionMode {
 
 impl ActionMode {
     pub fn is_build(&self) -> bool {
-        match self {
-            Self::Build(_) => true,
-            Self::BuildHelix { .. } => true,
-            _ => false,
-        }
+        matches!(self, Self::Build(_) | Self::BuildHelix { .. })
     }
 }
 
+//
+// Encoding of phantom element identifier.
+// The identifier is an integer of the form helix_id * max_pos_id + pos_id;
+//
+// helix_id is the identifer of the helix and pos_id is of the form
+// position * nb_kind + element_kid
+// where element_kind is
+// 0 for forward nucl
+// 1 for backward nucl
+// 2 for forward bond
+// 3 for backward bond
+//
+// and position is a number between -PHANTOM_RANGE and PHANTOM_RANGE that is made positive by
+// adding PHANTOM_RANGE to it
+
+/// Generate the identifier of a phantom nucleotide
 pub fn phantom_helix_encoder_nucl(
     design_id: u32,
     helix_id: u32,
@@ -556,6 +565,7 @@ pub fn phantom_helix_encoder_nucl(
     (helix + pos_id) | (design_id << 24)
 }
 
+/// Generate the identifier of a phantom bound
 pub fn phantom_helix_encoder_bound(
     design_id: u32,
     helix_id: u32,
