@@ -1167,6 +1167,7 @@ impl<S: AppState> Scene<S> {
 impl<S: AppState> Application for Scene<S> {
     type AppState = S;
     fn on_notify(&mut self, notification: Notification) {
+        log::info!("scene notified {:?}", notification);
         let older_state = self.older_state.clone();
         match notification {
             Notification::ClearDesigns => self.clear_design(),
@@ -1239,7 +1240,9 @@ impl<S: AppState> Application for Scene<S> {
                 self.notify(SceneNotification::CameraMoved);
             }
             Notification::ScreenShot3D => {
-                self.export_png();
+                if !self.is_stereographic() {
+                    self.export_png();
+                }
             }
         }
     }

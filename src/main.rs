@@ -1693,9 +1693,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
         //messages.lock().unwrap().new_ui_size(ui_size);
     }
 
-    fn notify_apps(&mut self, notificiation: Notification) {
+    fn notify_apps(&mut self, notification: Notification) {
+        log::info!("Notiffy apps {:?}", notification);
         for app in self.main_state.applications.values_mut() {
-            app.lock().unwrap().on_notify(notificiation.clone())
+            app.lock().unwrap().on_notify(notification.clone())
         }
     }
 
