@@ -20,7 +20,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! # Organization of the software
 //!
 //!
-//! The [main](main) function owns the event_loop and the framebuffer. It recieves window events
+//! The [main](main) function owns the event loop and the framebuffer. It recieves window events
 //! and handles the framebuffer.
 //!
 //! ## Drawing process
@@ -29,9 +29,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! [Multiplexer](multiplexer) to draw on a view of that texture.
 //!
 //! The [Multiplexer](multiplexer) knows how the window is devided into several regions. For each
-//! of these region it knows what application or gui component should draw on it.
-//! For each region the [Multiplexer](multiplexer) holds a texture, and at each draw request, it
-//! will request the corresponding app or gui element to possibly update the texture.
+//! of these region it knows what application or gui component should draw on it. For each region
+//! the [Multiplexer](multiplexer) holds a texture, and at each draw request, it will request the
+//! corresponding app or gui element to possibly update the texture.
 //!
 //!
 //! ## Handling of events
@@ -41,9 +41,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! normally or if the program should wait for the user to interact with dialog windows.
 //!
 //! When the Global automata is in NormalState, events are forwarded to the
-//! [Multiplexer](multiplexer) which decides what application should handle the event. This is usually the
-//! application displayed in the active region (the region under the cursor). Special events like resizing of the window are
-//! handled by the multiplexer.
+//! [Multiplexer](multiplexer) which decides what application should handle the event. This is
+//! usually the application displayed in the active region (the region under the cursor). Special
+//! events like resizing of the window are handled by the multiplexer.
 //!
 //! When GUIs handle an event. They recieve a reference to the state of the main program. This
 //! state is encoded in the [AppState](app_state::AppState) data structure. Each GUI components
@@ -57,8 +57,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //! that must be implemented by the concrete `Requests` type.
 //!
 //! On each itteration of the main event loop, if the Global controller is in Normal State,
-//! requests are polled and transmitted to the main `AppState` my the main controller. The
-//! processing of these requests may have 3 different kind of consequences:
+//! requests are polled and transmitted to the main `AppState` by the main controller. The
+//! processing of these requests may have three different kind of consequences:
 //!
 //!  * An undoable action is performed on the main `AppState`, modifiying it. In that case the
 //!  current `AppState` is copied on the undo stack and the replaced by the modified one.
@@ -122,7 +122,6 @@ use ensnano_gui as gui;
 use ensnano_interactor::consts;
 //use design::Design;
 //mod mediator;
-/// Separation of the window into drawing regions
 mod multiplexer;
 use ensnano_flatscene as flatscene;
 use ensnano_interactor::{
@@ -168,23 +167,27 @@ fn convert_size_u32(size: PhySize) -> Size<u32> {
     Size::new(size.width, size.height)
 }
 
-#[cfg(not(feature = "log_after_renderer_setup"))]
-const EARLY_LOG: bool = true;
-#[cfg(feature = "log_after_renderer_setup")]
 /// Determine if log messages can be printed before the renderer setup.
 ///
 /// Setting it to true will print information in the terminal that are not usefull for regular use.
 /// By default the value is `false`. It can be set to `true` by enabling the
 /// `log_after_renderer_setup` feature.
+#[cfg(not(feature = "log_after_renderer_setup"))]
+const EARLY_LOG: bool = true;
+#[cfg(feature = "log_after_renderer_setup")]
 const EARLY_LOG: bool = false;
 
-// On some windows machine, only the DX12 backends will work. So the `dx12_only` feature forces its
-// use.
+/// Determine wgpu backends.
+///
+/// On some windows machine, only the DX12 backends will work. So the `dx12_only` feature forces
+/// its use.
 #[cfg(not(feature = "dx12_only"))]
 const BACKEND: wgpu::Backends = wgpu::Backends::PRIMARY;
 #[cfg(feature = "dx12_only")]
 const BACKEND: wgpu::Backends = wgpu::Backends::DX12;
 
+/// Determine if wgpu errors should panic.
+///
 /// Set to true because there should not be any "false-positive" in wgpu errors.
 ///
 /// TODO: Make a feature that would set this constant to `false`.
@@ -194,23 +197,23 @@ const PANIC_ON_WGPU_ERRORS: bool = true;
 ///
 /// # Intialization
 ///
-/// Before running the event loop, the main fuction do the following
+/// Before running the event loop, the main fuction does the following:
 ///
-/// * It request a connection to the GPU and crates a framebuffer
+/// * It requests a connection to the GPU and creates a framebuffer.
 /// * It initializes a multiplexer.
-/// * It initializes applications and GUI component, and associate region of the screen to these
+/// * It initializes applications and GUI component, and associate regions of the screen to these
 /// components
-/// * It initialized the [Mediator](mediator), the [Scheduler](mediator::Scheduler) and the [Gui
+/// * It initializes the [Mediator](mediator), the [Scheduler](mediator::Scheduler) and the [Gui
 /// manager](gui::Gui)
 ///
-/// # EventLoop
+/// # Event loop
 ///
-/// * The event loop wait for an event. If no event is recieved during 33ms, a new redraw is
+/// * The event loop waits for an event. If no event is recieved during 33ms, a new redraw is
 /// requested.
 /// * When a event is recieved, it is forwareded to the multiplexer. The Multiplexer may then
 /// convert this event into a event for a specific screen region.
-/// * When all window event have been handled, the main function reads messages that it recieved
-/// from the [Gui Manager](gui::Gui).  The consequence of these messages are forwarded to the
+/// * When all window events have been handled, the main function reads messages that it recieved
+/// from the [Gui Manager](gui::Gui).  The consequences of these messages are forwarded to the
 /// applications.
 /// * The main loops then reads the messages that it recieved from the [Mediator](mediator) and
 /// forwards their consequences to the Gui components.

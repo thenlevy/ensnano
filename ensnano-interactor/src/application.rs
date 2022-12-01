@@ -106,6 +106,7 @@ pub enum Notification {
     NewStereographicCamera(Arc<(Camera3D, f32)>),
     FlipSplitViews,
     HorizonAligned,
+    ScreenShot3D,
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

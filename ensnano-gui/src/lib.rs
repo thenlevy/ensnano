@@ -215,6 +215,8 @@ pub trait Requests: 'static + Send {
     fn import_3d_object(&mut self);
     fn set_position_of_bezier_vertex(&mut self, vertex_id: BezierVertexId, position: Vec2);
     fn optimize_scaffold_shift(&mut self);
+    /// Make a 3D screenshot
+    fn request_screenshot_3d(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]

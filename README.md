@@ -10,8 +10,8 @@ ENSnano takes up the concepts of existing DNA nanostructures design softwares su
 ENSnano include
 
 * A 3D editable view synchronized with a 2D cadnano-like interface
-* 3D and 2D cross-over recomendations based on the structure's geometry
-* An interative and geometry aware copy and paste functionality
+* 3D and 2D cross-over recommendations based on the structure's geometry
+* An interactive and geometry aware copy and paste functionality
 
 Currently, ENSnano can only produces sequences for DNA origamis.
 
@@ -29,35 +29,47 @@ the conference.
 # Installation
 
 We try to frequently release binaries for Windows and MacOS.
-Alternatively you can also clone this repository and build the software from source.
+
+Alternatively you can clone this repository and build the software from source, following instructions below:
 
 ## Dependencies 
+
 ### All platforms
 
-You need to have the latest rust compiler installed see [this page](https://www.rust-lang.org/tools/install).
+You need to have the latest Rust compiler installed. See this [page](https://www.rust-lang.org/tools/install).
 
-** If you already have `cargo` installed but face compilation issue, make sure that you have the lastest version by running `rustup update` **
+*Note: If you already have Cargo installed but face compilation issues, make sure that you have the latest version by running*
+```Shell
+rustup update
+```
 
 ### Linux
-You need the GTK3 development packages, and a C++ compiler to build the dependency `rfd`.
+
+You need the GTK3 development packages and a C++ compiler to build the [RFD](https://crates.io/crates/rfd) dependency.
 
 * Debian/Ubuntu: `apt-get install build-essential libgtk-3-dev`
-* Fedora: `dnf install gtk3-devel`
-* Arch: `pacman -S gtk3`
 
-You also need to have the **Vulkan** driver for your graphic card installed. The installation methods depends on your distribution and graphic card,
+* Fedora: `dnf install gtk3-devel`
+
+* Archlinux: `pacman -S gtk3`
+
+You also need to have the **Vulkan** driver for your graphic card installed. The installation method depends on your distribution and graphic card,
 but there should be a tutorial on the internet for any combination of those.
 
 ## Compiling from source
 
-Clone the repo
+Clone the repository:
 
-`git clone https://github.com/thenlevy/ensnano.git`
+```Shell
+git clone https://github.com/thenlevy/ensnano.git
+```
 
-Run ensnano with
+Then run ENSnano with:
 
-`cd ensnano`
-`cargo run --features=log_after_renderer_setup --release`
+```Shell
+cd ensnano
+cargo run --features=log_after_renderer_setup --release
+```
 
 # Importing Cadnano/Scadnano files
 
@@ -81,25 +93,28 @@ In this scadnano design, insertions and loopouts are replaced by single strands
 
 ## Compilations errors
 Compilation errors may be happen when using an outdated version of the rust compiler. To solve this run
-
-`rustup update`
-
+```Shell
+rustup update
+```
 It might also happen that you need to update ENSnano's dependencies before compiling. To do so, run
+```Shell
+cargo update
+```
+## Crash at startup on Windows
+By default, ENSnano uses a Vulkan renderer on windows platforms that offers
+one. However this renderer does not work properly on some machines. For this
+reason it is also possible to use a DirectX12 renderer instead. 
 
-`cargo update`
+If your program crashes on startup, try using the binary
+```Shell
+ensnano-windows-dx12
+```
+or, if you are compiling from source, use a DirectX12 renderer with
+```Shell
+cargo run --release --features="dx12_only log_after_renderer_setup"
+```
 
-## Crash on startup on Windows
-By default, ENSnano uses a Vulkan renderer on windows platforms that offer one. However on some
-this Vulkan render does not work properly on some machine.
-
-For this reason it is also possible to use a DirectX12 renderer instead. 
-If your program crashes on startup, try using the `ensnano-windows-dx12` binary.
-
-If you are compiling from source, use a DirectX12 renderer with
-
-`cargo run --release --features="dx12_only log_after_renderer_setup"`
-
-# Thirdparties
+# Third-party licenses
 
 The licenses of the dependencies are listed in `thirdparties/license.html`
 

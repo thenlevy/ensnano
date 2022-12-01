@@ -209,6 +209,7 @@ pub enum Message<S> {
     },
     Export(ExportType),
     CancelExport,
+    ScreenShot3D,
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -843,6 +844,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::CancelExport => {
                 self.requests.lock().unwrap().set_exporting(false);
+            }
+            Message::ScreenShot3D => {
+                self.requests.lock().unwrap().request_screenshot_3d();
             }
         };
         Command::none()

@@ -356,10 +356,7 @@ impl<S: AppState> Scene<S> {
                 self.notify(SceneNotification::CameraMoved);
             }
             Consequence::ToggleWidget => {
-                use chrono::{Timelike, Utc};
-                let now = Utc::now();
-                let name = now.format("export_3d_%Y_%m_%d_%H_%M_%S.png").to_string();
-                self.export_png(&name);
+                self.export_png();
                 self.requests.lock().unwrap().toggle_widget_basis();
             }
             Consequence::BuildEnded => self.requests.lock().unwrap().suspend_op(),
@@ -956,7 +953,9 @@ impl<S: AppState> Scene<S> {
         (texture, view)
     }
 
-    fn export_png(&self, png_name: &str) {
+    fn export_png(&self) {
+        use chrono::{Timelike, Utc};
+        let png_name = Utc::now().format("export_3d_%Y_%m_%d_%H_%M_%S.png").to_string();
         let device = self.element_selector.device.as_ref();
         let queue = self.element_selector.queue.as_ref();
         println!("export to {png_name}");
@@ -1240,6 +1239,9 @@ impl<S: AppState> Application for Scene<S> {
             Notification::HorizonAligned => {
                 self.controller.align_horizon();
                 self.notify(SceneNotification::CameraMoved);
+            }
+            Notification::ScreenShot3D => {
+                self.export_png();
             }
         }
     }
