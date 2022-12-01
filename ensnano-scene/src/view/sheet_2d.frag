@@ -49,7 +49,7 @@ void main() {
     float y = v_tex_pos.y;
 
     bool is_in_dotted = (mod(abs(y) / 6., 1.) < 0.7);
-    if (abs((x - rotation_radius)) < grid_width / 6. && is_in_dotted) {
+    if (abs((x + rotation_radius)) < grid_width / 6. && is_in_dotted) {
       out_color = vec4(0., 0., 1., 0.9);
 
     }
