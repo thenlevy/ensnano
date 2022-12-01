@@ -496,7 +496,27 @@ pub struct UnrootedRevolutionSurfaceDescriptor {
     pub curve: CurveDescriptor2D,
     pub revolution_radius: f64,
     pub half_turn_count: isize,
-    pub frame: Isometry3,
+    pub curve_plane_position: Vec3,
+    pub curve_plane_orientation: Rotor3,
+}
+
+impl UnrootedRevolutionSurfaceDescriptor {
+    pub fn get_frame(&self) -> Isometry3 {
+        let mut ret = Isometry3::identity();
+
+        // First inverse the transformation that is performed by the construction of the curve
+        ret.append_rotation(Rotor3::from_rotation_yz(-std::f32::consts::FRAC_PI_2));
+
+        // Then convert into the plane's frame
+        ret.append_translation(self.curve_plane_position);
+        ret.append_rotation(self.curve_plane_orientation);
+
+        // Center on the rotation axis as drawn on the plane
+        let rotation_axis_translation = (-Vec3::unit_z() * self.revolution_radius as f32)
+            .rotated_by(self.curve_plane_orientation);
+        ret.append_translation(rotation_axis_translation);
+        ret
+    }
 }
 
 /*

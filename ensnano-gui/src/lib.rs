@@ -1052,6 +1052,7 @@ pub trait AppState:
     fn get_selected_bezier_path(&self) -> Option<BezierPathId>;
     fn is_exporting(&self) -> bool;
     fn is_transitory(&self) -> bool;
+    fn get_current_revoultion_radius(&self) -> Option<f64>;
 }
 
 pub trait DesignReader: 'static {

@@ -125,4 +125,8 @@ impl SceneRequests for Requests {
                 .push_back(Action::RotateGroupPivot(rotation))
         }
     }
+
+    fn set_revolution_radius(&mut self, radius: f32) {
+        self.new_bezier_revolution_radius = Some(Some(radius as f64));
+    }
 }

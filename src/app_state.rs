@@ -472,6 +472,9 @@ impl AppState {
     pub fn set_bezier_revolution_radius(&self, radius: Option<f64>) -> Self {
         let mut new_state = (*self.0).clone();
         new_state.current_revolution.radius = radius;
+        if let Some((radius, surface)) = radius.zip(new_state.unrooted_surface.as_mut()) {
+            surface.revolution_radius = radius
+        }
         Self(AddressPointer::new(new_state))
     }
 

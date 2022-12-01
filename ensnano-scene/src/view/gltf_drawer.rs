@@ -145,6 +145,7 @@ const NB_SECTION_PER_STRIP: usize = 1_000;
 impl MeshGenerator for UnrootedRevolutionSurfaceDescriptor {
     fn meshes(&self) -> Vec<GltfMesh> {
         use crate::ultraviolet::{DVec2, Vec3};
+        let frame = self.get_frame();
         (0..NB_STRIP)
             .map(|strip_idx| {
                 let s_high = strip_idx as f64 / NB_STRIP as f64;
@@ -181,7 +182,7 @@ impl MeshGenerator for UnrootedRevolutionSurfaceDescriptor {
                                         y: (revolution_angle.sin() * x) as f32,
                                         z: y as f32,
                                     };
-                                    self.frame.transform_vec(point)
+                                    frame.transform_vec(point)
                                 };
 
                                 let normal = _3d(tengent);

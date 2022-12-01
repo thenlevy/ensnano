@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
-use ensnano_design::{ultraviolet::Rotor3, CurveDescriptor2D, Isometry3};
+use ensnano_design::{ultraviolet::Rotor3, CurveDescriptor2D};
 use ensnano_interactor::{
     EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceDescriptor,
     RevolutionSurfaceSystemDescriptor, UnrootedRevolutionSurfaceDescriptor,
@@ -390,34 +390,18 @@ impl<S: AppState> RevolutionTab<S> {
             .get_value()
             .and_then(InstanciatedParameter::get_int)?;
 
-        let frame = self
+        let (curve_plane_position, curve_plane_orientation) = self
             .curve_descriptor_widget
             .as_ref()
-            .and_then(|w| {
-                w.get_frame(app_state).map(|(translation, rotation)| {
-                    let mut ret = Isometry3::identity();
-
-                    // First inverse the transformation that is performed by the construction of the curve
-                    ret.append_rotation(Rotor3::from_rotation_yz(-std::f32::consts::FRAC_PI_2));
-
-                    // Then convert into the plane's frame
-                    ret.append_translation(translation);
-                    ret.append_rotation(rotation);
-
-                    // Center on the rotation axis as drawn on the plane
-                    let rotation_axis_translation =
-                        (-Vec3::unit_z() * revolution_radius as f32).rotated_by(rotation);
-                    ret.append_translation(rotation_axis_translation);
-                    ret
-                })
-            })
-            .unwrap_or_else(Isometry3::identity);
+            .and_then(|w| w.get_frame(app_state))
+            .unwrap_or_else(|| (Vec3::zero(), Rotor3::identity()));
 
         Some(UnrootedRevolutionSurfaceDescriptor {
             curve,
             revolution_radius,
             half_turn_count,
-            frame,
+            curve_plane_orientation,
+            curve_plane_position,
         })
     }
 
@@ -671,5 +655,9 @@ impl<S: AppState> RevolutionTab<S> {
             time_span,
             method,
         })
+    }
+
+    pub fn modifying_radius(&self) -> bool {
+        self.radius_input.state.is_focused()
     }
 }

@@ -557,8 +557,7 @@ impl<S: AppState> Scene<S> {
                 self.notify(SceneNotification::CameraMoved);
             }
             Consequence::SetRevolutionRadius(r) => {
-                println!("New revolution radius {r}");
-                //TODO
+                self.requests.lock().unwrap().set_revolution_radius(r);
             }
         };
     }
@@ -1373,4 +1372,5 @@ pub trait Requests {
     fn set_current_group_pivot(&mut self, pivot: GroupPivot);
     fn translate_group_pivot(&mut self, translation: Vec3);
     fn rotate_group_pivot(&mut self, rotation: Rotor3);
+    fn set_revolution_radius(&mut self, radius: f32);
 }

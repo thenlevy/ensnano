@@ -172,6 +172,10 @@ impl GuiState for AppState {
     fn is_transitory(&self) -> bool {
         !self.is_in_stable_state()
     }
+
+    fn get_current_revoultion_radius(&self) -> Option<f64> {
+        self.0.current_revolution.radius
+    }
 }
 
 #[cfg(test)]
