@@ -27,8 +27,8 @@ mod poll;
 
 use super::gui::UiSize;
 use super::*;
-use ensnano_interactor::graphics::HBoundDisplay;
 use ensnano_interactor::{application::AppId, RollRequest, Selection};
+use ensnano_interactor::{graphics::HBoundDisplay, UnrootedRevolutionSurfaceDescriptor};
 use ensnano_interactor::{CenterOfSelection, CheckXoversParameter};
 pub(crate) use poll::poll_all;
 use ultraviolet::Vec3;
@@ -141,4 +141,5 @@ pub struct Requests {
     pub horizon_targeted: Option<()>,
     pub new_bezier_revolution_id: Option<Option<usize>>,
     pub new_bezier_revolution_radius: Option<Option<f64>>,
+    pub new_unrooted_surface: Option<Option<UnrootedRevolutionSurfaceDescriptor>>,
 }

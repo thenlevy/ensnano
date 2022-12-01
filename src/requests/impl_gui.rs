@@ -507,6 +507,10 @@ impl GuiRequests for Requests {
         self.keep_proceed
             .push_back(Action::NotifyApps(Notification::ScreenShot3D))
     }
+
+    fn set_unrooted_surface(&mut self, surface: Option<UnrootedRevolutionSurfaceDescriptor>) {
+        self.new_unrooted_surface = Some(surface);
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

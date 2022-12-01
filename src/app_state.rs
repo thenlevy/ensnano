@@ -29,7 +29,7 @@ use ensnano_exports::{ExportResult, ExportType};
 use ensnano_gui::UiSize;
 use ensnano_interactor::{
     graphics::{Background3D, HBoundDisplay, RenderingMode},
-    RevolutionOfBezierPath,
+    RevolutionOfBezierPath, UnrootedRevolutionSurfaceDescriptor,
 };
 use ensnano_interactor::{
     operation::Operation, ActionMode, CenterOfSelection, CheckXoversParameter, Selection,
@@ -475,6 +475,15 @@ impl AppState {
         Self(AddressPointer::new(new_state))
     }
 
+    pub fn set_unrooted_surface(
+        &self,
+        surface: Option<UnrootedRevolutionSurfaceDescriptor>,
+    ) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.unrooted_surface = surface;
+        Self(AddressPointer::new(new_state))
+    }
+
     pub fn with_toggled_thick_helices(&self) -> Self {
         self.with_updated_parameters(|p| p.thick_helices ^= true)
     }
@@ -701,6 +710,7 @@ struct AppState_ {
     exporting: bool,
     path_to_current_design: Option<PathBuf>,
     current_revolution: RevolutionOfBezierPath,
+    unrooted_surface: Option<UnrootedRevolutionSurfaceDescriptor>,
 }
 
 #[derive(Clone, Default)]

@@ -175,6 +175,10 @@ impl App3D for AppState {
     fn revolution_bezier_updated(&self, other: &Self) -> bool {
         self.0.current_revolution != other.0.current_revolution
     }
+
+    fn get_current_unrooted_surface(&self) -> Option<UnrootedRevolutionSurfaceDescriptor> {
+        self.0.unrooted_surface.clone()
+    }
 }
 
 #[cfg(test)]

@@ -231,6 +231,10 @@ impl<R: DesignReader> Data<R> {
                     }))
             }
         }
+        let unrooted_surface = app_state.get_current_unrooted_surface();
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::UnrootedSurface(unrooted_surface));
     }
 
     pub fn get_aligned_camera(&self) -> Camera3D {

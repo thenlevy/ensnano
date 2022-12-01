@@ -26,7 +26,7 @@ use camera::{Camera, CameraPtr, Projection, ProjectionPtr};
 use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::ultraviolet;
 use ensnano_design::{grid::GridId, Axis};
-use ensnano_interactor::consts::*;
+use ensnano_interactor::{consts::*, UnrootedRevolutionSurfaceDescriptor};
 use ensnano_utils::wgpu;
 use ensnano_utils::{bindgroup_manager, text, texture};
 use std::cell::RefCell;
@@ -368,6 +368,9 @@ impl View {
     /// Notify the view of an update. According to the nature of this update, the view decides if
     /// it needs to be redrawn or not.
     pub fn update(&mut self, view_update: ViewUpdate) {
+        // By default any update set the need_redraw flag to true. But some update may not require
+        // a new redraw. In that case they must restore the previous value of `self.need_redraw`
+        let needed_redraw = self.need_redraw;
         self.need_redraw = true;
         match view_update {
             ViewUpdate::Size(size) => {
@@ -449,6 +452,18 @@ impl View {
             ViewUpdate::External3DObjects(objects) => self
                 .external_objects_drawer
                 .update_objects(objects, &self.viewer.get_layout_desc()),
+            ViewUpdate::UnrootedSurface(surface) => {
+                let is_update = self
+                    .external_objects_drawer
+                    .update_desired_revolution_shape(
+                        surface,
+                        self.device.as_ref(),
+                        &self.viewer.get_layout_desc(),
+                    );
+                if !is_update {
+                    self.need_redraw = needed_redraw;
+                }
+            }
         }
     }
 
@@ -1032,6 +1047,7 @@ pub enum ViewUpdate {
     FogCenter(Option<Vec3>),
     BezierSheets(Vec<Sheet2D>),
     External3DObjects(ExternalObjects),
+    UnrootedSurface(Option<UnrootedRevolutionSurfaceDescriptor>),
 }
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone, Hash)]

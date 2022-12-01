@@ -58,7 +58,7 @@ use ensnano_design::{
 use ensnano_interactor::{
     graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
     CheckXoversParameter, InsertionPoint, Selection, SimulationState, SuggestionParameters,
-    WidgetBasis,
+    UnrootedRevolutionSurfaceDescriptor, WidgetBasis,
 };
 use ensnano_interactor::{
     graphics::{FogParameters, HBoundDisplay},
@@ -226,6 +226,7 @@ pub trait Requests: 'static + Send {
     fn load_svg(&mut self);
     fn set_bezier_revolution_radius(&mut self, radius: Option<f64>);
     fn set_bezier_revolution_id(&mut self, id: Option<usize>);
+    fn set_unrooted_surface(&mut self, surface: Option<UnrootedRevolutionSurfaceDescriptor>);
     /// Make a 3D screenshot
     fn request_screenshot_3d(&mut self);
 }

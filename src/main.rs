@@ -86,7 +86,7 @@ use ensnano_design::{grid::GridId, Camera};
 use ensnano_exports::{ExportResult, ExportType};
 use ensnano_interactor::{
     application::{Application, Notification},
-    RevolutionSurfaceSystemDescriptor,
+    RevolutionSurfaceSystemDescriptor, UnrootedRevolutionSurfaceDescriptor,
 };
 use ensnano_interactor::{
     CenterOfSelection, CursorIcon, DesignOperation, DesignReader, RigidBodyConstants,
@@ -1492,6 +1492,10 @@ impl MainState {
 
     fn set_bezier_revolution_radius(&mut self, radius: Option<f64>) {
         self.modify_state(|s| s.set_bezier_revolution_radius(radius), None)
+    }
+
+    fn set_unrooted_surface(&mut self, surface: Option<UnrootedRevolutionSurfaceDescriptor>) {
+        self.modify_state(|s| s.set_unrooted_surface(surface), None)
     }
 
     fn toggle_thick_helices(&mut self) {

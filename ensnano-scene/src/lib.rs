@@ -17,8 +17,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use ensnano_design::grid::HelixGridPosition;
 use ensnano_design::{ultraviolet, BezierVertexId};
-use ensnano_interactor::NewBezierTengentVector;
 use ensnano_interactor::{graphics::RenderingMode, RevolutionOfBezierPath};
+use ensnano_interactor::{NewBezierTengentVector, UnrootedRevolutionSurfaceDescriptor};
 use ensnano_utils::wgpu;
 use ensnano_utils::winit;
 use std::cell::RefCell;
@@ -1343,6 +1343,7 @@ pub trait AppState: Clone + 'static {
 
     fn get_current_bezier_revolution(&self) -> &RevolutionOfBezierPath;
     fn revolution_bezier_updated(&self, other: &Self) -> bool;
+    fn get_current_unrooted_surface(&self) -> Option<UnrootedRevolutionSurfaceDescriptor>;
 }
 
 pub trait Requests {

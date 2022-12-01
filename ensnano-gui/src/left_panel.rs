@@ -867,6 +867,13 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .lock()
                     .unwrap()
                     .set_bezier_revolution_id(bezier_path_id);
+                let unrooted_surface = self
+                    .revolution_tab
+                    .get_current_unrooted_surface(&self.application_state);
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_unrooted_surface(unrooted_surface);
             }
             Message::RevolutionEquadiffSolvingMethodPicked(method) => {
                 self.revolution_tab.set_method(method);
@@ -886,6 +893,13 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .lock()
                     .unwrap()
                     .set_bezier_revolution_id(bezier_path_id);
+                let unrooted_surface = self
+                    .revolution_tab
+                    .get_current_unrooted_surface(&self.application_state);
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_unrooted_surface(unrooted_surface);
             }
             Message::InitRevolutionRelaxation(desc) => {
                 self.requests
