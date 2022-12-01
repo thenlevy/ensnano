@@ -502,6 +502,11 @@ impl GuiRequests for Requests {
     fn set_bezier_revolution_radius(&mut self, radius: Option<f64>) {
         self.new_bezier_revolution_radius = Some(radius);
     }
+
+    fn request_screenshot_3d(&mut self) {
+        self.keep_proceed
+            .push_back(Action::NotifyApps(Notification::ScreenShot3D))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

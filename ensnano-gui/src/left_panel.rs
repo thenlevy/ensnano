@@ -222,6 +222,7 @@ pub enum Message<S: AppState> {
     InitRevolutionRelaxation(RevolutionSurfaceSystemDescriptor),
     CancelExport,
     LoadSvgFile,
+    ScreenShot3D,
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -898,6 +899,9 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                 .unwrap()
                 .finish_revolutiion_relaxation(),
             Message::LoadSvgFile => self.requests.lock().unwrap().load_svg(),
+            Message::ScreenShot3D => {
+                self.requests.lock().unwrap().request_screenshot_3d();
+            }
         };
         Command::none()
     }

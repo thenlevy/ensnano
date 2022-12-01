@@ -226,6 +226,8 @@ pub trait Requests: 'static + Send {
     fn load_svg(&mut self);
     fn set_bezier_revolution_radius(&mut self, radius: Option<f64>);
     fn set_bezier_revolution_id(&mut self, id: Option<usize>);
+    /// Make a 3D screenshot
+    fn request_screenshot_3d(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]
