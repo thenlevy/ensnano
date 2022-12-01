@@ -665,7 +665,8 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
         ret.append_rotation(self.plane_orientation);
 
         // Center on the rotation axis as drawn on the plane
-        let rotation_axis_translation = (-Vec3::unit_z() * self.topology.revolution_radius() as f32)
+        let rotation_axis_translation = (-Vec3::unit_z()
+            * self.topology.revolution_radius() as f32)
             .rotated_by(self.plane_orientation);
         ret.append_translation(rotation_axis_translation);
 

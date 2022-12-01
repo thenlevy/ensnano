@@ -722,6 +722,13 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     let reader = state.get_reader();
                     self.organizer.update_elements(reader.get_dna_elements());
                     self.contextual_panel.state_updated();
+                    let unrooted_surface = self
+                        .revolution_tab
+                        .get_current_unrooted_surface(&self.application_state);
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .set_unrooted_surface(unrooted_surface);
                 }
                 if state.selection_was_updated(&self.application_state) {
                     let selected_group = state.get_selected_group();
