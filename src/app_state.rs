@@ -116,9 +116,11 @@ impl AppState {
 impl AppState {
     pub fn with_selection(
         &self,
-        selection: Vec<Selection>,
+        mut selection: Vec<Selection>,
         selected_group: Option<GroupId>,
     ) -> Self {
+        selection.sort();
+        selection.dedup();
         if self.0.selection.selection.content_equal(&selection)
             && selected_group == self.0.selection.selected_group
         {
@@ -153,7 +155,9 @@ impl AppState {
         }
     }
 
-    pub fn with_candidates(&self, candidates: Vec<Selection>) -> Self {
+    pub fn with_candidates(&self, mut candidates: Vec<Selection>) -> Self {
+        candidates.sort();
+        candidates.dedup();
         if self.0.candidates.content_equal(&candidates) {
             self.clone()
         } else {

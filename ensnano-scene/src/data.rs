@@ -932,6 +932,32 @@ impl<R: DesignReader> Data<R> {
 
     /// Notify the view that the selected elements have been modified
     fn update_selection<S: AppState>(&mut self, selection: &[Selection], app_state: &S) {
+        // little hack to avoid going several time through the same helix if several segments are
+        // selected
+        let mut selection_: Vec<_> = selection
+            .iter()
+            .cloned()
+            .map(|s| {
+                if let Selection::Helix {
+                    design_id,
+                    helix_id,
+                    ..
+                } = s
+                {
+                    Selection::Helix {
+                        design_id,
+                        helix_id,
+                        segment_id: 0,
+                    }
+                } else {
+                    s
+                }
+            })
+            .collect();
+        selection_.sort();
+        selection_.dedup();
+        let selection = selection_.as_slice();
+
         log::trace!("Update selection {:?}", selection);
         let mut sphere = self.get_selected_spheres(selection, app_state);
         let tubes = self.get_selected_tubes(selection, app_state);

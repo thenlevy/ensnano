@@ -25,7 +25,7 @@ use std::collections::BTreeSet;
 
 pub const PHANTOM_RANGE: i32 = 1000;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Selection {
     Nucleotide(u32, Nucl),
     Bound(u32, Nucl, Nucl),
@@ -588,7 +588,7 @@ pub fn phantom_helix_decoder(id: u32) -> PhantomElement {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhantomElement {
     pub design_id: u32,
     pub helix_id: u32,

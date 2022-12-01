@@ -28,7 +28,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 mod instantiator;
 pub(crate) use instantiator::PieceWiseBezierInstantiator;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive, PartialOrd, Ord)]
 #[repr(usize)]
 /// A control point of a cubic bezier curve.
 ///
@@ -40,7 +40,7 @@ pub enum CubicBezierControlPoint {
     Control2,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 /// A control point of a bezier curve
 pub enum BezierControlPoint {
     /// One of the control points of a cubic bezier curve
