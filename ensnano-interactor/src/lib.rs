@@ -26,7 +26,7 @@ use ensnano_design::{
     grid::{GridDescriptor, GridId, GridObject, GridTypeDescr, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
     BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, BezierVertexId,
-    CurveDescriptor2D, Nucl, Parameters,
+    CurveDescriptor2D, Isometry3, Nucl, Parameters,
 };
 use serde::{Deserialize, Serialize};
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -496,6 +496,7 @@ pub struct UnrootedRevolutionSurfaceDescriptor {
     pub curve: CurveDescriptor2D,
     pub revolution_radius: f64,
     pub half_turn_count: isize,
+    pub frame: Isometry3,
 }
 
 /*

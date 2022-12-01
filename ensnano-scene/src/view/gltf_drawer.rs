@@ -139,7 +139,7 @@ trait MeshGenerator {
 }
 
 const NB_STRIP: usize = 100;
-const STRIP_WIDTH: f64 = 0.8;
+const STRIP_WIDTH: f64 = 0.3;
 const NB_SECTION_PER_STRIP: usize = 1_000;
 
 impl MeshGenerator for UnrootedRevolutionSurfaceDescriptor {
@@ -148,7 +148,7 @@ impl MeshGenerator for UnrootedRevolutionSurfaceDescriptor {
         (0..NB_STRIP)
             .map(|strip_idx| {
                 let s_high = strip_idx as f64 / NB_STRIP as f64;
-                let s_low = STRIP_WIDTH / NB_STRIP as f64;
+                let s_low = s_high + STRIP_WIDTH / NB_STRIP as f64;
 
                 let curve_high = self.curve.point(s_high);
                 let curve_low = self.curve.point(s_low);
@@ -176,11 +176,12 @@ impl MeshGenerator for UnrootedRevolutionSurfaceDescriptor {
                                     let y = point.x * section_rotation.sin()
                                         + section_rotation.cos() * point.y;
 
-                                    Vec3 {
+                                    let point = Vec3 {
                                         x: (revolution_angle.cos() * x) as f32,
                                         y: (revolution_angle.sin() * x) as f32,
                                         z: y as f32,
-                                    }
+                                    };
+                                    self.frame.transform_vec(point)
                                 };
 
                                 let normal = _3d(tengent);
