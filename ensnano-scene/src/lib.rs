@@ -556,6 +556,10 @@ impl<S: AppState> Scene<S> {
                 self.controller.reverse_surface_direction();
                 self.notify(SceneNotification::CameraMoved);
             }
+            Consequence::SetRevolutionRadius(r) => {
+                println!("New revolution radius {r}");
+                //TODO
+            }
         };
     }
 

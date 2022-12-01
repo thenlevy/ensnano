@@ -127,6 +127,7 @@ pub fn ray_bezier_plane_intersection<'a>(
     ret
 }
 
+#[derive(Debug)]
 pub struct BezierPlaneIntersection {
     pub x: f32,
     pub y: f32,

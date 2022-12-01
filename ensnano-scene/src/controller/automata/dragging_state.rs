@@ -814,3 +814,32 @@ impl DraggingTransitionTable for MovingBezierTengent {
 }
 
 dragging_state_constructor_with_state!(moving_bezier_tengent, MovingBezierTengent);
+
+pub(super) struct MovingRevolutionRadius {
+    pub plane_id: BezierPlaneId,
+}
+
+impl DraggingTransitionTable for MovingRevolutionRadius {
+    fn description() -> &'static str {
+        "Moving revolution radius"
+    }
+
+    fn on_cursor_moved<S: AppState>(
+        &mut self,
+        cursor: DraggedCursor<'_, '_, S>,
+    ) -> Option<Consequence> {
+        let point_on_plane = cursor
+            .context
+            .get_current_cursor_intersection_with_bezier_plane(self.plane_id);
+
+        point_on_plane.map(|p| Consequence::SetRevolutionRadius(-p.x))
+    }
+
+    fn on_button_released(&self) -> Option<Consequence> {
+        None
+    }
+
+    no_csq_leaving_or_entering!();
+}
+
+dragging_state_constructor_with_state!(moving_revolution_radius, MovingRevolutionRadius);

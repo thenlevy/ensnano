@@ -437,8 +437,10 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         let path_id = context.get_bezier_vertex_being_eddited().map(|v| v.path_id);
 
                         if let Some((plane_id, intersection)) = context.get_plane_under_cursor() {
+                            println!("{:?}", intersection);
                             let click_info =
                                 ClickInfo::new(MouseButton::Left, context.cursor_position);
+
                             Transition {
                                 new_state: Some(Box::new(dragging_state::moving_bezier_vertex(
                                     click_info,
@@ -464,6 +466,20 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                 new_state: Some(Box::new(new_state)),
                                 consequences: Consequence::Nothing,
                             }
+                        }
+                    }
+                    None if context.cursor_is_on_radius()
+                        && context.get_plane_under_cursor().is_some() =>
+                    {
+                        let (plane_id, _) = context.get_plane_under_cursor().unwrap();
+
+                        let click_info = ClickInfo::new(MouseButton::Left, context.cursor_position);
+                        Transition {
+                            new_state: Some(Box::new(dragging_state::moving_revolution_radius(
+                                click_info,
+                                MovingRevolutionRadius { plane_id },
+                            ))),
+                            consequences: Consequence::Nothing,
                         }
                     }
                     _ => {
