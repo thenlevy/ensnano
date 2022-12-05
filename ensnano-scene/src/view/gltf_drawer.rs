@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::wgpu;
-use ensnano_design::{External3DObject, External3DObjectId};
+use ensnano_design::{External3DObject, External3DObjectId, PointOnSurface};
 use ensnano_interactor::consts;
 use ensnano_interactor::UnrootedRevolutionSurfaceDescriptor;
 use ensnano_utils::{create_buffer_with_data, obj_loader::*, texture::Texture, TEXTURE_FORMAT};
@@ -144,63 +144,47 @@ const NB_SECTION_PER_STRIP: usize = 1_000;
 
 impl MeshGenerator for UnrootedRevolutionSurfaceDescriptor {
     fn meshes(&self) -> Vec<GltfMesh> {
-        use crate::ultraviolet::{DVec2, Vec3};
+        use ensnano_design::utils::dvec_to_vec;
         let frame = self.get_frame();
+
         (0..NB_STRIP)
             .map(|strip_idx| {
                 let s_high = strip_idx as f64 / NB_STRIP as f64;
                 let s_low = s_high + STRIP_WIDTH / NB_STRIP as f64;
 
-                let curve_high = self.curve.point(s_high);
-                let curve_low = self.curve.point(s_low);
-
-                let tengent_high = self.curve.normalized_tangent(s_high);
-                let tengent_low = self.curve.normalized_tangent(s_low);
-
                 let vertices: Vec<ModelVertex> = (0..=NB_SECTION_PER_STRIP)
                     .flat_map(|section_idx| {
-                        [(curve_high, tengent_high), (curve_low, tengent_low)]
-                            .into_iter()
-                            .map(move |(point, tengent)| {
-                                use std::f64::consts::{PI, TAU};
-                                let revolution_fract =
-                                    section_idx as f64 / NB_SECTION_PER_STRIP as f64;
+                        [s_high, s_low].into_iter().map(move |s| {
+                            use std::f64::consts::TAU;
+                            let revolution_fract = section_idx as f64 / NB_SECTION_PER_STRIP as f64;
 
-                                let revolution_angle = TAU * revolution_fract;
-                                let section_rotation =
-                                    PI * self.half_turn_count as f64 * revolution_fract;
+                            let revolution_angle = TAU * revolution_fract;
 
-                                let _3d = move |point: DVec2| {
-                                    let x = self.revolution_radius
-                                        + (point.x * section_rotation.cos()
-                                            - section_rotation.sin() * point.y);
-                                    let y = point.x * section_rotation.sin()
-                                        + section_rotation.cos() * point.y;
+                            let surface_point = PointOnSurface {
+                                revolution_angle,
+                                section_parameter: s,
+                                revolution_radius: self.revolution_radius,
+                                section_half_turn_per_revolution: self.half_turn_count,
+                            };
+                            let position = frame.transform_vec(dvec_to_vec(
+                                self.curve.point_on_surface(&surface_point),
+                            ));
 
-                                    let point = Vec3 {
-                                        x: (revolution_angle.cos() * x) as f32,
-                                        y: (revolution_angle.sin() * x) as f32,
-                                        z: y as f32,
-                                    };
-                                    frame.transform_vec(point)
-                                };
+                            let normal = frame.transform_vec(dvec_to_vec(
+                                self.curve.normal_of_surface(&surface_point),
+                            ));
 
-                                let normal = _3d(tengent);
+                            let vertex_color =
+                                ensnano_utils::hsv_color(revolution_angle.to_degrees(), 0.7, 0.7);
+                            let color =
+                                ensnano_utils::instance::Instance::color_from_u32(vertex_color);
 
-                                let vertex_color = ensnano_utils::hsv_color(
-                                    revolution_angle.to_degrees(),
-                                    0.7,
-                                    0.7,
-                                );
-                                let color =
-                                    ensnano_utils::instance::Instance::color_from_u32(vertex_color);
-
-                                ModelVertex {
-                                    position: _3d(point).into(),
-                                    normal: normal.into(),
-                                    color: color.into(),
-                                }
-                            })
+                            ModelVertex {
+                                position: position.into(),
+                                normal: normal.into(),
+                                color: color.into(),
+                            }
+                        })
                     })
                     .collect();
                 GltfMesh {

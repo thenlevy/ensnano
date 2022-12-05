@@ -809,6 +809,7 @@ mod tests {
     const NB_SECTION_PER_SEGMENT: usize = 100;
     use super::*;
 
+    #[ignore = "expansive"]
     #[test]
     fn relax_hexagon() {
         let surface_desc = RevolutionSurfaceDescriptor {

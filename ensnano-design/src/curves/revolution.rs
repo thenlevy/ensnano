@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::utils::dvec_to_vec;
+use crate::{curves::torus::PointOnSurface_, utils::dvec_to_vec};
 
 use super::*;
 use std::f64::consts::{PI, TAU};
@@ -381,20 +381,13 @@ impl Revolution {
         let section_rotation =
             section_angle.unwrap_or_else(|| self.default_section_rotation_angle(t));
 
-        // (x, y) := position in the revolution plane
-        let x = self.revolution_radius
-            + self.curve_scale_factor
-                * (section_point.x * section_rotation.cos()
-                    - section_rotation.sin() * section_point.y);
-        let y = self.curve_scale_factor
-            * (section_point.x * section_rotation.sin() + section_rotation.cos() * section_point.y);
-
-        // 3D position: obtained by making the revolution plane rotate in the xy 3D plane
-        DVec3 {
-            x: revolution_angle.cos() * x,
-            y: revolution_angle.sin() * x,
-            z: y,
-        }
+        let surface = PointOnSurface_ {
+            section_rotation,
+            revolution_radius: self.revolution_radius,
+            revolution_angle,
+            curve_scale_factor: self.curve_scale_factor,
+        };
+        CurveDescriptor2D::_3d(section_point, &surface)
     }
 
     fn default_section_rotation_angle(&self, t: f64) -> f64 {

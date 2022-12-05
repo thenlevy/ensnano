@@ -20,7 +20,7 @@ use crate::{InstanciatedPiecewiseBezier, Parameters};
 
 use super::Curved;
 use std::sync::Arc;
-use ultraviolet::{DVec2, DVec3};
+use ultraviolet::{DVec2, DVec3, Isometry3, Rotor3};
 
 use ordered_float::OrderedFloat;
 use std::f64::consts::TAU;
@@ -323,6 +323,80 @@ impl CurveDescriptor2D {
 
     pub fn perimeter(&self) -> f64 {
         quadrature::integrate(|t| self.derivative(t).mag(), 0., 1., 1e-5).integral
+    }
+
+    pub(super) fn _3d(point2d: DVec2, surface: &PointOnSurface_) -> DVec3 {
+        // When the revolution angle is TAU, we want the section rotation to be half_turn * PI
+
+        // (x, y) := position in the revolution plane
+        let x = surface.revolution_radius
+            + surface.curve_scale_factor
+                * (point2d.x * surface.section_rotation.cos()
+                    - surface.section_rotation.sin() * point2d.y);
+        let y = surface.curve_scale_factor
+            * (point2d.x * surface.section_rotation.sin()
+                + surface.section_rotation.cos() * point2d.y);
+
+        // 3D position: obtained by making the revolution plane rotate in the xy 3D plane
+        DVec3 {
+            x: (surface.revolution_angle.cos() * x),
+            y: (surface.revolution_angle.sin() * x),
+            z: y,
+        }
+    }
+
+    pub fn get_frame_3d() -> Isometry3 {
+        let mut ret = Isometry3::identity();
+
+        // First inverse the transformation that is performed by the construction of the curve
+        ret.append_rotation(Rotor3::from_rotation_yz(-std::f32::consts::FRAC_PI_2));
+        ret
+    }
+
+    /// Return the coordinates of the point on the revolution surface obtained by revolving self
+    pub fn point_on_surface(&self, point: &PointOnSurface) -> DVec3 {
+        let point2d = self.point(point.section_parameter);
+        Self::_3d(point2d, &point.clone().into())
+    }
+
+    /// Return the normal of the revolution surface obtained by revolving self.
+    pub fn normal_of_surface(&self, point: &PointOnSurface) -> DVec3 {
+        let point2d = self.normalized_tangent(point.section_parameter);
+        Self::_3d(point2d, &point.clone().into())
+    }
+}
+
+#[derive(Debug, Clone)]
+/// The geometric parameters needed to convert a 2D point to a point on a revolution surface.
+pub struct PointOnSurface {
+    /// Parameter along the surface of the curve, in [0, 1]
+    pub section_parameter: f64,
+    /// Angle of revomultion in [0, 2pi]
+    pub revolution_angle: f64,
+    pub revolution_radius: f64,
+    pub section_half_turn_per_revolution: isize,
+}
+
+#[derive(Debug, Clone)]
+/// The geometric parameters needed internally to convert a 2D point to a point on a revolution surface.
+///
+/// They can be deduced from a `PointOnSurface`
+pub(super) struct PointOnSurface_ {
+    pub revolution_angle: f64,
+    pub revolution_radius: f64,
+    pub section_rotation: f64,
+    pub curve_scale_factor: f64,
+}
+
+impl From<PointOnSurface> for PointOnSurface_ {
+    fn from(p: PointOnSurface) -> Self {
+        let section_rotation = p.section_half_turn_per_revolution as f64 * p.revolution_angle / 2.;
+        Self {
+            section_rotation,
+            revolution_angle: p.revolution_angle,
+            revolution_radius: p.revolution_radius,
+            curve_scale_factor: 1.0,
+        }
     }
 }
 

@@ -502,10 +502,7 @@ pub struct UnrootedRevolutionSurfaceDescriptor {
 
 impl UnrootedRevolutionSurfaceDescriptor {
     pub fn get_frame(&self) -> Isometry3 {
-        let mut ret = Isometry3::identity();
-
-        // First inverse the transformation that is performed by the construction of the curve
-        ret.append_rotation(Rotor3::from_rotation_yz(-std::f32::consts::FRAC_PI_2));
+        let mut ret = CurveDescriptor2D::get_frame_3d();
 
         // Then convert into the plane's frame
         ret.append_translation(self.curve_plane_position);
@@ -516,6 +513,77 @@ impl UnrootedRevolutionSurfaceDescriptor {
             .rotated_by(self.curve_plane_orientation);
         ret.append_translation(rotation_axis_translation);
         ret
+    }
+
+    pub fn approx_surface_area(&self, nb_strip: usize, nb_section_per_strip: usize) -> f64 {
+        use ensnano_design::PointOnSurface;
+        use rayon::prelude::*;
+
+        (0..nb_strip)
+            .into_par_iter()
+            .map(|strip_idx| {
+                let s_high = strip_idx as f64 / nb_strip as f64;
+                let s_low = s_high + 1. / nb_strip as f64;
+
+                let vertices = (0..nb_section_per_strip)
+                    .flat_map(|section_idx| {
+                        [s_high, s_low].into_iter().map(move |s| {
+                            use std::f64::consts::TAU;
+                            let revolution_fract = section_idx as f64 / nb_section_per_strip as f64;
+
+                            let revolution_angle = TAU * revolution_fract;
+
+                            let surface_point = PointOnSurface {
+                                revolution_angle,
+                                section_parameter: s,
+                                revolution_radius: self.revolution_radius,
+                                section_half_turn_per_revolution: self.half_turn_count,
+                            };
+                            self.curve.point_on_surface(&surface_point)
+                        })
+                    })
+                    .cycle();
+
+                // Compute the area of the triangles of the strip using the formula
+                // area(ABC) = 1/2 * mag(AB cross AC)
+                vertices
+                    .clone()
+                    .zip(vertices.clone().skip(1))
+                    .zip(vertices.skip(2))
+                    .take(2 * nb_section_per_strip)
+                    .map(|((a, b), c)| 0.5 * (b - a).cross(c - a).mag())
+                    .sum::<f64>()
+            })
+            .sum::<f64>()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn surface_area() {
+        let r = 1.0;
+        let R = 3.0;
+        let surface = UnrootedRevolutionSurfaceDescriptor {
+            curve: CurveDescriptor2D::Ellipse {
+                semi_minor_axis: r.into(),
+                semi_major_axis: r.into(),
+            },
+            revolution_radius: R,
+            half_turn_count: 0,
+            curve_plane_position: Vec3::zero(),
+            curve_plane_orientation: Rotor3::identity(),
+        };
+
+        let expected = 4. * std::f64::consts::PI * std::f64::consts::PI * r * R;
+
+        let actual = surface.approx_surface_area(1_000, 1_000);
+
+        assert!(
+            (expected - actual).abs() < 1e-3,
+            "exptected {expected},  actual {actual}"
+        );
     }
 }
 

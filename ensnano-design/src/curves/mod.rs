@@ -53,9 +53,9 @@ use std::collections::HashMap;
 pub use supertwist::SuperTwist;
 pub use time_nucl_map::AbscissaConverter;
 pub(crate) use time_nucl_map::{PathTimeMaps, RevolutionCurveTimeMaps};
-pub use torus::Torus;
 use torus::TwistedTorus;
 pub use torus::{CurveDescriptor2D, TwistedTorusDescriptor};
+pub use torus::{PointOnSurface, Torus};
 pub use tube_spiral::TubeSpiralDescritor;
 pub use twist::{nb_turn_per_100_nt_to_omega, twist_to_omega, Twist};
 
