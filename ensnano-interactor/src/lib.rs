@@ -515,6 +515,9 @@ impl UnrootedRevolutionSurfaceDescriptor {
         ret
     }
 
+    /// Approximate the area of the surface by slicing it into strips of triangles.
+    ///
+    /// The surface is split into `nb_strip` strips of 2 * `nb_section_per_strip` triangles
     pub fn approx_surface_area(&self, nb_strip: usize, nb_section_per_strip: usize) -> f64 {
         use ensnano_design::PointOnSurface;
         use rayon::prelude::*;
@@ -522,6 +525,7 @@ impl UnrootedRevolutionSurfaceDescriptor {
         (0..nb_strip)
             .into_par_iter()
             .map(|strip_idx| {
+                // Parameters along the section for the top and bottom of the strip
                 let s_high = strip_idx as f64 / nb_strip as f64;
                 let s_low = s_high + 1. / nb_strip as f64;
 
@@ -562,6 +566,7 @@ impl UnrootedRevolutionSurfaceDescriptor {
 mod tests {
     use super::*;
     #[test]
+    #[allow(non_snake_case)]
     fn surface_area() {
         let r = 1.0;
         let R = 3.0;
