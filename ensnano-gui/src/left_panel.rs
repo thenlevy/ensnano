@@ -739,14 +739,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     self.contextual_panel.state_updated();
                 }
                 self.application_state = state;
-                if let Some(r) = self.application_state.get_current_revoultion_radius() {
-                    if !self.revolution_tab.modifying_radius() {
-                        self.revolution_tab.update_builder_parameter(
-                            RevolutionParameterId::RevolutionRadius,
-                            format!("{:.3}", r),
-                        )
-                    }
-                }
+                self.revolution_tab.update(&self.application_state);
             }
             Message::FinishChangingColor => {
                 self.edition_tab.add_color();

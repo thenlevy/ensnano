@@ -48,7 +48,6 @@ pub enum RevolutionParameterId {
     SectionParameter(usize),
     HalfTurnCount,
     RevolutionRadius,
-    NbHelixHalfSection,
     ShiftPerTurn,
     NbSectionPerSegment,
     ScaffoldLenTarget,
@@ -268,7 +267,7 @@ pub(crate) struct RevolutionTab<S: AppState> {
     pick_curve_state: pick_list::State<CurveDescriptorBuilder<S>>,
     half_turn_count: ParameterWidget,
     radius_input: ParameterWidget,
-    nb_helix_per_half_section_input: ParameterWidget,
+    nb_helix: Option<usize>,
     shift_per_turn_state_input: ParameterWidget,
 
     scaffold_len_target: ParameterWidget,
@@ -298,7 +297,7 @@ impl<S: AppState> Default for RevolutionTab<S> {
             pick_curve_state: Default::default(),
             half_turn_count: ParameterWidget::new(InstanciatedParameter::Int(0)),
             radius_input: ParameterWidget::new(InstanciatedParameter::Float(0.)),
-            nb_helix_per_half_section_input: ParameterWidget::new(InstanciatedParameter::Uint(1)),
+            nb_helix: None,
             shift_per_turn_state_input: ParameterWidget::new(InstanciatedParameter::Int(0)),
             nb_section_per_segment_input: ParameterWidget::new(InstanciatedParameter::Uint(
                 init_parameter.nb_section_per_segment,
@@ -359,7 +358,6 @@ impl<S: AppState> RevolutionTab<S> {
                     ShiftPerTurn => &mut self.shift_per_turn_state_input,
                     RevolutionRadius => &mut self.radius_input,
                     ScaffoldLenTarget => &mut self.scaffold_len_target,
-                    NbHelixHalfSection => &mut self.nb_helix_per_half_section_input,
                     NbSectionPerSegment => &mut self.nb_section_per_segment_input,
                     SpringStiffness => &mut self.spring_stiffness,
                     TorsionStiffness => &mut self.torsion_stiffness,
@@ -440,12 +438,14 @@ impl<S: AppState> RevolutionTab<S> {
                     .input_view(RevolutionParameterId::HalfTurnCount),
             ),
         );
-        ret = ret.push(
-            Row::new().push(Text::new("Half Nb Helix")).push(
-                self.nb_helix_per_half_section_input
-                    .input_view(RevolutionParameterId::NbHelixHalfSection),
-            ),
-        );
+        let helix_text = if let Some(nb_helix) = self.nb_helix {
+            format!("Nb helix: {nb_helix}")
+        } else {
+            "Nb helix: ###".into()
+        };
+
+        ret = ret.push(Text::new(helix_text));
+
         ret = ret.push(
             Row::new().push(Text::new("Shift per turn")).push(
                 self.shift_per_turn_state_input
@@ -557,7 +557,6 @@ impl<S: AppState> RevolutionTab<S> {
             || self.radius_input.has_keyboard_priority()
             || self.nb_section_per_segment_input.has_keyboard_priority()
             || self.half_turn_count.has_keyboard_priority()
-            || self.nb_helix_per_half_section_input.has_keyboard_priority()
             || self.scaffold_len_target.has_keyboard_priority()
             || self.shift_per_turn_state_input.has_keyboard_priority()
             || self.spring_stiffness.has_keyboard_priority()
@@ -583,10 +582,7 @@ impl<S: AppState> RevolutionTab<S> {
                 .half_turn_count
                 .get_value()
                 .and_then(InstanciatedParameter::get_int)?,
-            nb_helix_per_half_section: self
-                .nb_helix_per_half_section_input
-                .get_value()
-                .and_then(InstanciatedParameter::get_uint)?,
+            nb_helix_per_half_section: self.nb_helix? / 2,
             revolution_radius: self
                 .radius_input
                 .get_value()
@@ -659,5 +655,24 @@ impl<S: AppState> RevolutionTab<S> {
 
     pub fn modifying_radius(&self) -> bool {
         self.radius_input.state.is_focused()
+    }
+
+    pub fn update(&mut self, app_state: &S) {
+        if let Some(r) = app_state.get_current_revoultion_radius() {
+            if !self.modifying_radius() {
+                self.update_builder_parameter(
+                    RevolutionParameterId::RevolutionRadius,
+                    format!("{:.3}", r),
+                )
+            }
+        }
+
+        self.nb_helix = self
+            .scaffold_len_target
+            .get_value()
+            .and_then(InstanciatedParameter::get_uint)
+            .and_then(|len_scaffold| {
+                app_state.get_recommended_nb_helices_revolution_surface(len_scaffold)
+            });
     }
 }

@@ -36,8 +36,8 @@ use ensnano_interactor::{
     SelectionMode, WidgetBasis,
 };
 
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
-use std::{ops::Add, path::PathBuf};
 mod address_pointer;
 mod design_interactor;
 mod transitions;
@@ -471,10 +471,7 @@ impl AppState {
 
     pub fn set_bezier_revolution_radius(&self, radius: Option<f64>) -> Self {
         let mut new_state = (*self.0).clone();
-        new_state.current_revolution.radius = radius;
-        if let Some((radius, surface)) = radius.zip(new_state.unrooted_surface.as_mut()) {
-            surface.revolution_radius = radius
-        }
+        new_state.update_revolution_radius(radius);
         Self(AddressPointer::new(new_state))
     }
 
@@ -482,9 +479,13 @@ impl AppState {
         &self,
         surface: Option<UnrootedRevolutionSurfaceDescriptor>,
     ) -> Self {
-        let mut new_state = (*self.0).clone();
-        new_state.unrooted_surface = surface;
-        Self(AddressPointer::new(new_state))
+        if self.0.unrooted_surface.as_ref() != surface.as_ref() {
+            let mut new_state = (*self.0).clone();
+            new_state.set_unrooted_surface(surface);
+            Self(AddressPointer::new(new_state))
+        } else {
+            self.clone()
+        }
     }
 
     pub fn with_toggled_thick_helices(&self) -> Self {
@@ -714,6 +715,27 @@ struct AppState_ {
     path_to_current_design: Option<PathBuf>,
     current_revolution: RevolutionOfBezierPath,
     unrooted_surface: Option<UnrootedRevolutionSurfaceDescriptor>,
+    area_unrooted_surface: Option<f64>,
+}
+
+impl AppState_ {
+    fn set_unrooted_surface(&mut self, surface: Option<UnrootedRevolutionSurfaceDescriptor>) {
+        self.area_unrooted_surface = surface
+            .as_ref()
+            .map(|s| s.approx_surface_area(1_000, 1_000));
+        self.unrooted_surface = surface;
+    }
+
+    fn update_revolution_radius(&mut self, radius: Option<f64>) {
+        self.current_revolution.radius = radius;
+        if let Some((r, s)) = radius.zip(self.unrooted_surface.as_mut()) {
+            s.revolution_radius = r;
+        }
+        self.area_unrooted_surface = self
+            .unrooted_surface
+            .as_ref()
+            .map(|s| s.approx_surface_area(1_000, 1_000));
+    }
 }
 
 #[derive(Clone, Default)]

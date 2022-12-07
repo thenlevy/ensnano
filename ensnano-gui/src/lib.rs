@@ -1053,6 +1053,7 @@ pub trait AppState:
     fn is_exporting(&self) -> bool;
     fn is_transitory(&self) -> bool;
     fn get_current_revoultion_radius(&self) -> Option<f64>;
+    fn get_recommended_nb_helices_revolution_surface(&self, scaffold_len: usize) -> Option<usize>;
 }
 
 pub trait DesignReader: 'static {
