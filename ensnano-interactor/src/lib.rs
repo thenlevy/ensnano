@@ -863,6 +863,7 @@ pub struct RevolutionSimulationParameters {
     pub time_span: f64,
     pub simulation_step: f64,
     pub method: EquadiffSolvingMethod,
+    pub rescaling: f64,
 }
 
 impl Default for RevolutionSimulationParameters {

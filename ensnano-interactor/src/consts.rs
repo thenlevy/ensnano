@@ -269,4 +269,5 @@ pub const DEFAULT_REVOLUTION_SIMULATION_PARAMETERS: RevolutionSimulationParamete
         time_span: 5.0,
         simulation_step: 0.1,
         method: crate::EquadiffSolvingMethod::Ralston,
+        rescaling: 1.,
     };

@@ -30,7 +30,7 @@ pub use top_bar::TopBar;
 pub mod left_panel;
 pub use left_panel::{
     ColorOverlay, CurveDescriptorBuilder, CurveDescriptorParameter, InstanciatedParameter,
-    LeftPanel, ParameterKind, RigidBodyParametersRequest,
+    LeftPanel, ParameterKind, RevolutionScaling, RigidBodyParametersRequest,
 };
 pub mod status_bar;
 mod ui_size;
@@ -1053,7 +1053,10 @@ pub trait AppState:
     fn is_exporting(&self) -> bool;
     fn is_transitory(&self) -> bool;
     fn get_current_revoultion_radius(&self) -> Option<f64>;
-    fn get_recommended_nb_helices_revolution_surface(&self, scaffold_len: usize) -> Option<usize>;
+    fn get_recommended_scaling_revolution_surface(
+        &self,
+        scaffold_len: usize,
+    ) -> Option<RevolutionScaling>;
 }
 
 pub trait DesignReader: 'static {

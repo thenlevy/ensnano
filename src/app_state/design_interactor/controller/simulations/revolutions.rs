@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::{SimulationInterface, SimulationReader, SimulationUpdate};
 use std::f64::consts::TAU;
 use std::sync::{Arc, Mutex, Weak};
-use ultraviolet::{Isometry3, Rotor3, Vec3};
+use ultraviolet::{Rotor3, Vec3};
 
 use mathru::algebra::linear::vector::vector::Vector;
 use mathru::analysis::differential_equation::ordinary::{
@@ -29,7 +29,7 @@ use mathru::analysis::differential_equation::ordinary::{
 
 use ensnano_design::{
     CurveDescriptor, CurveDescriptor2D, DVec3, InterpolatedCurveDescriptor,
-    InterpolationDescriptor, Parameters as DNAParameters,
+    InterpolationDescriptor, Parameters as DNAParameters, Similarity3,
 };
 use ensnano_interactor::{
     EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceDescriptor,
@@ -654,11 +654,12 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
         self.current_scaffold_length
     }
 
-    fn frame(&self) -> Isometry3 {
-        let mut ret = Isometry3::identity();
+    fn frame(&self) -> Similarity3 {
+        let mut ret = Similarity3::identity();
 
         // First inverse the transformation that is performed by the construction of the curve
         ret.append_rotation(Rotor3::from_rotation_yz(-std::f32::consts::FRAC_PI_2));
+        ret.append_scaling(1. / self.simulation_parameters.rescaling as f32);
 
         // Then convert into the plane's frame
         ret.append_translation(self.plane_position);
@@ -666,7 +667,7 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
 
         // Center on the rotation axis as drawn on the plane
         let rotation_axis_translation = (-Vec3::unit_z()
-            * self.topology.revolution_radius() as f32)
+            * (self.topology.revolution_radius() / self.simulation_parameters.rescaling) as f32)
             .rotated_by(self.plane_orientation);
         ret.append_translation(rotation_axis_translation);
 
@@ -806,7 +807,6 @@ impl<T> OptionOnce<T> {
 
 #[cfg(test)]
 mod tests {
-    const NB_SECTION_PER_SEGMENT: usize = 100;
     use super::*;
 
     #[ignore = "expansive"]

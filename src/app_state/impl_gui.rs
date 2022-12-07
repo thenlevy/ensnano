@@ -177,7 +177,10 @@ impl GuiState for AppState {
         self.0.current_revolution.radius
     }
 
-    fn get_recommended_nb_helices_revolution_surface(&self, scaffold_len: usize) -> Option<usize> {
+    fn get_recommended_scaling_revolution_surface(
+        &self,
+        scaffold_len: usize,
+    ) -> Option<ensnano_gui::RevolutionScaling> {
         let area_surface = self.0.area_unrooted_surface?;
         let perimeter_surface = self.0.unrooted_surface.as_ref()?.curve.perimeter();
         let parameters = self.get_dna_parameters();
@@ -187,7 +190,10 @@ impl GuiState for AppState {
 
         let half_number_helix =
             (scaled_perimeter / 2. / Parameters::INTER_CENTER_GAP as f64).round() as usize;
-        Some(half_number_helix * 2)
+        Some(ensnano_gui::RevolutionScaling {
+            nb_helix: half_number_helix * 2,
+            scale: scaling_factor,
+        })
     }
 }
 

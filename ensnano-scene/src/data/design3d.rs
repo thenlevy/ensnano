@@ -114,15 +114,11 @@ impl<R: DesignReader> Design3D<R> {
             }
         }
         if let Some(additional_structure) = self.design.get_additional_structure() {
-            use ultraviolet::Isometry3;
-            let Isometry3 {
-                rotation: orientation,
-                translation: position,
-            } = additional_structure.frame();
+            let transformation = additional_structure.frame();
             for p in additional_structure.position() {
                 ret.push(
                     SphereInstance {
-                        position: p.rotated_by(orientation) + position,
+                        position: transformation.transform_vec(p),
                         color: Instance::color_from_u32(SURFACE_PIVOT_SPHERE_COLOR),
                         id: u32::MAX,
                         radius: 1.,
@@ -134,7 +130,7 @@ impl<R: DesignReader> Design3D<R> {
                 for p in path {
                     ret.push(
                         SphereInstance {
-                            position: p.rotated_by(orientation) + position,
+                            position: transformation.transform_vec(p),
                             color: Instance::color_from_u32(PIVOT_SPHERE_COLOR),
                             id: u32::MAX,
                             radius: 1.,
@@ -270,23 +266,19 @@ impl<R: DesignReader> Design3D<R> {
         }
 
         if let Some(additional_structure) = self.design.get_additional_structure() {
-            use ultraviolet::Isometry3;
-            let Isometry3 {
-                rotation: orientation,
-                translation: position,
-            } = additional_structure.frame();
+            let transformation = additional_structure.frame();
             let positions = additional_structure.position();
             for (me, next) in additional_structure.right().into_iter() {
-                let pos_left = positions[me].rotated_by(orientation) + position;
-                let pos_right = positions[next].rotated_by(orientation) + position;
+                let pos_left = transformation.transform_vec(positions[me]);
+                let pos_right = transformation.transform_vec(positions[next]);
                 ret.push(
                     create_dna_bound(pos_left, pos_right, REGULAR_H_BOND_COLOR, u32::MAX, false)
                         .to_raw_instance(),
                 )
             }
             for (me, other) in additional_structure.next().into_iter() {
-                let pos_left = positions[me].rotated_by(orientation) + position;
-                let pos_right = positions[other].rotated_by(orientation) + position;
+                let pos_left = transformation.transform_vec(positions[me]);
+                let pos_right = transformation.transform_vec(positions[other]);
                 ret.push(
                     create_dna_bound(pos_left, pos_right, COLOR_GUANINE, u32::MAX, false)
                         .to_raw_instance(),

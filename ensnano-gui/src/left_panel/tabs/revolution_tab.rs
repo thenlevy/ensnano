@@ -267,7 +267,7 @@ pub(crate) struct RevolutionTab<S: AppState> {
     pick_curve_state: pick_list::State<CurveDescriptorBuilder<S>>,
     half_turn_count: ParameterWidget,
     radius_input: ParameterWidget,
-    nb_helix: Option<usize>,
+    scaling: Option<RevolutionScaling>,
     shift_per_turn_state_input: ParameterWidget,
 
     scaffold_len_target: ParameterWidget,
@@ -297,7 +297,7 @@ impl<S: AppState> Default for RevolutionTab<S> {
             pick_curve_state: Default::default(),
             half_turn_count: ParameterWidget::new(InstanciatedParameter::Int(0)),
             radius_input: ParameterWidget::new(InstanciatedParameter::Float(0.)),
-            nb_helix: None,
+            scaling: None,
             shift_per_turn_state_input: ParameterWidget::new(InstanciatedParameter::Int(0)),
             nb_section_per_segment_input: ParameterWidget::new(InstanciatedParameter::Uint(
                 init_parameter.nb_section_per_segment,
@@ -438,7 +438,7 @@ impl<S: AppState> RevolutionTab<S> {
                     .input_view(RevolutionParameterId::HalfTurnCount),
             ),
         );
-        let helix_text = if let Some(nb_helix) = self.nb_helix {
+        let helix_text = if let Some(RevolutionScaling { nb_helix, .. }) = self.scaling {
             format!("Nb helix: {nb_helix}")
         } else {
             "Nb helix: ###".into()
@@ -582,7 +582,7 @@ impl<S: AppState> RevolutionTab<S> {
                 .half_turn_count
                 .get_value()
                 .and_then(InstanciatedParameter::get_int)?,
-            nb_helix_per_half_section: self.nb_helix? / 2,
+            nb_helix_per_half_section: self.scaling.as_ref()?.nb_helix / 2,
             revolution_radius: self
                 .radius_input
                 .get_value()
@@ -641,6 +641,8 @@ impl<S: AppState> RevolutionTab<S> {
             .and_then(InstanciatedParameter::get_float)?;
         let method = self.equadiff_method;
 
+        let rescaling = self.scaling.as_ref()?.scale;
+
         Some(RevolutionSimulationParameters {
             nb_section_per_segment,
             spring_stiffness,
@@ -650,6 +652,7 @@ impl<S: AppState> RevolutionTab<S> {
             simulation_step,
             time_span,
             method,
+            rescaling,
         })
     }
 
@@ -667,12 +670,17 @@ impl<S: AppState> RevolutionTab<S> {
             }
         }
 
-        self.nb_helix = self
+        self.scaling = self
             .scaffold_len_target
             .get_value()
             .and_then(InstanciatedParameter::get_uint)
             .and_then(|len_scaffold| {
-                app_state.get_recommended_nb_helices_revolution_surface(len_scaffold)
+                app_state.get_recommended_scaling_revolution_surface(len_scaffold)
             });
     }
+}
+
+pub struct RevolutionScaling {
+    pub nb_helix: usize,
+    pub scale: f64,
 }
