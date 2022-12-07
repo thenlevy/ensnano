@@ -364,6 +364,38 @@ impl CurveDescriptor2D {
         let point2d = self.normalized_tangent(point.section_parameter);
         Self::_3d(point2d, &point.clone().into())
     }
+
+    pub fn max_x(&self) -> f64 {
+        match self {
+            Self::Ellipse {
+                semi_major_axis,
+                semi_minor_axis,
+            } => {
+                let a = f64::from(*semi_major_axis);
+                let b = f64::from(*semi_minor_axis);
+                a.abs().max(b.abs())
+            }
+            Self::TwoBalls { radius_extern, .. } => (*radius_extern).into(),
+            Self::Bezier(curve) => curve.max_x(),
+            Self::Parrabola { .. } => 0.,
+        }
+    }
+
+    pub fn min_x(&self) -> f64 {
+        match self {
+            Self::Ellipse {
+                semi_minor_axis,
+                semi_major_axis,
+            } => {
+                let a = f64::from(*semi_major_axis);
+                let b = f64::from(*semi_minor_axis);
+                -a.abs().max(b.abs())
+            }
+            Self::TwoBalls { .. } => 0.,
+            Self::Bezier(curve) => curve.min_x(),
+            Self::Parrabola { .. } => 0.,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
