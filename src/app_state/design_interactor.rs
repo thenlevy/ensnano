@@ -152,9 +152,6 @@ impl DesignInteractor {
                 reader,
                 grid_id,
             },
-            SimulationTarget::Relaxation => {
-                controller::SimulationOperation::ExampleRelaxation { reader }
-            }
             SimulationTarget::Revolution { desc } => {
                 controller::SimulationOperation::RevolutionRelaxation {
                     system: desc,
@@ -1890,7 +1887,6 @@ pub enum SimulationTarget {
     Twist {
         grid_id: GridId,
     },
-    Relaxation,
     Revolution {
         desc: RevolutionSurfaceSystemDescriptor,
     },

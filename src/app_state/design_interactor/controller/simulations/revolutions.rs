@@ -32,8 +32,8 @@ use ensnano_design::{
     InterpolationDescriptor, Parameters as DNAParameters, Similarity3,
 };
 use ensnano_interactor::{
-    EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceDescriptor,
-    RevolutionSurfaceSystemDescriptor,
+    EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceSystemDescriptor,
+    RootedRevolutionSurfaceDescriptor,
 };
 
 use crate::app_state::{
@@ -137,9 +137,9 @@ impl RevolutionSurfaceSystem {
         let scaffold_len_target = desc.scaffold_len_target;
         let dna_parameters = desc.dna_parameters;
         let simulation_parameters = desc.simulation_parameters.clone();
-        let plane_orientation = desc.target.plane_orientation;
-        let plane_position = desc.target.plane_position;
-        let topology: Box<dyn SpringTopology> = if desc.target.curve.is_open() {
+        let plane_orientation = desc.target.surface.curve_plane_orientation;
+        let plane_position = desc.target.surface.curve_plane_position;
+        let topology: Box<dyn SpringTopology> = if desc.target.surface.curve.is_open() {
             Box::new(OpenSurfaceTopology::new(desc))
         } else {
             Box::new(CloseSurfaceTopology::new(desc))
@@ -471,19 +471,20 @@ impl ExplicitODE<f64> for RevolutionSurfaceSystem {
 }
 
 impl RevolutionSurface {
-    pub fn new(desc: RevolutionSurfaceDescriptor) -> Self {
-        let nb_helices = desc.nb_helices();
+    pub fn new(desc: RootedRevolutionSurfaceDescriptor) -> Self {
+        let nb_helices = desc.nb_spirals();
         let curve_scale_factor =
             desc.nb_helix_per_half_section as f64 * 2. * DNAParameters::INTER_CENTER_GAP as f64
-                / desc.curve.perimeter();
+                / desc.surface.curve.perimeter();
+        let revolution_radius = -desc.surface.get_revolution_axis_position();
 
         Self {
-            curve: desc.curve,
-            revolution_radius: desc.revolution_radius,
+            curve: desc.surface.curve,
+            revolution_radius,
             nb_helices,
             nb_helix_per_half_section: desc.nb_helix_per_half_section,
             shift_per_turn: desc.shift_per_turn,
-            half_turns_count: desc.half_turns_count,
+            half_turns_count: desc.surface.half_turn_count,
             curve_scale_factor,
             junction_smoothening: desc.junction_smoothening,
         }
@@ -805,39 +806,4 @@ impl<T> OptionOnce<T> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[ignore = "expansive"]
-    #[test]
-    fn relax_hexagon() {
-        let surface_desc = RevolutionSurfaceDescriptor {
-            curve: CurveDescriptor2D::Ellipse {
-                semi_minor_axis: 1f64.into(),
-                semi_major_axis: 2f64.into(),
-            },
-            half_turns_count: 6,
-            revolution_radius: 20.,
-            junction_smoothening: 0.,
-            nb_helix_per_half_section: 7,
-            dna_paramters: DNAParameters::GEARY_2014_DNA,
-            shift_per_turn: -12,
-            plane_orientation: Rotor3::identity(),
-            plane_position: Vec3::zero(),
-        };
-        let system_desc = RevolutionSurfaceSystemDescriptor {
-            simulation_parameters: Default::default(),
-            dna_parameters: DNAParameters::GEARY_2014_DNA,
-            target: surface_desc,
-            scaffold_len_target: 7560,
-        };
-        let mut system = RevolutionSurfaceSystem::new(system_desc);
-
-        let mut current_length = 0;
-        let mut first = true;
-        while current_length != system.scaffold_len_target {
-            current_length = system.one_radius_optimisation_step(&mut first, None);
-        }
-    }
-}
+// A test here was removed because revolution simulations can now be launched from the GUI

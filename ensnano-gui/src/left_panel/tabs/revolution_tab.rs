@@ -19,8 +19,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 use ensnano_design::{ultraviolet::Rotor3, CurveDescriptor2D};
 use ensnano_interactor::{
-    EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceDescriptor,
-    RevolutionSurfaceRadius, RevolutionSurfaceSystemDescriptor,
+    EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceRadius,
+    RevolutionSurfaceSystemDescriptor, RootedRevolutionSurfaceDescriptor,
     UnrootedRevolutionSurfaceDescriptor,
 };
 use iced_native::widget::{
@@ -380,11 +380,11 @@ impl<S: AppState> RevolutionTab<S> {
             .curve_descriptor_widget
             .as_ref()
             .and_then(|w| w.build_curve(app_state))?;
-        let axis_position = self
+        let revolution_radius = self
             .radius_input
             .get_value()
             .and_then(InstanciatedParameter::get_float)
-            .map(|x| RevolutionSurfaceRadius::from_signed_f64(x))?;
+            .map(RevolutionSurfaceRadius::from_signed_f64)?;
         let half_turn_count = self
             .half_turn_count
             .get_value()
@@ -398,7 +398,7 @@ impl<S: AppState> RevolutionTab<S> {
 
         Some(UnrootedRevolutionSurfaceDescriptor {
             curve,
-            revolution_radius: axis_position,
+            revolution_radius,
             half_turn_count,
             curve_plane_orientation,
             curve_plane_position,
@@ -570,35 +570,21 @@ impl<S: AppState> RevolutionTab<S> {
     }
 
     fn get_revolution_system(&self, app_state: &S) -> Option<RevolutionSurfaceSystemDescriptor> {
-        let (plane_position, plane_orientation) = self
-            .curve_descriptor_widget
-            .as_ref()
-            .and_then(|w| w.get_frame(app_state))?;
-        let surface_descriptor = RevolutionSurfaceDescriptor {
+        let unrooted_surface = self.get_current_unrooted_surface(app_state)?;
+
+        let surface_descriptor = RootedRevolutionSurfaceDescriptor {
             dna_paramters: app_state.get_dna_parameters(),
-            curve: self
-                .curve_descriptor_widget
-                .as_ref()
-                .and_then(|w| w.build_curve(app_state))?,
-            half_turns_count: self
-                .half_turn_count
-                .get_value()
-                .and_then(InstanciatedParameter::get_int)?,
             nb_helix_per_half_section: self.scaling.as_ref()?.nb_helix / 2,
-            revolution_radius: self
-                .radius_input
-                .get_value()
-                .and_then(InstanciatedParameter::get_float)?,
             shift_per_turn: self
                 .shift_per_turn_state_input
                 .get_value()
                 .and_then(InstanciatedParameter::get_int)?,
             junction_smoothening: 0.,
-            plane_position,
-            plane_orientation,
+            surface: unrooted_surface,
         };
 
         let simulation_parameters = self.get_simulation_parameters()?;
+
         let system = RevolutionSurfaceSystemDescriptor {
             target: surface_descriptor,
             scaffold_len_target: self

@@ -479,55 +479,6 @@ impl Controller {
     ) -> Result<(OkOperation, Self), ErrOperation> {
         let mut ret = self.clone();
         match operation {
-            SimulationOperation::ExampleRelaxation { reader } => {
-                use ensnano_design::{CurveDescriptor2D, Parameters};
-                use ensnano_interactor::RevolutionSurfaceDescriptor;
-                use ensnano_interactor::RevolutionSurfaceSystemDescriptor;
-
-                if self.is_in_persistant_state().is_transitory() {
-                    return Err(ErrOperation::IncompatibleState);
-                }
-                /*
-                let surface_desc = RevolutionSurfaceDescriptor {
-                    curve: CurveDescriptor2D::Parrabola {
-                        speed: std::f64::consts::FRAC_1_SQRT_2.into(),
-                    },
-                    half_turns_count: 0,
-                    revolution_radius: 0.,
-                    junction_smoothening: 0.,
-                    nb_helix_per_half_section: 2,
-                    dna_paramters: Parameters::GEARY_2014_DNA,
-                    shift_per_turn: 0,
-                };*/
-
-                let surface_desc = RevolutionSurfaceDescriptor {
-                    curve: CurveDescriptor2D::TwoBalls {
-                        radius_extern: 2.5.into(),
-                        radius_intern: 1.7.into(),
-                        radius_tube: 0.76.into(),
-                        smooth_ceil: 0.04.into(),
-                    },
-                    revolution_radius: 10.,
-                    nb_helix_per_half_section: 17,
-                    half_turns_count: 0,
-                    shift_per_turn: 2,
-                    junction_smoothening: 0.,
-                    dna_paramters: Parameters::GEARY_2014_DNA,
-                    plane_position: Vec3::zero(),
-                    plane_orientation: Rotor3::identity(),
-                };
-                let system_desc = RevolutionSurfaceSystemDescriptor {
-                    simulation_parameters: Default::default(),
-                    dna_parameters: Parameters::GEARY_2014_DNA,
-                    target: surface_desc,
-                    scaffold_len_target: 8064,
-                };
-                let interface = RevolutionSystemThread::start_new(system_desc, reader)?;
-                ret.state = ControllerState::Relaxing {
-                    interface,
-                    _initial_design: AddressPointer::new(design.clone()),
-                };
-            }
             SimulationOperation::RevolutionRelaxation { system, reader } => {
                 if self.is_in_persistant_state().is_transitory() {
                     return Err(ErrOperation::IncompatibleState);

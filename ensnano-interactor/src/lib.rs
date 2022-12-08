@@ -473,22 +473,18 @@ pub enum SimulationState {
 #[derive(Debug, Clone)]
 pub struct RevolutionSurfaceSystemDescriptor {
     pub scaffold_len_target: usize,
-    pub target: RevolutionSurfaceDescriptor,
+    pub target: RootedRevolutionSurfaceDescriptor,
     pub dna_parameters: Parameters,
     pub simulation_parameters: RevolutionSimulationParameters,
 }
 
 #[derive(Debug, Clone)]
-pub struct RevolutionSurfaceDescriptor {
-    pub curve: CurveDescriptor2D,
-    pub revolution_radius: f64,
+pub struct RootedRevolutionSurfaceDescriptor {
+    pub surface: UnrootedRevolutionSurfaceDescriptor,
     pub nb_helix_per_half_section: usize,
-    pub half_turns_count: isize,
     pub shift_per_turn: isize,
     pub junction_smoothening: f64,
     pub dna_paramters: Parameters,
-    pub plane_position: Vec3,
-    pub plane_orientation: Rotor3,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -620,21 +616,6 @@ mod tests {
     }
 }
 
-/*
- * let q be the total shift and n be the number of sections
- * Helices seen as set of section are class of equivalence for the relation ~
- * where a ~ b iff there exists k1, k2 st a = b  + k1 q + k2 n
- *
- * let d = gcd(q, n). If a ~ b then a = b (mod d)
- *
- * Recp. if a = b (mod d) there exists x y st xq + yn = d
- *
- * a = k (xq + yn) + b
- * so a ~ b
- *
- * So ~ is the relation of equivalence modulo d and has d classes.
- */
-
 fn gcd(a: isize, b: isize) -> usize {
     let mut a = a.unsigned_abs();
     let mut b = b.unsigned_abs();
@@ -652,9 +633,23 @@ fn gcd(a: isize, b: isize) -> usize {
     a
 }
 
-impl RevolutionSurfaceDescriptor {
-    pub fn nb_helices(&self) -> usize {
-        let additional_shift = if self.half_turns_count % 2 == 1 {
+impl RootedRevolutionSurfaceDescriptor {
+    pub fn nb_spirals(&self) -> usize {
+        /*
+         * let q be the total shift and n be the number of sections
+         * Helices seen as set of section are class of equivalence for the relation ~
+         * where a ~ b iff there exists k1, k2 st a = b  + k1 q + k2 n
+         *
+         * let d = gcd(q, n). If a ~ b then a = b (mod d)
+         *
+         * Recp. if a = b (mod d) there exists x y st xq + yn = d
+         *
+         * a = k (xq + yn) + b
+         * so a ~ b
+         *
+         * So ~ is the relation of equivalence modulo d and has d classes.
+         */
+        let additional_shift = if self.surface.half_turn_count % 2 == 1 {
             self.nb_helix_per_half_section / 2
         } else {
             0

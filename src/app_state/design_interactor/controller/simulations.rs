@@ -1341,9 +1341,6 @@ pub enum SimulationOperation<'pres, 'reader> {
         presenter: &'pres dyn TwistPresenter,
         reader: &'reader mut dyn SimulationReader,
     },
-    ExampleRelaxation {
-        reader: &'reader mut dyn SimulationReader,
-    },
     RevolutionRelaxation {
         system: RevolutionSurfaceSystemDescriptor,
         reader: &'reader mut dyn SimulationReader,
