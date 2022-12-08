@@ -174,15 +174,26 @@ impl GuiState for AppState {
     }
 
     fn get_current_revoultion_radius(&self) -> Option<f64> {
-        self.0.current_revolution.radius
+        self.0
+            .unrooted_surface
+            .descriptor
+            .as_ref()?
+            .revolution_radius
+            .to_signed_f64()
     }
 
     fn get_recommended_scaling_revolution_surface(
         &self,
         scaffold_len: usize,
     ) -> Option<ensnano_gui::RevolutionScaling> {
-        let area_surface = self.0.area_unrooted_surface?;
-        let perimeter_surface = self.0.unrooted_surface.as_ref()?.curve.perimeter();
+        let area_surface = self.0.unrooted_surface.area?;
+        let perimeter_surface = self
+            .0
+            .unrooted_surface
+            .descriptor
+            .as_ref()?
+            .curve
+            .perimeter();
         let parameters = self.get_dna_parameters();
         let area_one_nucl = parameters.z_step * Parameters::INTER_CENTER_GAP;
         let scaling_factor = (scaffold_len as f64 * area_one_nucl as f64 / area_surface).sqrt();

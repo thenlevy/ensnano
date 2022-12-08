@@ -329,7 +329,9 @@ impl CurveDescriptor2D {
         // When the revolution angle is TAU, we want the section rotation to be half_turn * PI
 
         // (x, y) := position in the revolution plane
-        let x = surface.revolution_radius
+        // This position is shifted by `-revolution_axis_position` so that the plane can simply be
+        // rotated arround the x axis.
+        let x = -surface.revolution_axis_position
             + surface.curve_scale_factor
                 * (point2d.x * surface.section_rotation.cos()
                     - surface.section_rotation.sin() * point2d.y);
@@ -405,7 +407,7 @@ pub struct PointOnSurface {
     pub section_parameter: f64,
     /// Angle of revomultion in [0, 2pi]
     pub revolution_angle: f64,
-    pub revolution_radius: f64,
+    pub revolution_axis_position: f64,
     pub section_half_turn_per_revolution: isize,
 }
 
@@ -415,7 +417,7 @@ pub struct PointOnSurface {
 /// They can be deduced from a `PointOnSurface`
 pub(super) struct PointOnSurface_ {
     pub revolution_angle: f64,
-    pub revolution_radius: f64,
+    pub revolution_axis_position: f64,
     pub section_rotation: f64,
     pub curve_scale_factor: f64,
 }
@@ -426,7 +428,7 @@ impl From<PointOnSurface> for PointOnSurface_ {
         Self {
             section_rotation,
             revolution_angle: p.revolution_angle,
-            revolution_radius: p.revolution_radius,
+            revolution_axis_position: p.revolution_axis_position,
             curve_scale_factor: 1.0,
         }
     }

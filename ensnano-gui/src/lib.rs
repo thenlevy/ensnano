@@ -224,7 +224,7 @@ pub trait Requests: 'static + Send {
     fn start_revolution_relaxation(&mut self, desc: RevolutionSurfaceSystemDescriptor);
     fn finish_revolutiion_relaxation(&mut self);
     fn load_svg(&mut self);
-    fn set_bezier_revolution_radius(&mut self, radius: Option<f64>);
+    fn set_bezier_revolution_radius(&mut self, radius: f64);
     fn set_bezier_revolution_id(&mut self, id: Option<usize>);
     fn set_unrooted_surface(&mut self, surface: Option<UnrootedRevolutionSurfaceDescriptor>);
     /// Make a 3D screenshot

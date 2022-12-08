@@ -494,7 +494,7 @@ pub struct RevolutionSurfaceDescriptor {
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnrootedRevolutionSurfaceDescriptor {
     pub curve: CurveDescriptor2D,
-    pub revolution_radius: f64,
+    pub revolution_radius: RevolutionSurfaceRadius,
     pub half_turn_count: isize,
     pub curve_plane_position: Vec3,
     pub curve_plane_orientation: Rotor3,
@@ -509,20 +509,47 @@ impl UnrootedRevolutionSurfaceDescriptor {
         ret.append_rotation(self.curve_plane_orientation);
 
         // Center on the rotation axis as drawn on the plane
-        let rotation_axis_translation = (-Vec3::unit_z() * self.revolution_radius as f32)
+        let rotation_axis_translation = (Vec3::unit_z()
+            * self.get_revolution_axis_position() as f32)
             .rotated_by(self.curve_plane_orientation);
         ret.append_translation(rotation_axis_translation);
         ret
     }
 
+    pub fn get_revolution_axis_position(&self) -> f64 {
+        use RevolutionSurfaceRadius::*;
+        match self.revolution_radius {
+            Left(x) => self.curve.min_x() - x,
+            Right(x) => x + self.curve.max_x(),
+            Inside(x) => x,
+        }
+    }
+
+    pub fn set_axis_position(&mut self, position: f64) {
+        let min_x = self.curve.min_x();
+        let max_x = self.curve.max_x();
+        let new_radius = if position <= min_x {
+            RevolutionSurfaceRadius::Left(min_x - position)
+        } else if position >= max_x {
+            RevolutionSurfaceRadius::Right(position - max_x)
+        } else {
+            RevolutionSurfaceRadius::Inside(position)
+        };
+        self.revolution_radius = new_radius;
+    }
+
     /// Approximate the area of the surface by slicing it into strips of triangles.
     ///
     /// The surface is split into `nb_strip` strips of 2 * `nb_section_per_strip` triangles
-    pub fn approx_surface_area(&self, nb_strip: usize, nb_section_per_strip: usize) -> f64 {
+    pub fn approx_surface_area(&self, nb_strip: usize, nb_section_per_strip: usize) -> Option<f64> {
         use ensnano_design::PointOnSurface;
         use rayon::prelude::*;
 
-        (0..nb_strip)
+        if matches!(self.revolution_radius, RevolutionSurfaceRadius::Inside(_)) {
+            return None;
+        }
+
+        let ret = (0..nb_strip)
             .into_par_iter()
             .map(|strip_idx| {
                 // Parameters along the section for the top and bottom of the strip
@@ -540,7 +567,7 @@ impl UnrootedRevolutionSurfaceDescriptor {
                             let surface_point = PointOnSurface {
                                 revolution_angle,
                                 section_parameter: s,
-                                revolution_radius: self.revolution_radius,
+                                revolution_axis_position: self.get_revolution_axis_position(),
                                 section_half_turn_per_revolution: self.half_turn_count,
                             };
                             self.curve.point_on_surface(&surface_point)
@@ -558,7 +585,8 @@ impl UnrootedRevolutionSurfaceDescriptor {
                     .map(|((a, b), c)| 0.5 * (b - a).cross(c - a).mag())
                     .sum::<f64>()
             })
-            .sum::<f64>()
+            .sum::<f64>();
+        Some(ret)
     }
 }
 
@@ -575,7 +603,7 @@ mod tests {
                 semi_minor_axis: r.into(),
                 semi_major_axis: r.into(),
             },
-            revolution_radius: R,
+            revolution_radius: RevolutionSurfaceRadius::Left(R - r),
             half_turn_count: 0,
             curve_plane_position: Vec3::zero(),
             curve_plane_orientation: Rotor3::identity(),
@@ -583,7 +611,7 @@ mod tests {
 
         let expected = 4. * std::f64::consts::PI * std::f64::consts::PI * r * R;
 
-        let actual = surface.approx_surface_area(1_000, 1_000);
+        let actual = surface.approx_surface_area(1_000, 1_000).unwrap();
 
         assert!(
             (expected - actual).abs() < 1e-3,
@@ -891,20 +919,47 @@ impl ToString for EquadiffSolvingMethod {
     }
 }
 
-/// The bezier path Id and revolution radius of a revolution surface being created from a bezier
-/// path.
-/// This is for example used to draw the dotted line on the bezier sheets.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RevolutionOfBezierPath {
-    pub path: Option<BezierPathId>,
-    pub radius: Option<f64>,
+/// The position of the axis of revolution of a revolution surface
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub enum RevolutionSurfaceRadius {
+    /// The axis is on the left of the leftmost point of the section
+    Left(f64),
+    /// The axis is on the right of the rightmost point of the section
+    Right(f64),
+    /// The axis is inside the section.
+    Inside(f64),
 }
 
-impl Default for RevolutionOfBezierPath {
+impl Default for RevolutionSurfaceRadius {
     fn default() -> Self {
-        Self {
-            path: None,
-            radius: Some(0.),
+        Self::Left(0.)
+    }
+}
+
+impl RevolutionSurfaceRadius {
+    /// Convert to Self from an f64. The sign indicate the position of the revolution axis relative
+    /// to the section.
+    ///
+    /// Positive value indicate that the axis of revolution is on the right of the section
+    /// Negative value indicate that the axis of revolution is on the left of the section
+    pub fn from_signed_f64(radius: f64) -> Self {
+        if radius.is_sign_positive() {
+            Self::Right(radius)
+        } else {
+            Self::Left(-radius)
+        }
+    }
+
+    /// Convert self to an f64. The sign indicate the position of the revolution axis relative to
+    /// the section.
+    ///
+    /// Positive value indicate that the axis of revolution is on the right of the section
+    /// Negative value indicate that the axis of revolution is on the left of the section
+    pub fn to_signed_f64(self) -> Option<f64> {
+        match self {
+            Self::Left(x) => Some(-x),
+            Self::Right(x) => Some(x),
+            Self::Inside(_) => None,
         }
     }
 }

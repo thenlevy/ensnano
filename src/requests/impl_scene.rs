@@ -126,7 +126,7 @@ impl SceneRequests for Requests {
         }
     }
 
-    fn set_revolution_radius(&mut self, radius: f32) {
-        self.new_bezier_revolution_radius = Some(Some(radius as f64));
+    fn set_revolution_axis_position(&mut self, position: f32) {
+        self.new_bezier_revolution_axis_position = Some(position as f64);
     }
 }

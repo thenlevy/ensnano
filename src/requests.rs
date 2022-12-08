@@ -140,6 +140,7 @@ pub struct Requests {
     pub twist_simulation: Option<GridId>,
     pub horizon_targeted: Option<()>,
     pub new_bezier_revolution_id: Option<Option<usize>>,
-    pub new_bezier_revolution_radius: Option<Option<f64>>,
+    pub new_bezier_revolution_radius: Option<f64>,
+    pub new_bezier_revolution_axis_position: Option<f64>,
     pub new_unrooted_surface: Option<Option<UnrootedRevolutionSurfaceDescriptor>>,
 }

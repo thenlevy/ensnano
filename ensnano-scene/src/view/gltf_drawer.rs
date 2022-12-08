@@ -163,7 +163,7 @@ impl MeshGenerator for UnrootedRevolutionSurfaceDescriptor {
                             let surface_point = PointOnSurface {
                                 revolution_angle,
                                 section_parameter: s,
-                                revolution_radius: self.revolution_radius,
+                                revolution_axis_position: self.get_revolution_axis_position(),
                                 section_half_turn_per_revolution: self.half_turn_count,
                             };
                             let position = frame.transform_vec(dvec_to_vec(

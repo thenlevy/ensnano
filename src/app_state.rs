@@ -29,7 +29,7 @@ use ensnano_exports::{ExportResult, ExportType};
 use ensnano_gui::UiSize;
 use ensnano_interactor::{
     graphics::{Background3D, HBoundDisplay, RenderingMode},
-    RevolutionOfBezierPath, UnrootedRevolutionSurfaceDescriptor,
+    UnrootedRevolutionSurfaceDescriptor,
 };
 use ensnano_interactor::{
     operation::Operation, ActionMode, CenterOfSelection, CheckXoversParameter, Selection,
@@ -465,13 +465,19 @@ impl AppState {
 
     pub fn set_bezier_revolution_id(&self, id: Option<usize>) -> Self {
         let mut new_state = (*self.0).clone();
-        new_state.current_revolution.path = id.map(|id| BezierPathId(id as u32));
+        new_state.unrooted_surface.bezier_path_id = id.map(|id| BezierPathId(id as u32));
         Self(AddressPointer::new(new_state))
     }
 
-    pub fn set_bezier_revolution_radius(&self, radius: Option<f64>) -> Self {
+    pub fn set_bezier_revolution_radius(&self, radius: f64) -> Self {
         let mut new_state = (*self.0).clone();
-        new_state.update_revolution_radius(radius);
+        new_state.set_surface_revolution_radius(radius);
+        Self(AddressPointer::new(new_state))
+    }
+
+    pub fn set_revolution_axis_position(&self, position: f64) -> Self {
+        let mut new_state = (*self.0).clone();
+        new_state.set_surface_axis_position(position);
         Self(AddressPointer::new(new_state))
     }
 
@@ -479,7 +485,7 @@ impl AppState {
         &self,
         surface: Option<UnrootedRevolutionSurfaceDescriptor>,
     ) -> Self {
-        if self.0.unrooted_surface.as_ref() != surface.as_ref() {
+        if self.0.unrooted_surface.descriptor.as_ref() != surface.as_ref() {
             let mut new_state = (*self.0).clone();
             new_state.set_unrooted_surface(surface);
             Self(AddressPointer::new(new_state))
@@ -713,28 +719,39 @@ struct AppState_ {
     show_insertion_representents: bool,
     exporting: bool,
     path_to_current_design: Option<PathBuf>,
-    current_revolution: RevolutionOfBezierPath,
-    unrooted_surface: Option<UnrootedRevolutionSurfaceDescriptor>,
-    area_unrooted_surface: Option<f64>,
+    unrooted_surface: CurrentUnrootedSurface,
+}
+
+#[derive(Clone, Default)]
+struct CurrentUnrootedSurface {
+    descriptor: Option<UnrootedRevolutionSurfaceDescriptor>,
+    bezier_path_id: Option<BezierPathId>,
+    area: Option<f64>,
 }
 
 impl AppState_ {
     fn set_unrooted_surface(&mut self, surface: Option<UnrootedRevolutionSurfaceDescriptor>) {
-        self.area_unrooted_surface = surface
+        self.unrooted_surface.area = surface
             .as_ref()
-            .map(|s| s.approx_surface_area(1_000, 1_000));
-        self.unrooted_surface = surface;
+            .and_then(|s| s.approx_surface_area(1_000, 1_000));
+        self.unrooted_surface.descriptor = surface;
     }
 
-    fn update_revolution_radius(&mut self, radius: Option<f64>) {
-        self.current_revolution.radius = radius;
-        if let Some((r, s)) = radius.zip(self.unrooted_surface.as_mut()) {
-            s.revolution_radius = r;
+    fn set_surface_revolution_radius(&mut self, radius: f64) {
+        use ensnano_interactor::RevolutionSurfaceRadius;
+        let mut new_surface = self.unrooted_surface.descriptor.clone();
+        if let Some(s) = new_surface.as_mut() {
+            s.revolution_radius = RevolutionSurfaceRadius::from_signed_f64(radius);
         }
-        self.area_unrooted_surface = self
-            .unrooted_surface
-            .as_ref()
-            .map(|s| s.approx_surface_area(1_000, 1_000));
+        self.set_unrooted_surface(new_surface);
+    }
+
+    fn set_surface_axis_position(&mut self, position: f64) {
+        let mut new_surface = self.unrooted_surface.descriptor.clone();
+        if let Some(s) = new_surface.as_mut() {
+            s.set_axis_position(position)
+        }
+        self.set_unrooted_surface(new_surface);
     }
 }
 

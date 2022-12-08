@@ -1490,8 +1490,12 @@ impl MainState {
         self.modify_state(|s| s.set_bezier_revolution_id(id), None)
     }
 
-    fn set_bezier_revolution_radius(&mut self, radius: Option<f64>) {
+    fn set_bezier_revolution_radius(&mut self, radius: f64) {
         self.modify_state(|s| s.set_bezier_revolution_radius(radius), None)
+    }
+
+    fn set_revolution_axis_position(&mut self, position: f64) {
+        self.modify_state(|s| s.set_revolution_axis_position(position), None)
     }
 
     fn set_unrooted_surface(&mut self, surface: Option<UnrootedRevolutionSurfaceDescriptor>) {

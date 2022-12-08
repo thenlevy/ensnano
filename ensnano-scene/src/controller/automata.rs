@@ -468,7 +468,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                             }
                         }
                     }
-                    None if context.cursor_is_on_radius()
+                    None if context.cursor_is_on_revolution_axis()
                         && context.get_plane_under_cursor().is_some() =>
                     {
                         let (plane_id, _) = context.get_plane_under_cursor().unwrap();

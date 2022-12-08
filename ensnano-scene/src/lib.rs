@@ -15,12 +15,11 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use ensnano_design::grid::HelixGridPosition;
-use ensnano_design::{ultraviolet, BezierVertexId};
-use ensnano_interactor::{graphics::RenderingMode, RevolutionOfBezierPath};
-use ensnano_interactor::{NewBezierTengentVector, UnrootedRevolutionSurfaceDescriptor};
-use ensnano_utils::wgpu;
-use ensnano_utils::winit;
+use ensnano_design::{grid::HelixGridPosition, ultraviolet, BezierVertexId};
+use ensnano_interactor::{
+    graphics::RenderingMode, NewBezierTengentVector, UnrootedRevolutionSurfaceDescriptor,
+};
+use ensnano_utils::{wgpu, winit};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -556,8 +555,11 @@ impl<S: AppState> Scene<S> {
                 self.controller.reverse_surface_direction();
                 self.notify(SceneNotification::CameraMoved);
             }
-            Consequence::SetRevolutionRadius(r) => {
-                self.requests.lock().unwrap().set_revolution_radius(r);
+            Consequence::SetRevolutionAxisPosition(r) => {
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_revolution_axis_position(r);
             }
         };
     }
@@ -1344,7 +1346,7 @@ pub trait AppState: Clone + 'static {
 
     fn has_selected_a_bezier_grid(&self) -> bool;
 
-    fn get_current_bezier_revolution(&self) -> &RevolutionOfBezierPath;
+    fn get_revolution_axis_position(&self) -> Option<f64>;
     fn revolution_bezier_updated(&self, other: &Self) -> bool;
     fn get_current_unrooted_surface(&self) -> Option<UnrootedRevolutionSurfaceDescriptor>;
 }
@@ -1372,5 +1374,5 @@ pub trait Requests {
     fn set_current_group_pivot(&mut self, pivot: GroupPivot);
     fn translate_group_pivot(&mut self, translation: Vec3);
     fn rotate_group_pivot(&mut self, rotation: Rotor3);
-    fn set_revolution_radius(&mut self, radius: f32);
+    fn set_revolution_axis_position(&mut self, position: f32);
 }

@@ -499,7 +499,7 @@ impl GuiRequests for Requests {
         self.new_bezier_revolution_id = Some(id);
     }
 
-    fn set_bezier_revolution_radius(&mut self, radius: Option<f64>) {
+    fn set_bezier_revolution_radius(&mut self, radius: f64) {
         self.new_bezier_revolution_radius = Some(radius);
     }
 

@@ -832,7 +832,7 @@ impl DraggingTransitionTable for MovingRevolutionRadius {
             .context
             .get_current_cursor_intersection_with_bezier_plane(self.plane_id);
 
-        point_on_plane.map(|p| Consequence::SetRevolutionRadius(-p.x))
+        point_on_plane.map(|p| Consequence::SetRevolutionAxisPosition(p.x))
     }
 
     fn on_button_released(&self) -> Option<Consequence> {

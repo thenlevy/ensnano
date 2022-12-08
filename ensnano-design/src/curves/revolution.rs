@@ -383,7 +383,7 @@ impl Revolution {
 
         let surface = PointOnSurface_ {
             section_rotation,
-            revolution_radius: self.revolution_radius,
+            revolution_axis_position: -self.revolution_radius,
             revolution_angle,
             curve_scale_factor: self.curve_scale_factor,
         };

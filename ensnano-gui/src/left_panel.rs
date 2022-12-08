@@ -888,11 +888,12 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             }
             Message::RevolutionParameterUpdate { parameter_id, text } => {
                 if let RevolutionParameterId::RevolutionRadius = parameter_id {
-                    let radius = text.parse::<f64>().ok();
-                    self.requests
-                        .lock()
-                        .unwrap()
-                        .set_bezier_revolution_radius(radius);
+                    if let Some(radius) = text.parse::<f64>().ok() {
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .set_bezier_revolution_radius(radius);
+                    }
                 }
                 self.revolution_tab
                     .update_builder_parameter(parameter_id, text);

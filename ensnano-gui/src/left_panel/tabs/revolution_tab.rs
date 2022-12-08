@@ -20,7 +20,8 @@ use super::*;
 use ensnano_design::{ultraviolet::Rotor3, CurveDescriptor2D};
 use ensnano_interactor::{
     EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceDescriptor,
-    RevolutionSurfaceSystemDescriptor, UnrootedRevolutionSurfaceDescriptor,
+    RevolutionSurfaceRadius, RevolutionSurfaceSystemDescriptor,
+    UnrootedRevolutionSurfaceDescriptor,
 };
 use iced_native::widget::{
     button::{self, Button},
@@ -379,10 +380,11 @@ impl<S: AppState> RevolutionTab<S> {
             .curve_descriptor_widget
             .as_ref()
             .and_then(|w| w.build_curve(app_state))?;
-        let revolution_radius = self
+        let axis_position = self
             .radius_input
             .get_value()
-            .and_then(InstanciatedParameter::get_float)?;
+            .and_then(InstanciatedParameter::get_float)
+            .map(|x| RevolutionSurfaceRadius::from_signed_f64(x))?;
         let half_turn_count = self
             .half_turn_count
             .get_value()
@@ -396,7 +398,7 @@ impl<S: AppState> RevolutionTab<S> {
 
         Some(UnrootedRevolutionSurfaceDescriptor {
             curve,
-            revolution_radius,
+            revolution_radius: axis_position,
             half_turn_count,
             curve_plane_orientation,
             curve_plane_position,
