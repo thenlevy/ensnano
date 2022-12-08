@@ -476,7 +476,7 @@ impl RevolutionSurface {
         let curve_scale_factor =
             desc.nb_helix_per_half_section as f64 * 2. * DNAParameters::INTER_CENTER_GAP as f64
                 / desc.surface.curve.perimeter();
-        let revolution_radius = -desc.surface.get_revolution_axis_position();
+        let revolution_radius = -desc.surface.get_revolution_axis_position() * curve_scale_factor;
 
         Self {
             curve: desc.surface.curve,
