@@ -400,7 +400,7 @@ impl RootedRevolutionSurface {
         let surface_point = PointOnSurface {
             revolution_angle,
             section_parameter,
-            revolution_axis_position: self.surface.get_revolution_axis_position(),
+            revolution_axis_position: self.surface.get_axis_position_when_scaled(self.scale),
             section_half_turn_per_revolution: self.surface.half_turn_count,
             curve_scale_factor: self.scale,
         };
