@@ -32,19 +32,16 @@ use ensnano_design::{
     InterpolationDescriptor, Parameters as DNAParameters, Similarity3,
 };
 use ensnano_interactor::{
-    EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceSystemDescriptor,
-    RootedRevolutionSurfaceDescriptor,
+    EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceRadius,
+    RevolutionSurfaceSystemDescriptor, RootedRevolutionSurface,
 };
 
-use crate::app_state::{
-    design_interactor::controller::simulations::revolutions::open_curves::OpenSurfaceTopology,
-    ErrOperation,
-};
+use crate::app_state::ErrOperation;
 
 mod closed_curves;
 use closed_curves::CloseSurfaceTopology;
 
-mod open_curves;
+//mod open_curves;
 
 trait SpringTopology: Send + Sync + 'static {
     fn nb_balls(&self) -> usize;
@@ -71,7 +68,7 @@ trait SpringTopology: Send + Sync + 'static {
     fn theta_ball_init(&self) -> Vec<f64>;
 
     fn rescale_section(&mut self, scaling_factor: f64);
-    fn rescale_radius(&mut self, scaling_factor: f64);
+    fn rescale_radius(&mut self, objective_number_of_nts: usize, actual_number_of_nt: usize);
 
     fn cloned(&self) -> Box<dyn SpringTopology>;
 
@@ -89,7 +86,9 @@ trait SpringTopology: Send + Sync + 'static {
         vec![]
     }
 
-    fn revolution_radius(&self) -> f64;
+    fn revolution_radius(&self) -> RevolutionSurfaceRadius;
+
+    fn get_frame(&self) -> Similarity3;
 }
 
 pub struct RevolutionSurfaceSystem {
@@ -100,8 +99,6 @@ pub struct RevolutionSurfaceSystem {
     scaffold_len_target: usize,
     current_scaffold_length: Option<usize>,
     simulation_parameters: RevolutionSimulationParameters,
-    plane_position: Vec3,
-    plane_orientation: Rotor3,
 }
 
 impl Clone for RevolutionSurfaceSystem {
@@ -114,22 +111,8 @@ impl Clone for RevolutionSurfaceSystem {
             scaffold_len_target: self.scaffold_len_target,
             current_scaffold_length: self.current_scaffold_length,
             simulation_parameters: self.simulation_parameters.clone(),
-            plane_position: self.plane_position,
-            plane_orientation: self.plane_orientation,
         }
     }
-}
-
-#[derive(Clone)]
-pub struct RevolutionSurface {
-    curve: CurveDescriptor2D,
-    revolution_radius: f64,
-    nb_helix_per_half_section: usize,
-    half_turns_count: isize,
-    shift_per_turn: isize,
-    junction_smoothening: f64,
-    nb_helices: usize,
-    curve_scale_factor: f64,
 }
 
 impl RevolutionSurfaceSystem {
@@ -137,10 +120,9 @@ impl RevolutionSurfaceSystem {
         let scaffold_len_target = desc.scaffold_len_target;
         let dna_parameters = desc.dna_parameters;
         let simulation_parameters = desc.simulation_parameters.clone();
-        let plane_orientation = desc.target.surface.curve_plane_orientation;
-        let plane_position = desc.target.surface.curve_plane_position;
-        let topology: Box<dyn SpringTopology> = if desc.target.surface.curve.is_open() {
-            Box::new(OpenSurfaceTopology::new(desc))
+        let topology: Box<dyn SpringTopology> = if desc.target.curve_is_open() {
+            //Box::new(OpenSurfaceTopology::new(desc))
+            todo!("Refactor open curves")
         } else {
             Box::new(CloseSurfaceTopology::new(desc))
         };
@@ -153,8 +135,6 @@ impl RevolutionSurfaceSystem {
             scaffold_len_target,
             current_scaffold_length: None,
             simulation_parameters,
-            plane_position,
-            plane_orientation,
         }
     }
 
@@ -201,8 +181,9 @@ impl RevolutionSurfaceSystem {
         let len_by_sum =
             (self.total_length(&thetas) / (self.dna_parameters.z_step as f64)).floor() as usize;
         println!("total len by sum {len_by_sum}");
-        let rescaling_factor = self.scaffold_len_target as f64 / total_len as f64;
-        self.topology.rescale_radius(rescaling_factor);
+        //let rescaling_factor = self.scaffold_len_target as f64 / total_len as f64;
+        self.topology
+            .rescale_radius(self.scaffold_len_target, total_len);
         total_len
     }
 
@@ -470,83 +451,6 @@ impl ExplicitODE<f64> for RevolutionSurfaceSystem {
     }
 }
 
-impl RevolutionSurface {
-    pub fn new(desc: RootedRevolutionSurfaceDescriptor) -> Self {
-        let nb_helices = desc.nb_spirals();
-        let curve_scale_factor =
-            desc.nb_helix_per_half_section as f64 * 2. * DNAParameters::INTER_CENTER_GAP as f64
-                / desc.surface.curve.perimeter();
-        let revolution_radius = -desc.surface.get_revolution_axis_position() * curve_scale_factor;
-
-        Self {
-            curve: desc.surface.curve,
-            revolution_radius,
-            nb_helices,
-            nb_helix_per_half_section: desc.nb_helix_per_half_section,
-            shift_per_turn: desc.shift_per_turn,
-            half_turns_count: desc.surface.half_turn_count,
-            curve_scale_factor,
-            junction_smoothening: desc.junction_smoothening,
-        }
-    }
-
-    fn position(&self, revolution_angle: f64, section_t: f64) -> DVec3 {
-        // must be equal to PI * half_turns when revolution_angle = TAU.
-        let section_rotation = revolution_angle * (self.half_turns_count as f64) / 2.;
-
-        let section_point = self.curve.point(section_t);
-
-        let x_2d = self.revolution_radius
-            + self.curve_scale_factor
-                * (section_point.x * section_rotation.cos()
-                    - section_rotation.sin() * section_point.y);
-
-        let y_2d = self.curve_scale_factor
-            * (section_point.x * section_rotation.sin() + section_rotation.cos() * section_point.y);
-
-        DVec3 {
-            x: revolution_angle.cos() * x_2d,
-            y: revolution_angle.sin() * x_2d,
-            z: y_2d,
-        }
-    }
-
-    fn dpos_dtheta(&self, revolution_angle: f64, section_t: f64) -> DVec3 {
-        let section_rotation = revolution_angle * (self.half_turns_count as f64) / 2.;
-
-        let dpos_curve = self.curve.derivative(section_t);
-
-        let x_2d = self.curve_scale_factor
-            * (dpos_curve.x * section_rotation.cos() - section_rotation.sin() * dpos_curve.y);
-
-        let y_2d = self.curve_scale_factor
-            * (dpos_curve.x * section_rotation.sin() + section_rotation.cos() * dpos_curve.y);
-
-        DVec3 {
-            x: revolution_angle.cos() * x_2d,
-            y: revolution_angle.sin() * x_2d,
-            z: y_2d,
-        }
-    }
-
-    fn axis(&self, revolution_angle: f64) -> DVec3 {
-        DVec3 {
-            x: -revolution_angle.sin(),
-            y: revolution_angle.cos(),
-            z: 0.,
-        }
-    }
-
-    fn total_shift(&self) -> isize {
-        let additional_shift = if self.half_turns_count % 2 == 1 {
-            self.nb_helix_per_half_section
-        } else {
-            0
-        };
-        self.shift_per_turn + additional_shift as isize
-    }
-}
-
 pub struct RevolutionSystemThread {
     interface: Weak<Mutex<RevolutionSystemInterface>>,
     system: RevolutionSurfaceSystem,
@@ -656,23 +560,7 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
     }
 
     fn frame(&self) -> Similarity3 {
-        let mut ret = Similarity3::identity();
-
-        // First inverse the transformation that is performed by the construction of the curve
-        ret.append_rotation(Rotor3::from_rotation_yz(-std::f32::consts::FRAC_PI_2));
-        ret.append_scaling(1. / self.simulation_parameters.rescaling as f32);
-
-        // Then convert into the plane's frame
-        ret.append_translation(self.plane_position);
-        ret.append_rotation(self.plane_orientation);
-
-        // Center on the rotation axis as drawn on the plane
-        let rotation_axis_translation = (-Vec3::unit_z()
-            * (self.topology.revolution_radius() / self.simulation_parameters.rescaling) as f32)
-            .rotated_by(self.plane_orientation);
-        ret.append_translation(rotation_axis_translation);
-
-        ret
+        self.topology.get_frame()
     }
 }
 

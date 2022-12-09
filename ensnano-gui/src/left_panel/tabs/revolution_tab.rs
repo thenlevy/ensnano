@@ -20,8 +20,7 @@ use super::*;
 use ensnano_design::{ultraviolet::Rotor3, CurveDescriptor2D};
 use ensnano_interactor::{
     EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceRadius,
-    RevolutionSurfaceSystemDescriptor, RootedRevolutionSurfaceDescriptor,
-    UnrootedRevolutionSurfaceDescriptor,
+    RevolutionSurfaceSystemDescriptor, RootingParameters, UnrootedRevolutionSurfaceDescriptor,
 };
 use iced_native::widget::{
     button::{self, Button},
@@ -406,7 +405,7 @@ impl<S: AppState> RevolutionTab<S> {
     }
 
     pub fn view<'a>(&'a mut self, ui_size: UiSize, app_state: &S) -> Element<'a, Message<S>> {
-        let desc = self.get_revolution_system(app_state);
+        let desc = self.get_revolution_system(app_state, false);
         let mut ret = Scrollable::new(&mut self.scroll_state);
         section!(ret, ui_size, "Revolution Surfaces");
 
@@ -542,8 +541,8 @@ impl<S: AppState> RevolutionTab<S> {
         } else {
             let mut button = Button::new(&mut self.go_button, Text::new("Start"));
             if let SimulationState::None = app_state.get_simulation_state() {
-                if let Some(desc) = desc {
-                    button = button.on_press(Message::InitRevolutionRelaxation(desc));
+                if desc.is_some() {
+                    button = button.on_press(Message::InitRevolutionRelaxation);
                 }
             }
             ret = ret.push(button);
@@ -569,19 +568,24 @@ impl<S: AppState> RevolutionTab<S> {
             || self.simulation_step.has_keyboard_priority()
     }
 
-    fn get_revolution_system(&self, app_state: &S) -> Option<RevolutionSurfaceSystemDescriptor> {
+    pub fn get_revolution_system(
+        &self,
+        app_state: &S,
+        compute_area: bool,
+    ) -> Option<RevolutionSurfaceSystemDescriptor> {
         let unrooted_surface = self.get_current_unrooted_surface(app_state)?;
 
-        let surface_descriptor = RootedRevolutionSurfaceDescriptor {
-            dna_paramters: app_state.get_dna_parameters(),
+        let rooting_parameters = RootingParameters {
+            dna_parameters: app_state.get_dna_parameters(),
             nb_helix_per_half_section: self.scaling.as_ref()?.nb_helix / 2,
             shift_per_turn: self
                 .shift_per_turn_state_input
                 .get_value()
                 .and_then(InstanciatedParameter::get_int)?,
             junction_smoothening: 0.,
-            surface: unrooted_surface,
         };
+
+        let surface_descriptor = unrooted_surface.rooted(rooting_parameters, compute_area);
 
         let simulation_parameters = self.get_simulation_parameters()?;
 

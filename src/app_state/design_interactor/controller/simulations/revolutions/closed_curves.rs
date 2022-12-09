@@ -25,7 +25,7 @@ pub(super) struct CloseSurfaceTopology {
     prev_section: Vec<usize>,
     next_section: Vec<usize>,
     other_spring_end: Vec<usize>,
-    target: RevolutionSurface,
+    target: RootedRevolutionSurface,
     idx_range: Vec<usize>,
     target_scaffold_length: usize,
     interpolator: ChebyshevPolynomial,
@@ -33,11 +33,11 @@ pub(super) struct CloseSurfaceTopology {
 
 impl CloseSurfaceTopology {
     pub fn new(desc: RevolutionSurfaceSystemDescriptor) -> Self {
-        let nb_segment = 2 * desc.target.nb_helix_per_half_section;
+        let nb_segment = 2 * desc.target.rooting_parameters.nb_helix_per_half_section;
         let nb_section_per_segment = desc.simulation_parameters.nb_section_per_segment;
         let total_nb_section = nb_segment * nb_section_per_segment;
 
-        let target = RevolutionSurface::new(desc.target);
+        let target = &desc.target;
         let next_section: Vec<usize> = (0..total_nb_section)
             .map(|n| {
                 if n % nb_section_per_segment == nb_section_per_segment - 1 {
@@ -72,14 +72,14 @@ impl CloseSurfaceTopology {
 
         let idx_range: Vec<usize> = (0..total_nb_section).collect();
 
-        let interpolator = interpolator_inverse_curvilinear_abscissa(&target.curve);
+        let interpolator = interpolator_inverse_curvilinear_abscissa(target.curve_2d());
 
         Self {
             nb_segment,
             nb_section_per_segment,
             prev_section,
             next_section,
-            target,
+            target: target.clone(),
             other_spring_end,
             idx_range,
             target_scaffold_length: desc.scaffold_len_target,
@@ -165,8 +165,8 @@ impl SpringTopology for CloseSurfaceTopology {
 
         for segment_idx in 0..self.nb_segment {
             let theta_init = segment_idx as f64 / self.nb_segment as f64;
-            let delta_theta = self.target.shift_per_turn as f64
-                / (self.target.nb_helix_per_half_section as f64 * 2.);
+            let delta_theta = self.target.rooting_parameters.shift_per_turn as f64
+                / (self.target.rooting_parameters.nb_helix_per_half_section as f64 * 2.);
 
             for section_idx in 0..self.nb_section_per_segment {
                 let a = section_idx as f64 / self.nb_section_per_segment as f64;
@@ -185,13 +185,13 @@ impl SpringTopology for CloseSurfaceTopology {
         self.target.dpos_dtheta(revolution_angle, section_t)
     }
 
-    fn rescale_radius(&mut self, scaling_factor: f64) {
-        self.target.revolution_radius *= scaling_factor;
-        println!("revolution radius {}", self.target.revolution_radius);
+    fn rescale_radius(&mut self, objective_number_of_nts: usize, actual_number_of_nt: usize) {
+        self.target
+            .rescale_radius(objective_number_of_nts, actual_number_of_nt);
     }
 
     fn rescale_section(&mut self, scaling_factor: f64) {
-        self.target.curve_scale_factor *= scaling_factor;
+        self.target.rescale_section(scaling_factor)
     }
 
     fn cloned(&self) -> Box<dyn SpringTopology> {
@@ -205,8 +205,8 @@ impl SpringTopology for CloseSurfaceTopology {
     fn to_curve_descriptor(&self, thetas: Vec<f64>, finished: bool) -> Vec<CurveDescriptor> {
         let mut ret = Vec::new();
 
-        let nb_segment_per_helix = self.nb_segment / self.target.nb_helices;
-        for i in 0..self.target.nb_helices {
+        let nb_segment_per_helix = self.nb_segment / self.target.nb_spirals();
+        for i in 0..self.target.nb_spirals() {
             let mut interpolations = Vec::new();
             let segment_indicies = (0..nb_segment_per_helix).map(|n| {
                 (i as isize + (n as isize * self.target.total_shift()))
@@ -218,7 +218,7 @@ impl SpringTopology for CloseSurfaceTopology {
                 let end = start + self.nb_section_per_segment - 1;
                 let mut segment_thetas = thetas[start..=end].to_vec();
                 let mut next_value = thetas[self.next_section[end]];
-                if self.target.half_turns_count % 2 == 1 {
+                if self.target.half_turn_count() % 2 == 1 {
                     next_value += 0.5;
                 }
                 let last_value = segment_thetas.last().unwrap();
@@ -238,29 +238,18 @@ impl SpringTopology for CloseSurfaceTopology {
                     values: segment_thetas,
                 });
             }
-            let rem = self.target_scaffold_length % self.target.nb_helices;
+            let rem = self.target_scaffold_length % self.target.nb_spirals();
 
-            let target_len = if i >= self.target.nb_helices - rem {
-                self.target_scaffold_length / self.target.nb_helices + 1
+            let target_len = if i >= self.target.nb_spirals() - rem {
+                self.target_scaffold_length / self.target.nb_spirals() + 1
             } else {
-                self.target_scaffold_length / self.target.nb_helices
+                self.target_scaffold_length / self.target.nb_spirals()
             };
 
+            let objective_number_of_nts = finished.then_some(target_len);
             ret.push((
-                InterpolatedCurveDescriptor {
-                    curve: self.target.curve.clone(),
-                    curve_scale_factor: self.target.curve_scale_factor,
-                    chevyshev_smoothening: self.target.junction_smoothening,
-                    interpolation: interpolations,
-                    half_turns_count: self.target.half_turns_count,
-                    revolution_radius: self.target.revolution_radius,
-                    nb_turn: None,
-                    revolution_angle_init: None,
-                    known_number_of_helices_in_shape: Some(self.target.nb_helices),
-                    known_helix_id_in_shape: None,
-                    objective_number_of_nts: finished.then_some(target_len),
-                    full_turn_at_nt: None,
-                },
+                self.target
+                    .curve_descriptor(interpolations, objective_number_of_nts),
                 theta_0,
             ))
         }
@@ -279,7 +268,11 @@ impl SpringTopology for CloseSurfaceTopology {
         &[]
     }
 
-    fn revolution_radius(&self) -> f64 {
-        self.target.revolution_radius
+    fn revolution_radius(&self) -> RevolutionSurfaceRadius {
+        self.target.get_revolution_radius()
+    }
+
+    fn get_frame(&self) -> Similarity3 {
+        self.target.get_frame()
     }
 }

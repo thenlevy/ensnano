@@ -165,6 +165,7 @@ impl MeshGenerator for UnrootedRevolutionSurfaceDescriptor {
                                 section_parameter: s,
                                 revolution_axis_position: self.get_revolution_axis_position(),
                                 section_half_turn_per_revolution: self.half_turn_count,
+                                curve_scale_factor: 1.,
                             };
                             let position = frame.transform_vec(dvec_to_vec(
                                 self.curve.point_on_surface(&surface_point),

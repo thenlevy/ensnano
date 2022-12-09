@@ -219,7 +219,7 @@ pub enum Message<S: AppState> {
         parameter_id: RevolutionParameterId,
         text: String,
     },
-    InitRevolutionRelaxation(RevolutionSurfaceSystemDescriptor),
+    InitRevolutionRelaxation,
     CancelExport,
     LoadSvgFile,
     ScreenShot3D,
@@ -910,11 +910,16 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .unwrap()
                     .set_unrooted_surface(unrooted_surface);
             }
-            Message::InitRevolutionRelaxation(desc) => {
-                self.requests
-                    .lock()
-                    .unwrap()
-                    .start_revolution_relaxation(desc);
+            Message::InitRevolutionRelaxation => {
+                if let Some(desc) = self
+                    .revolution_tab
+                    .get_revolution_system(&self.application_state, true)
+                {
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .start_revolution_relaxation(desc);
+                }
             }
             Message::FinishRelaxation => self
                 .requests

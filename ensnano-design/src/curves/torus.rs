@@ -367,6 +367,15 @@ impl CurveDescriptor2D {
         Self::_3d(point2d, &point.clone().into())
     }
 
+    /// Return the derivative of the position on surface with respect to the section paramter
+    pub fn derivative_position_on_surface_wrp_section_parameter(
+        &self,
+        point: &PointOnSurface,
+    ) -> DVec3 {
+        let point2d = self.derivative(point.section_parameter);
+        Self::_3d(point2d, &point.clone().into())
+    }
+
     pub fn max_x(&self) -> f64 {
         match self {
             Self::Ellipse {
@@ -409,6 +418,7 @@ pub struct PointOnSurface {
     pub revolution_angle: f64,
     pub revolution_axis_position: f64,
     pub section_half_turn_per_revolution: isize,
+    pub curve_scale_factor: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -429,7 +439,7 @@ impl From<PointOnSurface> for PointOnSurface_ {
             section_rotation,
             revolution_angle: p.revolution_angle,
             revolution_axis_position: p.revolution_axis_position,
-            curve_scale_factor: 1.0,
+            curve_scale_factor: p.curve_scale_factor,
         }
     }
 }
