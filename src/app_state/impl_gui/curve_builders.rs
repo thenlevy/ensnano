@@ -30,12 +30,12 @@ pub(super) const ELLIPSE_BUILDER: CurveDescriptorBuilder<super::AppState> =
             CurveDescriptorParameter {
                 name: "Semi major axis",
                 kind: ParameterKind::Float,
-                default_value: ensnano_gui::InstanciatedParameter::Float(2.0),
+                default_value: ensnano_gui::InstanciatedParameter::Float(20.0),
             },
             CurveDescriptorParameter {
                 name: "Semi minor axis",
                 kind: ParameterKind::Float,
-                default_value: ensnano_gui::InstanciatedParameter::Float(1.0),
+                default_value: ensnano_gui::InstanciatedParameter::Float(10.0),
             },
         ],
         build: &build_ellipse,
@@ -69,17 +69,17 @@ pub(super) const TWO_SPHERES_BUILDER: CurveDescriptorBuilder<super::AppState> =
             CurveDescriptorParameter {
                 name: "Radius extern",
                 kind: ParameterKind::Float,
-                default_value: ensnano_gui::InstanciatedParameter::Float(2.5),
+                default_value: ensnano_gui::InstanciatedParameter::Float(25.),
             },
             CurveDescriptorParameter {
                 name: "Radius intern",
                 kind: ParameterKind::Float,
-                default_value: ensnano_gui::InstanciatedParameter::Float(1.7),
+                default_value: ensnano_gui::InstanciatedParameter::Float(17.),
             },
             CurveDescriptorParameter {
                 name: "Radius tube",
                 kind: ParameterKind::Float,
-                default_value: ensnano_gui::InstanciatedParameter::Float(0.76),
+                default_value: ensnano_gui::InstanciatedParameter::Float(7.6),
             },
             CurveDescriptorParameter {
                 name: "Smooth ceil",
