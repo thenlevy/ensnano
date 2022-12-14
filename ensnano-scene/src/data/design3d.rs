@@ -65,18 +65,6 @@ impl<R: DesignReader> Design3D<R> {
         }
     }
 
-    /*
-    /// Convert a list of ids into a list of instances
-    pub fn id_to_instances(&self, ids: Vec<u32>) -> Vec<Instance> {
-        let mut ret = Vec::new();
-        for id in ids.iter() {
-            if let Some(instance) = self.make_instance(*id) {
-                ret.push(instance)
-            }
-        }
-        ret
-    }*/
-
     /// Convert a list of ids into a list of instances
     pub fn id_to_raw_instances(&self, ids: Vec<u32>) -> Vec<RawDnaInstance> {
         let mut ret = Vec::new();
@@ -87,14 +75,6 @@ impl<R: DesignReader> Design3D<R> {
         }
         ret
     }
-
-    /*
-    /// Return the list of sphere instances to be displayed to represent the design
-    pub fn get_spheres(&self) -> Rc<Vec<Instance>> {
-        let ids = self.design.lock().unwrap().get_all_nucl_ids();
-        Rc::new(self.id_to_instances(ids))
-    }
-    */
 
     /// Return the list of raw sphere instances to be displayed to represent the design
     pub fn get_spheres_raw(&self, show_insertion_representents: bool) -> Rc<Vec<RawDnaInstance>> {
@@ -215,14 +195,6 @@ impl<R: DesignReader> Design3D<R> {
         }
         vecs
     }
-
-    /*
-    /// Return the list of tube instances to be displayed to represent the design
-    pub fn get_tubes(&self) -> Rc<Vec<Instance>> {
-        let ids = self.design.get_all_bound_ids();
-        Rc::new(self.id_to_instances(ids))
-    }
-    */
 
     pub fn get_cones_raw(&self, show_insertion_representents: bool) -> Vec<RawDnaInstance> {
         let mut ids = self.design.get_all_visible_bound_ids();

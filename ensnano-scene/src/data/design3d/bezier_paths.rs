@@ -210,7 +210,7 @@ fn get_sheet_instance(desc: SheetDescriptor<'_>) -> Sheet2D {
     let delta_corners = grad_step / 5.;
     let corners = &desc.corners;
     let axis_position = desc.axis_position.map(|x| x as f32);
-    Sheet2D {
+    let mut ret = Sheet2D {
         plane_id: desc.plane_id,
         position: desc.plane_descritor.position,
         orientation: desc.plane_descritor.orientation,
@@ -222,7 +222,14 @@ fn get_sheet_instance(desc: SheetDescriptor<'_>) -> Sheet2D {
         max_y: ((3. * grad_step).max(corners[3].y + delta_corners) / grad_step).ceil() * grad_step,
         graduation_unit: 48.0 * parameters.z_step,
         axis_position,
+    };
+
+    if let Some(axis_position) = axis_position {
+        ret.min_x = ret.min_x.min(axis_position - grad_step);
+        ret.max_x = ret.max_x.max(axis_position + grad_step);
     }
+
+    ret
 }
 
 /// Returns a sphere representing the corner of a bezier sheet
