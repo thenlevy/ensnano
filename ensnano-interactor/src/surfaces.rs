@@ -86,18 +86,15 @@ impl UnrootedRevolutionSurfaceDescriptor {
         }
     }
     pub fn get_frame(&self) -> Isometry3 {
-        let mut ret = CurveDescriptor2D::get_frame_3d();
-
-        // Then convert into the plane's frame
-        ret.append_translation(self.curve_plane_position);
-        ret.append_rotation(self.curve_plane_orientation);
-
-        // Center on the rotation axis as drawn on the plane
-        let rotation_axis_translation = (Vec3::unit_z()
-            * self.get_revolution_axis_position() as f32)
-            .rotated_by(self.curve_plane_orientation);
-        ret.append_translation(rotation_axis_translation);
-        ret
+        let Similarity3 {
+            translation,
+            rotation,
+            ..
+        } = self.get_frame_when_scaled(1.);
+        Isometry3 {
+            translation,
+            rotation,
+        }
     }
 
     fn get_frame_when_scaled(&self, scale: f64) -> Similarity3 {
@@ -116,8 +113,8 @@ impl UnrootedRevolutionSurfaceDescriptor {
         };
 
         // Then convert into the plane's frame
-        ret.append_translation(self.curve_plane_position);
         ret.append_rotation(self.curve_plane_orientation);
+        ret.append_translation(self.curve_plane_position);
 
         // To get the rotation axis as it is drawn on the plane, we must scale the revolution
         // radius
