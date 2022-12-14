@@ -429,6 +429,16 @@ impl DesignReader {
         self.presenter.get_bezier_path_2d(path_id)
     }
 
+    pub fn get_default_bezier(&self) -> Option<&BezierPlaneDescriptor> {
+        use ensnano_design::Collection;
+        self.presenter
+            .current_design
+            .as_ref()
+            .bezier_planes
+            .values()
+            .next()
+    }
+
     pub fn get_first_bezier_plane(&self, path_id: BezierPathId) -> Option<&BezierPlaneDescriptor> {
         use ensnano_design::Collection;
         let path = self

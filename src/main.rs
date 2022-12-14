@@ -1502,7 +1502,7 @@ impl MainState {
         // If there are no bezier plane, create a new one to draw the surface on it.
         use ensnano_scene::DesignReader;
         if self.app_state.get_design_reader().get_bezier_planes().len() == 0 {
-            if let Some((position, orientation)) = self.get_grid_creation_position() {
+            if let Some((position, orientation)) = self.get_bezier_sheet_creation_position() {
                 self.apply_operation(DesignOperation::AddBezierPlane {
                     desc: ensnano_design::BezierPlaneDescriptor {
                         position,
@@ -1519,6 +1519,16 @@ impl MainState {
         self.applications
             .get(&ElementType::Scene)
             .and_then(|s| s.lock().unwrap().get_position_for_new_grid())
+    }
+
+    fn get_bezier_sheet_creation_position(&self) -> Option<(Vec3, Rotor3)> {
+        self.get_grid_creation_position()
+            .map(|(position, orientation)| {
+                (
+                    position - 30. * Vec3::unit_x().rotated_by(orientation),
+                    orientation,
+                )
+            })
     }
 
     fn toggle_thick_helices(&mut self) {
@@ -1737,6 +1747,10 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn get_grid_creation_position(&self) -> Option<(Vec3, Rotor3)> {
         self.main_state.get_grid_creation_position()
+    }
+
+    fn get_bezier_sheet_creation_position(&self) -> Option<(Vec3, Rotor3)> {
+        self.main_state.get_bezier_sheet_creation_position()
     }
 
     fn finish_operation(&mut self) {

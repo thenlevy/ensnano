@@ -178,6 +178,10 @@ fn get_bezier_frame(
         .map(|plane| (plane.position, plane.orientation))
 }
 
-fn default_frame(_: &[InstanciatedParameter], _: &super::AppState) -> Option<(Vec3, Rotor3)> {
-    Some((Vec3::zero(), Rotor3::identity()))
+fn default_frame(_: &[InstanciatedParameter], app: &super::AppState) -> Option<(Vec3, Rotor3)> {
+    app.0
+        .design
+        .get_design_reader()
+        .get_default_bezier()
+        .map(|plane| (plane.position, plane.orientation))
 }
