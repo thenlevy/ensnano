@@ -511,6 +511,10 @@ impl GuiRequests for Requests {
     fn set_unrooted_surface(&mut self, surface: Option<UnrootedRevolutionSurfaceDescriptor>) {
         self.new_unrooted_surface = Some(surface);
     }
+
+    fn notify_revolution_tab(&mut self) {
+        self.switched_to_revolution_tab = Some(());
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

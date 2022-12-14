@@ -1498,8 +1498,8 @@ impl MainState {
         self.modify_state(|s| s.set_revolution_axis_position(position), None)
     }
 
-    fn set_unrooted_surface(&mut self, surface: Option<UnrootedRevolutionSurfaceDescriptor>) {
-        // If there are no bezier plane, create a new one to draw the surface on it.
+    /// Create a bezier plane where the user is looking at if there are no bezier plane yet.
+    fn create_default_bezier_plane(&mut self) {
         use ensnano_scene::DesignReader;
         if self.app_state.get_design_reader().get_bezier_planes().len() == 0 {
             if let Some((position, orientation)) = self.get_bezier_sheet_creation_position() {
@@ -1511,7 +1511,9 @@ impl MainState {
                 })
             }
         }
+    }
 
+    fn set_unrooted_surface(&mut self, surface: Option<UnrootedRevolutionSurfaceDescriptor>) {
         self.modify_state(|s| s.set_unrooted_surface(surface), None)
     }
 

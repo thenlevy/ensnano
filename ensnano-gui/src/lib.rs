@@ -229,6 +229,7 @@ pub trait Requests: 'static + Send {
     fn set_unrooted_surface(&mut self, surface: Option<UnrootedRevolutionSurfaceDescriptor>);
     /// Make a 3D screenshot
     fn request_screenshot_3d(&mut self);
+    fn notify_revolution_tab(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -143,4 +143,5 @@ pub struct Requests {
     pub new_bezier_revolution_radius: Option<f64>,
     pub new_bezier_revolution_axis_position: Option<f64>,
     pub new_unrooted_surface: Option<Option<UnrootedRevolutionSurfaceDescriptor>>,
+    pub switched_to_revolution_tab: Option<()>,
 }

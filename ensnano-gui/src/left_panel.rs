@@ -636,6 +636,10 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     self.simulation_tab
                         .leave_tab(self.requests.clone(), &self.application_state);
                 }
+                if n == 7 {
+                    // Revolution tab
+                    self.requests.lock().unwrap().notify_revolution_tab()
+                }
                 self.selected_tab = n;
             }
             Message::OrganizerMessage(m) => {
