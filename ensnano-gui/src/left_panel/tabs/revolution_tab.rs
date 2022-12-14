@@ -408,6 +408,11 @@ impl<S: AppState> RevolutionTab<S> {
         let desc = self.get_revolution_system(app_state, false);
         let mut ret = Scrollable::new(&mut self.scroll_state);
         section!(ret, ui_size, "Revolution Surfaces");
+        ret = ret.push(Checkbox::new(
+            app_state.get_show_bezier_paths(),
+            "Show bezier paths",
+            Message::SetShowBezierPaths,
+        ));
 
         subsection!(ret, ui_size, "Section parameters");
         let curve_pick_list = PickList::new(
