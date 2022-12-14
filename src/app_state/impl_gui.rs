@@ -201,6 +201,7 @@ impl GuiState for AppState {
 
         let half_number_helix =
             (scaled_perimeter / 2. / Parameters::INTER_CENTER_GAP as f64).round() as usize;
+
         Some(ensnano_gui::RevolutionScaling {
             nb_helix: half_number_helix * 2,
             scale: scaling_factor,

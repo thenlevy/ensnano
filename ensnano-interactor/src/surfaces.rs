@@ -203,32 +203,29 @@ impl UnrootedRevolutionSurfaceDescriptor {
                 let s_high = strip_idx as f64 / nb_strip as f64;
                 let s_low = s_high + 1. / nb_strip as f64;
 
-                let vertices = (0..nb_section_per_strip)
-                    .flat_map(|section_idx| {
-                        [s_high, s_low].into_iter().map(move |section_parameter| {
-                            use std::f64::consts::TAU;
-                            let revolution_fract = section_idx as f64 / nb_section_per_strip as f64;
+                let vertices = (0..(nb_section_per_strip + 1)).flat_map(|section_idx| {
+                    [s_high, s_low].into_iter().map(move |section_parameter| {
+                        use std::f64::consts::TAU;
+                        let revolution_fract = section_idx as f64 / nb_section_per_strip as f64;
 
-                            let revolution_angle = TAU * revolution_fract;
+                        let revolution_angle = TAU * revolution_fract;
 
-                            self.position(section_parameter, revolution_angle)
-                        })
+                        self.position(section_parameter, revolution_angle)
                     })
-                    .cycle();
+                });
 
-                // Compute the area of the triangles of the strip using the formula
-                // area(ABC) = 1/2 * mag(AB cross AC)
-                vertices
-                    .clone()
-                    .zip(vertices.clone().skip(1))
-                    .zip(vertices.skip(2))
-                    .take(2 * nb_section_per_strip)
-                    .map(|((a, b), c)| 0.5 * (b - a).cross(c - a).mag())
-                    .sum::<f64>()
+                area_strip(vertices, nb_section_per_strip)
             })
             .sum::<f64>();
         Some(ret)
     }
+
+    /*
+    pub fn approx_one_nucl_area(&self, nb_strip, nb_section_per_strip, parameters: &Parameters) -> Option<f64>{
+
+
+    }
+    */
 
     fn position(&self, section_parameter: f64, revolution_angle: f64) -> DVec3 {
         self.position_when_scaled(section_parameter, revolution_angle, 1.)
@@ -286,7 +283,7 @@ impl RootingParameters {
          * So ~ is the relation of equivalence modulo d and has d classes.
          */
         let additional_shift = if surface_half_turn_count % 2 == 1 {
-            self.nb_helix_per_half_section / 2
+            self.nb_helix_per_half_section
         } else {
             0
         };
@@ -486,6 +483,18 @@ impl RootedRevolutionSurface {
     pub fn get_frame(&self) -> Similarity3 {
         self.surface.get_frame_when_scaled(1. / self.scale)
     }
+}
+
+/// Compute the area of the triangles of the strip using the formula
+/// area(ABC) = 1/2 * mag(AB cross AC)
+fn area_strip<I: Iterator<Item = DVec3> + Clone>(vertices: I, nb_section_per_strip: usize) -> f64 {
+    vertices
+        .clone()
+        .zip(vertices.clone().skip(1))
+        .zip(vertices.skip(2))
+        .take(2 * nb_section_per_strip)
+        .map(|((a, b), c)| 0.5 * (b - a).cross(c - a).mag())
+        .sum::<f64>()
 }
 
 #[cfg(test)]
