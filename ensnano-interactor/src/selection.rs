@@ -328,6 +328,19 @@ pub fn list_of_free_grids(selection: &[Selection]) -> Option<Vec<usize>> {
     Some(ret)
 }
 
+pub fn list_of_bezier_vertices(selection: &[Selection]) -> Option<Vec<BezierVertexId>> {
+    selection
+        .iter()
+        .map(|s| {
+            if let Selection::BezierVertex(id) = s {
+                Some(*id)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 pub fn extract_helices(selection: &[Selection]) -> Vec<usize> {
     let mut ret = Vec::new();
     for s in selection.iter() {

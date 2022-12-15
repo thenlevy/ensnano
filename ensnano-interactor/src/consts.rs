@@ -15,6 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#![allow(clippy::unusual_byte_groupings)]
 use ultraviolet::Vec4;
 pub const VIEWER_BINDING_ID: u32 = 0;
 pub const INSTANCES_BINDING_ID: u32 = 1;
@@ -59,7 +60,7 @@ pub fn bezier_widget_id(helix_id: u32, control_point: BezierControlPoint) -> u32
     (helix_id << 8) | bezier_id
 }
 
-use crate::BezierControlPoint;
+use crate::{BezierControlPoint, RevolutionSimulationParameters};
 pub fn widget_id_to_bezier(id: u32) -> Option<(usize, BezierControlPoint)> {
     use std::convert::TryInto;
     let control = match id & 0xFF {
@@ -68,7 +69,7 @@ pub fn widget_id_to_bezier(id: u32) -> Option<(usize, BezierControlPoint)> {
         )),
         n => {
             let control = ((n - BEZIER_START_WIDGET_ID) as usize).try_into().ok();
-            control.map(|c| BezierControlPoint::CubicBezier(c))
+            control.map(BezierControlPoint::CubicBezier)
         }
     };
     Some((id >> 8) as usize).zip(control)
@@ -133,13 +134,13 @@ pub const ICON_SQUARE_GRID: char = '\u{e90e}';
 pub const ICON_HONEYCOMB_GRID: char = '\u{e907}';
 pub const ICON_NANOTUBE: char = '\u{e914}';
 
-pub const CTRL: &'static str = if cfg!(target_os = "macos") {
+pub const CTRL: &str = if cfg!(target_os = "macos") {
     "\u{2318}"
 } else {
     "ctrl"
 };
 
-pub const ALT: &'static str = if cfg!(target_os = "macos") {
+pub const ALT: &str = if cfg!(target_os = "macos") {
     "\u{2325}"
 } else {
     "alt"
@@ -177,14 +178,14 @@ programer to investigate bugs.\n
 pub const RGB_HANDLE_COLORS: [u32; 3] = [0xFF0000, 0xFF00, 0xFF];
 pub const CYM_HANDLE_COLORS: [u32; 3] = [0x00FFFF, 0xFF00FF, 0xFFFF00];
 
-pub const ORIGAMI_EXTENSION: &'static str = "origami";
-pub const ENS_EXTENSION: &'static str = "ens";
-pub const ENS_BACKUP_EXTENSION: &'static str = "ensbackup";
-pub const ENS_UNAMED_FILE_NAME: &'static str = "Unamed_design";
-pub const CANNOT_OPEN_DEFAULT_DIR: &'static str = "Unable to open document or home directory.
-No backup will be saved for this unamed design";
+pub const ORIGAMI_EXTENSION: &str = "origami";
+pub const ENS_EXTENSION: &str = "ens";
+pub const ENS_BACKUP_EXTENSION: &str = "ensbackup";
+pub const ENS_UNNAMED_FILE_NAME: &str = "Unnamed_design";
+pub const CANNOT_OPEN_DEFAULT_DIR: &str = "Unable to open document or home directory.
+No backup will be saved for this unnamed design";
 
-pub const NO_DESIGN_TITLE: &'static str = "New file";
+pub const NO_DESIGN_TITLE: &str = "New file";
 
 pub const BEZIER_CONTROL_RADIUS: f32 = 2.5;
 pub const BEZIER_SQUELETON_RADIUS: f32 = 0.5;
@@ -199,7 +200,7 @@ pub const DEFAULT_STEREOGRAPHIC_ZOOM: f32 = 3.0;
 pub const STEREOGRAPHIC_ZOOM_STEP: f32 = 1.1;
 pub const PIECEWISE_BEZIER_COLOR: u32 = 0xFF_66_CD_AA; // Medium Aquamarine
 
-pub const UPDATE_VISIBILITY_SIEVE_LABEL: &'static str = "Update visibility sieve";
+pub const UPDATE_VISIBILITY_SIEVE_LABEL: &str = "Update visibility sieve";
 
 pub const COLOR_ADENOSINE: u32 = 0x00_CC0000;
 pub const COLOR_THYMINE: u32 = 0x00_0000CC;
@@ -238,15 +239,15 @@ pub const GREY_UNKNOWN_NUCL_VEC4: Vec4 = Vec4 {
     w: 1.,
 };
 
-pub const PRINTABLE_CHARS: &'static [char] = &[
+pub const PRINTABLE_CHARS: &[char] = &[
     'A', 'T', 'G', 'C', 'N', 'K', 'U', 'X', 'S', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
     '-', 'n', 't', 'm', '.', '/', ' ', '(', ')', '?',
 ];
 pub const NB_PRINTABLE_CHARS: usize = PRINTABLE_CHARS.len();
 
-/// The factor by which the width of candidate hilighted strands is multiplied
+/// The factor by which the width of candidate highlighted strands is multiplied
 pub const CANDIDATE_STRAND_HIGHLIGHT_FACTOR_2D: f32 = 1.7;
-/// The factor by which the width of selected hilighted strands is multiplied
+/// The factor by which the width of selected highlighted strands is multiplied
 pub const SELECTED_STRAND_HIGHLIGHT_FACTOR_2D: f32 =
     1. + 2. * (CANDIDATE_STRAND_HIGHLIGHT_FACTOR_2D - 1.);
 
@@ -257,3 +258,15 @@ pub const BEZIER_SHEET_CORNER_COLOR: u32 = 0x46_82_B4;
 pub const BEZIER_SHEET_CORNER_RADIUS: f32 = 15.0;
 
 pub const APP_NAME: &str = "ENSnano";
+
+pub const DEFAULT_REVOLUTION_SIMULATION_PARAMETERS: RevolutionSimulationParameters =
+    RevolutionSimulationParameters {
+        nb_section_per_segment: 100,
+        spring_stiffness: 8.0,
+        torsion_stiffness: 30.0,
+        fluid_friction: 1.0,
+        ball_mass: 10.0,
+        time_span: 5.0,
+        simulation_step: 0.1,
+        method: crate::EquadiffSolvingMethod::Ralston,
+    };

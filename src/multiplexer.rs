@@ -15,7 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-//! This modules handles the separation of the window into different regions.
+//! This module handles the separation of the window into different regions.
 //!
 //! The layout manager split the window into different regions and attribute each region to an
 //! an application or a gui component.
@@ -24,7 +24,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 //!
 //! When an event is recieved by the window, the multiplexer is in charge of forwarding it to the
 //! appropriate application, gui component or overlay. The multiplexer also handles some events
-//! like resizing events of keyboard input that should be handled independently of the foccussed
+//! like resizing events or keyboard input that should be handled independently of the foccussed
 //! region.
 //!
 //!
@@ -51,37 +51,39 @@ mod layout_manager;
 use ensnano_interactor::graphics::{DrawArea, ElementType, SplitMode};
 use layout_manager::{LayoutTree, PixelRegion};
 
-/// A structure that handles the division of the window into different `DrawArea`
+/// A structure that handles the division of the window into different `DrawArea`.
 pub struct Multiplexer {
-    /// The *physical* size of the window
+    /// The *physical* size of the window.
     pub window_size: PhySize,
-    /// The scale factor of the window
+    /// The scale factor of the window.
     pub scale_factor: f64,
-    /// The object mapping pixels to drawing areas
+    /// The object mapping pixels to drawing areas.
     layout_manager: LayoutTree,
-    /// The Element on which the mouse cursor is currently on.
+    /// The element on which the mouse cursor is currently on.
     focus: Option<ElementType>,
-    /// The *physical* position of the cursor on the focus area
+    /// The *physical* position of the cursor on the focus area.
     cursor_position: PhysicalPosition<f64>,
-    /// The area that are drawn on top of the application
+    /// The area that are drawn on top of the application.
     overlays: Vec<Overlay>,
-    /// The texture on which the scene is rendered
+    /// The texture on which the scene is rendered.
     scene_texture: Option<MultiplexerTexture>,
-    /// The texture on which the top bar gui is rendered
+    /// The texture on which the top bar gui is rendered.
     top_bar_texture: Option<MultiplexerTexture>,
-    /// The texture on which the left pannel is rendered
+    /// The texture on which the left pannel is rendered.
     left_pannel_texture: Option<MultiplexerTexture>,
-    /// The textures on which the overlays are rendered
+    /// The textures on which the overlays are rendered.
     overlays_textures: Vec<MultiplexerTexture>,
-    /// The texture on wich the grid is rendered
+    /// The texture on wich the grid is rendered.
     grid_panel_texture: Option<MultiplexerTexture>,
+    /// The texture on which the stereographic scene is rendered.
     stereographic_scene_texture: Option<MultiplexerTexture>,
+    /// The texture on which the status bar gui is rendered.
     status_bar_texture: Option<MultiplexerTexture>,
-    /// The texutre on which the flat scene is rendered,
+    /// The texutre on which the flat scene is rendered.
     flat_scene_texture: Option<MultiplexerTexture>,
-    /// The pointer to the node that separate the top bar from the scene
+    /// The pointer to the node that separate the top bar from the scene.
     top_bar_split: usize,
-    /// The pointer to the node that separtate the status bar from the scene
+    /// The pointer to the node that separtate the status bar from the scene.
     status_bar_split: usize,
     device: Rc<Device>,
     pipeline: Option<wgpu::RenderPipeline>,
@@ -95,7 +97,9 @@ pub struct Multiplexer {
     element_2d: ElementType,
 }
 
+/// Maximum width of the left pannel.
 const MAX_LEFT_PANNEL_WIDTH: f64 = 200.;
+/// Maximum height of the status bar.
 const MAX_STATUS_BAR_HEIGHT: f64 = 50.;
 
 impl Multiplexer {

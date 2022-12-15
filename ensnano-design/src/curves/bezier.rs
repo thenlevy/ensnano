@@ -84,10 +84,10 @@ impl CubicBezier {
             vec_to_dvec(constructor.start),
             vec_to_dvec(constructor.control1),
             vec_to_dvec(constructor.control2),
-            vec_to_dvec(constructor.end.into()),
+            vec_to_dvec(constructor.end),
         );
-        let ret = Self { polynomial };
-        ret
+
+        Self { polynomial }
     }
 }
 
@@ -220,15 +220,38 @@ impl super::Curved for CubicBezier {
 /// A curve that is the concatenation of several cubic bezier curves.
 ///
 /// The process to derive a curve from `ends` is decribed in [BezierEnd](The documentation on `BezierEnd`).
-#[derive(Clone, Debug)]
-pub(crate) struct InstanciatedPiecewiseBezier {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InstanciatedPiecewiseBezier {
     pub ends: Vec<BezierEndCoordinates>,
     pub t_min: Option<f64>,
     pub t_max: Option<f64>,
     pub cyclic: bool,
+    /// An identifier of the PiecewiseBezier generated at random.
+    pub id: u64,
+    #[serde(default, skip_serializing_if = "is_false")]
+    /// Indicate that this curve must be discretized quickly, even at the cost of precision.
+    pub discretize_quickly: bool,
 }
 
-#[derive(Clone, Debug)]
+fn is_false(b: &bool) -> bool {
+    !b
+}
+
+impl PartialEq for InstanciatedPiecewiseBezier {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for InstanciatedPiecewiseBezier {}
+
+impl std::hash::Hash for InstanciatedPiecewiseBezier {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BezierEndCoordinates {
     pub position: Vec3,
     pub vector_in: Vec3,
@@ -237,16 +260,27 @@ pub struct BezierEndCoordinates {
 
 impl InstanciatedPiecewiseBezier {
     /// Return the index of the bezier curve that determines the position associated to time `t`.
-    fn t_to_i(&self, t: f64) -> usize {
+    fn t_to_segment_time(&self, t: f64) -> SegmentTime {
         if t < 0.0 {
-            0
-        } else {
-            // for t = self.t_max() - 1 we take i = self.t_max() - 2
-            if self.cyclic && self.ends.len() > 0 {
-                t.floor() as usize
+            if self.cyclic {
+                let t = t.rem_euclid(self.ends.len() as f64);
+                self.t_to_segment_time(t)
             } else {
-                (t.floor() as usize).min(self.ends.len() - 2)
+                SegmentTime {
+                    segment: 0,
+                    time: t,
+                }
             }
+        } else {
+            let (segment, time);
+            if self.cyclic && !self.ends.is_empty() {
+                segment = t.floor() as usize;
+                time = t.fract();
+            } else {
+                segment = (t.floor() as usize).min(self.ends.len() - 2);
+                time = t - segment as f64;
+            }
+            SegmentTime { segment, time }
         }
     }
 
@@ -293,6 +327,11 @@ impl BezierEnd {
     }
 }
 
+struct SegmentTime {
+    segment: usize,
+    time: f64,
+}
+
 impl super::Curved for InstanciatedPiecewiseBezier {
     fn t_max(&self) -> f64 {
         let n = if self.cyclic {
@@ -316,25 +355,29 @@ impl super::Curved for InstanciatedPiecewiseBezier {
     }
 
     fn position(&self, t: f64) -> DVec3 {
-        let i = self.t_to_i(t);
-        let b_i = self.ith_cubic_bezier(i);
-        b_i.position(t - i as f64)
+        let s = self.t_to_segment_time(t);
+        let b_i = self.ith_cubic_bezier(s.segment);
+        b_i.position(s.time)
     }
 
     fn speed(&self, t: f64) -> DVec3 {
-        let i = self.t_to_i(t);
-        let b_i = self.ith_cubic_bezier(i);
-        b_i.speed(t - i as f64)
+        let s = self.t_to_segment_time(t);
+        let b_i = self.ith_cubic_bezier(s.segment);
+        b_i.speed(s.time)
     }
 
     fn acceleration(&self, t: f64) -> DVec3 {
-        let i = self.t_to_i(t);
-        let b_i = self.ith_cubic_bezier(i);
-        b_i.acceleration(t - i as f64)
+        let s = self.t_to_segment_time(t);
+        let b_i = self.ith_cubic_bezier(s.segment);
+        b_i.acceleration(s.time)
     }
 
     fn bounds(&self) -> super::CurveBounds {
         super::CurveBounds::BiInfinite
+    }
+
+    fn discretize_quickly(&self) -> bool {
+        self.discretize_quickly
     }
 }
 
@@ -387,5 +430,9 @@ impl super::Curved for TranslatedPiecewiseBezier {
         } else {
             Some(self.original_curve.ends.len() as f64 - 1.)
         }
+    }
+
+    fn pre_compute_polynomials(&self) -> bool {
+        true
     }
 }

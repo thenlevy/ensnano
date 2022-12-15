@@ -22,7 +22,7 @@ serde_derive = "1.0.116"
 chrono = "0.4"
 simple_excel_writer = "0.1.7"
 regex = "1.4.2"
-mathru = "0.8.4"
+mathru = "0.13"
 rand = "0.8.3"
 rand_distr = "0.4.0"
 ordered-float = { version = "2.0", features = ["serde"] }
@@ -50,6 +50,7 @@ iced = "0.4.2"
 iced_graphics = "0.3.1"
 iced_winit = "0.4.0"
 iced_native = "0.5.1"
+chebyshev_polynomials = { git = "https://github.com/thenlevy/chebyshev_polynomials" }
 
 
 # [target.'cfg(not(target_env = "msvc"))'.dependencies]

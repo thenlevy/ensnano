@@ -132,7 +132,7 @@ impl<S: AppState> InstantiatedBuilder<S> {
     /// return false.
     fn update(&mut self, selection: &Selection, reader: &dyn DesignReader, app_state: &S) -> bool {
         if *selection != self.selection || app_state.is_transitory() {
-            self.selection = selection.clone();
+            self.selection = *selection;
             if let Some(builder) = Self::new_builder(selection, reader) {
                 self.builder = builder;
                 true
@@ -145,14 +145,10 @@ impl<S: AppState> InstantiatedBuilder<S> {
     }
 
     fn new(selection: &Selection, reader: &dyn DesignReader) -> Option<Self> {
-        if let Some(builder) = Self::new_builder(selection, reader) {
-            Some(Self {
-                builder,
-                selection: selection.clone(),
-            })
-        } else {
-            None
-        }
+        Self::new_builder(selection, reader).map(|builder| Self {
+            builder,
+            selection: *selection,
+        })
     }
 
     fn new_builder(
@@ -275,7 +271,7 @@ impl<S: AppState> ContextualPanel<S> {
             column = column.push(link_row(
                 &mut self.ens_nano_website,
                 "http://ens-lyon.fr/ensnano",
-                ui_size.clone(),
+                ui_size,
             ));
         } else if self.force_help && xover_len.is_none() {
             column = turn_into_help_column(column, ui_size)
@@ -286,7 +282,7 @@ impl<S: AppState> ContextualPanel<S> {
             column = turn_into_help_column(column, ui_size)
         } else if nb_selected > 1 {
             let help_btn =
-                text_btn(&mut self.help_btn, "Help", ui_size.clone()).on_press(Message::ForceHelp);
+                text_btn(&mut self.help_btn, "Help", ui_size).on_press(Message::ForceHelp);
             column = column.push(
                 Row::new()
                     .width(Length::Fill)
@@ -298,7 +294,7 @@ impl<S: AppState> ContextualPanel<S> {
             column = column.push(Text::new(format!("{} objects selected", nb_selected)));
         } else {
             let help_btn =
-                text_btn(&mut self.help_btn, "Help", ui_size.clone()).on_press(Message::ForceHelp);
+                text_btn(&mut self.help_btn, "Help", ui_size).on_press(Message::ForceHelp);
             column = column.push(
                 Row::new()
                     .width(Length::Fill)
@@ -324,7 +320,7 @@ impl<S: AppState> ContextualPanel<S> {
                     column = add_grid_content(
                         column,
                         info_values.as_slice(),
-                        ui_size.clone(),
+                        ui_size,
                         &mut self.twist_button,
                         twisting,
                     )
@@ -334,7 +330,7 @@ impl<S: AppState> ContextualPanel<S> {
                         column,
                         &mut self.strand_name_state,
                         info_values.as_slice(),
-                        ui_size.clone(),
+                        ui_size,
                     )
                 }
                 Selection::Nucleotide(_, _) => {
@@ -354,7 +350,7 @@ impl<S: AppState> ContextualPanel<S> {
                 _ => (),
             }
             if let Some(builder) = &mut self.builder {
-                column = column.push(builder.builder.view(ui_size, &selection, app_state))
+                column = column.push(builder.builder.view(ui_size, selection, app_state))
             }
         }
 
@@ -367,7 +363,7 @@ impl<S: AppState> ContextualPanel<S> {
             }
         }
 
-        if let Some(len) = app_state.get_reader().get_insertion_length(&selection) {
+        if let Some(len) = app_state.get_reader().get_insertion_length(selection) {
             let real_len_string = len.to_string();
             let text_input_content = self
                 .insertion_length_state
@@ -496,7 +492,7 @@ impl<S: AppState> ContextualPanel<S> {
             .as_ref()
             .and_then(|s| s.parse::<usize>().ok())?;
         Some(InsertionRequest {
-            selection: self.insertion_length_state.selection.clone(),
+            selection: self.insertion_length_state.selection,
             length,
         })
     }
@@ -552,7 +548,7 @@ fn add_strand_content<'a, S: AppState, I: std::ops::Deref<Target = str>>(
 ) -> Column<'a, Message<S>> {
     let s_id = info_values[2].parse::<usize>().unwrap();
     let name_row = Row::new()
-        .push(Text::new(format!("Name")).size(ui_size.main_text()))
+        .push(Text::new("Name").size(ui_size.main_text()))
         .push(
             TextInput::new(
                 strand_name_state,
@@ -582,6 +578,7 @@ fn bool_to_string(b: bool) -> String {
     }
 }
 
+#[allow(clippy::needless_lifetimes)]
 fn add_help_to_column<'a, M: 'static>(
     mut column: Column<'a, M>,
     help_title: impl Into<String>,
@@ -614,6 +611,7 @@ fn add_help_to_column<'a, M: 'static>(
     column
 }
 
+#[allow(clippy::needless_lifetimes)]
 fn turn_into_help_column<'a, M: 'static>(
     mut column: Column<'a, M>,
     ui_size: UiSize,
@@ -624,11 +622,11 @@ fn turn_into_help_column<'a, M: 'static>(
             .width(Length::Fill)
             .horizontal_alignment(iced::alignment::Horizontal::Center),
     );
-    column = add_help_to_column(column, "3D view", view_3d_help(), ui_size.clone());
+    column = add_help_to_column(column, "3D view", view_3d_help(), ui_size);
     column = column.push(iced::Space::with_height(Length::Units(15)));
-    column = add_help_to_column(column, "2D/3D view", view_2d_3d_help(), ui_size.clone());
+    column = add_help_to_column(column, "2D/3D view", view_2d_3d_help(), ui_size);
     column = column.push(iced::Space::with_height(Length::Units(15)));
-    column = add_help_to_column(column, "2D view", view_2d_help(), ui_size.clone());
+    column = add_help_to_column(column, "2D view", view_2d_help(), ui_size);
     column
 }
 
@@ -921,6 +919,7 @@ impl AddStrandMenu {
         self.text_inputs_are_active = show;
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn view<'a, S: AppState>(&'a mut self, ui_size: UiSize, width: u16) -> Element<'a, Message<S>> {
         let mut ret = Column::new();
         let mut inputs = self.builder_input.iter_mut();
@@ -995,7 +994,7 @@ impl InsertionLengthState {
     fn update_selection(&mut self, selection: &Selection) {
         if selection != &self.selection {
             self.input_str = None;
-            self.selection = selection.clone();
+            self.selection = *selection;
         }
     }
 

@@ -16,9 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use ultraviolet::{DMat3, DVec3, Rotor3, Vec2, Vec3};
+use ultraviolet::{DMat3, DVec3, Isometry2, Rotor3, Vec2, Vec3};
 const EPSILON: f64 = 1e-6;
-const DISCRETISATION_STEP: usize = 100;
 
 /// To compute curvilinear abcissa over long distances
 const DELTA_MAX: f64 = 256.0;
@@ -41,12 +40,13 @@ mod tube_spiral;
 mod twist;
 use super::GridId;
 use crate::grid::*;
+pub use bezier::InstanciatedPiecewiseBezier;
+pub(crate) use bezier::PieceWiseBezierInstantiator;
 use bezier::TranslatedPiecewiseBezier;
 pub use bezier::{
     BezierControlPoint, BezierEnd, BezierEndCoordinates, CubicBezierConstructor,
     CubicBezierControlPoint,
 };
-pub(crate) use bezier::{InstanciatedPiecewiseBezier, PieceWiseBezierInstantiator};
 pub use revolution::{InterpolatedCurveDescriptor, InterpolationDescriptor};
 pub use sphere_like_spiral::{SphereLikeSpiralDescriptor, SphereOrientation};
 use std::collections::HashMap;
@@ -60,6 +60,7 @@ pub use tube_spiral::TubeSpiralDescritor;
 pub use twist::{nb_turn_per_100_nt_to_omega, twist_to_omega, Twist};
 
 const EPSILON_DERIVATIVE: f64 = 1e-6;
+
 /// Types that implements this trait represents curves.
 pub trait Curved {
     /// A function that maps a `0.0 <= t <= Self::t_max` to a point in Space.
@@ -120,6 +121,8 @@ pub trait Curved {
         None
     }
 
+    /// Curved for which there exists a closed formula for the inverse curvilinear abscissa can override
+    /// this method.
     fn inverse_curvilinear_abscissa(&self, _x: f64) -> Option<f64> {
         None
     }
@@ -154,11 +157,27 @@ pub trait Curved {
         None
     }
 
+    /// This method can be overriden to express the fact that a specific frame should be used to
+    /// position nucleotides arround the first point of the curve.
     fn initial_frame(&self) -> Option<DMat3> {
         None
     }
 
+    /// This method can be overriden to express the fact that the curve is closed.
+    /// In that case, return `Some(t)` if the curve is closed with period `t`.
     fn full_turn_at_t(&self) -> Option<f64> {
+        None
+    }
+
+    /// This method can be overriden to express the fact that the curve is closed and should
+    /// contain a specific number of nucleotide between `self.t_min()` and `self.full_turn_at_t()`.
+    fn nucl_pos_full_turn(&self) -> Option<isize> {
+        None
+    }
+
+    /// This method can be overriden to express the fact that the curve should contain a specific
+    /// number of nucleotides between `self.t_min()` and `self.t_max()`.
+    fn objective_nb_nt(&self) -> Option<usize> {
         None
     }
 
@@ -195,6 +214,24 @@ pub trait Curved {
     /// In that case return the information about the surface at the specified point
     fn surface_info(&self, _point: SurfacePoint) -> Option<SurfaceInfo> {
         None
+    }
+
+    /// This method can be overriden to specify the additional isometry associated to each segment
+    /// of the helix.
+    fn additional_isometry(&self, _segment_idx: usize) -> Option<Isometry2> {
+        None
+    }
+
+    /// This method can be overriden to indicate that the curve can mutst be discretized quickly,
+    /// even at the cost of precision.
+    fn discretize_quickly(&self) -> bool {
+        false
+    }
+
+    /// Return true if the discretization algorithm should precompute polynomials for the
+    /// curvilinear abscissa
+    fn pre_compute_polynomials(&self) -> bool {
+        false
     }
 }
 
@@ -271,12 +308,38 @@ impl Curve {
             abscissa_converter: None,
         };
         let len_segment = ret.geometry.z_step_ratio().unwrap_or(1.0) * parameters.z_step as f64;
-        ret.discretize(
-            len_segment,
-            DISCRETISATION_STEP,
-            parameters.inclination as f64,
-        );
+        ret.discretize(len_segment, parameters.inclination as f64);
         ret
+    }
+
+    fn compute_length<T: Curved + 'static + Sync + Send>(
+        geometry: T,
+        parameters: &Parameters,
+    ) -> f64 {
+        if let Some((x0, x1)) = geometry
+            .curvilinear_abscissa(geometry.t_min())
+            .zip(geometry.curvilinear_abscissa(geometry.t_max()))
+        {
+            let ret = x1 - x0;
+            println!("length by curvilinear_abscissa = {ret}");
+            return x1 - x0;
+        }
+        quadrature::integrate(
+            |x| geometry.speed(x).mag(),
+            geometry.t_min(),
+            geometry.t_max(),
+            1e-5,
+        )
+        .integral
+    }
+
+    fn path<T: Curved + 'static + Sync + Send>(geometry: T, parameters: &Parameters) -> Vec<DVec3> {
+        let nb_point = 10_000;
+        (0..nb_point)
+            .map(|n| {
+                geometry.position(geometry.t_min() + n as f64 * geometry.t_max() / nb_point as f64)
+            })
+            .collect()
     }
 
     pub fn nb_points(&self) -> usize {
@@ -336,7 +399,8 @@ impl Curve {
         } else if let Some(pos_full_turn) = self.nucl_pos_full_turn {
             let additional_angle = self
                 .axis_forward
-                .last()
+                .get(pos_full_turn.round() as usize + 1)
+                .or_else(|| self.axis_forward.last())
                 .zip(self.axis_forward.first())
                 .map(|(f1, f2)| {
                     let y = f2[0].dot(f1[1]);
@@ -347,11 +411,7 @@ impl Curve {
             let final_angle =
                 pos_full_turn as f64 * TAU / -parameters.bases_per_turn as f64 + additional_angle;
             let rem = final_angle.rem_euclid(TAU);
-            /*
-            let mut full_delta = if rem > PI { TAU - rem } else { -rem } + FRAC_PI_2;
-            if full_delta > PI {
-                full_delta -= TAU;
-            }*/
+
             let mut full_delta = -rem;
             full_delta = full_delta.rem_euclid(TAU);
             if full_delta > PI {
@@ -410,91 +470,20 @@ impl Curve {
         self.nucl_t0
     }
 
-    /// Return a value of t_min that would allow self to have nucl
-    pub fn left_extension_to_have_nucl(&self, nucl: isize, parameters: &Parameters) -> Option<f64> {
-        let nucl_min = -(self.nucl_t0 as isize);
-        if nucl < nucl_min {
-            if let CurveBounds::BiInfinite = self.geometry.bounds() {
-                let objective = (-nucl) as f64
-                    * parameters.z_step as f64
-                    * self.geometry.z_step_ratio().unwrap_or(1.);
-                if let Some(t_min) = self.geometry.inverse_curvilinear_abscissa(objective) {
-                    return Some(t_min);
-                }
-                let mut delta = 1.0;
-                while delta < DELTA_MAX {
-                    let new_tmin = self.geometry.t_min() - delta;
-                    if self.length_by_descretisation(
-                        new_tmin,
-                        0.0,
-                        nucl.abs() as usize * DISCRETISATION_STEP,
-                    ) > objective
-                    {
-                        return Some(new_tmin);
-                    }
-                    delta *= 2.0;
-                }
-                None
-            } else {
-                None
-            }
-        } else {
-            Some(self.geometry.t_min())
-        }
-    }
-
-    /// Return a value of t_max that would allow self to have nucl
-    pub fn right_extension_to_have_nucl(
-        &self,
-        nucl: isize,
-        parameters: &Parameters,
-    ) -> Option<f64> {
-        let nucl_max = (self.nb_points() - self.nucl_t0) as isize;
-        if nucl >= nucl_max - 1 {
-            match self.geometry.bounds() {
-                CurveBounds::BiInfinite | CurveBounds::PositiveInfinite => {
-                    let objective = nucl as f64
-                        * parameters.z_step as f64
-                        * self.geometry.z_step_ratio().unwrap_or(1.)
-                        + parameters.inclination as f64;
-                    if let Some(t_max) = self.geometry.inverse_curvilinear_abscissa(objective) {
-                        return Some(t_max);
-                    }
-                    let mut delta = 1.0;
-                    while delta < DELTA_MAX {
-                        let new_tmax = self.geometry.t_max() + delta;
-                        if self.length_by_descretisation(
-                            0.0,
-                            new_tmax,
-                            nucl as usize * DISCRETISATION_STEP,
-                        ) > objective
-                        {
-                            return Some(new_tmax);
-                        }
-                        delta *= 2.0;
-                    }
-                    None
-                }
-                CurveBounds::Finite => None,
-            }
-        } else {
-            Some(self.geometry.t_max())
-        }
-    }
-
     pub fn update_additional_segments(
         &self,
         segments: &mut Vec<crate::helices::AdditionalHelix2D>,
     ) {
         segments.truncate(self.additional_segment_left.len());
-        let mut iter =
-            self.additional_segment_left
-                .iter()
-                .map(|s| crate::helices::AdditionalHelix2D {
-                    left: *s as isize - self.nucl_t0 as isize,
-                    additional_isometry: None,
-                    additional_symmetry: None,
-                });
+        let mut iter = self
+            .additional_segment_left
+            .iter()
+            .enumerate()
+            .map(|(segment_idx, s)| crate::helices::AdditionalHelix2D {
+                left: *s as isize - self.nucl_t0 as isize,
+                additional_isometry: self.geometry.additional_isometry(segment_idx),
+                additional_symmetry: None,
+            });
 
         for s in segments.iter_mut() {
             if let Some(i) = iter.next() {
@@ -512,6 +501,9 @@ impl Curve {
         self.geometry.last_theta()
     }
 
+    /// If `true`, then this means that the position and orientation of the helix are encoded in
+    /// the `CurveDescriptor`, and that the `position` and `orientation` fields of the helix should
+    /// be ignored.
     pub fn has_its_own_encoded_frame(&self) -> bool {
         self.geometry.translation().is_some()
     }
@@ -660,6 +652,16 @@ impl CurveDescriptor {
             }
             _ => None,
         }
+    }
+
+    pub fn compute_length(&self) -> Option<f64> {
+        let desc = InstanciatedCurveDescriptor::try_instanciate(Arc::new(self.clone()))?;
+        desc.instance.try_length(&Parameters::GEARY_2014_DNA)
+    }
+
+    pub fn path(&self) -> Option<Vec<DVec3>> {
+        let desc = InstanciatedCurveDescriptor::try_instanciate(Arc::new(self.clone()))?;
+        desc.instance.try_path(&Parameters::GEARY_2014_DNA)
     }
 }
 
@@ -899,7 +901,7 @@ struct PieceWiseBezierInstantiator_<'a, 'b> {
     grid_reader: &'b dyn CurveInstantiator,
 }
 
-impl<'a, 'b> PieceWiseBezierInstantiator for PieceWiseBezierInstantiator_<'a, 'b> {
+impl<'a, 'b> PieceWiseBezierInstantiator<Vec3> for PieceWiseBezierInstantiator_<'a, 'b> {
     fn nb_vertices(&self) -> usize {
         self.points.len()
     }
@@ -929,6 +931,8 @@ impl InstanciatedPiecewiseBezierDescriptor {
         t_min: Option<f64>,
         t_max: Option<f64>,
     ) -> Self {
+        use rand::prelude::*;
+        let mut rng = rand::thread_rng();
         log::debug!("Instanciating {:?}", points);
         let instanciator = PieceWiseBezierInstantiator_ {
             points,
@@ -941,6 +945,8 @@ impl InstanciatedPiecewiseBezierDescriptor {
                 t_min: None,
                 t_max: None,
                 cyclic: false,
+                id: rng.gen(),
+                discretize_quickly: false,
             });
 
         desc.t_max = t_max;
@@ -999,7 +1005,9 @@ impl InstanciatedCurveDescriptor_ {
                 },
                 parameters,
             )),
-            Self::InterpolatedCurve(desc) => Arc::new(Curve::new(desc.instanciate(), parameters)),
+            Self::InterpolatedCurve(desc) => {
+                Arc::new(Curve::new(desc.instanciate(true), parameters))
+            }
         }
     }
 
@@ -1035,8 +1043,85 @@ impl InstanciatedCurveDescriptor_ {
                 },
                 parameters,
             ))),
+            Self::InterpolatedCurve(desc) => Some(Arc::new(Curve::new(
+                desc.clone().instanciate(true),
+                parameters,
+            ))),
+        }
+    }
+
+    fn try_length(&self, parameters: &Parameters) -> Option<f64> {
+        match self {
+            Self::Bezier(constructor) => Some(Curve::compute_length(
+                constructor.clone().into_bezier(),
+                parameters,
+            )),
+            Self::SphereLikeSpiral(spiral) => Some(Curve::compute_length(
+                spiral.clone().with_parameters(parameters.clone()),
+                parameters,
+            )),
+            Self::TubeSpiral(spiral) => Some(Curve::compute_length(
+                spiral.clone().with_parameters(parameters.clone()),
+                parameters,
+            )),
+            Self::Twist(twist) => Some(Curve::compute_length(twist.clone(), parameters)),
+            Self::Torus(torus) => Some(Curve::compute_length(torus.clone(), parameters)),
+            Self::SuperTwist(twist) => Some(Curve::compute_length(twist.clone(), parameters)),
+            Self::TwistedTorus(_) => None,
+            Self::PiecewiseBezier(_) => None,
+            Self::TranslatedBezierPath {
+                path_curve,
+                translation,
+                initial_frame,
+                ..
+            } => Some(Curve::compute_length(
+                TranslatedPiecewiseBezier {
+                    original_curve: path_curve.clone(),
+                    translation: *translation,
+                    initial_frame: *initial_frame,
+                },
+                parameters,
+            )),
+            Self::InterpolatedCurve(desc) => Some(Curve::compute_length(
+                desc.clone().instanciate(true),
+                parameters,
+            )),
+        }
+    }
+
+    fn try_path(&self, parameters: &Parameters) -> Option<Vec<DVec3>> {
+        match self {
+            Self::Bezier(constructor) => {
+                Some(Curve::path(constructor.clone().into_bezier(), parameters))
+            }
+            Self::SphereLikeSpiral(spiral) => Some(Curve::path(
+                spiral.clone().with_parameters(parameters.clone()),
+                parameters,
+            )),
+            Self::TubeSpiral(spiral) => Some(Curve::path(
+                spiral.clone().with_parameters(parameters.clone()),
+                parameters,
+            )),
+            Self::Twist(twist) => Some(Curve::path(twist.clone(), parameters)),
+            Self::Torus(torus) => Some(Curve::path(torus.clone(), parameters)),
+            Self::SuperTwist(twist) => Some(Curve::path(twist.clone(), parameters)),
+            Self::TwistedTorus(_) => None,
+            Self::PiecewiseBezier(_) => None,
+            Self::TranslatedBezierPath {
+                path_curve,
+                translation,
+                initial_frame,
+                ..
+            } => Some(Curve::path(
+                TranslatedPiecewiseBezier {
+                    original_curve: path_curve.clone(),
+                    translation: *translation,
+                    initial_frame: *initial_frame,
+                },
+                parameters,
+            )),
             Self::InterpolatedCurve(desc) => {
-                Some(Arc::new(Curve::new(desc.clone().instanciate(), parameters)))
+                Some(Curve::path(desc.clone().instanciate(false), parameters))
             }
         }
     }

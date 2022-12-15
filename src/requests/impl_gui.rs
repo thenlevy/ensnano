@@ -480,6 +480,33 @@ impl GuiRequests for Requests {
     fn optimize_scaffold_shift(&mut self) {
         self.keep_proceed.push_back(Action::OptimizeShift)
     }
+
+    fn start_revolution_relaxation(&mut self, desc: RevolutionSurfaceSystemDescriptor) {
+        self.keep_proceed
+            .push_back(Action::RevolutionSimulation { desc })
+    }
+
+    fn finish_revolutiion_relaxation(&mut self) {
+        self.keep_proceed
+            .push_back(Action::FinishRelaxationSimulation)
+    }
+
+    fn load_svg(&mut self) {
+        self.keep_proceed.push_back(Action::ImportSvg)
+    }
+
+    fn set_bezier_revolution_id(&mut self, id: Option<usize>) {
+        self.new_bezier_revolution_id = Some(id);
+    }
+
+    fn set_bezier_revolution_radius(&mut self, radius: Option<f64>) {
+        self.new_bezier_revolution_radius = Some(radius);
+    }
+
+    fn request_screenshot_3d(&mut self) {
+        self.keep_proceed
+            .push_back(Action::NotifyApps(Notification::ScreenShot3D))
+    }
 }
 
 fn rigid_parameters(parameters: RigidBodyParametersRequest) -> RigidBodyConstants {

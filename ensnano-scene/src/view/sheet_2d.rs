@@ -31,6 +31,7 @@ pub struct Sheet2D {
     pub max_x: f32,
     pub max_y: f32,
     pub graduation_unit: f32,
+    pub rotation_radius: Option<f32>,
     pub plane_id: BezierPlaneId,
 }
 
@@ -43,7 +44,8 @@ pub struct Sheet2DRaw {
     pub min_y: f32,
     pub max_y: f32,
     pub graduation_unit: f32,
-    _padding: [f32; 3],
+    pub rotation_radius: f32,
+    _padding: [f32; 2],
 }
 
 #[repr(C)]
@@ -99,7 +101,8 @@ impl Instanciable for Sheet2D {
             min_y: self.min_y,
             max_y: self.max_y,
             graduation_unit: self.graduation_unit,
-            _padding: [0.; 3],
+            rotation_radius: self.rotation_radius.unwrap_or(f32::INFINITY),
+            _padding: [0.; 2],
         }
     }
 

@@ -88,7 +88,7 @@ impl App3D for AppState {
     }
 
     fn get_selected_element(&self) -> Option<CenterOfSelection> {
-        self.0.center_of_selection.clone()
+        self.0.center_of_selection
     }
 
     fn get_current_group_pivot(&self) -> Option<ensnano_design::group_attributes::GroupPivot> {
@@ -97,8 +97,8 @@ impl App3D for AppState {
             .selection
             .selected_group
             .and_then(|g_id| reader.get_group_attributes(g_id))
-            .and_then(|attributes| attributes.pivot.clone())
-            .or(self.0.selection.pivot.read().as_deref().unwrap().clone())
+            .and_then(|attributes| attributes.pivot)
+            .or(*self.0.selection.pivot.read().as_deref().unwrap())
     }
 
     fn get_current_group_id(&self) -> Option<ensnano_design::GroupId> {
@@ -155,7 +155,7 @@ impl App3D for AppState {
 
     fn get_selected_bezier_vertex(&self) -> Option<ensnano_design::BezierVertexId> {
         if let Some(Selection::BezierVertex(vertex)) = self.0.selection.selection.get(0) {
-            Some(vertex.clone())
+            Some(*vertex)
         } else {
             None
         }
@@ -166,6 +166,14 @@ impl App3D for AppState {
             self.get_selection().as_ref().get(0),
             Some(Selection::Grid(_, GridId::BezierPathGrid(_)))
         )
+    }
+
+    fn get_current_bezier_revolution(&self) -> &RevolutionOfBezierPath {
+        &self.0.current_revolution
+    }
+
+    fn revolution_bezier_updated(&self, other: &Self) -> bool {
+        self.0.current_revolution != other.0.current_revolution
     }
 }
 

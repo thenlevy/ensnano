@@ -17,7 +17,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 
 use super::*;
-use ensnano_design::BezierEndCoordinates;
+use crate::AppState;
+use ensnano_design::{BezierEndCoordinates, BezierVertexId};
+use ensnano_interactor::{RevolutionOfBezierPath, Selection};
 
 impl<R: DesignReader> Design3D<R> {
     pub fn get_bezier_elements(&self, h_id: usize) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
@@ -94,9 +96,13 @@ impl<R: DesignReader> Design3D<R> {
         }
     }
 
-    pub fn get_bezier_sheets(&self) -> (Vec<Sheet2D>, Vec<RawDnaInstance>) {
+    pub fn get_bezier_sheets<S: AppState>(
+        &self,
+        app_state: &S,
+    ) -> (Vec<Sheet2D>, Vec<RawDnaInstance>) {
         let mut sheets = Vec::new();
         let mut spheres = Vec::new();
+        let current_revolution = app_state.get_current_bezier_revolution();
         for (plane_id, desc) in self.design.get_bezier_planes().iter() {
             let corners = self.design.get_corners_of_plane(*plane_id);
             let sheet = get_sheet_instance(SheetDescriptor {
@@ -104,6 +110,7 @@ impl<R: DesignReader> Design3D<R> {
                 plane_descritor: desc,
                 plane_id: *plane_id,
                 parameters: self.design.get_parameters(),
+                current_revolution,
             });
             spheres.extend_from_slice(corners_of_sheet(&sheet).as_slice());
             sheets.push(sheet);
@@ -123,22 +130,29 @@ impl<R: DesignReader> Design3D<R> {
             .map(|v| v.position)
     }
 
-    pub fn get_bezier_paths_elements(&self) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
+    pub fn get_bezier_paths_elements<S: AppState>(
+        &self,
+        app_state: &S,
+    ) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
         let mut spheres = Vec::new();
         let mut tubes = Vec::new();
+        let selection = app_state.get_selection();
         if let Some(paths) = self.design.get_bezier_paths() {
             for (path_id, path) in paths.iter() {
                 for (vertex_id, coordinates) in path.bezier_controls().iter().enumerate() {
                     add_raw_instances_representing_bezier_vertex(
                         BezierVertex {
                             coordinates: coordinates.clone(),
-                            path_id: *path_id,
-                            vertex_id,
+                            id: BezierVertexId {
+                                path_id: *path_id,
+                                vertex_id,
+                            },
                         },
                         RawDnaInstances {
                             tubes: &mut tubes,
                             spheres: &mut spheres,
                         },
+                        selection,
                     )
                 }
                 for point in path.get_curve_points().iter() {
@@ -184,6 +198,7 @@ struct SheetDescriptor<'a> {
     plane_id: BezierPlaneId,
     plane_descritor: &'a BezierPlaneDescriptor,
     parameters: Parameters,
+    current_revolution: &'a RevolutionOfBezierPath,
 }
 
 fn get_sheet_instance(desc: SheetDescriptor<'_>) -> Sheet2D {
@@ -191,6 +206,11 @@ fn get_sheet_instance(desc: SheetDescriptor<'_>) -> Sheet2D {
     let grad_step = 48.0 * parameters.z_step;
     let delta_corners = grad_step / 5.;
     let corners = &desc.corners;
+    let rotation_radius = desc
+        .current_revolution
+        .radius
+        .map(|x| x as f32)
+        .filter(|_| desc.current_revolution.path.is_some());
     Sheet2D {
         plane_id: desc.plane_id,
         position: desc.plane_descritor.position,
@@ -202,6 +222,7 @@ fn get_sheet_instance(desc: SheetDescriptor<'_>) -> Sheet2D {
             * grad_step,
         max_y: ((3. * grad_step).max(corners[3].y + delta_corners) / grad_step).ceil() * grad_step,
         graduation_unit: 48.0 * parameters.z_step,
+        rotation_radius,
     }
 }
 
@@ -258,8 +279,7 @@ fn make_bezier_squelton(source: Vec3, dest: Vec3) -> RawDnaInstance {
 
 struct BezierVertex {
     coordinates: BezierEndCoordinates,
-    path_id: BezierPathId,
-    vertex_id: usize,
+    id: BezierVertexId,
 }
 
 struct RawDnaInstances<'a> {
@@ -270,14 +290,23 @@ struct RawDnaInstances<'a> {
 fn add_raw_instances_representing_bezier_vertex(
     vertex: BezierVertex,
     mut instances: RawDnaInstances<'_>,
+    selection: &[Selection],
 ) {
     let tubes = &mut instances.tubes;
     let spheres = &mut instances.spheres;
+    let color = if selection
+        .iter()
+        .any(|s| *s == Selection::BezierVertex(vertex.id))
+    {
+        [0., 0., 1., 1.].into()
+    } else {
+        [1., 0., 0., 1.].into()
+    };
     spheres.push(
         SphereInstance {
             position: vertex.coordinates.position,
-            color: [1., 0., 0., 1.].into(),
-            id: crate::element_selector::bezier_vertex_id(vertex.path_id, vertex.vertex_id),
+            color,
+            id: crate::element_selector::bezier_vertex_id(vertex.id.path_id, vertex.id.vertex_id),
             radius: 10.0,
         }
         .to_raw_instance(),
@@ -286,7 +315,11 @@ fn add_raw_instances_representing_bezier_vertex(
         SphereInstance {
             position: vertex.coordinates.position + vertex.coordinates.vector_out,
             color: Instance::color_from_u32(BEZIER_CONTROL1_COLOR),
-            id: crate::element_selector::bezier_tengent_id(vertex.path_id, vertex.vertex_id, false),
+            id: crate::element_selector::bezier_tengent_id(
+                vertex.id.path_id,
+                vertex.id.vertex_id,
+                false,
+            ),
             radius: 5.0,
         }
         .to_raw_instance(),
@@ -295,7 +328,11 @@ fn add_raw_instances_representing_bezier_vertex(
         SphereInstance {
             position: vertex.coordinates.position - vertex.coordinates.vector_in,
             color: Instance::color_from_u32(BEZIER_CONTROL1_COLOR),
-            id: crate::element_selector::bezier_tengent_id(vertex.path_id, vertex.vertex_id, true),
+            id: crate::element_selector::bezier_tengent_id(
+                vertex.id.path_id,
+                vertex.id.vertex_id,
+                true,
+            ),
             radius: 5.0,
         }
         .to_raw_instance(),

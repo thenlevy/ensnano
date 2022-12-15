@@ -1,4 +1,3 @@
-use ensnano_interactor::graphics::HBoundDisplay;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -16,6 +15,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+use ensnano_interactor::{
+    graphics::HBoundDisplay, EquadiffSolvingMethod, RevolutionSurfaceSystemDescriptor,
+};
 use ensnano_organizer::{Organizer, OrganizerMessage, OrganizerTree};
 use std::sync::{Arc, Mutex};
 
@@ -62,13 +64,14 @@ use text_input_style::BadValue;
 mod discrete_value;
 use discrete_value::{FactoryId, RequestFactory, Requestable, ValueId};
 mod tabs;
-use crate::consts::*;
+use crate::{consts::*, left_panel::tabs::RevolutionParameterId};
 mod contextual_panel;
 mod export_menu;
 use contextual_panel::{ContextualPanel, InstanciatedValue, ValueKind};
 use export_menu::ExportMenu;
 
 use ensnano_interactor::{CheckXoversParameter, HyperboloidRequest, Selection};
+pub use tabs::revolution_tab::*;
 use tabs::{
     CameraShortcut, CameraTab, EditionTab, GridTab, ParametersTab, PenTab, SequenceTab,
     SimulationTab,
@@ -101,6 +104,7 @@ pub struct LeftPanel<R: Requests, S: AppState> {
     sequence_tab: SequenceTab,
     parameters_tab: ParametersTab,
     pen_tab: PenTab,
+    revolution_tab: RevolutionTab<S>,
     contextual_panel: ContextualPanel<S>,
     camera_shortcut: CameraShortcut,
     application_state: S,
@@ -108,7 +112,7 @@ pub struct LeftPanel<R: Requests, S: AppState> {
 }
 
 #[derive(Debug, Clone)]
-pub enum Message<S> {
+pub enum Message<S: AppState> {
     Resized(LogicalSize<f64>, LogicalPosition<f64>),
     #[allow(dead_code)]
     OpenColor,
@@ -191,6 +195,7 @@ pub enum Message<S> {
     ShowHBonds(HBoundDisplay),
     RainbowScaffold(bool),
     StopSimulation,
+    FinishRelaxation,
     StartTwist,
     NewDnaParameters(NamedParameter),
     SetExpandInsertions(bool),
@@ -208,7 +213,16 @@ pub enum Message<S> {
         cyclic: bool,
     },
     Export(ExportType),
+    CurveBuilderPicked(CurveDescriptorBuilder<S>),
+    RevolutionEquadiffSolvingMethodPicked(EquadiffSolvingMethod),
+    RevolutionParameterUpdate {
+        parameter_id: RevolutionParameterId,
+        text: String,
+    },
+    InitRevolutionRelaxation(RevolutionSurfaceSystemDescriptor),
     CancelExport,
+    LoadSvgFile,
+    ScreenShot3D,
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -250,6 +264,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
             sequence_tab: SequenceTab::new(),
             parameters_tab: ParametersTab::new(state),
             pen_tab: Default::default(),
+            revolution_tab: Default::default(),
             contextual_panel: ContextualPanel::new(logical_size.width as u32),
             camera_shortcut: CameraShortcut::new(),
             application_state: state.clone(),
@@ -327,6 +342,7 @@ impl<R: Requests, S: AppState> LeftPanel<R, S> {
             || self.organizer.has_keyboard_priority()
             || self.sequence_tab.has_keyboard_priority()
             || self.camera_shortcut.has_keyboard_priority()
+            || self.revolution_tab.has_keyboard_priority()
     }
 }
 
@@ -844,6 +860,48 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::CancelExport => {
                 self.requests.lock().unwrap().set_exporting(false);
             }
+            Message::CurveBuilderPicked(builder) => {
+                self.revolution_tab.set_builder(builder);
+                let bezier_path_id = self.revolution_tab.get_current_bezier_path_id();
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_bezier_revolution_id(bezier_path_id);
+            }
+            Message::RevolutionEquadiffSolvingMethodPicked(method) => {
+                self.revolution_tab.set_method(method);
+            }
+            Message::RevolutionParameterUpdate { parameter_id, text } => {
+                if let RevolutionParameterId::RevolutionRadius = parameter_id {
+                    let radius = text.parse::<f64>().ok();
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .set_bezier_revolution_radius(radius);
+                }
+                self.revolution_tab
+                    .update_builder_parameter(parameter_id, text);
+                let bezier_path_id = self.revolution_tab.get_current_bezier_path_id();
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_bezier_revolution_id(bezier_path_id);
+            }
+            Message::InitRevolutionRelaxation(desc) => {
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .start_revolution_relaxation(desc);
+            }
+            Message::FinishRelaxation => self
+                .requests
+                .lock()
+                .unwrap()
+                .finish_revolutiion_relaxation(),
+            Message::LoadSvgFile => self.requests.lock().unwrap().load_svg(),
+            Message::ScreenShot3D => {
+                self.requests.lock().unwrap().request_screenshot_3d();
+            }
         };
         Command::none()
     }
@@ -883,6 +941,11 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             .push(
                 TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::Draw))),
                 self.pen_tab.view(self.ui_size, &self.application_state),
+            )
+            .push(
+                TabLabel::Text(format!("{}", icon_to_char(MaterialIcon::AutoMode))),
+                self.revolution_tab
+                    .view(self.ui_size, &self.application_state),
             )
             .text_size(self.ui_size.icon())
             .text_font(ICONFONT)

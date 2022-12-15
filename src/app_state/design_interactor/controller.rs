@@ -46,7 +46,8 @@ use clipboard::{PastedStrand, StrandClipboard};
 
 use self::simulations::{
     GridSystemInterface, GridsSystemThread, HelixSystemInterface, HelixSystemThread,
-    PhysicalSystem, RollInterface, TwistInterface,
+    PhysicalSystem, RevolutionSystemInterface, RevolutionSystemThread, RollInterface,
+    TwistInterface,
 };
 
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -322,14 +323,9 @@ impl Controller {
                 |c, d| c.append_vertex_to_bezier_path(d, path_id, vertex),
                 design,
             ),
-            DesignOperation::MoveBezierVertex {
-                path_id,
-                vertex_id,
-                position,
-            } => self.apply(
-                |c, d| c.move_bezier_vertex(d, path_id, vertex_id, position),
-                design,
-            ),
+            DesignOperation::MoveBezierVertex { vertices, position } => {
+                self.apply(|c, d| c.move_bezier_vertices(d, vertices, position), design)
+            }
             DesignOperation::SetBezierVertexPosition {
                 vertex_id,
                 position,
@@ -354,10 +350,16 @@ impl Controller {
             DesignOperation::RmFreeGrids { grid_ids } => {
                 self.apply(|c, d| c.delete_free_grids(d, grid_ids), design)
             }
+            DesignOperation::RmBezierVertices { vertices } => {
+                self.apply(|c, d| c.rm_bezier_vertices(d, vertices), design)
+            }
             DesignOperation::Add3DObject {
                 file_path,
                 design_path,
             } => self.apply(|c, d| c.add_3d_object(d, file_path, design_path), design),
+            DesignOperation::ImportSvgPath { path } => {
+                self.apply(|c, d| c.import_svg_path(d, path), design)
+            }
         };
 
         if let Ok(ret) = &mut ret {
@@ -394,7 +396,7 @@ impl Controller {
         match operation {
             CopyOperation::CopyStrands(strand_ids) => self.apply_no_op(
                 |c, _d| c.set_templates(&up_to_date_design, strand_ids),
-                &up_to_date_design.design,
+                up_to_date_design.design,
             ),
             CopyOperation::CopyXovers(xovers) => {
                 self.apply_no_op(|c, _d| c.copy_xovers(xovers), up_to_date_design.design)
@@ -426,7 +428,7 @@ impl Controller {
                     };
                     Ok(())
                 },
-                &up_to_date_design.design,
+                up_to_date_design.design,
             ),
             CopyOperation::Duplicate => {
                 self.apply(|c, d| c.apply_duplication(d), up_to_date_design.design)
@@ -472,11 +474,69 @@ impl Controller {
 
     pub(super) fn apply_simulation_operation(
         &self,
-        design: Design,
+        mut design: Design,
         operation: SimulationOperation,
     ) -> Result<(OkOperation, Self), ErrOperation> {
         let mut ret = self.clone();
         match operation {
+            SimulationOperation::ExampleRelaxation { reader } => {
+                use ensnano_design::{CurveDescriptor2D, Parameters};
+                use ensnano_interactor::RevolutionSurfaceDescriptor;
+                use ensnano_interactor::RevolutionSurfaceSystemDescriptor;
+
+                if self.is_in_persistant_state().is_transitory() {
+                    return Err(ErrOperation::IncompatibleState);
+                }
+                /*
+                let surface_desc = RevolutionSurfaceDescriptor {
+                    curve: CurveDescriptor2D::Parrabola {
+                        speed: std::f64::consts::FRAC_1_SQRT_2.into(),
+                    },
+                    half_turns_count: 0,
+                    revolution_radius: 0.,
+                    junction_smoothening: 0.,
+                    nb_helix_per_half_section: 2,
+                    dna_paramters: Parameters::GEARY_2014_DNA,
+                    shift_per_turn: 0,
+                };*/
+
+                let surface_desc = RevolutionSurfaceDescriptor {
+                    curve: CurveDescriptor2D::TwoBalls {
+                        radius_extern: 2.5.into(),
+                        radius_intern: 1.7.into(),
+                        radius_tube: 0.76.into(),
+                        smooth_ceil: 0.04.into(),
+                    },
+                    revolution_radius: 10.,
+                    nb_helix_per_half_section: 17,
+                    half_turns_count: 0,
+                    shift_per_turn: 2,
+                    junction_smoothening: 0.,
+                    dna_paramters: Parameters::GEARY_2014_DNA,
+                };
+                let system_desc = RevolutionSurfaceSystemDescriptor {
+                    simulation_parameters: Default::default(),
+                    dna_parameters: Parameters::GEARY_2014_DNA,
+                    target: surface_desc,
+                    scaffold_len_target: 8064,
+                };
+                let interface = RevolutionSystemThread::start_new(system_desc, reader)?;
+                ret.state = ControllerState::Relaxing {
+                    interface,
+                    _initial_design: AddressPointer::new(design.clone()),
+                };
+            }
+            SimulationOperation::RevolutionRelaxation { system, reader } => {
+                if self.is_in_persistant_state().is_transitory() {
+                    return Err(ErrOperation::IncompatibleState);
+                }
+                println!("system {:#?}", system);
+                let interface = RevolutionSystemThread::start_new(system, reader)?;
+                ret.state = ControllerState::Relaxing {
+                    interface,
+                    _initial_design: AddressPointer::new(design.clone()),
+                };
+            }
             SimulationOperation::StartHelices {
                 presenter,
                 parameters,
@@ -562,6 +622,10 @@ impl Controller {
                     ret.state = ControllerState::Normal
                 } else if let ControllerState::Twisting { .. } = &ret.state {
                     ret.state = ControllerState::Normal
+                } else if let ControllerState::Relaxing { interface, .. } = &ret.state {
+                    interface.lock().unwrap().kill();
+                    design.additional_structure = None;
+                    ret.state = ControllerState::Normal
                 }
             }
             SimulationOperation::Reset => {
@@ -575,6 +639,11 @@ impl Controller {
                         },
                         ret,
                     ));
+                }
+            }
+            SimulationOperation::FinishRelaxation => {
+                if let ControllerState::Relaxing { interface, .. } = &ret.state {
+                    interface.lock().unwrap().finish();
                 }
             }
         }
@@ -770,7 +839,7 @@ impl Controller {
                 let g_id = ensnano_design::grid::FreeGridId(*g_id);
                 let grid = grids_mut
                     .get_mut(&g_id)
-                    .ok_or(ErrOperation::GridDoesNotExist(g_id.to_grid_id()))?;
+                    .ok_or_else(|| ErrOperation::GridDoesNotExist(g_id.to_grid_id()))?;
                 grid.invisible = !grid.invisible;
                 drop(grids_mut);
             }
@@ -845,8 +914,8 @@ impl Controller {
                     initial_design,
                 } = &self.state
                 {
-                    let position = position.clone();
-                    let orientation = orientation.clone();
+                    let position = *position;
+                    let orientation = *orientation;
                     design = initial_design.clone_inner();
                     let hyperboloid = request.to_grid();
                     let grid_descriptor =
@@ -879,11 +948,7 @@ impl Controller {
     }
 
     pub(super) fn is_building_hyperboloid(&self) -> bool {
-        if let ControllerState::MakingHyperboloid { .. } = &self.state {
-            true
-        } else {
-            false
-        }
+        matches!(&self.state, ControllerState::MakingHyperboloid { .. })
     }
 
     pub fn can_iterate_duplication(&self) -> bool {
@@ -891,10 +956,11 @@ impl Controller {
             true
         } else if let ControllerState::WithPendingXoverDuplication { .. } = self.state {
             true
-        } else if let ControllerState::WithPendingHelicesDuplication { .. } = self.state {
-            true
         } else {
-            false
+            matches!(
+                self.state,
+                ControllerState::WithPendingHelicesDuplication { .. }
+            )
         }
     }
 
@@ -1043,6 +1109,7 @@ impl Controller {
         }
     }
 
+    #[allow(clippy::needless_return)] // I just like to make it explicit
     fn update_state_not_design(&mut self, design: &Design) {
         if let ControllerState::ApplyingOperation { .. } = &self.state {
             return;
@@ -1069,6 +1136,7 @@ impl Controller {
             ControllerState::SimulatingGrids { .. } => SimulationState::RigidGrid,
             ControllerState::Rolling { .. } => SimulationState::Rolling,
             ControllerState::Twisting { grid_id, .. } => SimulationState::Twisting { grid_id },
+            ControllerState::Relaxing { .. } => SimulationState::Relaxing,
             _ => SimulationState::None,
         }
     }
@@ -1206,9 +1274,10 @@ impl Controller {
         self.state = ControllerState::ApplyingOperation {
             design: AddressPointer::new(design.clone()),
             operation: Some(Arc::new(TranslateBezierPathVertex {
-                design_id: 0,
-                path_id,
-                vertex_id: 0,
+                vertices: vec![BezierVertexId {
+                    path_id,
+                    vertex_id: 0,
+                }],
                 x: first_vertex.position.x,
                 y: first_vertex.position.y,
             })),
@@ -1235,9 +1304,7 @@ impl Controller {
         self.state = ControllerState::ApplyingOperation {
             design: AddressPointer::new(design.clone()),
             operation: Some(Arc::new(TranslateBezierPathVertex {
-                design_id: 0,
-                path_id,
-                vertex_id,
+                vertices: vec![BezierVertexId { path_id, vertex_id }],
                 x: vertex.position.x,
                 y: vertex.position.y,
             })),
@@ -1249,34 +1316,90 @@ impl Controller {
         Ok(design)
     }
 
-    /// Move a bezier vertex to a given position and transition to a transitory state.
-    fn move_bezier_vertex(
+    fn rm_bezier_vertices(
         &mut self,
         mut design: Design,
-        path_id: BezierPathId,
-        vertex_id: usize,
-        position: Vec2,
+        mut vertices: Vec<BezierVertexId>,
     ) -> Result<Design, ErrOperation> {
-        self.update_state_and_design(&mut design);
+        vertices.sort();
+        let mut paths_id: Vec<_> = vertices.iter().map(|v| v.path_id).collect();
+        paths_id.dedup();
 
         let mut new_paths = design.bezier_paths.make_mut();
-        let path = new_paths
-            .get_mut(&path_id)
-            .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
-        let vertex = path
-            .get_vertex_mut(vertex_id)
-            .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
-        let old_tengent_in = vertex.position_in.map(|p| p - vertex.position);
-        let old_tengent_out = vertex.position_out.map(|p| p - vertex.position);
-        vertex.position = position;
-        vertex.position_out = old_tengent_out.map(|t| vertex.position + t);
-        vertex.position_in = old_tengent_in.map(|t| vertex.position + t);
+        let mut iterator = vertices.into_iter().rev();
+
+        let mut vertex_id = iterator.next();
+        for p_id in paths_id.into_iter().rev() {
+            let path = new_paths
+                .get_mut(&p_id)
+                .ok_or(ErrOperation::PathDoesNotExist(p_id))?;
+            while let Some(BezierVertexId {
+                vertex_id: v_id, ..
+            }) = vertex_id.filter(|v_id| v_id.path_id == p_id)
+            {
+                path.remove_vertex(v_id)
+                    .ok_or(ErrOperation::VertexDoesNotExist(p_id, v_id))?;
+                vertex_id = iterator.next();
+            }
+            if path.vertices().is_empty() {
+                new_paths
+                    .remove_path(&p_id)
+                    .ok_or(ErrOperation::PathDoesNotExist(p_id))?;
+            }
+        }
+
         drop(new_paths);
-        self.next_selection = Some(vec![Selection::BezierVertex(BezierVertexId {
-            path_id,
-            vertex_id,
-        })]);
         Ok(design)
+    }
+
+    /// Move a bezier vertex to a given position and transition to a transitory state.
+    fn move_bezier_vertices(
+        &mut self,
+        mut design: Design,
+        mut vertices: Vec<BezierVertexId>,
+        position: Vec2,
+    ) -> Result<Design, ErrOperation> {
+        if let Some(BezierVertexId { path_id, vertex_id }) = vertices.first().cloned() {
+            self.update_state_and_design(&mut design);
+            vertices.sort();
+            vertices.dedup();
+
+            let path = design
+                .bezier_paths
+                .get(&path_id)
+                .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+            let vertex = path
+                .vertices()
+                .get(vertex_id)
+                .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
+
+            let translation = position - vertex.position;
+
+            let mut new_paths = design.bezier_paths.make_mut();
+            let mut next_selection = Vec::new();
+            for BezierVertexId { path_id, vertex_id } in vertices.into_iter() {
+                let path = new_paths
+                    .get_mut(&path_id)
+                    .ok_or(ErrOperation::PathDoesNotExist(path_id))?;
+                let vertex = path
+                    .get_vertex_mut(vertex_id)
+                    .ok_or(ErrOperation::VertexDoesNotExist(path_id, vertex_id))?;
+                let old_tengent_in = vertex.position_in.map(|p| p - vertex.position);
+                let old_tengent_out = vertex.position_out.map(|p| p - vertex.position);
+                vertex.position += translation;
+                vertex.position_out = old_tengent_out.map(|t| vertex.position + t);
+                vertex.position_in = old_tengent_in.map(|t| vertex.position + t);
+                next_selection.push(Selection::BezierVertex(BezierVertexId {
+                    path_id,
+                    vertex_id,
+                }));
+            }
+            drop(new_paths);
+            self.next_selection = Some(next_selection);
+            Ok(design)
+        } else {
+            Err(ErrOperation::NotImplemented)
+        }
     }
 
     /// Set the position of a bezier vertex as a single revertible operation.
@@ -1342,7 +1465,7 @@ impl Controller {
                 let norm = vertex
                     .position_out
                     .map(|p| (vertex.position - p).mag())
-                    .unwrap_or(request.new_vector.mag());
+                    .unwrap_or_else(|| request.new_vector.mag());
                 let out_vec = request.new_vector.normalized() * -norm;
                 log::info!("norm {:?}", norm);
                 log::info!("new vec {:?}", request.new_vector);
@@ -1357,7 +1480,7 @@ impl Controller {
                 let norm = vertex
                     .position_in
                     .map(|p| (vertex.position - p).mag())
-                    .unwrap_or(request.new_vector.mag());
+                    .unwrap_or_else(|| request.new_vector.mag());
                 let in_vec = request.new_vector.normalized() * -norm;
                 vertex.position_in = Some(vertex.position + in_vec);
             }
@@ -1490,11 +1613,7 @@ impl Controller {
     }
 
     pub(super) fn is_changing_color(&self) -> bool {
-        if let ControllerState::ChangingColor = self.state {
-            true
-        } else {
-            false
-        }
+        matches!(self.state, ControllerState::ChangingColor)
     }
 
     pub(super) fn get_strand_builders(&self) -> &[StrandBuilder] {
@@ -1654,7 +1773,7 @@ impl Controller {
         let mut new_helices = design.helices.make_mut();
         for ((h_id, control), translation) in control_points.iter().zip(translations.iter()) {
             let translation = translation.ok_or(ErrOperation::BadSelection)?;
-            if let Some(helix) = new_helices.get_mut(&h_id) {
+            if let Some(helix) = new_helices.get_mut(h_id) {
                 helix.translate_bezier_point(*control, translation)?;
             }
         }
@@ -1840,11 +1959,18 @@ pub enum ErrOperation {
     VertexDoesNotExist(BezierPathId, usize),
     GridIsNotEmpty(GridId),
     CouldNotMake3DObject,
+    SvgImportError(ensnano_design::SvgImportError),
 }
 
 impl From<ensnano_design::design_operations::ErrOperation> for ErrOperation {
     fn from(e: ensnano_design::design_operations::ErrOperation) -> Self {
         Self::DesignOperationError(e)
+    }
+}
+
+impl From<ensnano_design::SvgImportError> for ErrOperation {
+    fn from(e: ensnano_design::SvgImportError) -> Self {
+        Self::SvgImportError(e)
     }
 }
 
@@ -2096,7 +2222,7 @@ impl Controller {
         let strand_id = desc.identifier.strand;
         let filter =
             |d: &NeighbourDescriptor| !(d.identifier.is_same_domain_than(&desc.identifier));
-        let neighbour_desc = left.filter(filter).or(right.filter(filter));
+        let neighbour_desc = left.filter(filter).or_else(|| right.filter(filter));
         // stick to the neighbour if it is its direct neighbour. This is because we want don't want
         // to create a gap between neighbouring domains
         let stick = neighbour_desc
@@ -2115,7 +2241,7 @@ impl Controller {
             .other_end()
             .filter(|d| !ignored_domains.contains(d))
             .is_some()
-            .then(|| desc.fixed_end);
+            .then_some(desc.fixed_end);
         match design.strands.get(&strand_id).map(|s| s.length()) {
             Some(n) if n > 1 => Some(StrandBuilder::init_existing(
                 desc.identifier,
@@ -2240,7 +2366,7 @@ impl Controller {
             } else {
                 for builder in builders.iter_mut() {
                     let to = builder.get_moving_end_position() + delta;
-                    builder.move_to(to, &mut design, &ignored_domains)
+                    builder.move_to(to, &mut design, ignored_domains)
                 }
             }
             *initializing = false;
@@ -2256,7 +2382,7 @@ impl Controller {
         xovers: &[(Nucl, Nucl)],
     ) -> Result<Design, ErrOperation> {
         for (n1, _) in xovers.iter() {
-            let _ = Self::split_strand(&mut design.strands, &n1, None, &mut self.color_idx)?;
+            let _ = Self::split_strand(&mut design.strands, n1, None, &mut self.color_idx)?;
         }
         Ok(design)
     }
@@ -2564,7 +2690,7 @@ impl Controller {
                 .ok_or(ErrOperation::GridDoesNotExist(end.grid))?;
             return self.add_bezier_point(design, obj, start.light(), tengent, false);
         }
-        let helix = Helix::new_bezier_two_points(&grid_manager, start, end)?;
+        let helix = Helix::new_bezier_two_points(grid_manager, start, end)?;
         let mut new_helices = design.helices.make_mut();
 
         let length = helix.nb_bezier_nucls();
@@ -2668,11 +2794,7 @@ impl Controller {
             let skip_domain;
             let skip_junction;
             let last_helix = domains.last().and_then(|d| d.half_helix());
-            let next_helix = strand3prime
-                .domains
-                .iter()
-                .next()
-                .and_then(|d| d.half_helix());
+            let next_helix = strand3prime.domains.first().and_then(|d| d.half_helix());
             if last_helix == next_helix
                 && domains
                     .last()
@@ -2685,7 +2807,7 @@ impl Controller {
                     .last_mut()
                     .as_mut()
                     .unwrap()
-                    .merge(strand3prime.domains.iter().next().unwrap());
+                    .merge(strand3prime.domains.first().unwrap());
                 junctions.pop();
             } else {
                 if let Some(j) = junctions.iter_mut().last() {
@@ -2714,14 +2836,12 @@ impl Controller {
                 .clone()
                 .zip(strand3prime.sequence.clone())
             {
-                let new_seq = seq5.into_owned() + &seq3.into_owned();
+                let new_seq = seq5.into_owned() + &seq3;
                 Some(Cow::Owned(new_seq))
             } else if let Some(ref seq5) = strand5prime.sequence {
                 Some(seq5.clone())
-            } else if let Some(ref seq3) = strand3prime.sequence {
-                Some(seq3.clone())
             } else {
-                None
+                strand3prime.sequence.as_ref().cloned()
             };
             let mut new_strand = Strand {
                 domains,
@@ -2755,15 +2875,14 @@ impl Controller {
             .get_mut(&strand_id)
             .ok_or(ErrOperation::StrandDoesNotExist(strand_id))?;
         if cyclic {
-            let first_last_domains = (strand.domains.iter().next(), strand.domains.iter().last());
+            let first_last_domains = (strand.domains.first(), strand.domains.iter().last());
             let (merge_insertions, replace) = if let (
                 Some(Domain::Insertion { nb_nucl: n1, .. }),
                 Some(Domain::Insertion { nb_nucl: n2, .. }),
             ) = first_last_domains
             {
                 (Some(n1 + n2), true)
-            } else if let Some(Domain::Insertion { nb_nucl: n1, .. }) = strand.domains.iter().next()
-            {
+            } else if let Some(Domain::Insertion { nb_nucl: n1, .. }) = strand.domains.first() {
                 if cfg!(test) {
                     println!("First domain is insertion");
                 }
@@ -2787,19 +2906,21 @@ impl Controller {
                 strand.junctions.remove(0);
             }
 
-            let first_last_domains = (strand.domains.iter().next(), strand.domains.iter().last());
+            let first_last_domains = (strand.domains.first(), strand.domains.iter().last());
+            #[allow(clippy::bool_to_int_with_if)]
             let skip_last = if let (_, Some(Domain::Insertion { .. })) = first_last_domains {
                 1
             } else {
                 0
             };
+            #[allow(clippy::bool_to_int_with_if)]
             let skip_first = if let (Some(Domain::Insertion { .. }), _) = first_last_domains {
                 1
             } else {
                 0
             };
             let last_first_intervals = (
-                strand.domains.iter().rev().skip(skip_last).next(),
+                strand.domains.iter().rev().nth(skip_last),
                 strand.domains.get(skip_first),
             );
             if let (Some(Domain::HelixDomain(i1)), Some(Domain::HelixDomain(i2))) =
@@ -3279,6 +3400,27 @@ impl Controller {
 
         Ok(design)
     }
+
+    fn import_svg_path(
+        &mut self,
+        mut design: Design,
+        path: PathBuf,
+    ) -> Result<Design, ErrOperation> {
+        use ensnano_design::BezierPlaneId;
+
+        // The imported bezier path will be attached to plane 0 so we need to ensure that it exists
+        if design.bezier_planes.get(&BezierPlaneId(0)).is_none() {
+            design = self.add_bezier_plane(design, Default::default());
+        }
+
+        let mut paths = design.bezier_paths.make_mut();
+        let path = ensnano_design::read_first_svg_path(&path)?;
+        paths.push(path);
+
+        drop(paths);
+
+        Ok(design)
+    }
 }
 
 fn nucl_pos_2d(helices: &Helices, nucl: &Nucl, segment: usize) -> Option<Vec2> {
@@ -3379,6 +3521,10 @@ enum ControllerState {
         interface: Arc<Mutex<GridSystemInterface>>,
         _initial_design: AddressPointer<Design>,
     },
+    Relaxing {
+        interface: Arc<Mutex<RevolutionSystemInterface>>,
+        _initial_design: AddressPointer<Design>,
+    },
     WithPausedSimulation {
         initial_design: AddressPointer<Design>,
     },
@@ -3431,6 +3577,7 @@ impl ControllerState {
             Self::PositioningHelicesDuplicationPoint { .. } => {
                 "Positioning helices duplication point"
             }
+            Self::Relaxing { .. } => "Relaxing revolution surface",
         }
     }
     fn update_pasting_position(
@@ -3565,6 +3712,7 @@ impl ControllerState {
             Self::OptimizingScaffoldPosition => self.clone(),
             Self::Simulating { .. } => self.clone(),
             Self::SimulatingGrids { .. } => self.clone(),
+            Self::Relaxing { .. } => self.clone(),
             Self::WithPausedSimulation { .. } => Self::Normal,
             Self::Rolling { .. } => Self::Normal,
             Self::SettingRollHelices => Self::Normal,

@@ -484,6 +484,27 @@ impl Helix {
         }
     }
 
+    pub fn new_with_curve(desc: CurveDescriptor) -> Self {
+        Self {
+            position: Vec3::zero(),
+            orientation: Rotor3::identity(),
+            isometry2d: None,
+            additonal_isometries: Vec::new(),
+            symmetry: Vec2::one(),
+            grid_position: None,
+            visible: true,
+            roll: 0f32,
+            locked_for_simulations: false,
+            curve: Some(Arc::new(desc)),
+            instanciated_curve: None,
+            instanciated_descriptor: None,
+            delta_bbpt: 0.,
+            initial_nt_index: 0,
+            support_helix: None,
+            path_id: None,
+        }
+    }
+
     pub fn piecewise_bezier_points(&self) -> Option<Vec<Vec3>> {
         if let Some(CurveDescriptor::PiecewiseBezier { .. }) = self.curve.as_ref().map(Arc::as_ref)
         {

@@ -23,7 +23,7 @@ struct TargetShortcut {
 }
 
 impl TargetShortcut {
-    fn message<S>(&self) -> Message<S> {
+    fn message<S: AppState>(&self) -> Message<S> {
         Message::FixPoint(self.target_axis.0, self.target_axis.1)
     }
 }
@@ -126,6 +126,20 @@ macro_rules! add_rotate_buttons {
     };
 }
 
+macro_rules! add_screenshot_button {
+    ($ret: ident, $self: ident, $ui_size: ident, $width: ident) => {
+        let screenshot_button = Button::new(
+            &mut $self.screenshot_button,
+            Text::new("3D").size($ui_size.main_text()),
+        )
+        .on_press(Message::ScreenShot3D)
+        .width(Length::Units($ui_size.button()));
+
+        $ret = $ret.push(Text::new("Screenshot"));
+        $ret = $ret.spacing(5).push(screenshot_button);
+    };
+}
+
 macro_rules! add_custom_camera_row {
     ($ret: ident, $self: ident, $ui_size: ident) => {
         let new_camera_button =
@@ -160,6 +174,7 @@ macro_rules! add_camera_widgets {
 pub struct CameraShortcut {
     camera_target_buttons: [button::State; 6],
     camera_rotation_buttons: [button::State; 6],
+    // Camera angles
     xz: isize,
     yz: isize,
     xy: isize,
@@ -169,6 +184,7 @@ pub struct CameraShortcut {
     camera_widgets: Vec<CameraWidget>,
     new_camera_button: button::State,
     camera_widget_states: Vec<CameraWidgetState>,
+    screenshot_button: button::State,
 }
 
 impl CameraShortcut {
@@ -185,6 +201,7 @@ impl CameraShortcut {
             camera_widgets: vec![],
             new_camera_button: Default::default(),
             camera_widget_states: vec![],
+            screenshot_button: Default::default(),
         }
     }
 
@@ -265,6 +282,8 @@ impl CameraShortcut {
         add_target_buttons!(ret, self, ui_size, width);
 
         add_rotate_buttons!(ret, self, ui_size, width);
+
+        add_screenshot_button!(ret, self, ui_size, width);
 
         add_custom_camera_row!(ret, self, ui_size);
 

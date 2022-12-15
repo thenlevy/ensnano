@@ -26,10 +26,22 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use ultraviolet::{DMat3, DVec3, Mat3, Rotor3, Vec2, Vec3};
 
+mod import_from_svg;
+pub use import_from_svg::*;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BezierPlaneDescriptor {
     pub position: Vec3,
     pub orientation: Rotor3,
+}
+
+impl Default for BezierPlaneDescriptor {
+    fn default() -> Self {
+        Self {
+            position: Vec3::zero(),
+            orientation: Rotor3::identity(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Default)]
@@ -204,6 +216,26 @@ impl<'a> BezierPathsMut<'a> {
     pub fn values_mut(&mut self) -> impl Iterator<Item = &mut BezierPath> {
         self.new_map.values_mut().map(Arc::make_mut)
     }
+
+    pub fn push(&mut self, path: BezierPath) {
+        let id = self
+            .new_map
+            .keys()
+            .max()
+            .map(|BezierPathId(n)| BezierPathId(n + 1))
+            .unwrap_or(BezierPathId(0));
+        self.new_map.insert(id, Arc::new(path));
+    }
+
+    #[must_use]
+    pub fn remove_path(&mut self, path_id: &BezierPathId) -> Option<()> {
+        if self.new_map.contains_key(path_id) {
+            self.new_map.remove(path_id);
+            Some(())
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a> Drop for BezierPathsMut<'a> {
@@ -238,10 +270,24 @@ impl BezierPath {
         self.vertices.as_mut_slice()
     }
 
+    #[must_use]
+    pub fn remove_vertex(&mut self, v_id: usize) -> Option<()> {
+        if self.vertices.len() > v_id {
+            self.vertices.remove(v_id);
+            Some(())
+        } else {
+            None
+        }
+    }
+
     pub fn set_vector_out(&mut self, i: usize, vector_out: Vec3, planes: &BezierPlanes) {
-        self.vertices_mut()
-            .get_mut(i)
-            .map(|v| v.set_vector_out(vector_out, planes));
+        if let Some(v) = self.vertices_mut().get_mut(i) {
+            v.set_vector_out(vector_out, planes)
+        }
+    }
+
+    pub fn to_instanciated_path_2d(&self) -> Option<InstanciatedPiecewiseBezier> {
+        self.instantiate()
     }
 }
 
@@ -333,7 +379,7 @@ struct BezierInstantiator {
     path_3d: bool,
 }
 
-impl PieceWiseBezierInstantiator for BezierInstantiator {
+impl PieceWiseBezierInstantiator<Vec3> for BezierInstantiator {
     fn vector_in(&self, i: usize) -> Option<Vec3> {
         let vertex = self.source_path.vertices().get(i)?;
         vertex.position_in.and_then(|position_in| {
@@ -370,6 +416,34 @@ impl PieceWiseBezierInstantiator for BezierInstantiator {
     }
 }
 
+impl PieceWiseBezierInstantiator<Vec2> for BezierPath {
+    fn vector_in(&self, i: usize) -> Option<Vec2> {
+        let vertex = self.vertices().get(i)?;
+        vertex
+            .position_in
+            .map(|position_in| vertex.position - position_in)
+    }
+
+    fn vector_out(&self, i: usize) -> Option<Vec2> {
+        let vertex = self.vertices().get(i)?;
+        vertex
+            .position_out
+            .map(|position_out| position_out - vertex.position)
+    }
+
+    fn position(&self, i: usize) -> Option<Vec2> {
+        self.vertices().get(i).map(|v| v.position)
+    }
+
+    fn nb_vertices(&self) -> usize {
+        self.vertices.len()
+    }
+
+    fn cyclic(&self) -> bool {
+        self.cyclic
+    }
+}
+
 fn path_to_curve_descriptor(
     source_planes: BezierPlanes,
     source_path: Arc<BezierPath>,
@@ -380,7 +454,13 @@ fn path_to_curve_descriptor(
         source_path,
         path_3d,
     };
-    instanciator.instantiate()
+    let mut ret =
+        <BezierInstantiator as PieceWiseBezierInstantiator<Vec3>>::instantiate(&instanciator)?;
+
+    // This discriptor is only used to draw the path of the curve on the bezier plane. It does not
+    // need to be precise, but it is better if we can update it quickly.
+    ret.discretize_quickly = true;
+    Some(ret)
 }
 
 fn curve_descriptor_to_frame(

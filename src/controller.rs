@@ -27,7 +27,9 @@ mod quit;
 use ensnano_design::grid::GridId;
 use ensnano_design::group_attributes::GroupPivot;
 use ensnano_exports::{ExportResult, ExportType};
-use ensnano_interactor::{application::Notification, DesignOperation};
+use ensnano_interactor::{
+    application::Notification, DesignOperation, RevolutionSurfaceSystemDescriptor,
+};
 use ensnano_interactor::{DesignReader, RigidBodyConstants, Selection};
 use quit::*;
 mod set_scaffold_sequence;
@@ -215,6 +217,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn scaffold_to_selection(&mut self);
     fn start_helix_simulation(&mut self, parameters: RigidBodyConstants);
     fn start_grid_simulation(&mut self, parameters: RigidBodyConstants);
+    fn start_revolution_simulation(&mut self, desc: RevolutionSurfaceSystemDescriptor);
     fn start_roll_simulation(&mut self, target_helices: Option<Vec<usize>>);
     fn update_simulation(&mut self, request: SimulationRequest);
     fn set_roll_of_selected_helices(&mut self, roll: f32);
@@ -240,6 +243,7 @@ pub(crate) trait MainState: ScaffoldSetter {
     fn set_expand_insertions(&mut self, expand: bool);
     fn set_exporting(&mut self, exporting: bool);
     fn load_3d_object(&mut self, path: PathBuf);
+    fn load_svg(&mut self, path: PathBuf);
 }
 
 pub enum LoadDesignError {
@@ -291,5 +295,6 @@ impl SaveDesignError {
 pub enum SimulationRequest {
     Stop,
     UpdateParameters(RigidBodyConstants),
+    FinishRelaxation,
     Reset,
 }

@@ -24,8 +24,9 @@ use super::{ultraviolet, LetterInstance, SceneElement};
 use ensnano_design::grid::{GridId, GridObject, GridPosition};
 use ensnano_design::{grid::HelixGridPosition, Nucl};
 use ensnano_design::{
-    BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, Collection,
-    CubicBezierConstructor, CurveDescriptor, External3DObjects, InstanciatedPath, Parameters,
+    AdditionalStructure, BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex,
+    Collection, CubicBezierConstructor, CurveDescriptor, External3DObjects, InstanciatedPath,
+    Parameters,
 };
 pub use ensnano_design::{SurfaceInfo, SurfacePoint};
 use ensnano_interactor::consts::*;
@@ -110,6 +111,32 @@ impl<R: DesignReader> Design3D<R> {
                     }
                     .to_raw_instance(),
                 );
+            }
+        }
+        if let Some(additional_structure) = self.design.get_additional_structure() {
+            for p in additional_structure.position() {
+                ret.push(
+                    SphereInstance {
+                        position: p,
+                        color: Instance::color_from_u32(SURFACE_PIVOT_SPHERE_COLOR),
+                        id: u32::MAX,
+                        radius: 1.,
+                    }
+                    .to_raw_instance(),
+                );
+            }
+            if let Some(path) = additional_structure.nt_path() {
+                for p in path {
+                    ret.push(
+                        SphereInstance {
+                            position: p,
+                            color: Instance::color_from_u32(PIVOT_SPHERE_COLOR),
+                            id: u32::MAX,
+                            radius: 1.,
+                        }
+                        .to_raw_instance(),
+                    );
+                }
             }
         }
         Rc::new(ret)
@@ -233,6 +260,26 @@ impl<R: DesignReader> Design3D<R> {
                     )
                     .to_raw_instance()
                     .with_expected_length(expected_length),
+                )
+            }
+        }
+
+        if let Some(additional_structure) = self.design.get_additional_structure() {
+            let positions = additional_structure.position();
+            for (me, next) in additional_structure.right().into_iter() {
+                let pos_left = positions[me];
+                let pos_right = positions[next];
+                ret.push(
+                    create_dna_bound(pos_left, pos_right, REGULAR_H_BOND_COLOR, u32::MAX, false)
+                        .to_raw_instance(),
+                )
+            }
+            for (me, other) in additional_structure.next().into_iter() {
+                let pos_left = positions[me];
+                let pos_right = positions[other];
+                ret.push(
+                    create_dna_bound(pos_left, pos_right, COLOR_GUANINE, u32::MAX, false)
+                        .to_raw_instance(),
                 )
             }
         }
@@ -427,23 +474,22 @@ impl<R: DesignReader> Design3D<R> {
         filter: &dyn Fn(&Nucl) -> bool,
     ) -> Option<RawDnaInstance> {
         let kind = self.get_object_type(id)?;
-        let raw_instance = match kind {
+
+        match kind {
             ObjectType::Bound(id1, id2) => {
                 let pos1 =
                     self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id1))?;
                 let pos2 =
                     self.get_graphic_element_position(&SceneElement::DesignElement(self.id, id2))?;
-                let n1 = self.design.get_nucl_with_id(id1).filter(filter);
-                if n1.is_none() {
-                    return None;
-                }
+
+                self.design.get_nucl_with_id(id1).filter(filter)?;
+
                 let color = self.get_color(id).unwrap_or(0);
                 let cone = create_prime3_cone(pos1, pos2, color);
                 Some(cone)
             }
             ObjectType::Nucleotide(_) => None,
-        };
-        raw_instance
+        }
     }
 
     /// Convert return an instance representing the object with identifier `id`
@@ -610,10 +656,8 @@ impl<R: DesignReader> Design3D<R> {
                     .get_position_of_nucl_on_helix(nucl.left(), referential, on_axis)?;
             Some((nucl_1 + nucl_2) / 2.)
         } else {
-            let nucl_coord = self
-                .design
-                .get_position_of_nucl_on_helix(nucl, referential, on_axis);
-            nucl_coord
+            self.design
+                .get_position_of_nucl_on_helix(nucl, referential, on_axis)
         }
     }
 
@@ -996,13 +1040,13 @@ impl<R: DesignReader> Design3D<R> {
     pub fn get_helices_grid_coord(&self, g_id: GridId) -> Vec<(isize, isize)> {
         self.design
             .get_used_coordinates_on_grid(g_id)
-            .unwrap_or(Vec::new())
+            .unwrap_or_default()
     }
 
     pub fn get_helices_grid_key_coord(&self, g_id: GridId) -> Vec<((isize, isize), usize)> {
         self.design
             .get_helices_grid_key_coord(g_id)
-            .unwrap_or(Vec::new())
+            .unwrap_or_default()
     }
 
     pub fn get_helix_grid(&self, position: GridPosition) -> Option<u32> {
@@ -1088,6 +1132,7 @@ impl<R: DesignReader> Design3D<R> {
         prime5_1.and(prime5_2).is_some()
     }
 
+    #[allow(dead_code)]
     pub fn get_all_prime3_cone(&self) -> Vec<RawDnaInstance> {
         if !self.thick_helices {
             return vec![];
@@ -1271,6 +1316,7 @@ pub trait DesignReader: 'static + ensnano_interactor::DesignReader {
     fn get_external_objects(&self) -> &External3DObjects;
     fn get_surface_info_nucl(&self, nucl: Nucl) -> Option<SurfaceInfo>;
     fn get_surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo>;
+    fn get_additional_structure(&self) -> Option<&dyn AdditionalStructure>;
 }
 
 pub(super) struct HBoundsInstances {

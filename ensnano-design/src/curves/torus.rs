@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::Parameters;
+use crate::{InstanciatedPiecewiseBezier, Parameters};
 
 use super::Curved;
 use std::sync::Arc;
@@ -104,7 +104,7 @@ impl Torus {
         let dt = 1. / NB_STEPS as f64;
         let x = self.position_moebius(t);
         let x_dx = self.position_moebius(t + dt);
-        return (x_dx - x) / dt;
+        (x_dx - x) / dt
     }
 
     fn acceleration_moebius(&self, _: f64) -> DVec3 {
@@ -118,15 +118,15 @@ impl Torus {
 
 impl Curved for Torus {
     fn position(&self, t: f64) -> DVec3 {
-        return self.position_moebius(t);
+        self.position_moebius(t)
     }
 
     fn speed(&self, t: f64) -> DVec3 {
-        return self.speed_moebius(t);
+        self.speed_moebius(t)
     }
 
     fn acceleration(&self, t: f64) -> DVec3 {
-        return self.acceleration_moebius(t);
+        self.acceleration_moebius(t)
     }
 
     fn bounds(&self) -> super::CurveBounds {
@@ -138,7 +138,7 @@ impl Curved for Torus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum CurveDescriptor2D {
     Ellipse {
         semi_minor_axis: OrderedFloat<f64>,
@@ -150,9 +150,22 @@ pub enum CurveDescriptor2D {
         radius_tube: OrderedFloat<f64>,
         smooth_ceil: OrderedFloat<f64>,
     },
+    Bezier(InstanciatedPiecewiseBezier),
+    Parrabola {
+        speed: OrderedFloat<f64>,
+    },
 }
 
 impl CurveDescriptor2D {
+    pub fn is_open(&self) -> bool {
+        match self {
+            Self::Parrabola { .. } => true,
+            Self::Ellipse { .. } => false,
+            Self::TwoBalls { .. } => false,
+            Self::Bezier(bezier) => !bezier.cyclic,
+        }
+    }
+
     pub fn point(&self, t: f64) -> DVec2 {
         match self {
             Self::Ellipse {
@@ -246,6 +259,21 @@ impl CurveDescriptor2D {
                 }
                 position(t)
             }
+            Self::Parrabola { speed } => {
+                let speed = f64::from(*speed);
+                DVec2 {
+                    x: t,
+                    y: speed * speed * t * t,
+                }
+            }
+            Self::Bezier(bezier) => {
+                let t = if bezier.cyclic { t.rem_euclid(1.) } else { t };
+
+                let t0 = bezier.t_min.unwrap_or(0.);
+                let t1 = bezier.t_max.unwrap_or(1.);
+                let t_rescaled = t0 + (t1 - t0) * t;
+                bezier.position(t_rescaled).truncated()
+            }
         }
     }
 
@@ -283,6 +311,18 @@ impl CurveDescriptor2D {
 
     pub fn normalized_tangent(&self, t: f64) -> DVec2 {
         (self.point(t + EPSILON_DERIVATIVE) - self.point(t)).normalized()
+    }
+
+    pub fn derivative(&self, t: f64) -> DVec2 {
+        //TODO better implementation for ellipse and bezier curve
+
+        let left = (t - EPSILON_DERIVATIVE / 2.).rem_euclid(1.);
+        let right = (t + EPSILON_DERIVATIVE / 2.).rem_euclid(1.);
+        (self.point(right) - self.point(left)) / EPSILON_DERIVATIVE
+    }
+
+    pub fn perimeter(&self) -> f64 {
+        quadrature::integrate(|t| self.derivative(t).mag(), 0., 1., 1e-5).integral
     }
 }
 
@@ -400,7 +440,7 @@ trait Curve2D {
     }
 
     fn initialise_cache(&mut self) {
-        let len = if let Some(_) = self.get_cached_curvlinear_abscissa_mut() {
+        let len = if self.get_cached_curvlinear_abscissa_mut().is_some() {
             NB_STEPS
         } else {
             0
@@ -430,7 +470,7 @@ trait Curve2D {
 }
 
 fn search_dicho(goal: f64, slice: &[f64]) -> Option<usize> {
-    if slice.len() > 0 {
+    if !slice.is_empty() {
         let mut a = 0usize;
         let mut b = slice.len() - 1;
         while b - a > 2 {
@@ -516,14 +556,14 @@ impl TwistedTorus {
             perimeter: instanciated_curve.perimeter(),
             instanciated_curve,
             nb_turn_per_helix,
-            parameters: parameters.clone(),
+            parameters: *parameters,
         }
     }
 }
 
 fn gcd(a: isize, b: isize) -> usize {
-    let mut a = a.abs() as usize;
-    let mut b = b.abs() as usize;
+    let mut a = a.unsigned_abs();
+    let mut b = b.unsigned_abs();
 
     if a < b {
         std::mem::swap(&mut a, &mut b);
@@ -534,7 +574,7 @@ fn gcd(a: isize, b: isize) -> usize {
         b = a % b;
         a = b_;
     }
-    return a;
+    a
 }
 
 impl TwistedTorus {

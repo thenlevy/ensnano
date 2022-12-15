@@ -115,6 +115,8 @@ pub const OBJECT3D_FILTERS: Filters = &[
     ("Gltf files", &["gltf"]),
 ];
 
+pub const SVG_FILTERS: Filters = &[("Svg files", &["svg"])];
+
 pub const SET_DESIGN_DIRECTORY_FIRST: &str =
     "It is not possible to import 3D objects in an unamed design.
 Please save your design first to give it a name";

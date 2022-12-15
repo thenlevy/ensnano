@@ -18,12 +18,17 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use crate::app_state::design_interactor::presenter::NuclCollection;
 
+pub use revolutions::*;
+
 use super::*;
 
 use ensnano_design::{grid::Grid, Parameters};
-use ensnano_interactor::RigidBodyConstants;
+use ensnano_interactor::{RevolutionSurfaceSystemDescriptor, RigidBodyConstants};
 use mathru::algebra::linear::vector::vector::Vector;
-use mathru::analysis::differential_equation::ordinary::{ExplicitEuler, ExplicitODE, Kutta3};
+use mathru::analysis::differential_equation::ordinary::{
+    solver::runge_kutta::{explicit::fixed::FixedStepper, ExplicitEuler, Kutta3},
+    ExplicitODE,
+};
 use ordered_float::OrderedFloat;
 use rand::Rng;
 use rand_distr::{Exp, StandardNormal};
@@ -37,6 +42,7 @@ mod roller;
 pub use roller::{PhysicalSystem, RollInterface, RollPresenter};
 mod twister;
 pub use twister::{TwistInterface, TwistPresenter, Twister};
+mod revolutions;
 
 const MAX_DERIVATIVE_NORM: f32 = 1e4;
 
@@ -208,7 +214,7 @@ impl ExplicitODE<f32> for HelixSystem {
             }
         }
 
-        Vector::new_row(ret.len(), ret)
+        Vector::new_row(ret)
     }
 
     fn time_span(&self) -> (f32, f32) {
@@ -266,7 +272,7 @@ impl ExplicitODE<f32> for HelixSystem {
                 ret.push(angular_momentum.y);
                 ret.push(angular_momentum.z);
             }
-            Vector::new_row(ret.len(), ret)
+            Vector::new_row(ret)
         }
     }
 }
@@ -504,9 +510,9 @@ impl HelixSystem {
             let gz: f32 = rnd.sample(StandardNormal);
             if let Some(state) = self.last_state.as_mut() {
                 let entry = 13 * (self.helices.len() + nucl_id);
-                *state.get_mut(entry) += self.rigid_parameters.brownian_amplitude * gx;
-                *state.get_mut(entry + 1) += self.rigid_parameters.brownian_amplitude * gy;
-                *state.get_mut(entry + 2) += self.rigid_parameters.brownian_amplitude * gz;
+                state[entry] += self.rigid_parameters.brownian_amplitude * gx;
+                state[entry + 1] += self.rigid_parameters.brownian_amplitude * gy;
+                state[entry + 2] += self.rigid_parameters.brownian_amplitude * gz;
             }
 
             let exp_law = Exp::new(self.rigid_parameters.brownian_rate).unwrap();
@@ -538,9 +544,9 @@ impl HelixSystem {
             ShakeTarget::FreeNucl(n) => 13 * (self.helices.len() + n),
         };
         if let Some(state) = self.last_state.as_mut() {
-            *state.get_mut(entry) += 10. * self.rigid_parameters.brownian_amplitude * gx;
-            *state.get_mut(entry + 1) += 10. * self.rigid_parameters.brownian_amplitude * gy;
-            *state.get_mut(entry + 2) += 10. * self.rigid_parameters.brownian_amplitude * gz;
+            state[entry] += 10. * self.rigid_parameters.brownian_amplitude * gx;
+            state[entry + 1] += 10. * self.rigid_parameters.brownian_amplitude * gy;
+            state[entry + 2] += 10. * self.rigid_parameters.brownian_amplitude * gz;
             if let ShakeTarget::Helix(_) = nucl {
                 let delta_roll =
                     rnd.gen::<f32>() * 2. * std::f32::consts::PI - std::f32::consts::PI;
@@ -895,7 +901,8 @@ impl HelixSystemThread {
                 interface.new_state = Some(self.get_state());
                 drop(interface);
                 self.helix_system.next_time();
-                let solver = ExplicitEuler::new(1e-4f32);
+                let solver = FixedStepper::new(1e-4f32);
+                let method = ExplicitEuler::default();
                 if self.helix_system.rigid_parameters.brownian_motion {
                     self.helix_system.brownian_jump();
                 }
@@ -904,7 +911,7 @@ impl HelixSystemThread {
                     self.helix_system.shake_nucl(nucl)
                 }
                 drop(interface);
-                if let Ok((_, y)) = solver.solve(&self.helix_system) {
+                if let Ok((_, y)) = solver.solve(&self.helix_system, &method) {
                     self.helix_system.last_state = y.last().cloned();
                 }
             }
@@ -974,8 +981,9 @@ impl GridsSystemThread {
                     self.grid_system.update_parameters(parameters);
                 }
                 interface_ptr.lock().unwrap().new_state = Some(self.get_state());
-                let solver = Kutta3::new(1e-4f32);
-                if let Ok((_, y)) = solver.solve(&self.grid_system) {
+                let solver = FixedStepper::new(1e-4f32);
+                let method = Kutta3::default();
+                if let Ok((_, y)) = solver.solve(&self.grid_system, &method) {
                     self.grid_system.last_state = y.last().cloned();
                 }
             }
@@ -1333,6 +1341,14 @@ pub enum SimulationOperation<'pres, 'reader> {
         presenter: &'pres dyn TwistPresenter,
         reader: &'reader mut dyn SimulationReader,
     },
+    ExampleRelaxation {
+        reader: &'reader mut dyn SimulationReader,
+    },
+    RevolutionRelaxation {
+        system: RevolutionSurfaceSystemDescriptor,
+        reader: &'reader mut dyn SimulationReader,
+    },
+    FinishRelaxation,
 }
 
 pub trait SimulationReader {
@@ -1583,7 +1599,7 @@ impl ExplicitODE<f32> for GridsSystem {
             ret.push(d_angular_momentum.z);
         }
 
-        Vector::new_row(ret.len(), ret)
+        Vector::new_row(ret)
     }
 
     fn time_span(&self) -> (f32, f32) {
@@ -1618,7 +1634,7 @@ impl ExplicitODE<f32> for GridsSystem {
                 ret.push(angular_momentum.y);
                 ret.push(angular_momentum.z);
             }
-            Vector::new_row(ret.len(), ret)
+            Vector::new_row(ret)
         }
     }
 }

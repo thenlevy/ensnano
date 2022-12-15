@@ -115,7 +115,7 @@ impl DegreeAngleFormater {
 
     fn parse(angle_str: &str) -> Option<f32> {
         angle_str
-            .trim_end_matches("°")
+            .trim_end_matches('°')
             .parse::<f32>()
             .ok()
             .map(f32::to_radians)
@@ -199,7 +199,7 @@ impl GridPositionBuilder {
         Self::Cartesian(Vec3Builder::new(ValueKind::HelixGridPosition, position))
     }
 
-    fn view<'a, Message: BuilderMessage>(&'a mut self) -> Element<'a, Message, Renderer> {
+    fn view<Message: BuilderMessage>(&mut self) -> Element<Message, Renderer> {
         match self {
             Self::Cartesian(builder) => builder.view(),
         }
@@ -238,7 +238,7 @@ impl GridOrientationBuilder {
         ))
     }
 
-    fn view<'a, Message: BuilderMessage>(&'a mut self) -> Element<'a, Message, Renderer> {
+    fn view<Message: BuilderMessage>(&mut self) -> Element<Message, Renderer> {
         match self {
             Self::DirectionAngle(builder) => builder.view(),
         }
@@ -306,7 +306,7 @@ impl<S: AppState> Builder<S> for BezierVertexBuilder {
         if let ValueKind::BezierVertexPosition = value_kind {
             self.position_builder
                 .submit_value()
-                .map(|v| InstanciatedValue::BezierVertexPosition(v))
+                .map(InstanciatedValue::BezierVertexPosition)
         } else {
             log::error!(
                 "Unexpected value kind {:?} for BezierVertexBuilder",

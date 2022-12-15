@@ -92,6 +92,7 @@ pub(super) trait ControllerState<S: AppState> {
         None
     }
 
+    #[allow(clippy::unused_unit)]
     fn notify_scroll(&mut self) {
         ()
     }
@@ -99,6 +100,7 @@ pub(super) trait ControllerState<S: AppState> {
         None
     }
 
+    #[allow(clippy::needless_lifetimes, clippy::unused_unit)]
     fn give_context<'a>(&mut self, _context: EventContext<'a, S>) {
         ()
     }
@@ -150,6 +152,8 @@ impl<S: AppState> ControllerState<S> for NormalState {
                 ..
             } if context.is_pasting() => {
                 let element = context.get_element_under_cursor();
+                // When clicking on a grid, `get_element_under_cursor` will return a
+                // `SceneElement::Grid`. We want to get the exact grid disc instead.
                 let element = context.convert_grid_to_grid_disc(element);
                 Transition {
                     new_state: Some(Box::new(PointAndClicking::pasting(
@@ -435,7 +439,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                         if let Some((plane_id, intersection)) = context.get_plane_under_cursor() {
                             let click_info =
                                 ClickInfo::new(MouseButton::Left, context.cursor_position);
-                            return Transition {
+                            Transition {
                                 new_state: Some(Box::new(dragging_state::moving_bezier_vertex(
                                     click_info,
                                     MovingBezierVertex::New { plane_id },
@@ -447,7 +451,7 @@ impl<S: AppState> ControllerState<S> for NormalState {
                                     ),
                                     path: path_id,
                                 },
-                            };
+                            }
                         } else {
                             let adding =
                                 context.get_modifiers().shift() || ctrl(context.get_modifiers());

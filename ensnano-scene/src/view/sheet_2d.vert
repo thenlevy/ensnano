@@ -4,6 +4,7 @@ layout(location=0) in vec2 a_position;
 
 layout(location=0) out vec2 v_tex_pos;
 layout(location=1) out float graduation_unit;
+layout(location=2) out float rotation_radius;
 
 
 layout(set=0, binding=0)
@@ -24,6 +25,7 @@ struct Instances {
     float min_y;
     float max_y;
     float graduation_unit;
+    float rotation_radius;
 };
 
 layout(set=2, binding=0) 
@@ -43,6 +45,7 @@ void main() {
 
     v_tex_pos = plane_position;
     graduation_unit = instances[gl_InstanceIndex].graduation_unit;
+    rotation_radius = instances[gl_InstanceIndex].rotation_radius;
 
     mat4 model_matrix = instances[gl_InstanceIndex].model;
 

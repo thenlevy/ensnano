@@ -1,4 +1,3 @@
-use ensnano_design::BezierVertexId;
 /*
 ENSnano, a 3d graphical application for DNA nanostructures.
     Copyright (C) 2021  Nicolas Levy <nicolaspierrelevy@gmail.com> and Nicolas Schabanel <nicolas.schabanel@ens-lyon.fr>
@@ -17,9 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use ensnano_design::grid::HelixGridPosition;
-use ensnano_design::ultraviolet;
-use ensnano_interactor::graphics::RenderingMode;
+use ensnano_design::{ultraviolet, BezierVertexId};
 use ensnano_interactor::NewBezierTengentVector;
+use ensnano_interactor::{graphics::RenderingMode, RevolutionOfBezierPath};
 use ensnano_utils::wgpu;
 use ensnano_utils::winit;
 use std::cell::RefCell;
@@ -118,7 +117,7 @@ impl<S: AppState> Scene<S> {
         inital_state: S,
         scene_kind: SceneKind,
     ) -> Self {
-        let update = SceneUpdate::new();
+        let update = SceneUpdate::default();
         let view: ViewPtr = Rc::new(RefCell::new(View::new(
             window_size,
             area.size,
@@ -356,10 +355,6 @@ impl<S: AppState> Scene<S> {
                 self.notify(SceneNotification::CameraMoved);
             }
             Consequence::ToggleWidget => {
-                use chrono::{Timelike, Utc};
-                let now = Utc::now();
-                let name = now.format("export_3d_%Y_%m_%d_%H_%M_%S.png").to_string();
-                self.export_png(&name);
                 self.requests.lock().unwrap().toggle_widget_basis();
             }
             Consequence::BuildEnded => self.requests.lock().unwrap().suspend_op(),
@@ -506,15 +501,28 @@ impl<S: AppState> Scene<S> {
                 y,
                 path_id,
                 vertex_id,
-            } => self.requests.lock().unwrap().update_opperation(Arc::new(
-                TranslateBezierPathVertex {
-                    design_id: 0,
-                    path_id,
-                    vertex_id,
-                    x,
-                    y,
-                },
-            )),
+            } => {
+                let mut vertices = vec![BezierVertexId { path_id, vertex_id }];
+                if app_state
+                    .get_selection()
+                    .iter()
+                    .any(|s| *s == Selection::BezierVertex(BezierVertexId { path_id, vertex_id }))
+                {
+                    for v in app_state.get_selection().iter().filter_map(|s| {
+                        if let Selection::BezierVertex(v) = s {
+                            Some(v)
+                        } else {
+                            None
+                        }
+                    }) {
+                        vertices.push(*v);
+                    }
+                }
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .update_opperation(Arc::new(TranslateBezierPathVertex { vertices, x, y }))
+            }
             Consequence::ReleaseBezierVertex => self.requests.lock().unwrap().suspend_op(),
             Consequence::MoveBezierCorner {
                 plane_id,
@@ -679,7 +687,7 @@ impl<S: AppState> Scene<S> {
 
         let group_id = app_state.get_current_group_id();
 
-        let translation_op: Arc<dyn Operation> = if control_points.len() > 0 {
+        let translation_op: Arc<dyn Operation> = if !control_points.is_empty() {
             Arc::new(BezierControlPointTranslation {
                 design_id: 0,
                 control_points,
@@ -764,7 +772,7 @@ impl<S: AppState> Scene<S> {
         );
         log::debug!("rotating grids {:?}", grids);
         let group_id = app_state.get_current_group_id();
-        let rotation: Arc<dyn Operation> = if let Some(grid_ids) = grids.filter(|v| v.len() > 0) {
+        let rotation: Arc<dyn Operation> = if let Some(grid_ids) = grids.filter(|v| !v.is_empty()) {
             Arc::new(GridRotation {
                 grid_ids,
                 angle,
@@ -781,7 +789,7 @@ impl<S: AppState> Scene<S> {
                     helix_id,
                     ..
                 } => Arc::new(HelixRotation {
-                    helices: helices.unwrap_or(vec![helix_id]),
+                    helices: helices.unwrap_or_else(|| vec![helix_id]),
                     angle,
                     plane,
                     origin,
@@ -956,7 +964,11 @@ impl<S: AppState> Scene<S> {
         (texture, view)
     }
 
-    fn export_png(&self, png_name: &str) {
+    fn export_png(&self) {
+        use chrono::{Timelike, Utc};
+        let png_name = Utc::now()
+            .format("export_3d_%Y_%m_%d_%H_%M_%S.png")
+            .to_string();
         let device = self.element_selector.device.as_ref();
         let queue = self.element_selector.queue.as_ref();
         println!("export to {png_name}");
@@ -986,8 +998,10 @@ impl<S: AppState> Scene<S> {
             label: Some("3D Png export"),
         });
 
-        let mut draw_options: DrawOptions = Default::default();
-        draw_options.rendering_mode = RenderingMode::Cartoon;
+        let draw_options = DrawOptions {
+            rendering_mode: RenderingMode::Cartoon,
+            ..Default::default()
+        };
 
         self.view.borrow_mut().draw(
             &mut encoder,
@@ -1086,6 +1100,7 @@ impl<S: AppState> Scene<S> {
 }
 
 /// A structure that stores the element that needs to be updated in a scene
+#[derive(Default)]
 pub struct SceneUpdate {
     pub tube_instances: Option<Vec<Instance>>,
     pub sphere_instances: Option<Vec<Instance>>,
@@ -1098,24 +1113,6 @@ pub struct SceneUpdate {
     pub model_matrices: Option<Vec<Mat4>>,
     pub need_update: bool,
     pub camera_update: bool,
-}
-
-impl SceneUpdate {
-    pub fn new() -> Self {
-        Self {
-            tube_instances: None,
-            sphere_instances: None,
-            fake_tube_instances: None,
-            fake_sphere_instances: None,
-            selected_tube: None,
-            selected_sphere: None,
-            candidate_spheres: None,
-            candidate_tubes: None,
-            need_update: false,
-            camera_update: false,
-            model_matrices: None,
-        }
-    }
 }
 
 /// A notification to be given to the scene
@@ -1170,6 +1167,7 @@ impl<S: AppState> Scene<S> {
 impl<S: AppState> Application for Scene<S> {
     type AppState = S;
     fn on_notify(&mut self, notification: Notification) {
+        log::info!("scene notified {:?}", notification);
         let older_state = self.older_state.clone();
         match notification {
             Notification::ClearDesigns => self.clear_design(),
@@ -1241,6 +1239,11 @@ impl<S: AppState> Application for Scene<S> {
                 self.controller.align_horizon();
                 self.notify(SceneNotification::CameraMoved);
             }
+            Notification::ScreenShot3D => {
+                if !self.is_stereographic() {
+                    self.export_png();
+                }
+            }
         }
     }
 
@@ -1258,7 +1261,7 @@ impl<S: AppState> Application for Scene<S> {
         } else {
             self.controller.set_setreography(None);
         }
-        self.input(event, cursor_position, &app_state)
+        self.input(event, cursor_position, app_state)
     }
 
     fn on_resize(&mut self, window_size: PhySize, area: DrawArea) {
@@ -1337,6 +1340,9 @@ pub trait AppState: Clone + 'static {
     fn get_selected_bezier_vertex(&self) -> Option<BezierVertexId>;
 
     fn has_selected_a_bezier_grid(&self) -> bool;
+
+    fn get_current_bezier_revolution(&self) -> &RevolutionOfBezierPath;
+    fn revolution_bezier_updated(&self, other: &Self) -> bool;
 }
 
 pub trait Requests {

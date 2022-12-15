@@ -145,6 +145,8 @@ impl<R: DesignReader> Data<R> {
             || app_state.suggestion_parameters_were_updated(older_app_state)
             || app_state.draw_options_were_updated(older_app_state)
             || app_state.insertion_bond_display_was_modified(older_app_state)
+            || app_state.selection_was_updated(older_app_state)
+            || app_state.revolution_bezier_updated(older_app_state)
         {
             for d in self.designs.iter_mut() {
                 d.thick_helices = app_state.get_draw_options().thick_helices;
@@ -170,6 +172,7 @@ impl<R: DesignReader> Data<R> {
         self.handle_need_opdate |= app_state.design_was_modified(older_app_state)
             || app_state.selection_was_updated(older_app_state)
             || app_state.get_action_mode() != older_app_state.get_action_mode();
+
         if self.handle_need_opdate {
             self.update_bezier(app_state);
             self.update_handle(app_state);
@@ -1376,7 +1379,7 @@ impl<R: DesignReader> Data<R> {
                 tubes.push(*tube);
             }
             if app_state.show_bezier_paths() {
-                let (bezier_spheres, bezier_tubes) = design.get_bezier_paths_elements();
+                let (bezier_spheres, bezier_tubes) = design.get_bezier_paths_elements(app_state);
                 spheres.extend(bezier_spheres);
                 tubes.extend(bezier_tubes);
             }
@@ -1403,7 +1406,7 @@ impl<R: DesignReader> Data<R> {
         }
         self.update_free_xover(app_state.get_candidates());
         let (sheet_instances, corner_spheres) = if app_state.show_bezier_paths() {
-            self.designs[0].get_bezier_sheets()
+            self.designs[0].get_bezier_sheets(app_state)
         } else {
             (Default::default(), Default::default())
         };

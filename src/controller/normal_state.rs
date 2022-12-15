@@ -23,7 +23,9 @@ use super::messages::CHANGING_DNA_PARAMETERS_WARNING;
 use super::*;
 use ensnano_design::group_attributes::GroupPivot;
 use ensnano_design::{grid::GridId, Parameters};
-use ensnano_interactor::{graphics::FogParameters, HyperboloidOperation};
+use ensnano_interactor::{
+    graphics::FogParameters, HyperboloidOperation, RevolutionSurfaceSystemDescriptor,
+};
 
 /// User is interacting with graphical components.
 pub(super) struct NormalState;
@@ -112,6 +114,7 @@ impl State for NormalState {
                         )
                     }
                 }
+                Action::ImportSvg => Load::load(None, LoadType::SvgPath),
                 Action::SuspendOp => {
                     log::info!("Suspending operation");
                     main_state.finish_operation();
@@ -177,8 +180,16 @@ impl State for NormalState {
                     main_state.start_grid_simulation(parameters);
                     self
                 }
+                Action::RevolutionSimulation { desc } => {
+                    main_state.start_revolution_simulation(desc);
+                    self
+                }
                 Action::StopSimulation => {
                     main_state.update_simulation(SimulationRequest::Stop);
+                    self
+                }
+                Action::FinishRelaxationSimulation => {
+                    main_state.update_simulation(SimulationRequest::FinishRelaxation);
                     self
                 }
                 Action::RollHelices(roll) => {
@@ -460,6 +471,10 @@ pub enum Action {
     RigidGridSimulation {
         parameters: RigidBodyConstants,
     },
+    RevolutionSimulation {
+        desc: RevolutionSurfaceSystemDescriptor,
+    },
+    FinishRelaxationSimulation,
     RigidHelicesSimulation {
         parameters: RigidBodyConstants,
     },
@@ -498,5 +513,6 @@ pub enum Action {
     AddBezierPlane,
     SetExporting(bool),
     Import3DObject,
+    ImportSvg,
     OptimizeShift,
 }

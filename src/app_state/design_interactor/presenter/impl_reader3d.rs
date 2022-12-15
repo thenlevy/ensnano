@@ -555,6 +555,14 @@ impl Reader3D for DesignReader {
         let helix = self.presenter.current_design.helices.get(&point.helix_id)?;
         helix.get_surface_info(point)
     }
+
+    fn get_additional_structure(&self) -> Option<&dyn ensnano_design::AdditionalStructure> {
+        self.presenter
+            .current_design
+            .additional_structure
+            .as_ref()
+            .map(Arc::as_ref)
+    }
 }
 
 #[cfg(test)]

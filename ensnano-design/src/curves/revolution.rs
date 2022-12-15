@@ -34,15 +34,25 @@ pub struct InterpolatedCurveDescriptor {
     pub curve_scale_factor: f64,
     pub interpolation: Vec<InterpolationDescriptor>,
     pub chevyshev_smoothening: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revolution_angle_init: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nb_turn: Option<f64>,
+    #[serde(skip)] // can be skipped because it is only used the first time the helix is created
+    pub known_number_of_helices_in_shape: Option<usize>,
+    #[serde(skip)] // can be skipped because it is only used the first time the helix is created
+    pub known_helix_id_in_shape: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub objective_number_of_nts: Option<usize>,
+
+    // There is currently no way to set this value through the GUI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub full_turn_at_nt: Option<isize>,
 }
 
 impl InterpolatedCurveDescriptor {
-    pub(super) fn instanciate(self) -> Revolution {
+    pub(super) fn instanciate(self, init_interpolators: bool) -> Revolution {
         let curve = self.curve.clone();
-        let mut discontinuities = vec![0.];
-        for i in 0..self.interpolation.len() {
-            discontinuities.push(i as f64 + 1.);
-        }
         let curve = SmoothInterpolatedCurve::from_curve_interpolation(
             curve,
             self.interpolation,
@@ -56,8 +66,16 @@ impl InterpolatedCurveDescriptor {
             half_turns_count: self.half_turns_count,
             inverse_curvilinear_abscissa: vec![],
             curvilinear_abscissa: vec![],
+            init_revolution_angle: self.revolution_angle_init.unwrap_or(0.),
+            nb_turn: self.nb_turn.unwrap_or(1.),
+            known_number_of_helices_in_shape: self.known_number_of_helices_in_shape,
+            knwon_helix_id_in_shape: self.known_helix_id_in_shape,
+            objective_nb_nt: self.objective_number_of_nts,
+            full_turn_at_nt: self.full_turn_at_nt,
         };
-        ret.init_interpolators();
+        if init_interpolators {
+            ret.init_interpolators();
+        }
         ret
     }
 }
@@ -74,23 +92,29 @@ pub enum InterpolationDescriptor {
     },
 }
 
-struct SmoothInterpolatedCurve {
-    interpolators: Vec<ChebyshevPolynomial>,
-    curve: CurveDescriptor2D,
-    smoothening_coeff: f64,
-    half_turn: bool,
+enum SmoothInterpolatedCurve {
+    Closed {
+        interpolators: Vec<ChebyshevPolynomial>,
+        curve: CurveDescriptor2D,
+        smoothening_coeff: f64,
+        half_turn: bool,
+    },
+    Open {
+        interpolator: ChebyshevPolynomial,
+        curve: CurveDescriptor2D,
+        t_max: f64,
+    },
 }
 
 impl SmoothInterpolatedCurve {
     fn from_curve_interpolation(
         curve: CurveDescriptor2D,
-        interpolations: Vec<InterpolationDescriptor>,
+        mut interpolations: Vec<InterpolationDescriptor>,
         smoothening_coeff: f64,
         nb_half_turn: isize,
     ) -> Self {
-        let mut interpolators = Vec::with_capacity(interpolations.len());
-        for interpolation in interpolations.into_iter() {
-            let interpolator = match interpolation {
+        if curve.is_open() {
+            let interpolator = match interpolations.swap_remove(0) {
                 InterpolationDescriptor::PointsValues { points, values } => {
                     let points_values = points.into_iter().zip(values.into_iter()).collect();
                     chebyshev_polynomials::interpolate_points(points_values, 1e-4)
@@ -101,58 +125,94 @@ impl SmoothInterpolatedCurve {
                     )
                 }
             };
-            interpolators.push(interpolator);
-        }
-        Self {
-            curve,
-            interpolators,
-            smoothening_coeff,
-            half_turn: nb_half_turn.rem_euclid(2) != 0,
+            Self::Open {
+                interpolator,
+                curve,
+                t_max: 1.0,
+            }
+        } else {
+            let mut interpolators = Vec::with_capacity(interpolations.len());
+            for interpolation in interpolations.into_iter() {
+                let interpolator = match interpolation {
+                    InterpolationDescriptor::PointsValues { points, values } => {
+                        let points_values = points.into_iter().zip(values.into_iter()).collect();
+                        chebyshev_polynomials::interpolate_points(points_values, 1e-4)
+                    }
+                    InterpolationDescriptor::Chebyshev { coeffs, interval } => {
+                        chebyshev_polynomials::ChebyshevPolynomial::from_coeffs_interval(
+                            coeffs, interval,
+                        )
+                    }
+                };
+                interpolators.push(interpolator);
+            }
+            Self::Closed {
+                curve,
+                interpolators,
+                smoothening_coeff,
+                half_turn: nb_half_turn.rem_euclid(2) != 0,
+            }
         }
     }
 
-    fn smooth_chebyshev(&self, s: f64) -> f64 {
-        let u = s.rem_euclid(1.);
-        let helix_idx =
-            (s.div_euclid(1.) as isize).rem_euclid(self.interpolators.len() as isize) as usize;
-        let prev_idx =
-            (helix_idx as isize - 1).rem_euclid(self.interpolators.len() as isize) as usize;
-        let next_idx = (helix_idx + 1).rem_euclid(self.interpolators.len());
+    /// Given a time t, return the time u at which the section must be evaluated.
+    /// Smoothen the junction between consecutive one-turn segments.
+    fn smooth_chebyshev(&self, t: f64) -> f64 {
+        match self {
+            Self::Closed {
+                interpolators,
+                smoothening_coeff,
+                half_turn,
+                ..
+            } => {
+                // the position on the current segment. If u is close the 0, we interpolate with the
+                // previous segment. If u is close to 1, we interpolate with the next segment.
+                let u = t.rem_euclid(1.);
 
-        let a = self.smoothening_coeff;
+                let helix_idx =
+                    (t.div_euclid(1.) as isize).rem_euclid(interpolators.len() as isize) as usize;
+                let prev_idx =
+                    (helix_idx as isize - 1).rem_euclid(interpolators.len() as isize) as usize;
+                let next_idx = (helix_idx + 1).rem_euclid(interpolators.len());
 
-        let shift = if self.half_turn { 0.5 } else { 0. };
+                // Quantify what "close to 0" and "close to 1" mean.
+                let a = *smoothening_coeff;
 
-        if u < a {
-            // second half of the interpolation region, v = 0.5 + 1/2 ( u / a)
-            let v = (1. + u / a) / 2.;
-            let mut v1 =
-                (self.interpolators[prev_idx].evaluate(1. - a + v * a) + shift).rem_euclid(1.);
-            let v2 = (self.interpolators[helix_idx].evaluate(v * a)).rem_euclid(1.);
+                let shift = if *half_turn { 0.5 } else { 0. };
 
-            while v1 > v2 + 0.5 {
-                v1 -= 1.
+                if u < a {
+                    // second half of the interpolation region, v = 0.5 + 1/2 ( u / a)
+                    let v = (1. + u / a) / 2.;
+                    let mut v1 =
+                        (interpolators[prev_idx].evaluate(1. - a + v * a) + shift).rem_euclid(1.);
+                    let v2 = (interpolators[helix_idx].evaluate(v * a)).rem_euclid(1.);
+
+                    while v1 > v2 + 0.5 {
+                        v1 -= 1.
+                    }
+                    while v1 < v2 - 0.5 {
+                        v1 += 1.
+                    }
+                    (1. - v) * v1 + v * v2
+                } else if u > 1. - a {
+                    // first half of the interpolation region
+                    let v = (u - (1. - a)) / a / 2.;
+                    let v1 = (interpolators[helix_idx].evaluate(1. - a + v * a)).rem_euclid(1.);
+                    let mut v2 = (interpolators[next_idx].evaluate(v * a) - shift).rem_euclid(1.);
+
+                    while v2 > v1 + 0.5 {
+                        v2 -= 1.
+                    }
+                    while v2 < v1 - 0.5 {
+                        v2 += 1.
+                    }
+
+                    (1. - v) * v1 + v * v2
+                } else {
+                    interpolators[helix_idx].evaluate(u)
+                }
             }
-            while v1 < v2 - 0.5 {
-                v1 += 1.
-            }
-            (1. - v) * v1 + v * v2
-        } else if u > 1. - a {
-            // first half of the interpolation region
-            let v = (u - (1. - a)) / a / 2.;
-            let v1 = (self.interpolators[helix_idx].evaluate(1. - a + v * a)).rem_euclid(1.);
-            let mut v2 = (self.interpolators[next_idx].evaluate(v * a) - shift).rem_euclid(1.);
-
-            while v2 > v1 + 0.5 {
-                v2 -= 1.
-            }
-            while v2 < v1 - 0.5 {
-                v2 += 1.
-            }
-
-            (1. - v) * v1 + v * v2
-        } else {
-            self.interpolators[helix_idx].evaluate(u)
+            Self::Open { interpolator, .. } => interpolator.evaluate(t),
         }
     }
 
@@ -166,15 +226,24 @@ impl SmoothInterpolatedCurve {
     }
 
     fn t_max(&self) -> f64 {
-        self.interpolators.len() as f64
+        match self {
+            Self::Closed { interpolators, .. } => interpolators.len() as f64,
+            Self::Open { t_max, .. } => *t_max,
+        }
     }
 
     fn normalized_tangent_at_s(&self, s: f64) -> DVec2 {
-        self.curve.normalized_tangent(s.rem_euclid(1.))
+        match self {
+            Self::Closed { curve, .. } => curve.normalized_tangent(s.rem_euclid(1.)),
+            Self::Open { curve, .. } => curve.normalized_tangent(s),
+        }
     }
 
     fn point_at_s(&self, s: f64) -> DVec2 {
-        self.curve.point(s.rem_euclid(1.))
+        match self {
+            Self::Closed { curve, .. } => curve.point(s.rem_euclid(1.)),
+            Self::Open { curve, .. } => curve.point(s),
+        }
     }
 }
 
@@ -183,18 +252,35 @@ pub(super) struct Revolution {
     revolution_radius: f64,
     curve_scale_factor: f64,
     half_turns_count: isize,
+    /// The element at index i of this vector is a polynomial interpolating the function that maps
+    /// a point x in [curvilinear_abscissa(i), curvilinear_abscissa(i+1)] to a time t so that
+    /// curvilinear_abscissa(t) = x
     inverse_curvilinear_abscissa: Vec<ChebyshevPolynomial>,
+    /// The element at index i of this vector is a polynomial interpolating the curvilinear
+    /// abscissa between 0 and t for t in [i, i+1]
     curvilinear_abscissa: Vec<ChebyshevPolynomial>,
+    init_revolution_angle: f64,
+    nb_turn: f64,
+    known_number_of_helices_in_shape: Option<usize>,
+    knwon_helix_id_in_shape: Option<usize>,
+    objective_nb_nt: Option<usize>,
+    full_turn_at_nt: Option<isize>,
 }
 
 const NB_POINT_INTERPOLATION: usize = 100_000;
 const INTERPOLATION_ERROR: f64 = 1e-4;
 impl Revolution {
+    /// Computes the polynomials that interpolate the curvilinear function and its inverse
     fn init_interpolators(&mut self) {
         let mut abscissa = 0.;
 
         let mut point = self.position(0.);
         let mut t0 = 0.;
+
+        // The interpolating polynomials are computed in parallel. First we compute the
+        // interpolation points for each polynomial.
+        let mut curvilinear_abscissa_interpolation_points = Vec::new();
+        let mut inverse_ca_interpolation_points = Vec::new();
         while t0 < self.t_max() {
             let mut ts = Vec::with_capacity(NB_POINT_INTERPOLATION);
             let mut abscissas = Vec::with_capacity(NB_POINT_INTERPOLATION);
@@ -209,34 +295,38 @@ impl Revolution {
                 ts.push(t);
             }
             log::info!("Interpolating inverse...");
-            let abscissa_t = abscissas.iter().cloned().zip(ts.iter().cloned()).collect();
-            self.inverse_curvilinear_abscissa
-                .push(chebyshev_polynomials::interpolate_points(
-                    abscissa_t,
-                    INTERPOLATION_ERROR,
-                ));
-            log::info!(
-                "OK, deg = {}",
-                self.inverse_curvilinear_abscissa
-                    .last()
-                    .unwrap()
-                    .coeffs
-                    .len()
-            );
+            let abscissa_t: Vec<_> = abscissas
+                .iter()
+                .cloned()
+                .zip(ts.iter().cloned())
+                .step_by(10) // (1)
+                .collect();
 
-            let t_abscissa = ts.into_iter().zip(abscissas.into_iter()).collect();
-            log::info!("Interpolating abscissa...");
-            self.curvilinear_abscissa
-                .push(chebyshev_polynomials::interpolate_points(
-                    t_abscissa,
-                    10. * INTERPOLATION_ERROR,
-                ));
-            log::info!(
-                "OK, deg = {}",
-                self.curvilinear_abscissa.last().unwrap().coeffs.len()
-            );
+            inverse_ca_interpolation_points.push(abscissa_t);
+
+            let t_abscissa: Vec<_> = ts
+                .into_iter()
+                .zip(abscissas.into_iter())
+                .step_by(10) // (1)
+                .collect();
+
+            curvilinear_abscissa_interpolation_points.push(t_abscissa);
+
+            // (1) Allows for quicker computation of the interpolating polynomial with little
+            // impact on the quality of the interpolation
+
             t0 += 1.;
         }
+
+        use rayon::prelude::*;
+        self.curvilinear_abscissa = curvilinear_abscissa_interpolation_points
+            .into_par_iter()
+            .map(|v| chebyshev_polynomials::interpolate_points(v, 10. * INTERPOLATION_ERROR))
+            .collect();
+        self.inverse_curvilinear_abscissa = inverse_ca_interpolation_points
+            .into_par_iter()
+            .map(|v| chebyshev_polynomials::interpolate_points(v, INTERPOLATION_ERROR))
+            .collect()
     }
 
     fn get_surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo> {
@@ -287,8 +377,9 @@ impl Revolution {
         revolution_angle: f64,
         section_angle: Option<f64>,
     ) -> DVec3 {
-        let t = revolution_angle / TAU;
-        let section_rotation = section_angle.unwrap_or(self.default_section_rotation_angle(t));
+        let t = self.revolution_angle_to_t(revolution_angle);
+        let section_rotation =
+            section_angle.unwrap_or_else(|| self.default_section_rotation_angle(t));
 
         let x = self.revolution_radius
             + self.curve_scale_factor
@@ -307,14 +398,27 @@ impl Revolution {
     fn default_section_rotation_angle(&self, t: f64) -> f64 {
         PI * self.half_turns_count as f64 * t.rem_euclid(1.)
     }
+
+    fn t_to_revolution_angle(&self, t: f64) -> f64 {
+        self.init_revolution_angle + self.nb_turn * TAU * t
+    }
+
+    fn revolution_angle_to_t(&self, angle: f64) -> f64 {
+        let angle_t1 = TAU * self.nb_turn;
+        (angle - self.init_revolution_angle).rem_euclid(angle_t1) / TAU / self.nb_turn
+    }
 }
 
 impl Curved for Revolution {
     fn position(&self, t: f64) -> DVec3 {
-        let revolution_angle = TAU * t;
+        let revolution_angle = self.t_to_revolution_angle(t);
 
         let section_point = self.curve.point(t);
         self.curve_point_to_3d(section_point, revolution_angle, None)
+    }
+
+    fn speed(&self, t: f64) -> DVec3 {
+        (self.position(t + EPSILON_DERIVATIVE) - self.position(t)) / EPSILON_DERIVATIVE
     }
 
     fn bounds(&self) -> CurveBounds {
@@ -364,12 +468,14 @@ impl Curved for Revolution {
                     .map(|p| p.evaluate(x));
             }
         }
-        None
+        self.inverse_curvilinear_abscissa
+            .last()
+            .map(|p| p.evaluate(x))
     }
 
     fn surface_info_time(&self, t: f64, helix_id: usize) -> Option<SurfaceInfo> {
         let point = super::SurfacePoint {
-            revolution_angle: TAU * t,
+            revolution_angle: self.t_to_revolution_angle(t),
             abscissa_along_section: self.curve.curvilinear_abscissa(t),
             helix_id,
             section_rotation_angle: self.default_section_rotation_angle(t),
@@ -380,5 +486,24 @@ impl Curved for Revolution {
 
     fn surface_info(&self, point: SurfacePoint) -> Option<SurfaceInfo> {
         self.get_surface_info(point)
+    }
+
+    fn additional_isometry(&self, segment_idx: usize) -> Option<Isometry2> {
+        self.known_number_of_helices_in_shape
+            .zip(self.knwon_helix_id_in_shape)
+            .map(|(nb_helices, h_id)| Isometry2 {
+                translation: (h_id as f32 + (segment_idx + 1) as f32 * nb_helices as f32)
+                    * 5.
+                    * Vec2::unit_y(),
+                rotation: ultraviolet::Rotor2::identity(),
+            })
+    }
+
+    fn objective_nb_nt(&self) -> Option<usize> {
+        self.objective_nb_nt
+    }
+
+    fn nucl_pos_full_turn(&self) -> Option<isize> {
+        self.full_turn_at_nt
     }
 }

@@ -18,12 +18,13 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::AddressPointer;
 use ensnano_design::{
-    grid::GridId, group_attributes::GroupAttribute, Design, HelixCollection, Parameters,
+    grid::GridId, group_attributes::GroupAttribute, BezierPathId, Design, HelixCollection,
+    InstanciatedPiecewiseBezier, Parameters,
 };
 use ensnano_exports::{ExportResult, ExportType};
 use ensnano_interactor::{
-    operation::Operation, DesignOperation, RigidBodyConstants, Selection, SimulationState,
-    StrandBuilder, SuggestionParameters,
+    operation::Operation, DesignOperation, RevolutionSurfaceSystemDescriptor, RigidBodyConstants,
+    Selection, SimulationState, StrandBuilder, SuggestionParameters,
 };
 
 mod presenter;
@@ -151,6 +152,15 @@ impl DesignInteractor {
                 reader,
                 grid_id,
             },
+            SimulationTarget::Relaxation => {
+                controller::SimulationOperation::ExampleRelaxation { reader }
+            }
+            SimulationTarget::Revolution { desc } => {
+                controller::SimulationOperation::RevolutionRelaxation {
+                    system: desc,
+                    reader,
+                }
+            }
         };
         let result = self
             .controller
@@ -167,6 +177,9 @@ impl DesignInteractor {
             SimulationRequest::Reset => controller::SimulationOperation::Reset,
             SimulationRequest::UpdateParameters(new_parameters) => {
                 controller::SimulationOperation::UpdateParameters { new_parameters }
+            }
+            SimulationRequest::FinishRelaxation => {
+                controller::SimulationOperation::FinishRelaxation
             }
         };
         let result = self
@@ -243,7 +256,7 @@ impl DesignInteractor {
         }
         log::trace!("Interactor design <- {:p}", new_design);
         self.design = new_design;
-        if let Some(update) = self.simulation_update.clone() {
+        if let Some(update) = self.simulation_update.take() {
             if !self.controller.get_simulation_state().is_runing() {
                 self.simulation_update = None;
             }
@@ -413,6 +426,10 @@ impl DesignReader {
             .as_ref()
             .group_attributes
             .get(&group_id)
+    }
+
+    pub fn get_bezier_path_2d(&self, path_id: BezierPathId) -> Option<InstanciatedPiecewiseBezier> {
+        self.presenter.get_bezier_path_2d(path_id)
     }
 }
 
@@ -716,6 +733,7 @@ mod tests {
                 forward: true,
             },
             Some(true),
+            &mut 0,
         )
         .ok()
         .unwrap();
@@ -729,12 +747,12 @@ mod tests {
             .unwrap();
 
         let strand = strands.get(&s_id_prime5).expect("No strand 5'");
-        let exptected_result = format!("[->] [x] [3']");
+        let exptected_result = "[->] [x] [3']".to_string();
         assert_good_junctions(strand, exptected_result);
         println!("OK for 5' end");
 
         let strand = strands.get(&s_id_prime3).expect("No strand 3'");
-        let exptected_result = format!("[3']");
+        let exptected_result = "[3']".to_string();
         assert_good_junctions(strand, exptected_result);
     }
 
@@ -788,7 +806,7 @@ mod tests {
             .strands
             .get(&0)
             .expect("No strand 0");
-        let exptected_result = format!("[->] [x] [->] [x] [3']");
+        let exptected_result = "[->] [x] [->] [x] [3']".to_string();
         assert_good_junctions(strand, exptected_result);
     }
 
@@ -854,7 +872,7 @@ mod tests {
             .strands
             .get(&0)
             .expect("No strand 0");
-        let exptected_result = format!("[->] [x] [->] [x] [->] [3']");
+        let exptected_result = "[->] [x] [->] [x] [->] [3']".to_string();
         assert_good_junctions(strand, exptected_result);
     }
 
@@ -1141,7 +1159,7 @@ mod tests {
     }
 
     fn test_sane_strand(strand: &Strand) {
-        let mut strand = Strand::clone(&strand);
+        let mut strand = Strand::clone(strand);
         let mut xover_ids = ensnano_utils::id_generator::IdGenerator::default();
         strand.read_junctions(&mut xover_ids, true);
         strand.read_junctions(&mut xover_ids, false);
@@ -1438,12 +1456,6 @@ mod tests {
         assert_eq!(app_state.0.design.design.strands.len(), 3);
     }
 
-    #[ignore]
-    #[test]
-    fn correct_simulation_state() {
-        assert!(false)
-    }
-
     #[test]
     fn pasting_candidate_position_are_accessible() {
         let mut app_state = pastable_design();
@@ -1461,7 +1473,12 @@ mod tests {
                 .map(PastePosition::Nucl),
             ))
             .unwrap();
-        assert!(app_state.0.design.controller.get_pasted_position().len() > 0);
+        assert!(!app_state
+            .0
+            .design
+            .controller
+            .get_pasted_position()
+            .is_empty());
     }
 
     #[test]
@@ -1702,7 +1719,7 @@ mod tests {
         let s_id = app_state
             .get_design_reader()
             .get_id_of_strand_containing_nucl(&first_nucl)
-            .expect(&format!("no strand containing {:?}", first_nucl));
+            .unwrap_or_else(|| panic!("no strand containing {:?}", first_nucl));
         let strand = app_state
             .0
             .design
@@ -1710,7 +1727,7 @@ mod tests {
             .current_design
             .strands
             .get(&s_id)
-            .expect(&format!("No strand {s_id}"));
+            .unwrap_or_else(|| panic!("No strand {s_id}"));
 
         assert_good_strand(strand, "[H1: 6 -> 10] [H1: 0 -> 5]");
     }
@@ -1730,11 +1747,11 @@ mod tests {
         let s_id_first = app_state
             .get_design_reader()
             .get_id_of_strand_containing_nucl(&first_nucl)
-            .expect(&format!("no strand containing {:?}", first_nucl));
+            .unwrap_or_else(|| panic!("no strand containing {:?}", first_nucl));
         let s_id_last = app_state
             .get_design_reader()
             .get_id_of_strand_containing_nucl(&last_nucl)
-            .expect(&format!("no strand containing {:?}", last_nucl));
+            .unwrap_or_else(|| panic!("no strand containing {:?}", last_nucl));
         app_state
             .apply_design_op(DesignOperation::Xover {
                 prime5_id: s_id_last,
@@ -1746,7 +1763,7 @@ mod tests {
         let s_id = app_state
             .get_design_reader()
             .get_id_of_strand_containing_nucl(&first_nucl)
-            .expect(&format!("no strand containing {:?}", first_nucl));
+            .unwrap_or_else(|| panic!("no strand containing {:?}", first_nucl));
         let strand = app_state
             .0
             .design
@@ -1754,7 +1771,7 @@ mod tests {
             .current_design
             .strands
             .get(&s_id)
-            .expect(&format!("No strand {s_id}"));
+            .unwrap_or_else(|| panic!("No strand {s_id}"));
 
         assert_good_strand(strand, "[H1: 6 -> 10] [H1: 0 -> 5]");
     }
@@ -1790,7 +1807,7 @@ mod tests {
         let s_id = app_state
             .get_design_reader()
             .get_id_of_strand_containing_nucl(&source_nucl)
-            .expect(&format!("no strand containing {:?}", source_nucl));
+            .unwrap_or_else(|| panic!("no strand containing {:?}", source_nucl));
         let strand = app_state
             .0
             .design
@@ -1798,8 +1815,8 @@ mod tests {
             .current_design
             .strands
             .get(&s_id)
-            .expect(&format!("No strand {s_id}"));
-        let mut strand = Strand::clone(&strand);
+            .unwrap_or_else(|| panic!("No strand {s_id}"));
+        let mut strand = Strand::clone(strand);
         strand.read_junctions(&mut xover_ids, true);
         strand.read_junctions(&mut xover_ids, false);
     }
@@ -1833,7 +1850,7 @@ mod tests {
         let s_id = app_state
             .get_design_reader()
             .get_id_of_strand_containing_nucl(&source_nucl)
-            .expect(&format!("no strand containing {:?}", source_nucl));
+            .unwrap_or_else(|| panic!("no strand containing {:?}", source_nucl));
         let strand = app_state
             .0
             .design
@@ -1841,7 +1858,7 @@ mod tests {
             .current_design
             .strands
             .get(&s_id)
-            .expect(&format!("No strand {s_id}"));
+            .unwrap_or_else(|| panic!("No strand {s_id}"));
 
         assert_good_strand(strand, "[H1: 0 -> 10] [@20] [H2: 0 <- 10]");
     }
@@ -1850,6 +1867,14 @@ mod tests {
 pub enum SimulationTarget {
     Grids,
     Helices,
-    Roll { target_helices: Option<Vec<usize>> },
-    Twist { grid_id: GridId },
+    Roll {
+        target_helices: Option<Vec<usize>>,
+    },
+    Twist {
+        grid_id: GridId,
+    },
+    Relaxation,
+    Revolution {
+        desc: RevolutionSurfaceSystemDescriptor,
+    },
 }

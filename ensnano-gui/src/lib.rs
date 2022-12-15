@@ -28,7 +28,10 @@ use ensnano_organizer::GroupId;
 pub use top_bar::TopBar;
 /// Draw the left pannel of the GUI
 pub mod left_panel;
-pub use left_panel::{ColorOverlay, LeftPanel, RigidBodyParametersRequest};
+pub use left_panel::{
+    ColorOverlay, CurveDescriptorBuilder, CurveDescriptorParameter, InstanciatedParameter,
+    LeftPanel, ParameterKind, RigidBodyParametersRequest,
+};
 pub mod status_bar;
 mod ui_size;
 pub use ui_size::*;
@@ -52,11 +55,14 @@ use ensnano_design::{
     grid::GridTypeDescr,
     ultraviolet, BezierPathId, BezierVertexId, Nucl, Parameters,
 };
-use ensnano_interactor::graphics::{FogParameters, HBoundDisplay};
 use ensnano_interactor::{
     graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
     CheckXoversParameter, InsertionPoint, Selection, SimulationState, SuggestionParameters,
     WidgetBasis,
+};
+use ensnano_interactor::{
+    graphics::{FogParameters, HBoundDisplay},
+    RevolutionSurfaceSystemDescriptor,
 };
 use ensnano_interactor::{operation::Operation, ScaffoldInfo};
 use ensnano_interactor::{ActionMode, HyperboloidRequest, RollRequest, SelectionMode};
@@ -215,6 +221,13 @@ pub trait Requests: 'static + Send {
     fn import_3d_object(&mut self);
     fn set_position_of_bezier_vertex(&mut self, vertex_id: BezierVertexId, position: Vec2);
     fn optimize_scaffold_shift(&mut self);
+    fn start_revolution_relaxation(&mut self, desc: RevolutionSurfaceSystemDescriptor);
+    fn finish_revolutiion_relaxation(&mut self);
+    fn load_svg(&mut self);
+    fn set_bezier_revolution_radius(&mut self, radius: Option<f64>);
+    fn set_bezier_revolution_id(&mut self, id: Option<usize>);
+    /// Make a 3D screenshot
+    fn request_screenshot_3d(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -904,6 +917,7 @@ mod slider_style {
 }
 
 use std::collections::VecDeque;
+
 /// Message sent to the gui component
 pub struct IcedMessages<S: AppState> {
     left_panel: VecDeque<left_panel::Message<S>>,
@@ -1005,6 +1019,7 @@ pub trait Multiplexer {
 pub trait AppState:
     Default + PartialEq + Clone + 'static + Send + std::fmt::Debug + std::fmt::Pointer
 {
+    const POSSIBLE_CURVES: &'static [CurveDescriptorBuilder<Self>];
     fn get_selection_mode(&self) -> SelectionMode;
     fn get_action_mode(&self) -> ActionMode;
     fn get_build_helix_mode(&self) -> ActionMode;
@@ -1061,6 +1076,7 @@ pub trait DesignReader: 'static {
     fn is_bezier_path_cyclic(&self, path_id: BezierPathId) -> Option<bool>;
     fn get_bezier_vertex_position(&self, vertex_id: BezierVertexId) -> Option<Vec2>;
     fn get_scaffold_sequence(&self) -> Option<&str>;
+    fn get_current_length_of_relaxed_shape(&self) -> Option<usize>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

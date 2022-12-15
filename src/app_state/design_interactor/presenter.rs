@@ -20,7 +20,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 pub use self::design_content::Staple;
 
 use super::*;
-use ensnano_design::{Extremity, HelixCollection, Nucl, VirtualNucl};
+use ensnano_design::{
+    BezierPathId, Extremity, HelixCollection, InstanciatedPiecewiseBezier, Nucl, VirtualNucl,
+};
 use ensnano_interactor::{
     application::Camera3D, NeighbourDescriptor, NeighbourDescriptorGiver, ScaffoldInfo, Selection,
     SuggestionParameters,
@@ -505,6 +507,14 @@ impl Presenter {
             Some(self.content.basis_map.as_ref()),
             export_path,
         )
+    }
+
+    pub fn get_bezier_path_2d(&self, path_id: BezierPathId) -> Option<InstanciatedPiecewiseBezier> {
+        use ensnano_design::Collection;
+        self.current_design
+            .bezier_paths
+            .get(&path_id)
+            .and_then(|path| path.to_instanciated_path_2d())
     }
 }
 
