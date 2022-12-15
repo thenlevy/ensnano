@@ -19,7 +19,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::{SimulationInterface, SimulationReader, SimulationUpdate};
 use std::f64::consts::TAU;
 use std::sync::{Arc, Mutex, Weak};
-use ultraviolet::{Rotor3, Vec3};
 
 use mathru::algebra::linear::vector::vector::Vector;
 use mathru::analysis::differential_equation::ordinary::{
@@ -28,8 +27,8 @@ use mathru::analysis::differential_equation::ordinary::{
 };
 
 use ensnano_design::{
-    CurveDescriptor, CurveDescriptor2D, DVec3, InterpolatedCurveDescriptor,
-    InterpolationDescriptor, Parameters as DNAParameters, Similarity3,
+    CurveDescriptor, CurveDescriptor2D, DVec3, InterpolationDescriptor,
+    Parameters as DNAParameters, Similarity3,
 };
 use ensnano_interactor::{
     EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceRadius,
@@ -63,6 +62,7 @@ trait SpringTopology: Send + Sync + 'static {
 
     fn surface_position(&self, revolution_angle: f64, theta: f64) -> DVec3;
     fn dpos_dtheta(&self, revolution_angle: f64, theta: f64) -> DVec3;
+    fn d2pos_dtheta2(&self, revolution_angle: f64, theta: f64) -> DVec3;
     fn revolution_angle_ball(&self, ball_id: usize) -> f64;
 
     fn theta_ball_init(&self) -> Vec<f64>;
@@ -344,6 +344,12 @@ impl RevolutionSurfaceSystem {
         self.topology.dpos_dtheta(revolution_angle, theta)
     }
 
+    fn d2pos_dtheta2(&self, section_idx: usize, thetas: &[f64]) -> DVec3 {
+        let revolution_angle = self.topology.revolution_angle_ball(section_idx);
+        let theta = thetas[section_idx];
+        self.topology.d2pos_dtheta2(revolution_angle, theta)
+    }
+
     fn apply_forces(&self, system: &mut RelaxationSystem) {
         let total_nb_segment = self.topology.nb_balls();
 
@@ -357,8 +363,11 @@ impl RevolutionSurfaceSystem {
 
         for section_idx in 0..total_nb_segment {
             let tengent = self.dpos_dtheta(section_idx, &system.thetas);
-            let acceleration_without_friction =
-                system.forces[section_idx].dot(tengent) / tengent.mag_sq();
+            let acceleration_without_friction = system.forces[section_idx].dot(tengent)
+                / tengent.mag_sq()
+                - system.d_thetas[section_idx].powi(2)
+                    * self.d2pos_dtheta2(section_idx, &system.thetas).dot(tengent)
+                    / tengent.mag_sq();
             system.second_derivative_thetas[section_idx] += (acceleration_without_friction
                 - self.simulation_parameters.fluid_friction * system.d_thetas[section_idx])
                 / self.simulation_parameters.ball_mass;

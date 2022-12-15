@@ -405,6 +405,22 @@ impl RootedRevolutionSurface {
             * self.scale
     }
 
+    pub fn d2pos_dtheta2(&self, revolution_angle: f64, section_parameter: f64) -> DVec3 {
+        use ensnano_design::PointOnSurface;
+        let surface_point = PointOnSurface {
+            revolution_angle,
+            section_parameter,
+            revolution_axis_position: self.surface.get_axis_position_when_scaled(self.scale),
+            section_half_turn_per_revolution: self.surface.half_turn_count,
+            curve_scale_factor: self.scale,
+        };
+
+        self.surface
+            .curve
+            .second_derivative_position_on_surface_wrp_section_parameter(&surface_point)
+            * self.scale
+    }
+
     pub fn axis(&self, revolution_angle: f64) -> DVec3 {
         DVec3 {
             x: -revolution_angle.sin(),
@@ -465,8 +481,8 @@ impl RootedRevolutionSurface {
 
     pub fn rescale_section(&mut self, scaling_factor: f64) {
         self.scale *= scaling_factor;
-        self.surface.revolution_radius = self.surface.revolution_radius.scaled(scaling_factor);
-        self.area_per_radius_unit *= scaling_factor;
+        self.surface.revolution_radius = self.surface.revolution_radius.scaled(1. / scaling_factor);
+        self.area_per_radius_unit *= scaling_factor.powi(2);
         self.area_radius_0 *= scaling_factor;
     }
 

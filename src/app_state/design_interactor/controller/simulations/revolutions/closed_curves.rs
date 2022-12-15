@@ -185,6 +185,10 @@ impl SpringTopology for CloseSurfaceTopology {
         self.target.dpos_dtheta(revolution_angle, section_t)
     }
 
+    fn d2pos_dtheta2(&self, revolution_angle: f64, section_t: f64) -> DVec3 {
+        self.target.d2pos_dtheta2(revolution_angle, section_t)
+    }
+
     fn rescale_radius(&mut self, objective_number_of_nts: usize, actual_number_of_nt: usize) {
         self.target
             .rescale_radius(objective_number_of_nts, actual_number_of_nt);

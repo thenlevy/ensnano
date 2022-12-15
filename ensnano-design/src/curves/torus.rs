@@ -321,6 +321,14 @@ impl CurveDescriptor2D {
         (self.point(right) - self.point(left)) / EPSILON_DERIVATIVE
     }
 
+    fn second_derivative(&self, t: f64) -> DVec2 {
+        //TODO better implementation for ellipse and bezier curve
+
+        let left = (t - EPSILON_DERIVATIVE).rem_euclid(1.);
+        let right = (t + EPSILON_DERIVATIVE).rem_euclid(1.);
+        (self.point(right) + self.point(left) - 2. * self.point(t)) / EPSILON_DERIVATIVE.powi(2)
+    }
+
     pub fn perimeter(&self) -> f64 {
         quadrature::integrate(|t| self.derivative(t).mag(), 0., 1., 1e-5).integral
     }
@@ -373,6 +381,15 @@ impl CurveDescriptor2D {
         point: &PointOnSurface,
     ) -> DVec3 {
         let point2d = self.derivative(point.section_parameter);
+        Self::_3d(point2d, &point.clone().into())
+    }
+
+    /// Return the derivative of the position on surface with respect to the section paramter
+    pub fn second_derivative_position_on_surface_wrp_section_parameter(
+        &self,
+        point: &PointOnSurface,
+    ) -> DVec3 {
+        let point2d = self.second_derivative(point.section_parameter);
         Self::_3d(point2d, &point.clone().into())
     }
 
