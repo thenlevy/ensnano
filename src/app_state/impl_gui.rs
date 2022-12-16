@@ -199,8 +199,10 @@ impl GuiState for AppState {
         let scaling_factor = (scaffold_len as f64 * area_one_nucl as f64 / area_surface).sqrt();
         let scaled_perimeter = scaling_factor * perimeter_surface;
 
+        // We use floor instead of round, because it works better to increase the revolution radius
+        // to gain more nucleotide rather than diminishing it.
         let half_number_helix =
-            (scaled_perimeter / 2. / Parameters::INTER_CENTER_GAP as f64).round() as usize;
+            (scaled_perimeter / 2. / Parameters::INTER_CENTER_GAP as f64).floor() as usize;
 
         Some(ensnano_gui::RevolutionScaling {
             nb_helix: half_number_helix * 2,
