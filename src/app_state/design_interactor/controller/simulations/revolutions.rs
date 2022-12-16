@@ -350,27 +350,47 @@ impl RevolutionSurfaceSystem {
         self.topology.d2pos_dtheta2(revolution_angle, theta)
     }
 
-    fn apply_forces(&self, system: &mut RelaxationSystem) {
-        let total_nb_segment = self.topology.nb_balls();
+    fn apply_friction(&self, system: &mut RelaxationSystem) {
+        // Friction force = -friction_strengh * d pos / dt
+        // d pos / dt = d theta / dt * d pos / d theta
 
+        for section_idx in 0..self.topology.nb_balls() {
+            let dpos_dt =
+                system.d_thetas[section_idx] * self.dpos_dtheta(section_idx, &system.thetas);
+            system.forces[section_idx] += -self.simulation_parameters.fluid_friction * dpos_dt;
+        }
+    }
+
+    fn apply_additional_forces(&self, system: &mut RelaxationSystem) {
         for (b_id, f) in self
             .topology
             .additional_forces(&system.thetas, &self.simulation_parameters)
         {
-            //println!("b_id {b_id}, force {:.3?}", f);
             system.forces[b_id] += f;
         }
+    }
+
+    fn compute_accelerations(&self, system: &mut RelaxationSystem) {
+        /* Newton's second law of motion:
+         * F/m = d2pos / d2 t
+         * F / m = (d2 theta / dt2) * (dpos / d theta)  + (d theta / dt) ^ 2 * (d2pos / d theta2)
+         *
+         * apply < • | dpos/ dt> to both sides
+         * (d2 theta / dt2) ||dpos / d theta||^2
+         *      = <F/m - (d theta / dt) ^ 2 * (d2pos / d theta2) | dpos / d theta>
+         */
+
+        let total_nb_segment = self.topology.nb_balls();
 
         for section_idx in 0..total_nb_segment {
             let tengent = self.dpos_dtheta(section_idx, &system.thetas);
-            let acceleration_without_friction = system.forces[section_idx].dot(tengent)
-                / tengent.mag_sq()
+            let acceleration = (system.forces[section_idx].dot(tengent)
+                / self.simulation_parameters.ball_mass
                 - system.d_thetas[section_idx].powi(2)
-                    * self.d2pos_dtheta2(section_idx, &system.thetas).dot(tengent)
-                    / tengent.mag_sq();
-            system.second_derivative_thetas[section_idx] += (acceleration_without_friction
-                - self.simulation_parameters.fluid_friction * system.d_thetas[section_idx])
-                / self.simulation_parameters.ball_mass;
+                    * self.d2pos_dtheta2(section_idx, &system.thetas).dot(tengent))
+                / tengent.mag_sq();
+
+            system.second_derivative_thetas[section_idx] += acceleration;
         }
 
         for idx in self.topology.fixed_points() {
@@ -451,7 +471,9 @@ impl ExplicitODE<f64> for RevolutionSurfaceSystem {
         let mut system = RelaxationSystem::from_mathru(x.clone(), total_nb_section);
         self.apply_springs(&mut system, None);
         self.apply_torsions(&mut system);
-        self.apply_forces(&mut system);
+        self.apply_friction(&mut system);
+        self.apply_additional_forces(&mut system);
+        self.compute_accelerations(&mut system);
         system.into_mathru()
     }
 
