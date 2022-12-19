@@ -246,7 +246,7 @@ impl UnrootedRevolutionSurfaceDescriptor {
         half_nb_helix: usize,
         nb_spirals: usize,
     ) -> Option<ShiftGenerator> {
-        if nb_spirals == 0 || half_nb_helix == 0 {
+        if nb_spirals == 0 || half_nb_helix == 0 || nb_spirals >= half_nb_helix {
             return None;
         }
 
@@ -344,7 +344,7 @@ impl ShiftGenerator {
 
                 So if `a = k / d` and `ℤ_a*` is the set of all numbers <= `a` that are coprime with `a`,
                 the set of total_shift that give the desired amount of spirals is
-                `Shifts_d = {n·a + p | n ∈ ℤ, p ∈ ℤ_a* }`
+                `Shifts_d = {(n·a + p) * d | n ∈ ℤ, p ∈ ℤ_a* }`
                 */
                 let nb_coprime = self.coprimes_with_a.len();
                 let p = {
@@ -354,7 +354,7 @@ impl ShiftGenerator {
                 let n = i.div_euclid(nb_coprime as isize);
                 let a = (self.nb_section / self.nb_spirals) as isize;
 
-                let total_shift = n * a + p;
+                let total_shift = (n * a + p) * nb_spirals as isize;
                 total_shift - self.additional_shift as isize
             })
     }
