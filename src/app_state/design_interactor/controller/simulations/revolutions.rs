@@ -16,6 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+const MAX_ACCEL: f64 = 100.;
+
 use super::{SimulationInterface, SimulationReader, SimulationUpdate};
 use std::f64::consts::TAU;
 use std::sync::{Arc, Mutex, Weak};
@@ -219,7 +221,7 @@ impl RevolutionSurfaceSystem {
             let mut system = RelaxationSystem::from_mathru(last_state, total_nb_section);
             self.apply_springs(&mut system, Some(&mut spring_relaxation_state));
             self.last_thetas = Some(system.thetas.clone());
-            self.last_dthetas = Some(system.d_thetas.clone());
+            self.last_dthetas = None;
         } else {
             log::error!("error while solving ODE");
         };
@@ -384,11 +386,15 @@ impl RevolutionSurfaceSystem {
 
         for section_idx in 0..total_nb_segment {
             let tengent = self.dpos_dtheta(section_idx, &system.thetas);
-            let acceleration = (system.forces[section_idx].dot(tengent)
+            let mut acceleration = (system.forces[section_idx].dot(tengent)
                 / self.simulation_parameters.ball_mass
                 - system.d_thetas[section_idx].powi(2)
                     * self.d2pos_dtheta2(section_idx, &system.thetas).dot(tengent))
                 / tengent.mag_sq();
+
+            if acceleration.abs() > MAX_ACCEL {
+                acceleration = acceleration.signum() * MAX_ACCEL;
+            }
 
             system.second_derivative_thetas[section_idx] += acceleration;
         }
