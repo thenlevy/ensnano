@@ -23,7 +23,7 @@ use crate::BasisMapper;
 
 use super::ultraviolet;
 use super::PathBuf;
-use crate::oxdna::OxDnaHelix;
+use crate::oxdna::{OxDnaHelix, OXDNA_LEN_FACTOR};
 use ahash::AHashMap;
 use ensnano_design::{Design, Domain, HelixCollection, Nucl};
 use std::borrow::Cow;
@@ -710,7 +710,11 @@ pub(super) fn pdb_export(
                     previous_position = Some(ox_nucl.position);
                     let symbol = basis_map.get_basis(&nucl, na_kind.compl_to_a());
                     let base = super::rand_base_from_symbol(symbol, na_kind.compl_to_a());
-                    pdb_strand.add_nucl(base, ox_nucl.position * 10., ox_nucl.get_basis())?;
+                    pdb_strand.add_nucl(
+                        base,
+                        ox_nucl.position * 10. / OXDNA_LEN_FACTOR,
+                        ox_nucl.get_basis(),
+                    )?;
                 }
             } else if let Domain::Insertion {
                 instanciation: Some(instanciation),
