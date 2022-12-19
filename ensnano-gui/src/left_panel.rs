@@ -223,6 +223,8 @@ pub enum Message<S: AppState> {
     CancelExport,
     LoadSvgFile,
     ScreenShot3D,
+    IncrRevolutionShift,
+    DecrRevolutionShift,
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -934,6 +936,8 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::ScreenShot3D => {
                 self.requests.lock().unwrap().request_screenshot_3d();
             }
+            Message::IncrRevolutionShift => self.revolution_tab.shift_idx += 1,
+            Message::DecrRevolutionShift => self.revolution_tab.shift_idx -= 1,
         };
         Command::none()
     }

@@ -20,7 +20,8 @@ use super::*;
 use ensnano_design::{ultraviolet::Rotor3, CurveDescriptor2D};
 use ensnano_interactor::{
     EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceRadius,
-    RevolutionSurfaceSystemDescriptor, RootingParameters, UnrootedRevolutionSurfaceDescriptor,
+    RevolutionSurfaceSystemDescriptor, RootingParameters, ShiftGenerator,
+    UnrootedRevolutionSurfaceDescriptor,
 };
 use iced_native::widget::{
     button::{self, Button},
@@ -48,7 +49,7 @@ pub enum RevolutionParameterId {
     SectionParameter(usize),
     HalfTurnCount,
     RevolutionRadius,
-    ShiftPerTurn,
+    NbSpiral,
     NbSectionPerSegment,
     ScaffoldLenTarget,
     SpringStiffness,
@@ -268,7 +269,11 @@ pub(crate) struct RevolutionTab<S: AppState> {
     half_turn_count: ParameterWidget,
     radius_input: ParameterWidget,
     scaling: Option<RevolutionScaling>,
-    shift_per_turn_state_input: ParameterWidget,
+    nb_sprial_state_input: ParameterWidget,
+    shift_generator: Option<ShiftGenerator>,
+    pub shift_idx: isize,
+    incr_shift: button::State,
+    decr_shift: button::State,
 
     scaffold_len_target: ParameterWidget,
 
@@ -298,7 +303,11 @@ impl<S: AppState> Default for RevolutionTab<S> {
             half_turn_count: ParameterWidget::new(InstanciatedParameter::Int(0)),
             radius_input: ParameterWidget::new(InstanciatedParameter::Float(0.)),
             scaling: None,
-            shift_per_turn_state_input: ParameterWidget::new(InstanciatedParameter::Int(0)),
+            nb_sprial_state_input: ParameterWidget::new(InstanciatedParameter::Uint(2)),
+            shift_generator: None,
+            shift_idx: 0,
+            incr_shift: Default::default(),
+            decr_shift: Default::default(),
             nb_section_per_segment_input: ParameterWidget::new(InstanciatedParameter::Uint(
                 init_parameter.nb_section_per_segment,
             )),
@@ -355,7 +364,7 @@ impl<S: AppState> RevolutionTab<S> {
                 let widget = match param {
                     SectionParameter(_) => unreachable!(),
                     HalfTurnCount => &mut self.half_turn_count,
-                    ShiftPerTurn => &mut self.shift_per_turn_state_input,
+                    NbSpiral => &mut self.nb_sprial_state_input,
                     RevolutionRadius => &mut self.radius_input,
                     ScaffoldLenTarget => &mut self.scaffold_len_target,
                     NbSectionPerSegment => &mut self.nb_section_per_segment_input,
@@ -406,6 +415,8 @@ impl<S: AppState> RevolutionTab<S> {
 
     pub fn view<'a>(&'a mut self, ui_size: UiSize, app_state: &S) -> Element<'a, Message<S>> {
         let desc = self.get_revolution_system(app_state, false);
+        let nb_shift = self.get_shift_per_turn(app_state);
+
         let mut ret = Scrollable::new(&mut self.scroll_state);
         section!(ret, ui_size, "Revolution Surfaces");
         ret = ret.push(Checkbox::new(
@@ -453,11 +464,29 @@ impl<S: AppState> RevolutionTab<S> {
         ret = ret.push(Text::new(helix_text));
 
         ret = ret.push(
-            Row::new().push(Text::new("Shift per turn")).push(
-                self.shift_per_turn_state_input
-                    .input_view(RevolutionParameterId::ShiftPerTurn),
+            Row::new().push(Text::new("Nb spiral")).push(
+                self.nb_sprial_state_input
+                    .input_view(RevolutionParameterId::NbSpiral),
             ),
         );
+        let shift_txt = if let Some(shift) = nb_shift {
+            format!("Nb shift: {shift}")
+        } else {
+            "Nb shift: ###".into()
+        };
+        let mut button_incr = Button::new(&mut self.incr_shift, Text::new("+"));
+        let mut button_decr = Button::new(&mut self.decr_shift, Text::new("-"));
+        if nb_shift.is_some() {
+            button_decr = button_decr.on_press(Message::DecrRevolutionShift);
+            button_incr = button_incr.on_press(Message::IncrRevolutionShift);
+        }
+        ret = ret.push(
+            Row::new()
+                .push(button_decr)
+                .push(button_incr)
+                .push(Text::new(shift_txt)),
+        );
+
         ret = ret.push(
             Row::new().push(Text::new("Revolution Radius")).push(
                 self.radius_input
@@ -564,7 +593,7 @@ impl<S: AppState> RevolutionTab<S> {
             || self.nb_section_per_segment_input.has_keyboard_priority()
             || self.half_turn_count.has_keyboard_priority()
             || self.scaffold_len_target.has_keyboard_priority()
-            || self.shift_per_turn_state_input.has_keyboard_priority()
+            || self.nb_sprial_state_input.has_keyboard_priority()
             || self.spring_stiffness.has_keyboard_priority()
             || self.torsion_stiffness.has_keyboard_priority()
             || self.fluid_friction.has_keyboard_priority()
@@ -583,10 +612,7 @@ impl<S: AppState> RevolutionTab<S> {
         let rooting_parameters = RootingParameters {
             dna_parameters: app_state.get_dna_parameters(),
             nb_helix_per_half_section: self.scaling.as_ref()?.nb_helix / 2,
-            shift_per_turn: self
-                .shift_per_turn_state_input
-                .get_value()
-                .and_then(InstanciatedParameter::get_int)?,
+            shift_per_turn: self.try_get_shift_per_turn(app_state)?,
             junction_smoothening: 0.,
         };
 
@@ -605,6 +631,35 @@ impl<S: AppState> RevolutionTab<S> {
         };
 
         Some(system)
+    }
+
+    /// Get the number of shift per turn, updating `self.shift_generator` if needed.
+    fn get_shift_per_turn(&mut self, app_state: &S) -> Option<isize> {
+        self.try_get_shift_per_turn(app_state).or_else(|| {
+            let unrooted_surface = self.get_current_unrooted_surface(app_state)?;
+            let nb_spiral = self
+                .nb_sprial_state_input
+                .get_value()
+                .and_then(InstanciatedParameter::get_uint)?;
+            let half_nb_helix = self.scaling.as_ref()?.nb_helix / 2;
+            self.shift_generator =
+                unrooted_surface.shifts_to_get_n_spirals(half_nb_helix, nb_spiral);
+            self.try_get_shift_per_turn(app_state)
+        })
+    }
+
+    /// Return the number of shift per turn if `self.shift_generator` if up-to-date, and `None`
+    /// otherwise.
+    fn try_get_shift_per_turn(&self, app_state: &S) -> Option<isize> {
+        let unrooted_surface = self.get_current_unrooted_surface(app_state)?;
+        let nb_spiral = self
+            .nb_sprial_state_input
+            .get_value()
+            .and_then(InstanciatedParameter::get_uint)?;
+        let half_nb_helix = self.scaling.as_ref()?.nb_helix / 2;
+        self.shift_generator
+            .as_ref()
+            .and_then(|g| g.ith_value(self.shift_idx, nb_spiral, &unrooted_surface, half_nb_helix))
     }
 
     fn get_simulation_parameters(&self) -> Option<RevolutionSimulationParameters> {
