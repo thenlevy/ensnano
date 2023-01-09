@@ -287,6 +287,9 @@ pub fn list_of_xover_as_nucl_pairs(
                     return None;
                 }
             }
+            // When selecting objects in the 2D view, one often selects strand extremities as well.
+            // We do no want this to interfere with the copying of crossovers
+            Selection::Nucleotide(_, _) => (),
             _ => return None,
         }
     }
