@@ -265,8 +265,8 @@ pub const DEFAULT_REVOLUTION_SIMULATION_PARAMETERS: RevolutionSimulationParamete
         torsion_stiffness: 30.0,
         fluid_friction: 1.0,
         ball_mass: 10.0,
-        time_span: 5.0,
-        simulation_step: 0.1,
+        time_span: 5.0e-2,
+        simulation_step: 1e-3,
         method: crate::EquadiffSolvingMethod::Ralston,
         rescaling: 1.,
     };
