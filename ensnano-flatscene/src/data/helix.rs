@@ -327,7 +327,7 @@ impl Helix {
         if click.y <= 0.
             || click.y >= 2.
             || click.x < self.leftmost_x()
-            || click.y > self.rightmost_x()
+            || click.x > self.rightmost_x()
         {
             None
         } else {
