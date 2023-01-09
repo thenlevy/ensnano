@@ -450,7 +450,10 @@ impl Curved for Revolution {
         }
     }
 
-    fn inverse_curvilinear_abscissa(&self, x: f64) -> Option<f64> {
+    fn inverse_curvilinear_abscissa(&self, mut x: f64) -> Option<f64> {
+        let n = x.div_euclid(self.curvilinear_abscissa(self.t_max())?);
+        x = x.rem_euclid(self.curvilinear_abscissa(self.t_max())?);
+
         for t in 0..self.curvilinear_abscissa.len() {
             if self
                 .curvilinear_abscissa(t as f64 + 1.)
@@ -460,12 +463,14 @@ impl Curved for Revolution {
                 return self
                     .inverse_curvilinear_abscissa
                     .get(t)
-                    .map(|p| p.evaluate(x));
+                    .map(|p| p.evaluate(x))
+                    .map(|r| n * self.t_max() + r);
             }
         }
         self.inverse_curvilinear_abscissa
             .last()
             .map(|p| p.evaluate(x))
+            .map(|r| n * self.t_max() + r)
     }
 
     fn surface_info_time(&self, t: f64, helix_id: usize) -> Option<SurfaceInfo> {
