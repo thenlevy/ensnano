@@ -17,7 +17,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 */
 use super::*;
 use crate::curves::Twist;
-use crate::{nb_turn_per_100_nt_to_omega, CurveDescriptor, Helix};
+use crate::{CurveDescriptor, Helix};
 use std::sync::Arc;
 
 use ultraviolet::{Isometry2, Rotor2, Rotor3, Vec2, Vec3};
@@ -88,7 +88,7 @@ impl GridDivision for Hyperboloid {
         GridType::Hyperboloid(self.clone())
     }
 
-    fn curve(&self, x: isize, _y: isize, info: CurveInfo) -> Option<Arc<CurveDescriptor>> {
+    fn curve(&self, _x: isize, _y: isize, _info: CurveInfo) -> Option<Arc<CurveDescriptor>> {
         /*
         if self.nb_turn_per_100_nt != 0.0 {
             if let Some(omega) =
@@ -200,6 +200,7 @@ impl Hyperboloid {
         self.sheet_radii(parameters).0
     }
 
+    #[allow(dead_code)] // TODO re-implement twisted structure
     fn curve(&self, n: usize, parameters: &Parameters, omega: f64) -> Twist {
         let radius = self.sheet_radii(parameters).1;
         let angle = std::f64::consts::TAU / self.radius as f64;

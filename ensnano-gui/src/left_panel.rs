@@ -15,9 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use ensnano_interactor::{
-    graphics::HBoundDisplay, EquadiffSolvingMethod, RevolutionSurfaceSystemDescriptor,
-};
+use ensnano_interactor::{graphics::HBoundDisplay, EquadiffSolvingMethod};
 use ensnano_organizer::{Organizer, OrganizerMessage, OrganizerTree};
 use std::sync::{Arc, Mutex};
 

@@ -465,7 +465,6 @@ impl Helix {
     }
 
     fn char_position_bottom(&self, x: FlatPosition) -> Vec2 {
-        let pos_shift = self.flat_id.segment_left.unwrap_or(0) as f32;
         self.isometry.into_homogeneous_matrix().transform_point2(
             self.x_conversion(x.0 as f32 + 0.5) * Vec2::unit_x() + 2. * Vec2::unit_y(),
         )

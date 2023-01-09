@@ -62,7 +62,6 @@ pub fn bezier_widget_id(helix_id: u32, control_point: BezierControlPoint) -> u32
 
 use crate::{BezierControlPoint, RevolutionSimulationParameters};
 pub fn widget_id_to_bezier(id: u32) -> Option<(usize, BezierControlPoint)> {
-    use std::convert::TryInto;
     let control = match id & 0xFF {
         n if n > BEZIER_END_WIDGET_ID => Some(BezierControlPoint::PiecewiseBezier(
             (n - 1 - BEZIER_END_WIDGET_ID) as usize,

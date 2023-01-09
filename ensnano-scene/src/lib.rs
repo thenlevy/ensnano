@@ -970,7 +970,7 @@ impl<S: AppState> Scene<S> {
     }
 
     fn export_png(&self) {
-        use chrono::{Timelike, Utc};
+        use chrono::Utc;
         let png_name = Utc::now()
             .format("export_3d_%Y_%m_%d_%H_%M_%S.png")
             .to_string();

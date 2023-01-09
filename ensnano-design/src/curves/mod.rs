@@ -312,10 +312,7 @@ impl Curve {
         ret
     }
 
-    fn compute_length<T: Curved + 'static + Sync + Send>(
-        geometry: T,
-        parameters: &Parameters,
-    ) -> f64 {
+    fn compute_length<T: Curved + 'static + Sync + Send>(geometry: T) -> f64 {
         if let Some((x0, x1)) = geometry
             .curvilinear_abscissa(geometry.t_min())
             .zip(geometry.curvilinear_abscissa(geometry.t_max()))
@@ -333,7 +330,7 @@ impl Curve {
         .integral
     }
 
-    fn path<T: Curved + 'static + Sync + Send>(geometry: T, parameters: &Parameters) -> Vec<DVec3> {
+    fn path<T: Curved + 'static + Sync + Send>(geometry: T) -> Vec<DVec3> {
         let nb_point = 10_000;
         (0..nb_point)
             .map(|n| {
@@ -1052,21 +1049,18 @@ impl InstanciatedCurveDescriptor_ {
 
     fn try_length(&self, parameters: &Parameters) -> Option<f64> {
         match self {
-            Self::Bezier(constructor) => Some(Curve::compute_length(
-                constructor.clone().into_bezier(),
-                parameters,
-            )),
+            Self::Bezier(constructor) => {
+                Some(Curve::compute_length(constructor.clone().into_bezier()))
+            }
             Self::SphereLikeSpiral(spiral) => Some(Curve::compute_length(
                 spiral.clone().with_parameters(parameters.clone()),
-                parameters,
             )),
             Self::TubeSpiral(spiral) => Some(Curve::compute_length(
                 spiral.clone().with_parameters(parameters.clone()),
-                parameters,
             )),
-            Self::Twist(twist) => Some(Curve::compute_length(twist.clone(), parameters)),
-            Self::Torus(torus) => Some(Curve::compute_length(torus.clone(), parameters)),
-            Self::SuperTwist(twist) => Some(Curve::compute_length(twist.clone(), parameters)),
+            Self::Twist(twist) => Some(Curve::compute_length(twist.clone())),
+            Self::Torus(torus) => Some(Curve::compute_length(torus.clone())),
+            Self::SuperTwist(twist) => Some(Curve::compute_length(twist.clone())),
             Self::TwistedTorus(_) => None,
             Self::PiecewiseBezier(_) => None,
             Self::TranslatedBezierPath {
@@ -1074,37 +1068,29 @@ impl InstanciatedCurveDescriptor_ {
                 translation,
                 initial_frame,
                 ..
-            } => Some(Curve::compute_length(
-                TranslatedPiecewiseBezier {
-                    original_curve: path_curve.clone(),
-                    translation: *translation,
-                    initial_frame: *initial_frame,
-                },
-                parameters,
-            )),
-            Self::InterpolatedCurve(desc) => Some(Curve::compute_length(
-                desc.clone().instanciate(true),
-                parameters,
-            )),
+            } => Some(Curve::compute_length(TranslatedPiecewiseBezier {
+                original_curve: path_curve.clone(),
+                translation: *translation,
+                initial_frame: *initial_frame,
+            })),
+            Self::InterpolatedCurve(desc) => {
+                Some(Curve::compute_length(desc.clone().instanciate(true)))
+            }
         }
     }
 
     fn try_path(&self, parameters: &Parameters) -> Option<Vec<DVec3>> {
         match self {
-            Self::Bezier(constructor) => {
-                Some(Curve::path(constructor.clone().into_bezier(), parameters))
-            }
+            Self::Bezier(constructor) => Some(Curve::path(constructor.clone().into_bezier())),
             Self::SphereLikeSpiral(spiral) => Some(Curve::path(
                 spiral.clone().with_parameters(parameters.clone()),
-                parameters,
             )),
             Self::TubeSpiral(spiral) => Some(Curve::path(
                 spiral.clone().with_parameters(parameters.clone()),
-                parameters,
             )),
-            Self::Twist(twist) => Some(Curve::path(twist.clone(), parameters)),
-            Self::Torus(torus) => Some(Curve::path(torus.clone(), parameters)),
-            Self::SuperTwist(twist) => Some(Curve::path(twist.clone(), parameters)),
+            Self::Twist(twist) => Some(Curve::path(twist.clone())),
+            Self::Torus(torus) => Some(Curve::path(torus.clone())),
+            Self::SuperTwist(twist) => Some(Curve::path(twist.clone())),
             Self::TwistedTorus(_) => None,
             Self::PiecewiseBezier(_) => None,
             Self::TranslatedBezierPath {
@@ -1112,17 +1098,12 @@ impl InstanciatedCurveDescriptor_ {
                 translation,
                 initial_frame,
                 ..
-            } => Some(Curve::path(
-                TranslatedPiecewiseBezier {
-                    original_curve: path_curve.clone(),
-                    translation: *translation,
-                    initial_frame: *initial_frame,
-                },
-                parameters,
-            )),
-            Self::InterpolatedCurve(desc) => {
-                Some(Curve::path(desc.clone().instanciate(false), parameters))
-            }
+            } => Some(Curve::path(TranslatedPiecewiseBezier {
+                original_curve: path_curve.clone(),
+                translation: *translation,
+                initial_frame: *initial_frame,
+            })),
+            Self::InterpolatedCurve(desc) => Some(Curve::path(desc.clone().instanciate(false))),
         }
     }
 

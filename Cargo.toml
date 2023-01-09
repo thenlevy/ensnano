@@ -59,6 +59,3 @@ jemallocator = "0.3.2"
 [features]
 log_after_renderer_setup = []
 dx12_only = []
-
-[patch.crates-io]
-wgpu_glyph = { git = "https://github.com/hecrj/wgpu_glyph", rev = "f9f9adb9f134edebecfc9d20de" }

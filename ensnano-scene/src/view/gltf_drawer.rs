@@ -84,8 +84,9 @@ impl Object3DDrawer {
         }
     }
 
+    #[allow(dead_code)]
     fn update_object(&mut self, _id: External3DObjectId, _object: External3DObject) {
-        //TODO update object attributes
+        todo!("update object's attributes")
     }
 
     fn add_object(

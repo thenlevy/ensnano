@@ -30,7 +30,6 @@ use hoverable_button::HoverableContainer;
 const LEVEL0_SPACING: u16 = 3;
 const LEVELS_SPACING: u16 = 2;
 const ICON_SIZE: u16 = 10;
-const SECTION_ID: usize = usize::MAX;
 
 #[derive(Clone, Debug)]
 pub enum OrganizerMessage<E: OrganizerElement> {
