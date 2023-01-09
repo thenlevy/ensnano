@@ -526,8 +526,8 @@ impl AppState {
         Self(AddressPointer::new(new_state))
     }
 
-    pub(super) fn is_pasting(&self) -> PastingStatus {
-        self.0.design.is_pasting()
+    pub(super) fn get_pasting_status(&self) -> PastingStatus {
+        self.0.design.get_pasting_status()
     }
 
     pub(super) fn can_iterate_duplication(&self) -> bool {

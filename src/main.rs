@@ -1332,7 +1332,7 @@ impl MainState {
 
     fn apply_paste(&mut self) {
         log::info!("apply paste");
-        match self.app_state.is_pasting() {
+        match self.app_state.get_pasting_status() {
             PastingStatus::Copy => self.apply_copy_operation(CopyOperation::Paste),
             PastingStatus::Duplication => self.apply_copy_operation(CopyOperation::Duplicate),
             _ => log::info!("Not pasting"),

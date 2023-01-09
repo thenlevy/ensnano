@@ -57,8 +57,8 @@ use ensnano_design::{
 };
 use ensnano_interactor::{
     graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
-    CheckXoversParameter, InsertionPoint, Selection, SimulationState, SuggestionParameters,
-    UnrootedRevolutionSurfaceDescriptor, WidgetBasis,
+    CheckXoversParameter, InsertionPoint, PastingStatus, Selection, SimulationState,
+    SuggestionParameters, UnrootedRevolutionSurfaceDescriptor, WidgetBasis,
 };
 use ensnano_interactor::{
     graphics::{FogParameters, HBoundDisplay},
@@ -1066,6 +1066,7 @@ pub trait AppState:
         scaffold_len: usize,
     ) -> Option<RevolutionScaling>;
     fn get_clipboard_content(&self) -> ClipboardContent;
+    fn get_pasting_status(&self) -> PastingStatus;
 }
 
 pub trait DesignReader: 'static {

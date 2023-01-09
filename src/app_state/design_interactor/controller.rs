@@ -30,6 +30,7 @@ use ensnano_design::{
     HelixCollection, Nucl, Strand, Strands, UpToDateDesign,
 };
 use ensnano_gui::ClipboardContent;
+pub use ensnano_interactor::PastingStatus;
 use ensnano_interactor::{
     operation::{Operation, TranslateBezierPathVertex},
     BezierControlPoint, HyperboloidOperation, NewBezierTengentVector, SimulationState,
@@ -435,7 +436,7 @@ impl Controller {
                 self.apply(|c, d| c.apply_duplication(d), up_to_date_design.design)
             }
             CopyOperation::Paste => {
-                println!("nb helices {}", up_to_date_design.design.helices.len());
+                log::info!("nb helices {}", up_to_date_design.design.helices.len());
                 self.make_undoable(
                     self.apply(|c, d| c.apply_paste(d), up_to_date_design.design),
                     "Paste".into(),
@@ -960,7 +961,7 @@ impl Controller {
         }
     }
 
-    pub fn is_pasting(&self) -> PastingStatus {
+    pub fn get_pasting_status(&self) -> PastingStatus {
         match self.state {
             ControllerState::PositioningStrandPastingPoint { .. } => PastingStatus::Copy,
             ControllerState::PositioningStrandDuplicationPoint { .. } => PastingStatus::Duplication,
@@ -3721,22 +3722,6 @@ pub(super) fn junction(prime5: &HelixInterval, prime3: &HelixInterval) -> Domain
         DomainJunction::Adjacent
     } else {
         DomainJunction::UnindentifiedXover
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PastingStatus {
-    Copy,
-    Duplication,
-    None,
-}
-
-impl PastingStatus {
-    pub fn is_pasting(&self) -> bool {
-        match self {
-            Self::Copy | Self::Duplication => true,
-            Self::None => false,
-        }
     }
 }
 

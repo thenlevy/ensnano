@@ -325,8 +325,8 @@ impl DesignInteractor {
         self.controller.get_strand_builders()
     }
 
-    pub(super) fn is_pasting(&self) -> PastingStatus {
-        self.controller.is_pasting()
+    pub(super) fn get_pasting_status(&self) -> PastingStatus {
+        self.controller.get_pasting_status()
     }
 
     pub(super) fn can_iterate_duplication(&self) -> bool {
@@ -1412,7 +1412,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::None)
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::None)
     }
 
     #[test]
@@ -1424,7 +1424,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::Copy)
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::Copy)
     }
 
     #[test]
@@ -1447,7 +1447,7 @@ mod tests {
             .apply_copy_operation(CopyOperation::Paste)
             .unwrap();
         app_state.update();
-        assert_eq!(app_state.is_pasting(), PastingStatus::None)
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::None)
     }
 
     #[test]
@@ -1456,7 +1456,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::InitStrandsDuplication(vec![0]))
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::Duplication)
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::Duplication)
     }
 
     #[test]
@@ -1583,7 +1583,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::Copy);
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::Copy);
     }
 
     #[test]
@@ -1633,7 +1633,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::InitXoverDuplication(vec![(n1, n2)]))
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::Duplication);
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::Duplication);
         app_state
             .apply_copy_operation(CopyOperation::PositionPastingPoint(
                 Some(Nucl {
@@ -1644,15 +1644,15 @@ mod tests {
                 .map(PastePosition::Nucl),
             ))
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::Duplication);
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::Duplication);
         app_state
             .apply_copy_operation(CopyOperation::Duplicate)
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::None);
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::None);
         app_state
             .apply_copy_operation(CopyOperation::Duplicate)
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::None);
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::None);
     }
 
     #[test]

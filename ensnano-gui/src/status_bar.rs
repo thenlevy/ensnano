@@ -226,6 +226,13 @@ impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
             "Clipboard: {}",
             self.app_state.get_clipboard_content().to_string()
         );
+        let pasting_text = match self.app_state.get_pasting_status() {
+            ensnano_interactor::PastingStatus::Copy => "Pasting",
+            ensnano_interactor::PastingStatus::None => "",
+            ensnano_interactor::PastingStatus::Duplication => "Duplicating",
+        }
+        .to_string();
+
         let size = self.logical_size.clone();
         let mut content = if self.progress.is_some() {
             self.operation = None;
@@ -253,9 +260,15 @@ impl<R: Requests, S: AppState> Program for StatusBar<R, S> {
             .push(Space::with_width(Length::Units(5)))
             .align_items(iced_winit::Alignment::End);
 
+        let pasting_status_row = Row::new()
+            .push(Space::with_width(Length::Fill))
+            .push(Text::new(pasting_text))
+            .push(Space::with_width(Length::Units(5)));
+
         let column = Column::new()
             .push(Space::new(Length::Fill, Length::Units(3)))
-            .push(content);
+            .push(content)
+            .push(pasting_status_row);
         Container::new(column)
             .style(StatusBarStyle)
             .width(Length::Units(size.width as u16))

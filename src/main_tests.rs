@@ -154,7 +154,7 @@ fn duplication_via_requests_correct_status() {
     main_state.update_selection(vec![Selection::Strand(0, 0)], None);
     main_state.request_duplication();
     assert_eq!(
-        main_state.app_state.is_pasting(),
+        main_state.app_state.get_pasting_status(),
         PastingStatus::Duplication
     );
     main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(Some(
@@ -165,9 +165,15 @@ fn duplication_via_requests_correct_status() {
         }),
     )));
     main_state.apply_paste();
-    assert_eq!(main_state.app_state.is_pasting(), PastingStatus::None);
+    assert_eq!(
+        main_state.app_state.get_pasting_status(),
+        PastingStatus::None
+    );
     main_state.request_duplication();
-    assert_eq!(main_state.app_state.is_pasting(), PastingStatus::None);
+    assert_eq!(
+        main_state.app_state.get_pasting_status(),
+        PastingStatus::None
+    );
 }
 
 #[test]
@@ -233,11 +239,14 @@ fn new_selection_empties_duplication_clipboard() {
     )));
     main_state.apply_paste();
     main_state.request_duplication();
-    assert_eq!(main_state.app_state.is_pasting(), PastingStatus::None);
+    assert_eq!(
+        main_state.app_state.get_pasting_status(),
+        PastingStatus::None
+    );
     main_state.update_selection(vec![Selection::Strand(0, 0), Selection::Strand(0, 1)], None);
     main_state.request_duplication();
     assert_eq!(
-        main_state.app_state.is_pasting(),
+        main_state.app_state.get_pasting_status(),
         PastingStatus::Duplication
     );
     main_state.update();
@@ -332,7 +341,7 @@ fn undo_redo_copy_paste_xover_pasting_status() {
     main_state.update_selection(vec![Selection::Xover(0, 0)], None);
     main_state.request_copy();
     main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(None));
-    assert!(main_state.app_state.is_pasting().is_pasting());
+    assert!(main_state.app_state.get_pasting_status().is_pasting());
     main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(Some(
         PastePosition::Nucl(Nucl {
             helix: 1,
@@ -340,16 +349,16 @@ fn undo_redo_copy_paste_xover_pasting_status() {
             forward: true,
         }),
     )));
-    assert!(main_state.app_state.is_pasting().is_pasting());
+    assert!(main_state.app_state.get_pasting_status().is_pasting());
     main_state.apply_copy_operation(CopyOperation::Paste);
     main_state.update();
-    assert!(!main_state.app_state.is_pasting().is_pasting());
+    assert!(!main_state.app_state.get_pasting_status().is_pasting());
     main_state.undo();
     main_state.update();
-    assert!(!main_state.app_state.is_pasting().is_pasting());
+    assert!(!main_state.app_state.get_pasting_status().is_pasting());
     main_state.redo();
     main_state.update();
-    assert!(!main_state.app_state.is_pasting().is_pasting());
+    assert!(!main_state.app_state.get_pasting_status().is_pasting());
 }
 
 #[test]
@@ -359,7 +368,7 @@ fn duplicate_xover_pasting_status() {
     main_state.clear_app_state(app_state);
     main_state.update_selection(vec![Selection::Xover(0, 0)], None);
     main_state.request_duplication();
-    assert!(main_state.app_state.is_pasting().is_pasting());
+    assert!(main_state.app_state.get_pasting_status().is_pasting());
     main_state.apply_copy_operation(CopyOperation::PositionPastingPoint(Some(
         PastePosition::Nucl(Nucl {
             helix: 1,
@@ -369,10 +378,10 @@ fn duplicate_xover_pasting_status() {
     )));
     main_state.apply_paste();
     main_state.update();
-    assert!(!main_state.app_state.is_pasting().is_pasting());
+    assert!(!main_state.app_state.get_pasting_status().is_pasting());
     main_state.request_duplication();
     main_state.update();
-    assert!(!main_state.app_state.is_pasting().is_pasting());
+    assert!(!main_state.app_state.get_pasting_status().is_pasting());
 }
 
 #[test]

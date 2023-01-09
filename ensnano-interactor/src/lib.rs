@@ -543,6 +543,22 @@ pub struct StrandBuildingStatus {
     pub dragged_nucl: Nucl,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PastingStatus {
+    Copy,
+    Duplication,
+    None,
+}
+
+impl PastingStatus {
+    pub fn is_pasting(&self) -> bool {
+        match self {
+            Self::Copy | Self::Duplication => true,
+            Self::None => false,
+        }
+    }
+}
+
 /// Parameters of strand suggestions
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct SuggestionParameters {

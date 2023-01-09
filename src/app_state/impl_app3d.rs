@@ -84,7 +84,7 @@ impl App3D for AppState {
     }
 
     fn is_pasting(&self) -> bool {
-        self.is_pasting().is_pasting()
+        self.get_pasting_status().is_pasting()
     }
 
     fn get_selected_element(&self) -> Option<CenterOfSelection> {

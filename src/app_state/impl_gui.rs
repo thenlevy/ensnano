@@ -214,6 +214,10 @@ impl GuiState for AppState {
     fn get_clipboard_content(&self) -> ClipboardContent {
         self.0.design.get_clipboard_content()
     }
+
+    fn get_pasting_status(&self) -> PastingStatus {
+        self.get_pasting_status()
+    }
 }
 
 #[cfg(test)]
