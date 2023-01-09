@@ -29,7 +29,7 @@ use mathru::analysis::differential_equation::ordinary::{
 };
 
 use ensnano_design::{
-    CurveDescriptor, CurveDescriptor2D, DVec3, InterpolationDescriptor,
+    CurveDescriptor, CurveDescriptor2D, DVec3, InterpolationDescriptor, Isometry3,
     Parameters as DNAParameters, Similarity3,
 };
 use ensnano_interactor::{
@@ -528,7 +528,19 @@ impl RevolutionSystemThread {
                     || current_len == self.system.scaffold_len_target
                 {
                     if let Some(descs) = self.system.to_curve_desc(true) {
-                        interface_ptr.lock().unwrap().curve_descriptor.set(descs);
+                        let Similarity3 {
+                            translation,
+                            rotation,
+                            ..
+                        } = self.system.topology.get_frame();
+                        let routing = HelicesRouting {
+                            curves: descs,
+                            frame: Isometry3 {
+                                translation,
+                                rotation,
+                            },
+                        };
+                        interface_ptr.lock().unwrap().helices_routing.set(routing);
                     }
                     break;
                 } else {
@@ -603,8 +615,8 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
 
 impl SimulationInterface for RevolutionSystemInterface {
     fn get_simulation_state(&mut self) -> Option<Box<dyn SimulationUpdate>> {
-        if let Some(descs) = self.curve_descriptor.take() {
-            Some(Box::new(descs))
+        if let Some(routing) = self.helices_routing.take() {
+            Some(Box::new(routing))
         } else {
             let s = self.new_state.take()?;
             Some(Box::new(s))
@@ -612,22 +624,33 @@ impl SimulationInterface for RevolutionSystemInterface {
     }
 
     fn still_valid(&self) -> bool {
-        !matches!(self.curve_descriptor, OptionOnce::Taken)
+        !matches!(self.helices_routing, OptionOnce::Taken)
     }
 }
 
-impl SimulationUpdate for Vec<CurveDescriptor> {
+struct HelicesRouting {
+    curves: Vec<CurveDescriptor>,
+    frame: Isometry3,
+}
+
+impl SimulationUpdate for HelicesRouting {
     fn update_design(&self, design: &mut ensnano_design::Design) {
         use ensnano_design::{Domain, DomainJunction, Helix, HelixInterval, Rotor2, Strand, Vec2};
         let parameters = design.parameters.unwrap_or_default();
         let mut helices = design.helices.make_mut();
         let mut strand_to_be_added = Vec::new();
-        for (c_id, c) in self.iter().enumerate() {
+        let Isometry3 {
+            translation,
+            rotation,
+        } = &self.frame;
+        for (c_id, c) in self.curves.iter().enumerate() {
             let mut helix = Helix::new_with_curve(c.clone());
             helix.isometry2d = Some(ensnano_design::Isometry2 {
                 translation: 5. * c_id as f32 * Vec2::unit_y(),
                 rotation: Rotor2::identity(),
             });
+            helix.position = *translation;
+            helix.orientation = *rotation;
             let h_id = helices.push_helix(helix);
             let len = if let CurveDescriptor::InterpolatedCurve(desc) = c {
                 desc.objective_number_of_nts.map(|x| x as isize)
@@ -684,13 +707,13 @@ impl SimulationUpdate for Vec<CurveDescriptor> {
 #[derive(Default)]
 pub struct RevolutionSystemInterface {
     new_state: Option<RevolutionSurfaceSystem>,
-    curve_descriptor: OptionOnce<Vec<CurveDescriptor>>,
+    helices_routing: OptionOnce<HelicesRouting>,
     finished: bool,
 }
 
 impl RevolutionSystemInterface {
     pub fn kill(&mut self) {
-        self.curve_descriptor = OptionOnce::Taken;
+        self.helices_routing = OptionOnce::Taken;
     }
 
     pub fn finish(&mut self) {

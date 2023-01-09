@@ -311,11 +311,13 @@ impl<R: DesignReader> Data<R> {
             }
         }
         for h in self.helices.iter() {
-            let ret = h.get_click(x, y, bounded).map(|(position, forward)| FlatNucl {
-                helix: h.flat_id,
-                flat_position: position,
-                forward,
-            });
+            let ret = h
+                .get_click(x, y, bounded)
+                .map(|(position, forward)| FlatNucl {
+                    helix: h.flat_id,
+                    flat_position: position,
+                    forward,
+                });
             if let Some(ret) = ret {
                 return ClickResult::Nucl(ret);
             }
