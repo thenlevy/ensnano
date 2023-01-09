@@ -161,11 +161,18 @@ impl<S: AppState> ControllerState<S> for NormalState {
                     .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let click_result =
+                let click_result = if app_state.is_pasting() {
+                    controller.data.borrow().get_click_unbounded(
+                        x,
+                        y,
+                        &controller.get_camera(position.y),
+                    )
+                } else {
                     controller
                         .data
                         .borrow()
-                        .get_click(x, y, &controller.get_camera(position.y));
+                        .get_click(x, y, &controller.get_camera(position.y))
+                };
                 match click_result {
                     ClickResult::CircleWidget { .. } | ClickResult::Nothing
                         if app_state.is_pasting() =>
@@ -379,11 +386,18 @@ impl<S: AppState> ControllerState<S> for NormalState {
                     .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let click_result =
+                let click_result = if app_state.is_pasting() {
+                    controller.data.borrow().get_click_unbounded(
+                        x,
+                        y,
+                        &controller.get_camera(position.y),
+                    )
+                } else {
                     controller
                         .data
                         .borrow()
-                        .get_click(x, y, &controller.get_camera(position.y));
+                        .get_click(x, y, &controller.get_camera(position.y))
+                };
                 let candidate_helix =
                     if let ClickResult::CircleWidget { translation_pivot } = click_result {
                         Some(translation_pivot.helix)
@@ -926,11 +940,18 @@ impl<S: AppState> ControllerState<S> for ReleasedPivot {
                     .get_camera(position.y)
                     .borrow()
                     .screen_to_world(self.mouse_position.x as f32, self.mouse_position.y as f32);
-                let click_result =
+                let click_result = if app_state.is_pasting() {
+                    controller.data.borrow().get_click_unbounded(
+                        x,
+                        y,
+                        &controller.get_camera(position.y),
+                    )
+                } else {
                     controller
                         .data
                         .borrow()
-                        .get_click(x, y, &controller.get_camera(position.y));
+                        .get_click(x, y, &controller.get_camera(position.y))
+                };
                 let candidate_helix =
                     if let ClickResult::CircleWidget { translation_pivot } = click_result {
                         Some(translation_pivot.helix)
