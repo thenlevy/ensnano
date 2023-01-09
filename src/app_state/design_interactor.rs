@@ -94,10 +94,11 @@ impl DesignInteractor {
         &mut self,
         operation: CopyOperation,
     ) -> Result<InteractorResult, ErrOperation> {
-        println!("nb helices {}", self.design.helices.len());
+        log::info!("Applying copy operation");
+        log::info!("nb helices {}", self.design.helices.len());
         let tried_up_to_date = self.design.try_get_up_to_date();
         if let Some(up_to_date) = tried_up_to_date {
-            println!("up to date helices {}", up_to_date.design.helices.len());
+            log::info!("up to date helices {}", up_to_date.design.helices.len());
             let result = self.controller.apply_copy_operation(up_to_date, operation);
             self.handle_operation_result(result)
         } else {
@@ -1888,6 +1889,7 @@ mod tests {
     }
 }
 
+#[allow(clippy::large_enum_variant)] // We don't create many instances of this type
 pub enum SimulationTarget {
     Grids,
     Helices,
