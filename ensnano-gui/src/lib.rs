@@ -37,7 +37,7 @@ mod ui_size;
 pub use ui_size::*;
 mod material_icons_light;
 pub use ensnano_design::{grid::GridId, Camera, CameraId};
-pub use status_bar::{CurentOpState, StrandBuildingStatus};
+pub use status_bar::{ClipboardContent, CurentOpState, StrandBuildingStatus};
 mod consts;
 pub use iced;
 pub use iced_graphics;
@@ -304,7 +304,9 @@ impl<R: Requests, S: AppState> GuiState<R, S> {
                     area.position.to_logical(window.scale_factor()),
                 ))
             }
-            GuiState::StatusBar(_) => {}
+            GuiState::StatusBar(ref mut state) => state.queue_message(status_bar::Message::Resize(
+                area.size.to_logical(window.scale_factor()),
+            )),
         }
     }
 
@@ -464,14 +466,19 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
 
     fn status_bar(
         mut renderer: Renderer,
-        _window: &Window,
+        window: &Window,
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
         state: &S,
         ui_size: UiSize,
     ) -> Self {
         let status_bar_area = multiplexer.get_draw_area(ElementType::StatusBar).unwrap();
-        let status_bar = StatusBar::new(requests, state, ui_size);
+        let status_bar = StatusBar::new(
+            requests,
+            state,
+            status_bar_area.size.to_logical(window.scale_factor()),
+            ui_size,
+        );
         let mut status_bar_debug = Debug::new();
         let status_bar_state = program::State::new(
             status_bar,
@@ -1058,6 +1065,7 @@ pub trait AppState:
         &self,
         scaffold_len: usize,
     ) -> Option<RevolutionScaling>;
+    fn get_clipboard_content(&self) -> ClipboardContent;
 }
 
 pub trait DesignReader: 'static {

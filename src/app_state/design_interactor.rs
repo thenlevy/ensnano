@@ -359,6 +359,10 @@ impl DesignInteractor {
     pub fn get_next_selection(&mut self) -> Option<Vec<Selection>> {
         self.new_selection.take()
     }
+
+    pub fn get_clipboard_content(&self) -> ensnano_gui::ClipboardContent {
+        self.controller.get_clipboard_content()
+    }
 }
 
 /// An opperation has been successfully applied to the design, resulting in a new modifed

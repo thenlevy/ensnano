@@ -29,6 +29,7 @@ use ensnano_design::{
     CameraId, Collection, CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix,
     HelixCollection, Nucl, Strand, Strands, UpToDateDesign,
 };
+use ensnano_gui::ClipboardContent;
 use ensnano_interactor::{
     operation::{Operation, TranslateBezierPathVertex},
     BezierControlPoint, HyperboloidOperation, NewBezierTengentVector, SimulationState,
@@ -948,9 +949,15 @@ impl Controller {
         );
     }
 
-    #[allow(dead_code)]
-    pub fn size_of_clipboard(&self) -> usize {
-        self.clipboard.size()
+    pub fn get_clipboard_content(&self) -> ClipboardContent {
+        let n = self.clipboard.size();
+        match self.clipboard.as_ref() {
+            Clipboard::Empty => ClipboardContent::Empty,
+            Clipboard::Grids(_) => ClipboardContent::Grids(n),
+            Clipboard::Strands(_) => ClipboardContent::Strands(n),
+            Clipboard::Helices(_) => ClipboardContent::Helices(n),
+            Clipboard::Xovers(_) => ClipboardContent::Xovers(n),
+        }
     }
 
     pub fn is_pasting(&self) -> PastingStatus {

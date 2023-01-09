@@ -19,6 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 use crate::gui::AppState as GuiState;
 use ensnano_design::{elements::DnaElementKey, Parameters};
+use ensnano_gui::ClipboardContent;
 use ensnano_interactor::{ScaffoldInfo, SelectionConversion, SimulationState};
 
 mod curve_builders;
@@ -208,6 +209,10 @@ impl GuiState for AppState {
             nb_helix: half_number_helix * 2,
             scale: scaling_factor,
         })
+    }
+
+    fn get_clipboard_content(&self) -> ClipboardContent {
+        self.0.design.get_clipboard_content()
     }
 }
 
