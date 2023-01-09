@@ -121,10 +121,10 @@ impl<S: AppState> FlatScene<S> {
         let camera_bottom = Rc::new(RefCell::new(Camera::new(globals_bottom, true)));
         camera_top
             .borrow_mut()
-            .init_fit(FitRectangle::INITIAL_RECTANGLE);
+            .fit_top_left(FitRectangle::INITIAL_RECTANGLE);
         camera_bottom
             .borrow_mut()
-            .init_fit(FitRectangle::INITIAL_RECTANGLE);
+            .fit_top_left(FitRectangle::INITIAL_RECTANGLE);
         let view = Rc::new(RefCell::new(View::new(
             self.device.clone(),
             self.queue.clone(),
@@ -463,7 +463,7 @@ impl<S: AppState> FlatScene<S> {
                 }]),
             Consequence::PngExport(corner1, corner2) => {
                 let glob_png = Globals::from_selection_rectangle(corner1, corner2);
-                use chrono::{Timelike, Utc};
+                use chrono::Utc;
                 let now = Utc::now();
                 let name = now.format("export_2d_%Y_%m_%d_%H_%M_%S.png").to_string();
                 self.export_png(&name, glob_png);
