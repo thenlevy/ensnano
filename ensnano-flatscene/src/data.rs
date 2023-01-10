@@ -70,6 +70,18 @@ impl<R: DesignReader> Data<R> {
         }
     }
 
+    pub fn clear_design(&mut self) {
+        self.design.clear();
+        self.helices = HelixVec::new();
+        self.view.borrow_mut().reset();
+        self.instance_update = true;
+        self.instance_reset = false;
+        self.selected_helix = None;
+        self.nb_helices_created = 0;
+        self.suggestions = Default::default();
+        self.last_click = Default::default();
+    }
+
     pub fn perform_update<S: AppState<Reader = R>>(&mut self, new_state: &S, old_state: &S) {
         if self.instance_reset {
             self.view.borrow_mut().reset();
