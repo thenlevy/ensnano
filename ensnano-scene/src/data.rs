@@ -132,6 +132,7 @@ impl<R: DesignReader> Data<R> {
         self.pivot_element = None;
         self.pivot_position = None;
         self.pivot_update = true;
+        self.view.borrow_mut().clear_design();
     }
 }
 

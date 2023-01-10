@@ -1024,6 +1024,10 @@ impl View {
             .get_pivot_position()
             .or_else(|| self.rotation_widget.get_pivot_position())
     }
+
+    pub fn clear_design(&mut self) {
+        self.external_objects_drawer.clear();
+    }
 }
 
 /// An notification to be given to the view

@@ -133,6 +133,12 @@ impl Object3DDrawer {
             true
         }
     }
+
+    pub fn clear(&mut self) {
+        self.gltf_drawers = Default::default();
+        self.stl_drawers = Default::default();
+        self.desired_revolution_shape_drawer = None;
+    }
 }
 
 trait MeshGenerator {

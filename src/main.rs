@@ -1637,6 +1637,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn new_design(&mut self) {
+        self.notify_apps(Notification::ClearDesigns);
         self.main_state.new_design()
     }
 
@@ -1648,6 +1649,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError> {
         let state = AppState::import_design(path)?;
+        self.notify_apps(Notification::ClearDesigns);
         self.main_state.clear_app_state(state);
         if let Some((position, orientation)) = self
             .main_state
