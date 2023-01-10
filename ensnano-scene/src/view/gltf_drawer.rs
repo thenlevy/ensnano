@@ -159,7 +159,7 @@ impl MeshGenerator for UnrootedRevolutionSurfaceDescriptor {
                 let s_high = strip_idx as f64 / NB_STRIP as f64;
                 let s_low = s_high + STRIP_WIDTH / NB_STRIP as f64;
 
-                let vertices: Vec<ModelVertex> = (0..=NB_SECTION_PER_STRIP)
+                let vertices: Vec<ModelVertex> = (0..=(NB_SECTION_PER_STRIP + 1))
                     .flat_map(|section_idx| {
                         [s_high, s_low].into_iter().map(move |s| {
                             use std::f64::consts::TAU;
@@ -197,7 +197,7 @@ impl MeshGenerator for UnrootedRevolutionSurfaceDescriptor {
                     .collect();
                 GltfMesh {
                     vertices,
-                    indices: (0u32..(2 * NB_SECTION_PER_STRIP as u32)).collect(),
+                    indices: (0u32..=(2 * (NB_SECTION_PER_STRIP + 1) as u32)).collect(),
                 }
             })
             .collect()
