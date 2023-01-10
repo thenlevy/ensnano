@@ -101,7 +101,11 @@ impl Controller {
     ) -> Result<(OkOperation, Self), ErrOperation> {
         log::debug!("operation {:?}", operation);
         match self.check_compatibilty(&operation) {
-            OperationCompatibility::Incompatible => return Err(ErrOperation::IncompatibleState),
+            OperationCompatibility::Incompatible => {
+                return Err(ErrOperation::IncompatibleState(
+                    self.state.state_name().into(),
+                ))
+            }
             OperationCompatibility::FinishFirst => return Err(ErrOperation::FinishFirst),
             OperationCompatibility::Compatible => (),
         }
@@ -483,7 +487,9 @@ impl Controller {
         match operation {
             SimulationOperation::RevolutionRelaxation { system, reader } => {
                 if self.is_in_persistant_state().is_transitory() {
-                    return Err(ErrOperation::IncompatibleState);
+                    return Err(ErrOperation::IncompatibleState(
+                        "Cannot launch simulation while editing".into(),
+                    ));
                 }
                 println!("system {:#?}", system);
                 let interface = RevolutionSystemThread::start_new(system, reader)?;
@@ -498,7 +504,9 @@ impl Controller {
                 reader,
             } => {
                 if self.is_in_persistant_state().is_transitory() {
-                    return Err(ErrOperation::IncompatibleState);
+                    return Err(ErrOperation::IncompatibleState(
+                        "Cannot launch simulation while editing".into(),
+                    ));
                 }
                 let interface = HelixSystemThread::start_new(presenter, parameters, reader)?;
                 ret.state = ControllerState::Simulating {
@@ -512,7 +520,9 @@ impl Controller {
                 reader,
             } => {
                 if self.is_in_persistant_state().is_transitory() {
-                    return Err(ErrOperation::IncompatibleState);
+                    return Err(ErrOperation::IncompatibleState(
+                        "Cannot launch simulation while editing".into(),
+                    ));
                 }
                 let interface = GridsSystemThread::start_new(presenter, parameters, reader)?;
                 ret.state = ControllerState::SimulatingGrids {
@@ -526,7 +536,9 @@ impl Controller {
                 reader,
             } => {
                 if self.is_in_persistant_state().is_transitory() {
-                    return Err(ErrOperation::IncompatibleState);
+                    return Err(ErrOperation::IncompatibleState(
+                        "Cannot launch simulation while editing".into(),
+                    ));
                 }
                 let interface = PhysicalSystem::start_new(presenter, target_helices, reader);
                 ret.state = ControllerState::Rolling {
@@ -540,7 +552,9 @@ impl Controller {
                 reader,
             } => {
                 if self.is_in_persistant_state().is_transitory() {
-                    return Err(ErrOperation::IncompatibleState);
+                    return Err(ErrOperation::IncompatibleState(
+                        "Cannot launch simulation while editing".into(),
+                    ));
                 }
                 let interface = simulations::Twister::start_new(presenter, grid_id, reader)
                     .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
@@ -556,14 +570,18 @@ impl Controller {
                 } else if let ControllerState::SimulatingGrids { interface, .. } = &ret.state {
                     interface.lock().unwrap().parameters_update = Some(new_parameters)
                 } else {
-                    return Err(ErrOperation::IncompatibleState);
+                    return Err(ErrOperation::IncompatibleState(
+                        "No simulation running".into(),
+                    ));
                 }
             }
             SimulationOperation::Shake(target) => {
                 if let ControllerState::Simulating { interface, .. } = &ret.state {
                     interface.lock().unwrap().nucl_shake = Some(target);
                 } else {
-                    return Err(ErrOperation::IncompatibleState);
+                    return Err(ErrOperation::IncompatibleState(
+                        "No simulation running".into(),
+                    ));
                 }
             }
             SimulationOperation::Stop => {
@@ -879,7 +897,9 @@ impl Controller {
                     self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation)?;
                     Ok(design)
                 } else {
-                    Err(ErrOperation::IncompatibleState)
+                    Err(ErrOperation::IncompatibleState(
+                        "Not making hyperboloid".into(),
+                    ))
                 }
             }
             HyperboloidOperation::Cancel => {
@@ -888,7 +908,9 @@ impl Controller {
                     self.state = ControllerState::Normal;
                     Ok(design)
                 } else {
-                    Err(ErrOperation::IncompatibleState)
+                    Err(ErrOperation::IncompatibleState(
+                        "Not making hyperboloid".into(),
+                    ))
                 }
             }
             HyperboloidOperation::Finalize => {
@@ -896,7 +918,9 @@ impl Controller {
                     self.state = ControllerState::Normal;
                     Ok(design)
                 } else {
-                    Err(ErrOperation::IncompatibleState)
+                    Err(ErrOperation::IncompatibleState(
+                        "Not making hyperboloid".into(),
+                    ))
                 }
             }
         }
@@ -928,7 +952,9 @@ impl Controller {
         if let OperationCompatibility::Incompatible =
             self.check_compatibilty(&DesignOperation::SetScaffoldShift(0))
         {
-            return Err(ErrOperation::IncompatibleState);
+            return Err(ErrOperation::IncompatibleState(
+                self.state.state_name().to_string(),
+            ));
         }
         Ok(self.ok_no_op(
             |c, d| c.start_shift_optimization(d, chanel_reader, nucl_collection),
@@ -1005,6 +1031,9 @@ impl Controller {
                 OperationCompatibility::Compatible
             }
             ControllerState::WithPendingHelicesDuplication { .. } => {
+                OperationCompatibility::Compatible
+            }
+            ControllerState::WithPendingXoverDuplication { .. } => {
                 OperationCompatibility::Compatible
             }
             ControllerState::ChangingColor => {
@@ -1887,7 +1916,7 @@ pub enum ErrOperation {
     /// The operation cannot be applied on the current selection
     BadSelection,
     /// The controller is in a state incompatible with applying the operation
-    IncompatibleState,
+    IncompatibleState(String),
     CannotBuildOn(Nucl),
     CutInexistingStrand,
     GridDoesNotExist(GridId),
@@ -2333,7 +2362,9 @@ impl Controller {
             *initializing = false;
             Ok(design)
         } else {
-            Err(ErrOperation::IncompatibleState)
+            Err(ErrOperation::IncompatibleState(
+                "Not building strand".into(),
+            ))
         }
     }
 
@@ -3568,7 +3599,9 @@ impl ControllerState {
                 };
                 Ok(())
             }
-            _ => Err(ErrOperation::IncompatibleState),
+            _ => Err(ErrOperation::IncompatibleState(
+                self.state_name().to_string(),
+            )),
         }
     }
 
@@ -3603,7 +3636,9 @@ impl ControllerState {
                 };
                 Ok(())
             }
-            _ => Err(ErrOperation::IncompatibleState),
+            _ => Err(ErrOperation::IncompatibleState(
+                self.state_name().to_string(),
+            )),
         }
     }
 
@@ -3637,7 +3672,9 @@ impl ControllerState {
                 };
                 Ok(())
             }
-            _ => Err(ErrOperation::IncompatibleState),
+            _ => Err(ErrOperation::IncompatibleState(
+                self.state_name().to_string(),
+            )),
         }
     }
 

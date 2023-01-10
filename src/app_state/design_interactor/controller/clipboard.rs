@@ -544,7 +544,10 @@ impl Controller {
             | ControllerState::PositioningHelicesDuplicationPoint { .. } => {
                 self.apply_paste_helices(design)
             }
-            _ => Err(ErrOperation::IncompatibleState),
+            _ => Err(ErrOperation::IncompatibleState(format!(
+                "Duplication impossible in state {}",
+                self.state.state_name()
+            ))),
         }
     }
 
@@ -566,7 +569,10 @@ impl Controller {
             ControllerState::PositioningStrandDuplicationPoint { pasted_strands, .. } => {
                 Ok(pasted_strands)
             }
-            _ => Err(ErrOperation::IncompatibleState),
+            _ => Err(ErrOperation::IncompatibleState(format!(
+                "Pasting strand impossible in state {}",
+                self.state.state_name()
+            ))),
         }?;
         Self::add_pasted_strands_to_design(&mut self.color_idx, &mut design, pasted_strands)?;
         self.state = ControllerState::Normal;
@@ -773,7 +779,10 @@ impl Controller {
                 }
                 Ok(design)
             }
-            _ => Err(ErrOperation::IncompatibleState),
+            _ => Err(ErrOperation::IncompatibleState(format!(
+                "Pasting helices impossible in state {}",
+                self.state.state_name()
+            ))),
         }
     }
 
