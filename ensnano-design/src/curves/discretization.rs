@@ -42,6 +42,9 @@ impl Curve {
     /// (i.e. at least one of the method `full_turn_at_t`, `nucl_pos_full_turn` or
     /// `objective_nb_nt` has been overriden).
     pub(super) fn discretize(&mut self, mut nucl_rise: f64, inclination: f64) {
+        if self.geometry.legacy() {
+            return self.discretize_legacy(nucl_rise, inclination);
+        }
         let polynomials = self.compute_polynomials();
 
         let nb_step = if self.geometry.discretize_quickly() {

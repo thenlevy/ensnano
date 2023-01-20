@@ -501,4 +501,8 @@ impl super::Curved for TranslatedPiecewiseBezier {
     fn pre_compute_polynomials(&self) -> bool {
         true
     }
+
+    fn legacy(&self) -> bool {
+        self.legacy
+    }
 }

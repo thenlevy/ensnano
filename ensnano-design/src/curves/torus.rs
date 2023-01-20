@@ -136,6 +136,10 @@ impl Curved for Torus {
     fn t_max(&self) -> f64 {
         1.1
     }
+
+    fn legacy(&self) -> bool {
+        true
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -769,6 +773,10 @@ impl Curved for TwistedTorus {
 
     fn full_turn_at_t(&self) -> Option<f64> {
         Some(1.)
+    }
+
+    fn legacy(&self) -> bool {
+        true
     }
 }
 

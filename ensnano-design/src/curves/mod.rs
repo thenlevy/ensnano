@@ -31,6 +31,7 @@ use super::{Helix, Parameters};
 use std::sync::Arc;
 mod bezier;
 mod discretization;
+mod legacy;
 mod revolution;
 mod sphere_like_spiral;
 mod supertwist;
@@ -233,6 +234,10 @@ pub trait Curved {
     fn pre_compute_polynomials(&self) -> bool {
         false
     }
+
+    fn legacy(&self) -> bool {
+        false
+    }
 }
 
 /// The bounds of the curve. This describe the interval in which t can be taken
@@ -389,6 +394,11 @@ impl Curve {
         parameters: &Parameters,
     ) -> Option<DVec3> {
         use std::f64::consts::{PI, TAU};
+
+        if self.geometry.legacy() {
+            return self.legacy_nucl_pos(n, forward, theta, parameters);
+        }
+
         let idx = self.idx_convertsion(n)?;
         let theta = if let Some(real_theta) = self.geometry.theta_shift(parameters) {
             let base_theta = TAU / parameters.bases_per_turn as f64;
@@ -903,7 +913,6 @@ pub struct InstanciatedPiecewiseBezierDescriptor {
     grids: FreeGrids,
     /// The data that was used to map BezierVertex to grids
     paths_data: Option<BezierPathData>,
-    legacy: bool,
 }
 
 struct PieceWiseBezierInstantiator_<'a, 'b> {
@@ -965,7 +974,6 @@ impl InstanciatedPiecewiseBezierDescriptor {
             desc,
             grids: grid_reader.source(),
             paths_data: grid_reader.source_paths(),
-            legacy: false,
         }
     }
 }
