@@ -976,14 +976,12 @@ impl InstanciatedCurveDescriptor_ {
             Self::Bezier(constructor) => {
                 Arc::new(Curve::new(constructor.into_bezier(), parameters))
             }
-            Self::SphereLikeSpiral(spiral) => Arc::new(Curve::new(
-                spiral.with_parameters(parameters.clone()),
-                parameters,
-            )),
-            Self::TubeSpiral(spiral) => Arc::new(Curve::new(
-                spiral.with_parameters(parameters.clone()),
-                parameters,
-            )),
+            Self::SphereLikeSpiral(spiral) => {
+                Arc::new(Curve::new(spiral.with_parameters(*parameters), parameters))
+            }
+            Self::TubeSpiral(spiral) => {
+                Arc::new(Curve::new(spiral.with_parameters(*parameters), parameters))
+            }
             Self::Twist(twist) => Arc::new(Curve::new(twist, parameters)),
             Self::Torus(torus) => Arc::new(Curve::new(torus, parameters)),
             Self::SuperTwist(twist) => Arc::new(Curve::new(twist, parameters)),
@@ -1011,7 +1009,7 @@ impl InstanciatedCurveDescriptor_ {
                 ..
             } => Arc::new(Curve::new(
                 TranslatedPiecewiseBezier {
-                    original_curve: path_curve.clone(),
+                    original_curve: path_curve,
                     translation,
                     initial_frame,
                     legacy,
@@ -1031,11 +1029,11 @@ impl InstanciatedCurveDescriptor_ {
                 parameters,
             ))),
             Self::SphereLikeSpiral(spiral) => Some(Arc::new(Curve::new(
-                spiral.clone().with_parameters(parameters.clone()),
+                spiral.clone().with_parameters(*parameters),
                 parameters,
             ))),
             Self::TubeSpiral(spiral) => Some(Arc::new(Curve::new(
-                spiral.clone().with_parameters(parameters.clone()),
+                spiral.clone().with_parameters(*parameters),
                 parameters,
             ))),
             Self::Twist(twist) => Some(Arc::new(Curve::new(twist.clone(), parameters))),
@@ -1071,10 +1069,10 @@ impl InstanciatedCurveDescriptor_ {
                 Some(Curve::compute_length(constructor.clone().into_bezier()))
             }
             Self::SphereLikeSpiral(spiral) => Some(Curve::compute_length(
-                spiral.clone().with_parameters(parameters.clone()),
+                spiral.clone().with_parameters(*parameters),
             )),
             Self::TubeSpiral(spiral) => Some(Curve::compute_length(
-                spiral.clone().with_parameters(parameters.clone()),
+                spiral.clone().with_parameters(*parameters),
             )),
             Self::Twist(twist) => Some(Curve::compute_length(twist.clone())),
             Self::Torus(torus) => Some(Curve::compute_length(torus.clone())),
@@ -1102,12 +1100,12 @@ impl InstanciatedCurveDescriptor_ {
     fn try_path(&self, parameters: &Parameters) -> Option<Vec<DVec3>> {
         match self {
             Self::Bezier(constructor) => Some(Curve::path(constructor.clone().into_bezier())),
-            Self::SphereLikeSpiral(spiral) => Some(Curve::path(
-                spiral.clone().with_parameters(parameters.clone()),
-            )),
-            Self::TubeSpiral(spiral) => Some(Curve::path(
-                spiral.clone().with_parameters(parameters.clone()),
-            )),
+            Self::SphereLikeSpiral(spiral) => {
+                Some(Curve::path(spiral.clone().with_parameters(*parameters)))
+            }
+            Self::TubeSpiral(spiral) => {
+                Some(Curve::path(spiral.clone().with_parameters(*parameters)))
+            }
             Self::Twist(twist) => Some(Curve::path(twist.clone())),
             Self::Torus(torus) => Some(Curve::path(torus.clone())),
             Self::SuperTwist(twist) => Some(Curve::path(twist.clone())),
@@ -1197,10 +1195,7 @@ impl Helix {
             .instanciated_curve
             .as_ref()
             .map(|c| Arc::as_ptr(&c.source))
-            == self
-                .instanciated_descriptor
-                .as_ref()
-                .map(|target| Arc::as_ptr(&target));
+            == self.instanciated_descriptor.as_ref().map(Arc::as_ptr);
         !up_to_date
     }
 
