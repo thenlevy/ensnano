@@ -620,6 +620,7 @@ impl Helix {
             .map(|translation| CurveDescriptor::TranslatedPath {
                 path_id,
                 translation,
+                legacy: false,
             })
             .map(Arc::new);
 

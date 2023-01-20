@@ -450,6 +450,7 @@ pub(super) struct TranslatedPiecewiseBezier {
     pub original_curve: Arc<InstanciatedPiecewiseBezier>,
     pub translation: DVec3,
     pub initial_frame: DMat3,
+    pub legacy: bool,
 }
 
 impl super::Curved for TranslatedPiecewiseBezier {

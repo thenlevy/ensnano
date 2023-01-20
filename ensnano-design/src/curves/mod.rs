@@ -544,9 +544,15 @@ pub enum CurveDescriptor {
     TranslatedPath {
         path_id: BezierPathId,
         translation: Vec3,
+        #[serde(default, skip_serializing_if = "is_false")]
+        legacy: bool,
     },
     SuperTwist(SuperTwist),
     InterpolatedCurve(InterpolatedCurveDescriptor),
+}
+
+fn is_false(b: &bool) -> bool {
+    !b
 }
 
 const NO_BEZIER: &[BezierEnd] = &[];
@@ -720,9 +726,12 @@ impl InstanciatedCurveDescriptor {
             CurveDescriptor::TranslatedPath {
                 path_id,
                 translation,
+                legacy,
             } => grid_reader
                 .source_paths()
-                .and_then(|paths| Self::instanciate_translated_path(*path_id, *translation, paths))
+                .and_then(|paths| {
+                    Self::instanciate_translated_path(*path_id, *translation, paths, *legacy)
+                })
                 .unwrap_or_else(|| {
                     let instanciated = InstanciatedPiecewiseBezierDescriptor::instanciate(
                         &[],
@@ -746,6 +755,7 @@ impl InstanciatedCurveDescriptor {
         path_id: BezierPathId,
         translation: Vec3,
         source_path: BezierPathData,
+        legacy: bool,
     ) -> Option<InstanciatedCurveDescriptor_> {
         source_path
             .instanciated_paths
@@ -757,6 +767,7 @@ impl InstanciatedCurveDescriptor {
                     initial_frame: frame,
                     translation: vec_to_dvec(translation),
                     paths_data: source_path.clone(),
+                    legacy,
                 },
             )
     }
@@ -877,6 +888,7 @@ enum InstanciatedCurveDescriptor_ {
         translation: DVec3,
         initial_frame: DMat3,
         paths_data: BezierPathData,
+        legacy: bool,
     },
     InterpolatedCurve(InterpolatedCurveDescriptor),
 }
@@ -891,6 +903,7 @@ pub struct InstanciatedPiecewiseBezierDescriptor {
     grids: FreeGrids,
     /// The data that was used to map BezierVertex to grids
     paths_data: Option<BezierPathData>,
+    legacy: bool,
 }
 
 struct PieceWiseBezierInstantiator_<'a, 'b> {
@@ -952,6 +965,7 @@ impl InstanciatedPiecewiseBezierDescriptor {
             desc,
             grids: grid_reader.source(),
             paths_data: grid_reader.source_paths(),
+            legacy: false,
         }
     }
 }
@@ -993,12 +1007,14 @@ impl InstanciatedCurveDescriptor_ {
                 path_curve,
                 translation,
                 initial_frame,
+                legacy,
                 ..
             } => Arc::new(Curve::new(
                 TranslatedPiecewiseBezier {
                     original_curve: path_curve.clone(),
                     translation,
                     initial_frame,
+                    legacy,
                 },
                 parameters,
             )),
@@ -1031,12 +1047,14 @@ impl InstanciatedCurveDescriptor_ {
                 path_curve,
                 translation,
                 initial_frame,
+                legacy,
                 ..
             } => Some(Arc::new(Curve::new(
                 TranslatedPiecewiseBezier {
                     original_curve: path_curve.clone(),
                     translation: *translation,
                     initial_frame: *initial_frame,
+                    legacy: *legacy,
                 },
                 parameters,
             ))),
@@ -1067,11 +1085,13 @@ impl InstanciatedCurveDescriptor_ {
                 path_curve,
                 translation,
                 initial_frame,
+                legacy,
                 ..
             } => Some(Curve::compute_length(TranslatedPiecewiseBezier {
                 original_curve: path_curve.clone(),
                 translation: *translation,
                 initial_frame: *initial_frame,
+                legacy: *legacy,
             })),
             Self::InterpolatedCurve(desc) => {
                 Some(Curve::compute_length(desc.clone().instanciate(true)))
@@ -1097,11 +1117,13 @@ impl InstanciatedCurveDescriptor_ {
                 path_curve,
                 translation,
                 initial_frame,
+                legacy,
                 ..
             } => Some(Curve::path(TranslatedPiecewiseBezier {
                 original_curve: path_curve.clone(),
                 translation: *translation,
                 initial_frame: *initial_frame,
+                legacy: *legacy,
             })),
             Self::InterpolatedCurve(desc) => Some(Curve::path(desc.clone().instanciate(false))),
         }
