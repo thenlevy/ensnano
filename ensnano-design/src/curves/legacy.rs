@@ -155,7 +155,6 @@ impl Curve {
             }
         }
         log::info!("Synchronization length by old method {synchronization_length}");
-        log::debug!("t_nucl {:.4?}", t_nucl);
 
         if self.nucl_pos_full_turn.is_none() && self.geometry.full_turn_at_t().is_some() {
             // We want to make a full turn just after the last nucl
