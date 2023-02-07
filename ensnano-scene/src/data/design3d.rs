@@ -215,7 +215,11 @@ impl<R: DesignReader> Design3D<R> {
         if !show_insertion_representents {
             ids.retain(|id| self.design.get_insertion_length(*id) == 0);
         }
-        let expected_length = self.design.get_expected_bond_length();
+        let expected_length = if self.thick_helices {
+            self.design.get_expected_bond_length()
+        } else {
+            Parameters::INTER_CENTER_GAP
+        };
         let mut ret: Vec<_> = self
             .id_to_raw_instances(ids)
             .into_iter()
