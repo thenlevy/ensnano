@@ -26,9 +26,9 @@ const OBJ_VERTEX_ARRAY: [wgpu::VertexAttribute; 3] =
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ModelVertex {
-    position: [f32; 3],
-    normal: [f32; 3],
-    color: [f32; 4],
+    pub position: [f32; 3],
+    pub normal: [f32; 3],
+    pub color: [f32; 4],
 }
 
 impl ModelVertex {

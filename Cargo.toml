@@ -59,6 +59,3 @@ chebyshev_polynomials = { git = "https://github.com/thenlevy/chebyshev_polynomia
 [features]
 log_after_renderer_setup = []
 dx12_only = []
-
-[patch.crates-io]
-wgpu_glyph = { git = "https://github.com/hecrj/wgpu_glyph", rev = "f9f9adb9f134edebecfc9d20de" }

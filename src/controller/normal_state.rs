@@ -162,7 +162,9 @@ impl State for NormalState {
                     self
                 }
                 Action::AddBezierPlane => {
-                    if let Some((position, orientation)) = main_state.get_grid_creation_position() {
+                    if let Some((position, orientation)) =
+                        main_state.get_bezier_sheet_creation_position()
+                    {
                         main_state.apply_operation(DesignOperation::AddBezierPlane {
                             desc: ensnano_design::BezierPlaneDescriptor {
                                 position,

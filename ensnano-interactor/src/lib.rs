@@ -26,7 +26,7 @@ use ensnano_design::{
     grid::{GridDescriptor, GridId, GridObject, GridTypeDescr, HelixGridPosition, Hyperboloid},
     group_attributes::GroupPivot,
     BezierPathId, BezierPlaneDescriptor, BezierPlaneId, BezierVertex, BezierVertexId,
-    CurveDescriptor2D, Nucl, Parameters,
+    CurveDescriptor2D, Isometry3, Nucl, Parameters,
 };
 use serde::{Deserialize, Serialize};
 use ultraviolet::{Isometry2, Rotor3, Vec2, Vec3};
@@ -42,6 +42,8 @@ pub mod consts;
 pub mod torsion;
 use ensnano_organizer::GroupId;
 mod operation_labels;
+mod surfaces;
+pub use surfaces::*;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum ObjectType {
@@ -470,69 +472,6 @@ pub enum SimulationState {
     Relaxing,
 }
 
-#[derive(Debug, Clone)]
-pub struct RevolutionSurfaceSystemDescriptor {
-    pub scaffold_len_target: usize,
-    pub target: RevolutionSurfaceDescriptor,
-    pub dna_parameters: Parameters,
-    pub simulation_parameters: RevolutionSimulationParameters,
-}
-
-#[derive(Debug, Clone)]
-pub struct RevolutionSurfaceDescriptor {
-    pub curve: CurveDescriptor2D,
-    pub revolution_radius: f64,
-    pub nb_helix_per_half_section: usize,
-    pub half_turns_count: isize,
-    pub shift_per_turn: isize,
-    pub junction_smoothening: f64,
-    pub dna_paramters: Parameters,
-}
-
-/*
- * let q be the total shift and n be the number of sections
- * Helices seen as set of section are class of equivalence for the relation ~
- * where a ~ b iff there exists k1, k2 st a = b  + k1 q + k2 n
- *
- * let d = gcd(q, n). If a ~ b then a = b (mod d)
- *
- * Recp. if a = b (mod d) there exists x y st xq + yn = d
- *
- * a = k (xq + yn) + b
- * so a ~ b
- *
- * So ~ is the relation of equivalence modulo d and has d classes.
- */
-
-fn gcd(a: isize, b: isize) -> usize {
-    let mut a = a.unsigned_abs();
-    let mut b = b.unsigned_abs();
-
-    if a < b {
-        std::mem::swap(&mut a, &mut b);
-    }
-
-    while b > 0 {
-        let b_ = b;
-        b = a % b;
-        a = b_;
-    }
-
-    a
-}
-
-impl RevolutionSurfaceDescriptor {
-    pub fn nb_helices(&self) -> usize {
-        let additional_shift = if self.half_turns_count % 2 == 1 {
-            self.nb_helix_per_half_section / 2
-        } else {
-            0
-        };
-        let total_shift = self.shift_per_turn + additional_shift as isize;
-        gcd(total_shift, self.nb_helix_per_half_section as isize * 2)
-    }
-}
-
 impl SimulationState {
     pub fn is_none(&self) -> bool {
         matches!(self, Self::None)
@@ -602,6 +541,22 @@ pub struct StrandBuildingStatus {
     pub prime3: Nucl,
     pub prime5: Nucl,
     pub dragged_nucl: Nucl,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PastingStatus {
+    Copy,
+    Duplication,
+    None,
+}
+
+impl PastingStatus {
+    pub fn is_pasting(&self) -> bool {
+        match self {
+            Self::Copy | Self::Duplication => true,
+            Self::None => false,
+        }
+    }
 }
 
 /// Parameters of strand suggestions
@@ -747,60 +702,5 @@ impl StandardSequence {
 impl Default for StandardSequence {
     fn default() -> Self {
         Self::P7259
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RevolutionSimulationParameters {
-    pub nb_section_per_segment: usize,
-    pub spring_stiffness: f64,
-    pub torsion_stiffness: f64,
-    pub fluid_friction: f64,
-    pub ball_mass: f64,
-    pub time_span: f64,
-    pub simulation_step: f64,
-    pub method: EquadiffSolvingMethod,
-}
-
-impl Default for RevolutionSimulationParameters {
-    fn default() -> Self {
-        consts::DEFAULT_REVOLUTION_SIMULATION_PARAMETERS
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EquadiffSolvingMethod {
-    Euler,
-    Ralston,
-}
-
-impl EquadiffSolvingMethod {
-    pub const ALL_METHODS: &'static [Self] = &[Self::Euler, Self::Ralston];
-}
-
-impl ToString for EquadiffSolvingMethod {
-    fn to_string(&self) -> String {
-        match self {
-            Self::Euler => "Euler".to_string(),
-            Self::Ralston => "Ralston".to_string(),
-        }
-    }
-}
-
-/// The bezier path Id and revolution radius of a revolution surface being created from a bezier
-/// path.
-/// This is for example used to draw the dotted line on the bezier sheets.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RevolutionOfBezierPath {
-    pub path: Option<BezierPathId>,
-    pub radius: Option<f64>,
-}
-
-impl Default for RevolutionOfBezierPath {
-    fn default() -> Self {
-        Self {
-            path: None,
-            radius: Some(0.),
-        }
     }
 }

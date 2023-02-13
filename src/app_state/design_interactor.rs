@@ -18,8 +18,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 
 use super::AddressPointer;
 use ensnano_design::{
-    grid::GridId, group_attributes::GroupAttribute, BezierPathId, Design, HelixCollection,
-    InstanciatedPiecewiseBezier, Parameters,
+    grid::GridId, group_attributes::GroupAttribute, BezierPathId, BezierPlaneDescriptor, Design,
+    HelixCollection, InstanciatedPiecewiseBezier, Parameters,
 };
 use ensnano_exports::{ExportResult, ExportType};
 use ensnano_interactor::{
@@ -94,10 +94,11 @@ impl DesignInteractor {
         &mut self,
         operation: CopyOperation,
     ) -> Result<InteractorResult, ErrOperation> {
-        println!("nb helices {}", self.design.helices.len());
+        log::info!("Applying copy operation");
+        log::info!("nb helices {}", self.design.helices.len());
         let tried_up_to_date = self.design.try_get_up_to_date();
         if let Some(up_to_date) = tried_up_to_date {
-            println!("up to date helices {}", up_to_date.design.helices.len());
+            log::info!("up to date helices {}", up_to_date.design.helices.len());
             let result = self.controller.apply_copy_operation(up_to_date, operation);
             self.handle_operation_result(result)
         } else {
@@ -152,9 +153,6 @@ impl DesignInteractor {
                 reader,
                 grid_id,
             },
-            SimulationTarget::Relaxation => {
-                controller::SimulationOperation::ExampleRelaxation { reader }
-            }
             SimulationTarget::Revolution { desc } => {
                 controller::SimulationOperation::RevolutionRelaxation {
                     system: desc,
@@ -327,8 +325,8 @@ impl DesignInteractor {
         self.controller.get_strand_builders()
     }
 
-    pub(super) fn is_pasting(&self) -> PastingStatus {
-        self.controller.is_pasting()
+    pub(super) fn get_pasting_status(&self) -> PastingStatus {
+        self.controller.get_pasting_status()
     }
 
     pub(super) fn can_iterate_duplication(&self) -> bool {
@@ -360,6 +358,10 @@ impl DesignInteractor {
 
     pub fn get_next_selection(&mut self) -> Option<Vec<Selection>> {
         self.new_selection.take()
+    }
+
+    pub fn get_clipboard_content(&self) -> ensnano_gui::ClipboardContent {
+        self.controller.get_clipboard_content()
     }
 }
 
@@ -430,6 +432,33 @@ impl DesignReader {
 
     pub fn get_bezier_path_2d(&self, path_id: BezierPathId) -> Option<InstanciatedPiecewiseBezier> {
         self.presenter.get_bezier_path_2d(path_id)
+    }
+
+    pub fn get_default_bezier(&self) -> Option<&BezierPlaneDescriptor> {
+        use ensnano_design::Collection;
+        self.presenter
+            .current_design
+            .as_ref()
+            .bezier_planes
+            .values()
+            .next()
+    }
+
+    pub fn get_first_bezier_plane(&self, path_id: BezierPathId) -> Option<&BezierPlaneDescriptor> {
+        use ensnano_design::Collection;
+        let path = self
+            .presenter
+            .current_design
+            .as_ref()
+            .bezier_paths
+            .get(&path_id)?;
+        let vertex_0 = path.vertices().get(0)?;
+        let plane_id = vertex_0.plane_id;
+        self.presenter
+            .current_design
+            .as_ref()
+            .bezier_planes
+            .get(&plane_id)
     }
 }
 
@@ -1383,7 +1412,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::CopyStrands(vec![0]))
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::None)
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::None)
     }
 
     #[test]
@@ -1395,7 +1424,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::Copy)
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::Copy)
     }
 
     #[test]
@@ -1418,7 +1447,7 @@ mod tests {
             .apply_copy_operation(CopyOperation::Paste)
             .unwrap();
         app_state.update();
-        assert_eq!(app_state.is_pasting(), PastingStatus::None)
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::None)
     }
 
     #[test]
@@ -1427,7 +1456,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::InitStrandsDuplication(vec![0]))
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::Duplication)
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::Duplication)
     }
 
     #[test]
@@ -1554,7 +1583,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::PositionPastingPoint(None))
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::Copy);
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::Copy);
     }
 
     #[test]
@@ -1604,7 +1633,7 @@ mod tests {
         app_state
             .apply_copy_operation(CopyOperation::InitXoverDuplication(vec![(n1, n2)]))
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::Duplication);
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::Duplication);
         app_state
             .apply_copy_operation(CopyOperation::PositionPastingPoint(
                 Some(Nucl {
@@ -1615,15 +1644,15 @@ mod tests {
                 .map(PastePosition::Nucl),
             ))
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::Duplication);
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::Duplication);
         app_state
             .apply_copy_operation(CopyOperation::Duplicate)
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::None);
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::None);
         app_state
             .apply_copy_operation(CopyOperation::Duplicate)
             .unwrap();
-        assert_eq!(app_state.is_pasting(), PastingStatus::None);
+        assert_eq!(app_state.get_pasting_status(), PastingStatus::None);
     }
 
     #[test]
@@ -1864,6 +1893,7 @@ mod tests {
     }
 }
 
+#[allow(clippy::large_enum_variant)] // We don't create many instances of this type
 pub enum SimulationTarget {
     Grids,
     Helices,
@@ -1873,7 +1903,6 @@ pub enum SimulationTarget {
     Twist {
         grid_id: GridId,
     },
-    Relaxation,
     Revolution {
         desc: RevolutionSurfaceSystemDescriptor,
     },

@@ -28,7 +28,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 mod instantiator;
 pub(crate) use instantiator::PieceWiseBezierInstantiator;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive, PartialOrd, Ord)]
 #[repr(usize)]
 /// A control point of a cubic bezier curve.
 ///
@@ -40,7 +40,7 @@ pub enum CubicBezierControlPoint {
     Control2,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 /// A control point of a bezier curve
 pub enum BezierControlPoint {
     /// One of the control points of a cubic bezier curve
@@ -123,6 +123,47 @@ impl CubicBezierPolynom {
     // a.k.a second order derivative
     fn acceleration(&self, t: f64) -> DVec3 {
         (6. * t) * self.q3 + 2. * self.q2
+    }
+
+    pub fn max_x(&self) -> f64 {
+        let a = 3. * self.q3.x;
+        let b = 2. * self.q2.x;
+        let c = self.q1.x;
+
+        let delta = b * b - 4. * a * c;
+        let mut ret = self.evaluate(0.).x.max(self.evaluate(1.).x);
+
+        if delta > 0. {
+            let root_1 = (delta.sqrt() - b) / 2. / a;
+            let root_2 = (-delta.sqrt() - b) / 2. / a;
+            for root in [root_1, root_2] {
+                if root < 1. && root > 0. {
+                    ret = ret.max(self.evaluate(root).x);
+                }
+            }
+        }
+
+        ret
+    }
+
+    pub fn min_x(&self) -> f64 {
+        let a = 3. * self.q3.x;
+        let b = 2. * self.q2.x;
+        let c = self.q1.x;
+
+        let delta = b * b - 4. * a * c;
+        let mut ret = self.evaluate(0.).x.min(self.evaluate(1.).x);
+
+        if delta > 0. {
+            let root_1 = (delta.sqrt() - b) / 2. / a;
+            let root_2 = (-delta.sqrt() - b) / 2. / a;
+            for root in [root_1, root_2] {
+                if root < 1. && root > 0. {
+                    ret = ret.min(self.evaluate(root).x);
+                }
+            }
+        }
+        ret
     }
 }
 
@@ -293,6 +334,30 @@ impl InstanciatedPiecewiseBezier {
                 + self.ends.iter().cycle().nth(i).unwrap().vector_out,
             control2: self.ends.iter().cycle().nth(i + 1).unwrap().position
                 - self.ends.iter().cycle().nth(i + 1).unwrap().vector_in,
+        })
+    }
+
+    pub fn max_x(&self) -> f64 {
+        let i_max = if self.cyclic {
+            self.ends.len()
+        } else {
+            self.ends.len() - 1
+        };
+
+        (0..=i_max).fold(f64::NEG_INFINITY, |x, i| {
+            x.max(self.ith_cubic_bezier(i).polynomial.max_x())
+        })
+    }
+
+    pub fn min_x(&self) -> f64 {
+        let i_max = if self.cyclic {
+            self.ends.len()
+        } else {
+            self.ends.len() - 1
+        };
+
+        (0..=i_max).fold(f64::INFINITY, |x, i| {
+            x.min(self.ith_cubic_bezier(i).polynomial.min_x())
         })
     }
 }

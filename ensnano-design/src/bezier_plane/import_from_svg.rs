@@ -19,7 +19,6 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use std::path::Path as StdPath;
 
 use svg::node::element::path::{Command, Data, Position};
-use svg::node::element::tag::Path;
 use svg::parser::Event;
 
 use super::*;
@@ -35,7 +34,7 @@ pub fn read_first_svg_path(file_path: &StdPath) -> Result<BezierPath, SvgImportE
     let events = svg::open(file_path, &mut content)?;
 
     for event in events {
-        if let Event::Tag(Path, _, attributes) = event {
+        if let Event::Tag(_, _, attributes) = event {
             let data = attributes
                 .get("d")
                 .ok_or_else(|| SvgImportError::AttributeNotFound(String::from("d")))?;

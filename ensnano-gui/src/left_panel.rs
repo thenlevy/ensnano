@@ -15,9 +15,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-use ensnano_interactor::{
-    graphics::HBoundDisplay, EquadiffSolvingMethod, RevolutionSurfaceSystemDescriptor,
-};
+use ensnano_interactor::{graphics::HBoundDisplay, EquadiffSolvingMethod};
 use ensnano_organizer::{Organizer, OrganizerMessage, OrganizerTree};
 use std::sync::{Arc, Mutex};
 
@@ -219,10 +217,12 @@ pub enum Message<S: AppState> {
         parameter_id: RevolutionParameterId,
         text: String,
     },
-    InitRevolutionRelaxation(RevolutionSurfaceSystemDescriptor),
+    InitRevolutionRelaxation,
     CancelExport,
     LoadSvgFile,
     ScreenShot3D,
+    IncrRevolutionShift,
+    DecrRevolutionShift,
 }
 
 impl<S: AppState> contextual_panel::BuilderMessage for Message<S> {
@@ -636,6 +636,10 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     self.simulation_tab
                         .leave_tab(self.requests.clone(), &self.application_state);
                 }
+                if n == 7 {
+                    // Revolution tab
+                    self.requests.lock().unwrap().notify_revolution_tab()
+                }
                 self.selected_tab = n;
             }
             Message::OrganizerMessage(m) => {
@@ -722,6 +726,13 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     let reader = state.get_reader();
                     self.organizer.update_elements(reader.get_dna_elements());
                     self.contextual_panel.state_updated();
+                    let unrooted_surface = self
+                        .revolution_tab
+                        .get_current_unrooted_surface(&self.application_state);
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .set_unrooted_surface(unrooted_surface);
                 }
                 if state.selection_was_updated(&self.application_state) {
                     let selected_group = state.get_selected_group();
@@ -732,6 +743,7 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     self.contextual_panel.state_updated();
                 }
                 self.application_state = state;
+                self.revolution_tab.update(&self.application_state);
             }
             Message::FinishChangingColor => {
                 self.edition_tab.add_color();
@@ -867,17 +879,25 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .lock()
                     .unwrap()
                     .set_bezier_revolution_id(bezier_path_id);
+                let unrooted_surface = self
+                    .revolution_tab
+                    .get_current_unrooted_surface(&self.application_state);
+                self.requests
+                    .lock()
+                    .unwrap()
+                    .set_unrooted_surface(unrooted_surface);
             }
             Message::RevolutionEquadiffSolvingMethodPicked(method) => {
                 self.revolution_tab.set_method(method);
             }
             Message::RevolutionParameterUpdate { parameter_id, text } => {
                 if let RevolutionParameterId::RevolutionRadius = parameter_id {
-                    let radius = text.parse::<f64>().ok();
-                    self.requests
-                        .lock()
-                        .unwrap()
-                        .set_bezier_revolution_radius(radius);
+                    if let Some(radius) = text.parse::<f64>().ok() {
+                        self.requests
+                            .lock()
+                            .unwrap()
+                            .set_bezier_revolution_radius(radius);
+                    }
                 }
                 self.revolution_tab
                     .update_builder_parameter(parameter_id, text);
@@ -886,12 +906,24 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
                     .lock()
                     .unwrap()
                     .set_bezier_revolution_id(bezier_path_id);
-            }
-            Message::InitRevolutionRelaxation(desc) => {
+                let unrooted_surface = self
+                    .revolution_tab
+                    .get_current_unrooted_surface(&self.application_state);
                 self.requests
                     .lock()
                     .unwrap()
-                    .start_revolution_relaxation(desc);
+                    .set_unrooted_surface(unrooted_surface);
+            }
+            Message::InitRevolutionRelaxation => {
+                if let Some(desc) = self
+                    .revolution_tab
+                    .get_revolution_system(&self.application_state, true)
+                {
+                    self.requests
+                        .lock()
+                        .unwrap()
+                        .start_revolution_relaxation(desc);
+                }
             }
             Message::FinishRelaxation => self
                 .requests
@@ -902,6 +934,8 @@ impl<R: Requests, S: AppState> Program for LeftPanel<R, S> {
             Message::ScreenShot3D => {
                 self.requests.lock().unwrap().request_screenshot_3d();
             }
+            Message::IncrRevolutionShift => self.revolution_tab.shift_idx += 1,
+            Message::DecrRevolutionShift => self.revolution_tab.shift_idx -= 1,
         };
         Command::none()
     }

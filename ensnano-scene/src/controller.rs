@@ -152,6 +152,7 @@ pub enum Consequence {
         new_vector: Vec2,
     },
     ReverseSurfaceDirection,
+    SetRevolutionAxisPosition(f32),
 }
 
 enum TransistionConsequence {

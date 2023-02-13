@@ -47,7 +47,7 @@ pub(super) struct OpenSurfaceTopology {
 
 impl OpenSurfaceTopology {
     pub fn new(desc: RevolutionSurfaceSystemDescriptor) -> Self {
-        println!("perimetter {}", desc.target.curve.perimeter());
+        println!("perimetter {}", desc.target.surface.curve.perimeter());
         let nb_helices = desc.target.nb_helix_per_half_section * 2;
         let nb_section_per_segment = desc.simulation_parameters.nb_section_per_segment;
 
@@ -65,7 +65,7 @@ impl OpenSurfaceTopology {
             nb_helices as f64 * DNAParameters::INTER_CENTER_GAP as f64 * SCALING_ABCISSA;
 
         let initial_abscissa = 3. * DNAParameters::INTER_CENTER_GAP as f64 / 2.;
-        let curve_perimeter = desc.target.curve.perimeter();
+        let curve_perimeter = desc.target.surface.curve.perimeter();
         let mut target = RevolutionSurface::new(desc.target);
 
         // Due to how RevolutionSurface::new is implemented, the scaling starts with enough room
@@ -334,6 +334,10 @@ impl SpringTopology for OpenSurfaceTopology {
                 (*b_id, parameters.spring_stiffness * (1. - l0 / len) * -pos)
             })
             .collect()
+    }
+
+    fn revolution_radius(&self) -> f64 {
+        self.target.revolution_radius
     }
 }
 

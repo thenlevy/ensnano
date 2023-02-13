@@ -132,6 +132,7 @@ impl<R: DesignReader> Data<R> {
         self.pivot_element = None;
         self.pivot_position = None;
         self.pivot_update = true;
+        self.view.borrow_mut().clear_design();
     }
 }
 
@@ -231,6 +232,10 @@ impl<R: DesignReader> Data<R> {
                     }))
             }
         }
+        let unrooted_surface = app_state.get_current_unrooted_surface();
+        self.view
+            .borrow_mut()
+            .update(ViewUpdate::UnrootedSurface(unrooted_surface));
     }
 
     pub fn get_aligned_camera(&self) -> Camera3D {
@@ -932,6 +937,32 @@ impl<R: DesignReader> Data<R> {
 
     /// Notify the view that the selected elements have been modified
     fn update_selection<S: AppState>(&mut self, selection: &[Selection], app_state: &S) {
+        // little hack to avoid going several time through the same helix if several segments are
+        // selected
+        let mut selection_: Vec<_> = selection
+            .iter()
+            .cloned()
+            .map(|s| {
+                if let Selection::Helix {
+                    design_id,
+                    helix_id,
+                    ..
+                } = s
+                {
+                    Selection::Helix {
+                        design_id,
+                        helix_id,
+                        segment_id: 0,
+                    }
+                } else {
+                    s
+                }
+            })
+            .collect();
+        selection_.sort();
+        selection_.dedup();
+        let selection = selection_.as_slice();
+
         log::trace!("Update selection {:?}", selection);
         let mut sphere = self.get_selected_spheres(selection, app_state);
         let tubes = self.get_selected_tubes(selection, app_state);

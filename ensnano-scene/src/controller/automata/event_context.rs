@@ -21,6 +21,8 @@ use crate::{element_selector::CornerType, view::GridIntersection};
 use super::*;
 use ensnano_design::{Axis, BezierPlaneIntersection};
 
+const REVOLUTION_AXIS_WIDTH: f32 = 1.;
+
 /// The context in which an event took place.
 pub struct EventContext<'a, S: AppState> {
     controller: &'a Controller<S>,
@@ -241,6 +243,16 @@ impl<'a, S: AppState> EventContext<'a, S> {
             ray.0,
             ray.1,
         )
+    }
+
+    pub fn cursor_is_on_revolution_axis(&self) -> bool {
+        self.get_plane_under_cursor()
+            .and_then(|(_, intersection)| {
+                self.app_state
+                    .get_revolution_axis_position()
+                    .map(|x_axis| (intersection.x - x_axis as f32).abs() < REVOLUTION_AXIS_WIDTH)
+            })
+            .unwrap_or(false)
     }
 
     pub fn get_grid_intersection_with_cursor(&self) -> Option<GridIntersection> {

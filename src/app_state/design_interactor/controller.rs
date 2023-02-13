@@ -29,6 +29,8 @@ use ensnano_design::{
     CameraId, Collection, CurveDescriptor, Design, Domain, DomainJunction, Helices, Helix,
     HelixCollection, Nucl, Strand, Strands, UpToDateDesign,
 };
+use ensnano_gui::ClipboardContent;
+pub use ensnano_interactor::PastingStatus;
 use ensnano_interactor::{
     operation::{Operation, TranslateBezierPathVertex},
     BezierControlPoint, HyperboloidOperation, NewBezierTengentVector, SimulationState,
@@ -99,7 +101,11 @@ impl Controller {
     ) -> Result<(OkOperation, Self), ErrOperation> {
         log::debug!("operation {:?}", operation);
         match self.check_compatibilty(&operation) {
-            OperationCompatibility::Incompatible => return Err(ErrOperation::IncompatibleState),
+            OperationCompatibility::Incompatible => {
+                return Err(ErrOperation::IncompatibleState(
+                    self.state.state_name().into(),
+                ))
+            }
             OperationCompatibility::FinishFirst => return Err(ErrOperation::FinishFirst),
             OperationCompatibility::Compatible => (),
         }
@@ -434,7 +440,7 @@ impl Controller {
                 self.apply(|c, d| c.apply_duplication(d), up_to_date_design.design)
             }
             CopyOperation::Paste => {
-                println!("nb helices {}", up_to_date_design.design.helices.len());
+                log::info!("nb helices {}", up_to_date_design.design.helices.len());
                 self.make_undoable(
                     self.apply(|c, d| c.apply_paste(d), up_to_date_design.design),
                     "Paste".into(),
@@ -479,56 +485,11 @@ impl Controller {
     ) -> Result<(OkOperation, Self), ErrOperation> {
         let mut ret = self.clone();
         match operation {
-            SimulationOperation::ExampleRelaxation { reader } => {
-                use ensnano_design::{CurveDescriptor2D, Parameters};
-                use ensnano_interactor::RevolutionSurfaceDescriptor;
-                use ensnano_interactor::RevolutionSurfaceSystemDescriptor;
-
-                if self.is_in_persistant_state().is_transitory() {
-                    return Err(ErrOperation::IncompatibleState);
-                }
-                /*
-                let surface_desc = RevolutionSurfaceDescriptor {
-                    curve: CurveDescriptor2D::Parrabola {
-                        speed: std::f64::consts::FRAC_1_SQRT_2.into(),
-                    },
-                    half_turns_count: 0,
-                    revolution_radius: 0.,
-                    junction_smoothening: 0.,
-                    nb_helix_per_half_section: 2,
-                    dna_paramters: Parameters::GEARY_2014_DNA,
-                    shift_per_turn: 0,
-                };*/
-
-                let surface_desc = RevolutionSurfaceDescriptor {
-                    curve: CurveDescriptor2D::TwoBalls {
-                        radius_extern: 2.5.into(),
-                        radius_intern: 1.7.into(),
-                        radius_tube: 0.76.into(),
-                        smooth_ceil: 0.04.into(),
-                    },
-                    revolution_radius: 10.,
-                    nb_helix_per_half_section: 17,
-                    half_turns_count: 0,
-                    shift_per_turn: 2,
-                    junction_smoothening: 0.,
-                    dna_paramters: Parameters::GEARY_2014_DNA,
-                };
-                let system_desc = RevolutionSurfaceSystemDescriptor {
-                    simulation_parameters: Default::default(),
-                    dna_parameters: Parameters::GEARY_2014_DNA,
-                    target: surface_desc,
-                    scaffold_len_target: 8064,
-                };
-                let interface = RevolutionSystemThread::start_new(system_desc, reader)?;
-                ret.state = ControllerState::Relaxing {
-                    interface,
-                    _initial_design: AddressPointer::new(design.clone()),
-                };
-            }
             SimulationOperation::RevolutionRelaxation { system, reader } => {
                 if self.is_in_persistant_state().is_transitory() {
-                    return Err(ErrOperation::IncompatibleState);
+                    return Err(ErrOperation::IncompatibleState(
+                        "Cannot launch simulation while editing".into(),
+                    ));
                 }
                 println!("system {:#?}", system);
                 let interface = RevolutionSystemThread::start_new(system, reader)?;
@@ -543,7 +504,9 @@ impl Controller {
                 reader,
             } => {
                 if self.is_in_persistant_state().is_transitory() {
-                    return Err(ErrOperation::IncompatibleState);
+                    return Err(ErrOperation::IncompatibleState(
+                        "Cannot launch simulation while editing".into(),
+                    ));
                 }
                 let interface = HelixSystemThread::start_new(presenter, parameters, reader)?;
                 ret.state = ControllerState::Simulating {
@@ -557,7 +520,9 @@ impl Controller {
                 reader,
             } => {
                 if self.is_in_persistant_state().is_transitory() {
-                    return Err(ErrOperation::IncompatibleState);
+                    return Err(ErrOperation::IncompatibleState(
+                        "Cannot launch simulation while editing".into(),
+                    ));
                 }
                 let interface = GridsSystemThread::start_new(presenter, parameters, reader)?;
                 ret.state = ControllerState::SimulatingGrids {
@@ -571,7 +536,9 @@ impl Controller {
                 reader,
             } => {
                 if self.is_in_persistant_state().is_transitory() {
-                    return Err(ErrOperation::IncompatibleState);
+                    return Err(ErrOperation::IncompatibleState(
+                        "Cannot launch simulation while editing".into(),
+                    ));
                 }
                 let interface = PhysicalSystem::start_new(presenter, target_helices, reader);
                 ret.state = ControllerState::Rolling {
@@ -585,7 +552,9 @@ impl Controller {
                 reader,
             } => {
                 if self.is_in_persistant_state().is_transitory() {
-                    return Err(ErrOperation::IncompatibleState);
+                    return Err(ErrOperation::IncompatibleState(
+                        "Cannot launch simulation while editing".into(),
+                    ));
                 }
                 let interface = simulations::Twister::start_new(presenter, grid_id, reader)
                     .ok_or(ErrOperation::GridDoesNotExist(grid_id))?;
@@ -601,14 +570,18 @@ impl Controller {
                 } else if let ControllerState::SimulatingGrids { interface, .. } = &ret.state {
                     interface.lock().unwrap().parameters_update = Some(new_parameters)
                 } else {
-                    return Err(ErrOperation::IncompatibleState);
+                    return Err(ErrOperation::IncompatibleState(
+                        "No simulation running".into(),
+                    ));
                 }
             }
             SimulationOperation::Shake(target) => {
                 if let ControllerState::Simulating { interface, .. } = &ret.state {
                     interface.lock().unwrap().nucl_shake = Some(target);
                 } else {
-                    return Err(ErrOperation::IncompatibleState);
+                    return Err(ErrOperation::IncompatibleState(
+                        "No simulation running".into(),
+                    ));
                 }
             }
             SimulationOperation::Stop => {
@@ -924,7 +897,9 @@ impl Controller {
                     self.add_hyperboloid_helices(&mut design, &hyperboloid, position, orientation)?;
                     Ok(design)
                 } else {
-                    Err(ErrOperation::IncompatibleState)
+                    Err(ErrOperation::IncompatibleState(
+                        "Not making hyperboloid".into(),
+                    ))
                 }
             }
             HyperboloidOperation::Cancel => {
@@ -933,7 +908,9 @@ impl Controller {
                     self.state = ControllerState::Normal;
                     Ok(design)
                 } else {
-                    Err(ErrOperation::IncompatibleState)
+                    Err(ErrOperation::IncompatibleState(
+                        "Not making hyperboloid".into(),
+                    ))
                 }
             }
             HyperboloidOperation::Finalize => {
@@ -941,7 +918,9 @@ impl Controller {
                     self.state = ControllerState::Normal;
                     Ok(design)
                 } else {
-                    Err(ErrOperation::IncompatibleState)
+                    Err(ErrOperation::IncompatibleState(
+                        "Not making hyperboloid".into(),
+                    ))
                 }
             }
         }
@@ -973,7 +952,9 @@ impl Controller {
         if let OperationCompatibility::Incompatible =
             self.check_compatibilty(&DesignOperation::SetScaffoldShift(0))
         {
-            return Err(ErrOperation::IncompatibleState);
+            return Err(ErrOperation::IncompatibleState(
+                self.state.state_name().to_string(),
+            ));
         }
         Ok(self.ok_no_op(
             |c, d| c.start_shift_optimization(d, chanel_reader, nucl_collection),
@@ -995,12 +976,18 @@ impl Controller {
         );
     }
 
-    #[allow(dead_code)]
-    pub fn size_of_clipboard(&self) -> usize {
-        self.clipboard.size()
+    pub fn get_clipboard_content(&self) -> ClipboardContent {
+        let n = self.clipboard.size();
+        match self.clipboard.as_ref() {
+            Clipboard::Empty => ClipboardContent::Empty,
+            Clipboard::Grids(_) => ClipboardContent::Grids(n),
+            Clipboard::Strands(_) => ClipboardContent::Strands(n),
+            Clipboard::Helices(_) => ClipboardContent::Helices(n),
+            Clipboard::Xovers(_) => ClipboardContent::Xovers(n),
+        }
     }
 
-    pub fn is_pasting(&self) -> PastingStatus {
+    pub fn get_pasting_status(&self) -> PastingStatus {
         match self.state {
             ControllerState::PositioningStrandPastingPoint { .. } => PastingStatus::Copy,
             ControllerState::PositioningStrandDuplicationPoint { .. } => PastingStatus::Duplication,
@@ -1044,6 +1031,9 @@ impl Controller {
                 OperationCompatibility::Compatible
             }
             ControllerState::WithPendingHelicesDuplication { .. } => {
+                OperationCompatibility::Compatible
+            }
+            ControllerState::WithPendingXoverDuplication { .. } => {
                 OperationCompatibility::Compatible
             }
             ControllerState::ChangingColor => {
@@ -1926,7 +1916,7 @@ pub enum ErrOperation {
     /// The operation cannot be applied on the current selection
     BadSelection,
     /// The controller is in a state incompatible with applying the operation
-    IncompatibleState,
+    IncompatibleState(String),
     CannotBuildOn(Nucl),
     CutInexistingStrand,
     GridDoesNotExist(GridId),
@@ -2372,7 +2362,9 @@ impl Controller {
             *initializing = false;
             Ok(design)
         } else {
-            Err(ErrOperation::IncompatibleState)
+            Err(ErrOperation::IncompatibleState(
+                "Not building strand".into(),
+            ))
         }
     }
 
@@ -3607,7 +3599,9 @@ impl ControllerState {
                 };
                 Ok(())
             }
-            _ => Err(ErrOperation::IncompatibleState),
+            _ => Err(ErrOperation::IncompatibleState(
+                self.state_name().to_string(),
+            )),
         }
     }
 
@@ -3642,7 +3636,9 @@ impl ControllerState {
                 };
                 Ok(())
             }
-            _ => Err(ErrOperation::IncompatibleState),
+            _ => Err(ErrOperation::IncompatibleState(
+                self.state_name().to_string(),
+            )),
         }
     }
 
@@ -3676,7 +3672,9 @@ impl ControllerState {
                 };
                 Ok(())
             }
-            _ => Err(ErrOperation::IncompatibleState),
+            _ => Err(ErrOperation::IncompatibleState(
+                self.state_name().to_string(),
+            )),
         }
     }
 
@@ -3761,22 +3759,6 @@ pub(super) fn junction(prime5: &HelixInterval, prime3: &HelixInterval) -> Domain
         DomainJunction::Adjacent
     } else {
         DomainJunction::UnindentifiedXover
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PastingStatus {
-    Copy,
-    Duplication,
-    None,
-}
-
-impl PastingStatus {
-    pub fn is_pasting(&self) -> bool {
-        match self {
-            Self::Copy | Self::Duplication => true,
-            Self::None => false,
-        }
     }
 }
 

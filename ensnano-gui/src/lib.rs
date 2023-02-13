@@ -30,14 +30,14 @@ pub use top_bar::TopBar;
 pub mod left_panel;
 pub use left_panel::{
     ColorOverlay, CurveDescriptorBuilder, CurveDescriptorParameter, InstanciatedParameter,
-    LeftPanel, ParameterKind, RigidBodyParametersRequest,
+    LeftPanel, ParameterKind, RevolutionScaling, RigidBodyParametersRequest,
 };
 pub mod status_bar;
 mod ui_size;
 pub use ui_size::*;
 mod material_icons_light;
 pub use ensnano_design::{grid::GridId, Camera, CameraId};
-pub use status_bar::{CurentOpState, StrandBuildingStatus};
+pub use status_bar::{ClipboardContent, CurentOpState, StrandBuildingStatus};
 mod consts;
 pub use iced;
 pub use iced_graphics;
@@ -57,8 +57,8 @@ use ensnano_design::{
 };
 use ensnano_interactor::{
     graphics::{Background3D, DrawArea, ElementType, RenderingMode, SplitMode},
-    CheckXoversParameter, InsertionPoint, Selection, SimulationState, SuggestionParameters,
-    WidgetBasis,
+    CheckXoversParameter, InsertionPoint, PastingStatus, Selection, SimulationState,
+    SuggestionParameters, UnrootedRevolutionSurfaceDescriptor, WidgetBasis,
 };
 use ensnano_interactor::{
     graphics::{FogParameters, HBoundDisplay},
@@ -224,10 +224,12 @@ pub trait Requests: 'static + Send {
     fn start_revolution_relaxation(&mut self, desc: RevolutionSurfaceSystemDescriptor);
     fn finish_revolutiion_relaxation(&mut self);
     fn load_svg(&mut self);
-    fn set_bezier_revolution_radius(&mut self, radius: Option<f64>);
+    fn set_bezier_revolution_radius(&mut self, radius: f64);
     fn set_bezier_revolution_id(&mut self, id: Option<usize>);
+    fn set_unrooted_surface(&mut self, surface: Option<UnrootedRevolutionSurfaceDescriptor>);
     /// Make a 3D screenshot
     fn request_screenshot_3d(&mut self);
+    fn notify_revolution_tab(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -302,7 +304,9 @@ impl<R: Requests, S: AppState> GuiState<R, S> {
                     area.position.to_logical(window.scale_factor()),
                 ))
             }
-            GuiState::StatusBar(_) => {}
+            GuiState::StatusBar(ref mut state) => state.queue_message(status_bar::Message::Resize(
+                area.size.to_logical(window.scale_factor()),
+            )),
         }
     }
 
@@ -462,14 +466,19 @@ impl<R: Requests, S: AppState> GuiElement<R, S> {
 
     fn status_bar(
         mut renderer: Renderer,
-        _window: &Window,
+        window: &Window,
         multiplexer: &dyn Multiplexer,
         requests: Arc<Mutex<R>>,
         state: &S,
         ui_size: UiSize,
     ) -> Self {
         let status_bar_area = multiplexer.get_draw_area(ElementType::StatusBar).unwrap();
-        let status_bar = StatusBar::new(requests, state, ui_size);
+        let status_bar = StatusBar::new(
+            requests,
+            state,
+            status_bar_area.size.to_logical(window.scale_factor()),
+            ui_size,
+        );
         let mut status_bar_debug = Debug::new();
         let status_bar_state = program::State::new(
             status_bar,
@@ -1051,6 +1060,13 @@ pub trait AppState:
     fn get_selected_bezier_path(&self) -> Option<BezierPathId>;
     fn is_exporting(&self) -> bool;
     fn is_transitory(&self) -> bool;
+    fn get_current_revoultion_radius(&self) -> Option<f64>;
+    fn get_recommended_scaling_revolution_surface(
+        &self,
+        scaffold_len: usize,
+    ) -> Option<RevolutionScaling>;
+    fn get_clipboard_content(&self) -> ClipboardContent;
+    fn get_pasting_status(&self) -> PastingStatus;
 }
 
 pub trait DesignReader: 'static {

@@ -16,7 +16,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use crate::utils::dvec_to_vec;
+use crate::{curves::torus::PointOnSurface_, utils::dvec_to_vec};
 
 use super::*;
 use std::f64::consts::{PI, TAU};
@@ -381,18 +381,13 @@ impl Revolution {
         let section_rotation =
             section_angle.unwrap_or_else(|| self.default_section_rotation_angle(t));
 
-        let x = self.revolution_radius
-            + self.curve_scale_factor
-                * (section_point.x * section_rotation.cos()
-                    - section_rotation.sin() * section_point.y);
-        let y = self.curve_scale_factor
-            * (section_point.x * section_rotation.sin() + section_rotation.cos() * section_point.y);
-
-        DVec3 {
-            x: revolution_angle.cos() * x,
-            y: revolution_angle.sin() * x,
-            z: y,
-        }
+        let surface = PointOnSurface_ {
+            section_rotation,
+            revolution_axis_position: -self.revolution_radius,
+            revolution_angle,
+            curve_scale_factor: self.curve_scale_factor,
+        };
+        CurveDescriptor2D::_3d(section_point, &surface)
     }
 
     fn default_section_rotation_angle(&self, t: f64) -> f64 {
@@ -455,7 +450,10 @@ impl Curved for Revolution {
         }
     }
 
-    fn inverse_curvilinear_abscissa(&self, x: f64) -> Option<f64> {
+    fn inverse_curvilinear_abscissa(&self, mut x: f64) -> Option<f64> {
+        let n = x.div_euclid(self.curvilinear_abscissa(self.t_max())?);
+        x = x.rem_euclid(self.curvilinear_abscissa(self.t_max())?);
+
         for t in 0..self.curvilinear_abscissa.len() {
             if self
                 .curvilinear_abscissa(t as f64 + 1.)
@@ -465,12 +463,14 @@ impl Curved for Revolution {
                 return self
                     .inverse_curvilinear_abscissa
                     .get(t)
-                    .map(|p| p.evaluate(x));
+                    .map(|p| p.evaluate(x))
+                    .map(|r| n * self.t_max() + r);
             }
         }
         self.inverse_curvilinear_abscissa
             .last()
             .map(|p| p.evaluate(x))
+            .map(|r| n * self.t_max() + r)
     }
 
     fn surface_info_time(&self, t: f64, helix_id: usize) -> Option<SurfaceInfo> {

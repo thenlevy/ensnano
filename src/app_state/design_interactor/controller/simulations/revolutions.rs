@@ -16,6 +16,8 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+const MAX_ACCEL: f64 = 100.;
+
 use super::{SimulationInterface, SimulationReader, SimulationUpdate};
 use std::f64::consts::TAU;
 use std::sync::{Arc, Mutex, Weak};
@@ -27,23 +29,20 @@ use mathru::analysis::differential_equation::ordinary::{
 };
 
 use ensnano_design::{
-    CurveDescriptor, CurveDescriptor2D, DVec3, InterpolatedCurveDescriptor,
-    InterpolationDescriptor, Parameters as DNAParameters,
+    CurveDescriptor, CurveDescriptor2D, DVec3, InterpolationDescriptor, Isometry3,
+    Parameters as DNAParameters, Similarity3,
 };
 use ensnano_interactor::{
-    EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceDescriptor,
-    RevolutionSurfaceSystemDescriptor,
+    EquadiffSolvingMethod, RevolutionSimulationParameters, RevolutionSurfaceRadius,
+    RevolutionSurfaceSystemDescriptor, RootedRevolutionSurface,
 };
 
-use crate::app_state::{
-    design_interactor::controller::simulations::revolutions::open_curves::OpenSurfaceTopology,
-    ErrOperation,
-};
+use crate::app_state::ErrOperation;
 
 mod closed_curves;
 use closed_curves::CloseSurfaceTopology;
 
-mod open_curves;
+//mod open_curves;
 
 trait SpringTopology: Send + Sync + 'static {
     fn nb_balls(&self) -> usize;
@@ -65,12 +64,13 @@ trait SpringTopology: Send + Sync + 'static {
 
     fn surface_position(&self, revolution_angle: f64, theta: f64) -> DVec3;
     fn dpos_dtheta(&self, revolution_angle: f64, theta: f64) -> DVec3;
+    fn d2pos_dtheta2(&self, revolution_angle: f64, theta: f64) -> DVec3;
     fn revolution_angle_ball(&self, ball_id: usize) -> f64;
 
     fn theta_ball_init(&self) -> Vec<f64>;
 
     fn rescale_section(&mut self, scaling_factor: f64);
-    fn rescale_radius(&mut self, scaling_factor: f64);
+    fn rescale_radius(&mut self, objective_number_of_nts: usize, actual_number_of_nt: usize);
 
     fn cloned(&self) -> Box<dyn SpringTopology>;
 
@@ -87,6 +87,10 @@ trait SpringTopology: Send + Sync + 'static {
     ) -> Vec<(usize, DVec3)> {
         vec![]
     }
+
+    fn revolution_radius(&self) -> RevolutionSurfaceRadius;
+
+    fn get_frame(&self) -> Similarity3;
 }
 
 pub struct RevolutionSurfaceSystem {
@@ -113,25 +117,14 @@ impl Clone for RevolutionSurfaceSystem {
     }
 }
 
-#[derive(Clone)]
-pub struct RevolutionSurface {
-    curve: CurveDescriptor2D,
-    revolution_radius: f64,
-    nb_helix_per_half_section: usize,
-    half_turns_count: isize,
-    shift_per_turn: isize,
-    junction_smoothening: f64,
-    nb_helices: usize,
-    curve_scale_factor: f64,
-}
-
 impl RevolutionSurfaceSystem {
     pub fn new(desc: RevolutionSurfaceSystemDescriptor) -> Self {
         let scaffold_len_target = desc.scaffold_len_target;
         let dna_parameters = desc.dna_parameters;
         let simulation_parameters = desc.simulation_parameters.clone();
-        let topology: Box<dyn SpringTopology> = if desc.target.curve.is_open() {
-            Box::new(OpenSurfaceTopology::new(desc))
+        let topology: Box<dyn SpringTopology> = if desc.target.curve_is_open() {
+            //Box::new(OpenSurfaceTopology::new(desc))
+            todo!("Refactor open curves")
         } else {
             Box::new(CloseSurfaceTopology::new(desc))
         };
@@ -190,8 +183,9 @@ impl RevolutionSurfaceSystem {
         let len_by_sum =
             (self.total_length(&thetas) / (self.dna_parameters.z_step as f64)).floor() as usize;
         println!("total len by sum {len_by_sum}");
-        let rescaling_factor = self.scaffold_len_target as f64 / total_len as f64;
-        self.topology.rescale_radius(rescaling_factor);
+        //let rescaling_factor = self.scaffold_len_target as f64 / total_len as f64;
+        self.topology
+            .rescale_radius(self.scaffold_len_target, total_len);
         total_len
     }
 
@@ -227,7 +221,7 @@ impl RevolutionSurfaceSystem {
             let mut system = RelaxationSystem::from_mathru(last_state, total_nb_section);
             self.apply_springs(&mut system, Some(&mut spring_relaxation_state));
             self.last_thetas = Some(system.thetas.clone());
-            self.last_dthetas = Some(system.d_thetas.clone());
+            self.last_dthetas = None;
         } else {
             log::error!("error while solving ODE");
         };
@@ -352,24 +346,57 @@ impl RevolutionSurfaceSystem {
         self.topology.dpos_dtheta(revolution_angle, theta)
     }
 
-    fn apply_forces(&self, system: &mut RelaxationSystem) {
-        let total_nb_segment = self.topology.nb_balls();
+    fn d2pos_dtheta2(&self, section_idx: usize, thetas: &[f64]) -> DVec3 {
+        let revolution_angle = self.topology.revolution_angle_ball(section_idx);
+        let theta = thetas[section_idx];
+        self.topology.d2pos_dtheta2(revolution_angle, theta)
+    }
 
+    fn apply_friction(&self, system: &mut RelaxationSystem) {
+        // Friction force = -friction_strengh * d pos / dt
+        // d pos / dt = d theta / dt * d pos / d theta
+
+        for section_idx in 0..self.topology.nb_balls() {
+            let dpos_dt =
+                system.d_thetas[section_idx] * self.dpos_dtheta(section_idx, &system.thetas);
+            system.forces[section_idx] += -self.simulation_parameters.fluid_friction * dpos_dt;
+        }
+    }
+
+    fn apply_additional_forces(&self, system: &mut RelaxationSystem) {
         for (b_id, f) in self
             .topology
             .additional_forces(&system.thetas, &self.simulation_parameters)
         {
-            //println!("b_id {b_id}, force {:.3?}", f);
             system.forces[b_id] += f;
         }
+    }
+
+    fn compute_accelerations(&self, system: &mut RelaxationSystem) {
+        /* Newton's second law of motion:
+         * F/m = d2pos / d2 t
+         * F / m = (d2 theta / dt2) * (dpos / d theta)  + (d theta / dt) ^ 2 * (d2pos / d theta2)
+         *
+         * apply < • | dpos/ dt> to both sides
+         * (d2 theta / dt2) ||dpos / d theta||^2
+         *      = <F/m - (d theta / dt) ^ 2 * (d2pos / d theta2) | dpos / d theta>
+         */
+
+        let total_nb_segment = self.topology.nb_balls();
 
         for section_idx in 0..total_nb_segment {
             let tengent = self.dpos_dtheta(section_idx, &system.thetas);
-            let acceleration_without_friction =
-                system.forces[section_idx].dot(tengent) / tengent.mag_sq();
-            system.second_derivative_thetas[section_idx] += (acceleration_without_friction
-                - self.simulation_parameters.fluid_friction * system.d_thetas[section_idx])
-                / self.simulation_parameters.ball_mass;
+            let mut acceleration = (system.forces[section_idx].dot(tengent)
+                / self.simulation_parameters.ball_mass
+                - system.d_thetas[section_idx].powi(2)
+                    * self.d2pos_dtheta2(section_idx, &system.thetas).dot(tengent))
+                / tengent.mag_sq();
+
+            if acceleration.abs() > MAX_ACCEL {
+                acceleration = acceleration.signum() * MAX_ACCEL;
+            }
+
+            system.second_derivative_thetas[section_idx] += acceleration;
         }
 
         for idx in self.topology.fixed_points() {
@@ -450,88 +477,14 @@ impl ExplicitODE<f64> for RevolutionSurfaceSystem {
         let mut system = RelaxationSystem::from_mathru(x.clone(), total_nb_section);
         self.apply_springs(&mut system, None);
         self.apply_torsions(&mut system);
-        self.apply_forces(&mut system);
+        self.apply_friction(&mut system);
+        self.apply_additional_forces(&mut system);
+        self.compute_accelerations(&mut system);
         system.into_mathru()
     }
 
     fn time_span(&self) -> (f64, f64) {
         (0., self.simulation_parameters.time_span)
-    }
-}
-
-impl RevolutionSurface {
-    pub fn new(desc: RevolutionSurfaceDescriptor) -> Self {
-        let nb_helices = desc.nb_helices();
-        let curve_scale_factor =
-            desc.nb_helix_per_half_section as f64 * 2. * DNAParameters::INTER_CENTER_GAP as f64
-                / desc.curve.perimeter();
-
-        Self {
-            curve: desc.curve,
-            revolution_radius: desc.revolution_radius,
-            nb_helices,
-            nb_helix_per_half_section: desc.nb_helix_per_half_section,
-            shift_per_turn: desc.shift_per_turn,
-            half_turns_count: desc.half_turns_count,
-            curve_scale_factor,
-            junction_smoothening: desc.junction_smoothening,
-        }
-    }
-
-    fn position(&self, revolution_angle: f64, section_t: f64) -> DVec3 {
-        // must be equal to PI * half_turns when revolution_angle = TAU.
-        let section_rotation = revolution_angle * (self.half_turns_count as f64) / 2.;
-
-        let section_point = self.curve.point(section_t);
-
-        let x_2d = self.revolution_radius
-            + self.curve_scale_factor
-                * (section_point.x * section_rotation.cos()
-                    - section_rotation.sin() * section_point.y);
-
-        let y_2d = self.curve_scale_factor
-            * (section_point.x * section_rotation.sin() + section_rotation.cos() * section_point.y);
-
-        DVec3 {
-            x: revolution_angle.cos() * x_2d,
-            y: revolution_angle.sin() * x_2d,
-            z: y_2d,
-        }
-    }
-
-    fn dpos_dtheta(&self, revolution_angle: f64, section_t: f64) -> DVec3 {
-        let section_rotation = revolution_angle * (self.half_turns_count as f64) / 2.;
-
-        let dpos_curve = self.curve.derivative(section_t);
-
-        let x_2d = self.curve_scale_factor
-            * (dpos_curve.x * section_rotation.cos() - section_rotation.sin() * dpos_curve.y);
-
-        let y_2d = self.curve_scale_factor
-            * (dpos_curve.x * section_rotation.sin() + section_rotation.cos() * dpos_curve.y);
-
-        DVec3 {
-            x: revolution_angle.cos() * x_2d,
-            y: revolution_angle.sin() * x_2d,
-            z: y_2d,
-        }
-    }
-
-    fn axis(&self, revolution_angle: f64) -> DVec3 {
-        DVec3 {
-            x: -revolution_angle.sin(),
-            y: revolution_angle.cos(),
-            z: 0.,
-        }
-    }
-
-    fn total_shift(&self) -> isize {
-        let additional_shift = if self.half_turns_count % 2 == 1 {
-            self.nb_helix_per_half_section
-        } else {
-            0
-        };
-        self.shift_per_turn + additional_shift as isize
     }
 }
 
@@ -575,7 +528,19 @@ impl RevolutionSystemThread {
                     || current_len == self.system.scaffold_len_target
                 {
                     if let Some(descs) = self.system.to_curve_desc(true) {
-                        interface_ptr.lock().unwrap().curve_descriptor.set(descs);
+                        let Similarity3 {
+                            translation,
+                            rotation,
+                            ..
+                        } = self.system.topology.get_frame();
+                        let routing = HelicesRouting {
+                            curves: descs,
+                            frame: Isometry3 {
+                                translation,
+                                rotation,
+                            },
+                        };
+                        interface_ptr.lock().unwrap().helices_routing.set(routing);
                     }
                     break;
                 } else {
@@ -628,18 +593,30 @@ impl ensnano_design::AdditionalStructure for RevolutionSurfaceSystem {
             let nts = desc.path()?;
             ret.extend(nts.into_iter().map(ensnano_design::utils::dvec_to_vec));
         }
+
+        for n in 0..1000 {
+            ret.push(ensnano_design::utils::dvec_to_vec(
+                self.topology
+                    .surface_position(-std::f64::consts::FRAC_PI_2, n as f64 / 1000.),
+            ));
+        }
+
         Some(ret)
     }
 
     fn current_length(&self) -> Option<usize> {
         self.current_scaffold_length
     }
+
+    fn frame(&self) -> Similarity3 {
+        self.topology.get_frame()
+    }
 }
 
 impl SimulationInterface for RevolutionSystemInterface {
     fn get_simulation_state(&mut self) -> Option<Box<dyn SimulationUpdate>> {
-        if let Some(descs) = self.curve_descriptor.take() {
-            Some(Box::new(descs))
+        if let Some(routing) = self.helices_routing.take() {
+            Some(Box::new(routing))
         } else {
             let s = self.new_state.take()?;
             Some(Box::new(s))
@@ -647,22 +624,33 @@ impl SimulationInterface for RevolutionSystemInterface {
     }
 
     fn still_valid(&self) -> bool {
-        !matches!(self.curve_descriptor, OptionOnce::Taken)
+        !matches!(self.helices_routing, OptionOnce::Taken)
     }
 }
 
-impl SimulationUpdate for Vec<CurveDescriptor> {
+struct HelicesRouting {
+    curves: Vec<CurveDescriptor>,
+    frame: Isometry3,
+}
+
+impl SimulationUpdate for HelicesRouting {
     fn update_design(&self, design: &mut ensnano_design::Design) {
         use ensnano_design::{Domain, DomainJunction, Helix, HelixInterval, Rotor2, Strand, Vec2};
         let parameters = design.parameters.unwrap_or_default();
         let mut helices = design.helices.make_mut();
         let mut strand_to_be_added = Vec::new();
-        for (c_id, c) in self.iter().enumerate() {
+        let Isometry3 {
+            translation,
+            rotation,
+        } = &self.frame;
+        for (c_id, c) in self.curves.iter().enumerate() {
             let mut helix = Helix::new_with_curve(c.clone());
             helix.isometry2d = Some(ensnano_design::Isometry2 {
                 translation: 5. * c_id as f32 * Vec2::unit_y(),
                 rotation: Rotor2::identity(),
             });
+            helix.position = *translation;
+            helix.orientation = *rotation;
             let h_id = helices.push_helix(helix);
             let len = if let CurveDescriptor::InterpolatedCurve(desc) = c {
                 desc.objective_number_of_nts.map(|x| x as isize)
@@ -680,7 +668,9 @@ impl SimulationUpdate for Vec<CurveDescriptor> {
         drop(helices);
 
         let strands = design.mut_strand_and_data().strands;
-        use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+        // Use "random" integer to determine new strands color
+        use std::time::{SystemTime, UNIX_EPOCH};
         let mut now_s = (SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -717,13 +707,13 @@ impl SimulationUpdate for Vec<CurveDescriptor> {
 #[derive(Default)]
 pub struct RevolutionSystemInterface {
     new_state: Option<RevolutionSurfaceSystem>,
-    curve_descriptor: OptionOnce<Vec<CurveDescriptor>>,
+    helices_routing: OptionOnce<HelicesRouting>,
     finished: bool,
 }
 
 impl RevolutionSystemInterface {
     pub fn kill(&mut self) {
-        self.curve_descriptor = OptionOnce::Taken;
+        self.helices_routing = OptionOnce::Taken;
     }
 
     pub fn finish(&mut self) {
@@ -764,37 +754,4 @@ impl<T> OptionOnce<T> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    const NB_SECTION_PER_SEGMENT: usize = 100;
-    use super::*;
-
-    #[test]
-    fn relax_hexagon() {
-        let surface_desc = RevolutionSurfaceDescriptor {
-            curve: CurveDescriptor2D::Ellipse {
-                semi_minor_axis: 1f64.into(),
-                semi_major_axis: 2f64.into(),
-            },
-            half_turns_count: 6,
-            revolution_radius: 20.,
-            junction_smoothening: 0.,
-            nb_helix_per_half_section: 7,
-            dna_paramters: DNAParameters::GEARY_2014_DNA,
-            shift_per_turn: -12,
-        };
-        let system_desc = RevolutionSurfaceSystemDescriptor {
-            simulation_parameters: Default::default(),
-            dna_parameters: DNAParameters::GEARY_2014_DNA,
-            target: surface_desc,
-            scaffold_len_target: 7560,
-        };
-        let mut system = RevolutionSurfaceSystem::new(system_desc);
-
-        let mut current_length = 0;
-        let mut first = true;
-        while current_length != system.scaffold_len_target {
-            current_length = system.one_radius_optimisation_step(&mut first, None);
-        }
-    }
-}
+// A test here was removed because revolution simulations can now be launched from the GUI

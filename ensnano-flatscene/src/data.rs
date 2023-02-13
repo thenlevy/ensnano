@@ -70,6 +70,18 @@ impl<R: DesignReader> Data<R> {
         }
     }
 
+    pub fn clear_design(&mut self) {
+        self.design.clear();
+        self.helices = HelixVec::new();
+        self.view.borrow_mut().reset();
+        self.instance_update = true;
+        self.instance_reset = false;
+        self.selected_helix = None;
+        self.nb_helices_created = 0;
+        self.suggestions = Default::default();
+        self.last_click = Default::default();
+    }
+
     pub fn perform_update<S: AppState<Reader = R>>(&mut self, new_state: &S, old_state: &S) {
         if self.instance_reset {
             self.view.borrow_mut().reset();
@@ -288,6 +300,14 @@ impl<R: DesignReader> Data<R> {
     }
 
     pub fn get_click(&self, x: f32, y: f32, camera: &CameraPtr) -> ClickResult {
+        self.get_click_(x, y, camera, true)
+    }
+
+    pub fn get_click_unbounded(&self, x: f32, y: f32, camera: &CameraPtr) -> ClickResult {
+        self.get_click_(x, y, camera, false)
+    }
+
+    fn get_click_(&self, x: f32, y: f32, camera: &CameraPtr, bounded: bool) -> ClickResult {
         for h in self.helices.iter() {
             if h.click_on_circle(x, y, camera) {
                 let translation_pivot = h.get_circle_pivot(camera).unwrap();
@@ -303,11 +323,13 @@ impl<R: DesignReader> Data<R> {
             }
         }
         for h in self.helices.iter() {
-            let ret = h.get_click(x, y).map(|(position, forward)| FlatNucl {
-                helix: h.flat_id,
-                flat_position: position,
-                forward,
-            });
+            let ret = h
+                .get_click(x, y, bounded)
+                .map(|(position, forward)| FlatNucl {
+                    helix: h.flat_id,
+                    flat_position: position,
+                    forward,
+                });
             if let Some(ret) = ret {
                 return ClickResult::Nucl(ret);
             }

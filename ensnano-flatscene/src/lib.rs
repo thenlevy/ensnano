@@ -121,10 +121,10 @@ impl<S: AppState> FlatScene<S> {
         let camera_bottom = Rc::new(RefCell::new(Camera::new(globals_bottom, true)));
         camera_top
             .borrow_mut()
-            .init_fit(FitRectangle::INITIAL_RECTANGLE);
+            .fit_top_left(FitRectangle::INITIAL_RECTANGLE);
         camera_bottom
             .borrow_mut()
-            .init_fit(FitRectangle::INITIAL_RECTANGLE);
+            .fit_top_left(FitRectangle::INITIAL_RECTANGLE);
         let view = Rc::new(RefCell::new(View::new(
             self.device.clone(),
             self.queue.clone(),
@@ -145,7 +145,7 @@ impl<S: AppState> FlatScene<S> {
             camera_bottom,
             self.splited,
         );
-        if self.view.len() > 0 {
+        if !self.view.is_empty() {
             self.view[0] = view;
             self.data[0] = data;
             self.controller[0] = controller;
@@ -235,7 +235,7 @@ impl<S: AppState> FlatScene<S> {
                             .map(|c| Selection::Nucleotide(0, c.to_real()))
                             .collect()
                     })
-                    .unwrap_or(Vec::new());
+                    .unwrap_or_default();
                 self.data[self.selected_design]
                     .borrow_mut()
                     .set_free_end(free_end);
@@ -297,7 +297,7 @@ impl<S: AppState> FlatScene<S> {
                 }) {
                     Some(selection)
                 } else {
-                    phantom.map(|p| Selection::Phantom(p))
+                    phantom.map(Selection::Phantom)
                 };
                 self.requests
                     .lock()
@@ -317,9 +317,11 @@ impl<S: AppState> FlatScene<S> {
                 let nucl2 = self.data[self.selected_design]
                     .borrow()
                     .get_best_suggestion(nucl)
-                    .or(self.data[self.selected_design]
-                        .borrow()
-                        .can_make_auto_xover(nucl));
+                    .or_else(|| {
+                        self.data[self.selected_design]
+                            .borrow()
+                            .can_make_auto_xover(nucl)
+                    });
                 if let Some(nucl2) = nucl2 {
                     self.attempt_xover(nucl, nucl2);
                     if double {
@@ -463,7 +465,7 @@ impl<S: AppState> FlatScene<S> {
                 }]),
             Consequence::PngExport(corner1, corner2) => {
                 let glob_png = Globals::from_selection_rectangle(corner1, corner2);
-                use chrono::{Timelike, Utc};
+                use chrono::Utc;
                 let now = Utc::now();
                 let name = now.format("export_2d_%Y_%m_%d_%H_%M_%S.png").to_string();
                 self.export_png(&name, glob_png);
@@ -680,7 +682,7 @@ impl<S: AppState> Application for FlatScene<S> {
                 }
             }
             Notification::CameraTarget(_) => (),
-            Notification::ClearDesigns => (),
+            Notification::ClearDesigns => self.data[0].borrow_mut().clear_design(),
             Notification::Centering(_, _) => (),
             Notification::CenterSelection(selection, app_id) => {
                 log::info!("2D view centering selection {:?}", selection);
@@ -702,7 +704,7 @@ impl<S: AppState> Application for FlatScene<S> {
             Notification::CameraRotation(_, _, _) => (),
             Notification::ModifersChanged(modifiers) => {
                 for c in self.controller.iter_mut() {
-                    c.update_modifiers(modifiers.clone())
+                    c.update_modifiers(modifiers)
                 }
             }
             Notification::Split2d => self.toggle_split_from_btn(),

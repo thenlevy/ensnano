@@ -68,6 +68,17 @@ impl<R: DesignReader> Design2d<R> {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.helices = HelixVec::new();
+        self.id_map = Default::default();
+        self.strands = Default::default();
+        self.pasted_strands = Default::default();
+        self.last_flip_other = Default::default();
+        self.removed = Default::default();
+        self.known_helices = Default::default();
+        self.known_map = std::ptr::null();
+    }
+
     /// Re-read the design and update the 2d data accordingly
     pub fn update(&mut self, design: R) {
         self.design = design;

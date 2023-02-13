@@ -234,9 +234,16 @@ impl Camera {
         ((coord_ndc.x + 1.) / 2., (coord_ndc.y + 1.) / 2.)
     }
 
-    pub fn fit(&mut self, mut rectangle: FitRectangle) {
+    /// Set the globals parameters to ensure that the whole rectangle is visible, taking into
+    /// account the "black stripes" that surround the 2D view.
+    ///
+    /// The camera's view will be centered on `rectangle`'s center.
+    pub fn fit_center(&mut self, mut rectangle: FitRectangle) {
         rectangle.finish();
         rectangle.adjust_height(1.1);
+
+        // Pick the largest zoom factor that makes it possible to see the whole width and the
+        // whole height of the rectangle.
         let zoom_x = self.globals.resolution[0] / rectangle.width().unwrap();
         let zoom_y = self.globals.resolution[1] / rectangle.height().unwrap();
         if zoom_x < zoom_y {
@@ -244,30 +251,36 @@ impl Camera {
         } else {
             self.globals.zoom = zoom_y;
         }
+
+        // Center the view of the camera on the center of the rectangle.
         let (center_x, center_y) = rectangle.center().unwrap();
         self.globals.scroll_offset[0] = center_x;
         self.globals.scroll_offset[1] = center_y;
+
         self.was_updated = true;
         self.end_movement();
     }
 
-    pub fn init_fit(&mut self, mut rectangle: FitRectangle) {
+    /// Set the globals parameters to ensure that the whole rectangle is visible.
+    ///
+    /// The camera's top left corner will match `rectangle`'s top left corner.
+    pub fn fit_top_left(&mut self, mut rectangle: FitRectangle) {
+        rectangle.finish();
+        rectangle.adjust_height(1.1);
         let zoom_x = self.globals.resolution[0] / rectangle.width().unwrap();
         let zoom_y = self.globals.resolution[1] / rectangle.height().unwrap();
+        let mut excess_height = 0.;
         if zoom_x < zoom_y {
             self.globals.zoom = zoom_x;
-            // adjust the height of the rectangle to force the top position
-            rectangle.max_y = Some(
-                rectangle.min_y.unwrap()
-                    + self.globals.resolution[1] * rectangle.width().unwrap()
-                        / self.globals.resolution[0],
-            );
+
+            let seen_height = self.globals.resolution[1] / zoom_x;
+            excess_height = seen_height - rectangle.height().unwrap_or(0.);
         } else {
             self.globals.zoom = zoom_y;
         }
         let (center_x, center_y) = rectangle.center().unwrap();
         self.globals.scroll_offset[0] = center_x;
-        self.globals.scroll_offset[1] = center_y;
+        self.globals.scroll_offset[1] = center_y + excess_height / 2.;
         self.was_updated = true;
         self.end_movement();
     }
@@ -349,10 +362,11 @@ pub struct FitRectangle {
 }
 
 impl FitRectangle {
+    /// The rectangle that the 2D camera look at when starting the software.
     pub const INITIAL_RECTANGLE: Self = Self {
         min_x: Some(-7.),
         max_x: Some(50.),
-        min_y: Some(-1.),
+        min_y: Some(-4.),
         max_y: Some(8.),
     };
 
@@ -360,6 +374,7 @@ impl FitRectangle {
         Default::default()
     }
 
+    /// Adjust the corners of self so that self contains `point`
     pub fn add_point(&mut self, point: ultraviolet::Vec2) {
         self.min_x = self.min_x.map(|x| x.min(point.x)).or(Some(point.x));
         self.max_x = self.max_x.map(|x| x.max(point.x)).or(Some(point.x));
@@ -367,6 +382,8 @@ impl FitRectangle {
         self.max_y = self.max_y.map(|y| y.max(point.y)).or(Some(point.y));
     }
 
+    /// If `self` does not contain a rectangle with width Self::min_width and height
+    /// `Self::min_height`, adjust the dimensions of `self` while preserving the center of mass
     pub fn finish(&mut self) {
         let width = self.width().unwrap_or(0.);
         let height = self.height().unwrap_or(0.);
@@ -384,6 +401,7 @@ impl FitRectangle {
         }
     }
 
+    /// Multiply the height of a rectangle by `factor` while preserving it's center of mass
     pub fn adjust_height(&mut self, factor: f32) {
         let height = self.height().unwrap_or(0.);
         let delta = (factor - 1.) / 2.;

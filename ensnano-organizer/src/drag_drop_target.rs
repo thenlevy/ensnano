@@ -1,4 +1,3 @@
-use super::OrganizerElement;
 use iced::{Container, Element};
 use iced_native::{
     event, layout, overlay, renderer::Style, Alignment, Clipboard, Event, Layout, Length, Point,

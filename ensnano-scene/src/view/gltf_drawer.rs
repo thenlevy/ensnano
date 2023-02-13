@@ -16,8 +16,9 @@ ENSnano, a 3d graphical application for DNA nanostructures.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 use super::wgpu;
-use ensnano_design::{External3DObject, External3DObjectId};
+use ensnano_design::{External3DObject, External3DObjectId, PointOnSurface};
 use ensnano_interactor::consts;
+use ensnano_interactor::UnrootedRevolutionSurfaceDescriptor;
 use ensnano_utils::{create_buffer_with_data, obj_loader::*, texture::Texture, TEXTURE_FORMAT};
 use std::ffi::OsStr;
 use std::path::PathBuf;
@@ -25,10 +26,16 @@ use std::rc::Rc;
 use std::{collections::BTreeMap, path::Path};
 use wgpu::{BindGroupLayoutDescriptor, Device};
 
+struct DesiredRevolutionShapeDrawer {
+    shape: UnrootedRevolutionSurfaceDescriptor,
+    drawer: GltfDrawer,
+}
+
 pub struct Object3DDrawer {
     gltf_drawers: BTreeMap<External3DObjectId, GltfDrawer>,
     stl_drawers: BTreeMap<External3DObjectId, StlDrawer>,
     device: Rc<Device>,
+    desired_revolution_shape_drawer: Option<DesiredRevolutionShapeDrawer>,
 }
 
 impl Object3DDrawer {
@@ -37,6 +44,7 @@ impl Object3DDrawer {
             gltf_drawers: Default::default(),
             stl_drawers: Default::default(),
             device,
+            desired_revolution_shape_drawer: None,
         }
     }
 }
@@ -59,6 +67,9 @@ impl Object3DDrawer {
         for d in self.stl_drawers.values_mut() {
             d.draw(render_pass, viewer_bind_group)
         }
+        if let Some(ref mut d) = self.desired_revolution_shape_drawer {
+            d.drawer.draw(render_pass, viewer_bind_group)
+        }
     }
 
     pub fn update_objects(
@@ -73,8 +84,9 @@ impl Object3DDrawer {
         }
     }
 
+    #[allow(dead_code)]
     fn update_object(&mut self, _id: External3DObjectId, _object: External3DObject) {
-        //TODO update object attributes
+        todo!("update object's attributes")
     }
 
     fn add_object(
@@ -95,6 +107,100 @@ impl Object3DDrawer {
             drawer.add_gltf(self.device.as_ref(), path);
             self.gltf_drawers.insert(id, drawer);
         }
+    }
+
+    pub fn update_desired_revolution_shape(
+        &mut self,
+        shape: Option<UnrootedRevolutionSurfaceDescriptor>,
+        device: &wgpu::Device,
+        view_bg_layout_desc: &wgpu::BindGroupLayoutDescriptor,
+    ) -> bool {
+        if self
+            .desired_revolution_shape_drawer
+            .as_ref()
+            .map(|d| &d.shape)
+            == shape.as_ref()
+        {
+            false
+        } else {
+            let new_drawer = shape.map(|shape| {
+                let mut drawer = GltfDrawer::new(device, view_bg_layout_desc);
+                let meshes = shape.meshes();
+                drawer.set_meshes(device, meshes);
+                DesiredRevolutionShapeDrawer { shape, drawer }
+            });
+            self.desired_revolution_shape_drawer = new_drawer;
+            true
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.gltf_drawers = Default::default();
+        self.stl_drawers = Default::default();
+        self.desired_revolution_shape_drawer = None;
+    }
+}
+
+trait MeshGenerator {
+    fn meshes(&self) -> Vec<GltfMesh>;
+}
+
+const NB_STRIP: usize = 100;
+const STRIP_WIDTH: f64 = 0.3;
+const NB_SECTION_PER_STRIP: usize = 1_000;
+
+impl MeshGenerator for UnrootedRevolutionSurfaceDescriptor {
+    fn meshes(&self) -> Vec<GltfMesh> {
+        use ensnano_design::utils::dvec_to_vec;
+        let frame = self.get_frame();
+
+        (0..NB_STRIP)
+            .map(|strip_idx| {
+                let s_high = strip_idx as f64 / NB_STRIP as f64;
+                let s_low = s_high + STRIP_WIDTH / NB_STRIP as f64;
+
+                let vertices: Vec<ModelVertex> = (0..=NB_SECTION_PER_STRIP)
+                    .flat_map(|section_idx| {
+                        [s_high, s_low].into_iter().map(move |s| {
+                            use std::f64::consts::TAU;
+                            let revolution_fract = section_idx as f64 / NB_SECTION_PER_STRIP as f64;
+
+                            let revolution_angle = TAU * revolution_fract;
+
+                            let surface_point = PointOnSurface {
+                                revolution_angle,
+                                section_parameter: s,
+                                revolution_axis_position: self.get_revolution_axis_position(),
+                                section_half_turn_per_revolution: self.half_turn_count,
+                                curve_scale_factor: 1.,
+                            };
+                            let position = frame.transform_vec(dvec_to_vec(
+                                self.curve.point_on_surface(&surface_point),
+                            ));
+
+                            let normal = frame.transform_vec(dvec_to_vec(
+                                self.curve.normal_of_surface(&surface_point),
+                            ));
+
+                            let vertex_color =
+                                ensnano_utils::hsv_color(revolution_angle.to_degrees(), 0.7, 0.7);
+                            let color =
+                                ensnano_utils::instance::Instance::color_from_u32(vertex_color);
+
+                            ModelVertex {
+                                position: position.into(),
+                                normal: normal.into(),
+                                color: color.into(),
+                            }
+                        })
+                    })
+                    .collect();
+                GltfMesh {
+                    vertices,
+                    indices: (0u32..(2 * NB_SECTION_PER_STRIP as u32)).collect(),
+                }
+            })
+            .collect()
     }
 }
 
@@ -139,25 +245,32 @@ impl GltfDrawer {
     pub fn add_gltf<P: AsRef<Path>>(&mut self, device: &wgpu::Device, path: P) {
         match load_gltf(path) {
             Ok(file) => {
-                for mesh in file.meshes {
-                    self.nb_idx.push(mesh.indices.len() as u32);
-                    self.vbos.push(create_buffer_with_data(
-                        device,
-                        bytemuck::cast_slice(mesh.vertices.as_slice()),
-                        wgpu::BufferUsages::VERTEX,
-                        "gltf vertex",
-                    ));
-                    self.ibos.push(create_buffer_with_data(
-                        device,
-                        bytemuck::cast_slice(mesh.indices.as_slice()),
-                        wgpu::BufferUsages::INDEX,
-                        "gltf index",
-                    ));
-                }
+                self.set_meshes(device, file.meshes);
             }
             Err(err) => {
                 log::error!("Could not read gltf file: {:?}", err);
             }
+        }
+    }
+
+    pub fn set_meshes(&mut self, device: &wgpu::Device, meshes: Vec<GltfMesh>) {
+        self.nb_idx.clear();
+        self.vbos.clear();
+        self.ibos.clear();
+        for mesh in meshes {
+            self.nb_idx.push(mesh.indices.len() as u32);
+            self.vbos.push(create_buffer_with_data(
+                device,
+                bytemuck::cast_slice(mesh.vertices.as_slice()),
+                wgpu::BufferUsages::VERTEX,
+                "gltf vertex",
+            ));
+            self.ibos.push(create_buffer_with_data(
+                device,
+                bytemuck::cast_slice(mesh.indices.as_slice()),
+                wgpu::BufferUsages::INDEX,
+                "gltf index",
+            ));
         }
     }
 }

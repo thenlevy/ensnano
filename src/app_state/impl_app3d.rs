@@ -84,7 +84,7 @@ impl App3D for AppState {
     }
 
     fn is_pasting(&self) -> bool {
-        self.is_pasting().is_pasting()
+        self.get_pasting_status().is_pasting()
     }
 
     fn get_selected_element(&self) -> Option<CenterOfSelection> {
@@ -168,12 +168,22 @@ impl App3D for AppState {
         )
     }
 
-    fn get_current_bezier_revolution(&self) -> &RevolutionOfBezierPath {
-        &self.0.current_revolution
+    fn revolution_bezier_updated(&self, other: &Self) -> bool {
+        self.0.unrooted_surface.descriptor != other.0.unrooted_surface.descriptor
     }
 
-    fn revolution_bezier_updated(&self, other: &Self) -> bool {
-        self.0.current_revolution != other.0.current_revolution
+    fn get_current_unrooted_surface(&self) -> Option<UnrootedRevolutionSurfaceDescriptor> {
+        self.0.unrooted_surface.descriptor.clone()
+    }
+
+    fn get_revolution_axis_position(&self) -> Option<f64> {
+        Some(
+            self.0
+                .unrooted_surface
+                .descriptor
+                .as_ref()?
+                .get_revolution_axis_position(),
+        )
     }
 }
 

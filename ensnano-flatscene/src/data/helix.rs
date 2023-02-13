@@ -318,7 +318,7 @@ impl Helix {
     }*/
 
     /// Return the nucleotide displayed at position (x, y) or None if (x, y) is outside the helix
-    pub fn get_click(&self, x: f32, y: f32) -> Option<(FlatPosition, bool)> {
+    pub fn get_click(&self, x: f32, y: f32, bounded: bool) -> Option<(FlatPosition, bool)> {
         let click = {
             let ret = Vec2::new(x, y);
             let iso = self.isometry.into_homogeneous_matrix().inversed();
@@ -326,8 +326,8 @@ impl Helix {
         };
         if click.y <= 0.
             || click.y >= 2.
-            || click.x < self.leftmost_x()
-            || click.y > self.rightmost_x()
+            || (bounded && click.x < self.leftmost_x())
+            || (bounded && click.x > self.rightmost_x())
         {
             None
         } else {
@@ -465,7 +465,6 @@ impl Helix {
     }
 
     fn char_position_bottom(&self, x: FlatPosition) -> Vec2 {
-        let pos_shift = self.flat_id.segment_left.unwrap_or(0) as f32;
         self.isometry.into_homogeneous_matrix().transform_point2(
             self.x_conversion(x.0 as f32 + 0.5) * Vec2::unit_x() + 2. * Vec2::unit_y(),
         )

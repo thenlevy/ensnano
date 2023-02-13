@@ -25,7 +25,7 @@ use std::collections::BTreeSet;
 
 pub const PHANTOM_RANGE: i32 = 1000;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Selection {
     Nucleotide(u32, Nucl),
     Bound(u32, Nucl, Nucl),
@@ -74,10 +74,7 @@ pub enum CenterOfSelection {
 
 impl Selection {
     pub fn is_strand(&self) -> bool {
-        match self {
-            Selection::Strand(_, _) => true,
-            _ => false,
-        }
+        matches!(self, Selection::Strand(_, _))
     }
 
     pub fn get_design(&self) -> Option<u32> {
@@ -290,6 +287,9 @@ pub fn list_of_xover_as_nucl_pairs(
                     return None;
                 }
             }
+            // When selecting objects in the 2D view, one often selects strand extremities as well.
+            // We do no want this to interfere with the copying of crossovers
+            Selection::Nucleotide(_, _) => (),
             _ => return None,
         }
     }
@@ -444,7 +444,7 @@ pub fn extract_nucls_from_selection(selection: &[Selection]) -> Vec<Nucl> {
     let mut ret = vec![];
     for s in selection.iter() {
         if let Selection::Nucleotide(_, nucl) = s {
-            ret.push(nucl.clone())
+            ret.push(*nucl)
         }
     }
     ret
@@ -535,14 +535,26 @@ impl std::fmt::Display for ActionMode {
 
 impl ActionMode {
     pub fn is_build(&self) -> bool {
-        match self {
-            Self::Build(_) => true,
-            Self::BuildHelix { .. } => true,
-            _ => false,
-        }
+        matches!(self, Self::Build(_) | Self::BuildHelix { .. })
     }
 }
 
+//
+// Encoding of phantom element identifier.
+// The identifier is an integer of the form helix_id * max_pos_id + pos_id;
+//
+// helix_id is the identifer of the helix and pos_id is of the form
+// position * nb_kind + element_kid
+// where element_kind is
+// 0 for forward nucl
+// 1 for backward nucl
+// 2 for forward bond
+// 3 for backward bond
+//
+// and position is a number between -PHANTOM_RANGE and PHANTOM_RANGE that is made positive by
+// adding PHANTOM_RANGE to it
+
+/// Generate the identifier of a phantom nucleotide
 pub fn phantom_helix_encoder_nucl(
     design_id: u32,
     helix_id: u32,
@@ -556,6 +568,7 @@ pub fn phantom_helix_encoder_nucl(
     (helix + pos_id) | (design_id << 24)
 }
 
+/// Generate the identifier of a phantom bound
 pub fn phantom_helix_encoder_bound(
     design_id: u32,
     helix_id: u32,
@@ -588,7 +601,7 @@ pub fn phantom_helix_decoder(id: u32) -> PhantomElement {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhantomElement {
     pub design_id: u32,
     pub helix_id: u32,

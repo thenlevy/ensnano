@@ -23,7 +23,7 @@ use crate::BasisMapper;
 
 use super::ultraviolet;
 use super::PathBuf;
-use crate::oxdna::OxDnaHelix;
+use crate::oxdna::{OxDnaHelix, OXDNA_LEN_FACTOR};
 use ahash::AHashMap;
 use ensnano_design::{Design, Domain, HelixCollection, Nucl};
 use std::borrow::Cow;
@@ -161,7 +161,7 @@ impl PdbNucleotide {
     }
 
     fn compute_a1(&self) -> Result<Vec3, PdbError> {
-        let pairs = if self.name.find(&['C', 'T', 'U']).is_some() {
+        let pairs = if self.name.find(['C', 'T', 'U']).is_some() {
             &[["N3", "C6"], ["C2", "N1"], ["C4", "C5"]]
         } else {
             &[["N1", "C4"], ["C2", "N3"], ["C6", "C5"]]
@@ -173,11 +173,11 @@ impl PdbNucleotide {
             let p = self
                 .base_atoms
                 .get(pair[0])
-                .ok_or(PdbError::MissingAtom(pair[0].to_string()))?;
+                .ok_or_else(|| PdbError::MissingAtom(pair[0].to_string()))?;
             let q = self
                 .base_atoms
                 .get(pair[1])
-                .ok_or(PdbError::MissingAtom(pair[1].to_string()))?;
+                .ok_or_else(|| PdbError::MissingAtom(pair[1].to_string()))?;
             ret += p.position - q.position;
         }
 
@@ -190,8 +190,8 @@ impl PdbNucleotide {
         let oxygen4 = self
             .sugar_atoms
             .get("O4'")
-            .or(self.sugar_atoms.get("O4*"))
-            .ok_or(PdbError::MissingAtom(String::from("O4'")))?;
+            .or_else(|| self.sugar_atoms.get("O4*"))
+            .ok_or_else(|| PdbError::MissingAtom(String::from("O4'")))?;
         let parralel_to = oxygen4.position - base_com;
 
         let mut ret = Vec3::zero();
@@ -199,15 +199,15 @@ impl PdbNucleotide {
         let get_base_atom = |name: &str| {
             self.base_atoms
                 .get(name)
-                .ok_or(PdbError::MissingAtom(name.to_string()))
+                .ok_or_else(|| PdbError::MissingAtom(name.to_string()))
         };
         let ring_atom_names = ["C2", "C4", "C5", "C6", "N1", "N3"];
 
         use itertools::Itertools;
         for perm in ring_atom_names.iter().permutations(3) {
-            let p = get_base_atom(&perm[0])?;
-            let q = get_base_atom(&perm[1])?;
-            let r = get_base_atom(&perm[2])?;
+            let p = get_base_atom(perm[0])?;
+            let q = get_base_atom(perm[1])?;
+            let r = get_base_atom(perm[2])?;
 
             let v1 = (p.position - q.position).normalized();
             let v2 = (p.position - r.position).normalized();
@@ -249,7 +249,7 @@ impl PdbNucleotide {
                     },
                     residue_type,
                 )
-                .map_err(|e| PdbError::Formating(e))?,
+                .map_err(PdbError::Formating)?,
             );
             *nb_atom += 1;
         }
@@ -271,7 +271,7 @@ impl PdbNucleotide {
         match residue_type {
             ResidueType::Prime5 => {
                 let phosphorus = get_phosphate_atom("P")?;
-                let oxygen_5prime = get_sugar_atom("O5'").or(get_sugar_atom("O5*"))?;
+                let oxygen_5prime = get_sugar_atom("O5'").or_else(|_| get_sugar_atom("O5*"))?;
 
                 let mut ret = phosphorus.clone();
                 ret.name = "HO5'".into();
@@ -281,7 +281,7 @@ impl PdbNucleotide {
                 Ok(Some(ret))
             }
             ResidueType::Prime3 => {
-                let oxygen_3prime = get_sugar_atom("O3'").or(get_sugar_atom("O3*"))?;
+                let oxygen_3prime = get_sugar_atom("O3'").or_else(|_| get_sugar_atom("O3*"))?;
 
                 let mut ret = oxygen_3prime.clone();
                 ret.name = "HO3'".into();
@@ -384,13 +384,13 @@ struct PdbAtom {
 const DNA_MIN_LINE_LENGTH: usize = 77;
 pub fn make_reference_nucleotides() -> Result<ReferenceNucleotides, PdbError> {
     let pdb_content = include_str!("../dd12_na.pdb");
-    read_pdb_string(&pdb_content, DNA_MIN_LINE_LENGTH)
+    read_pdb_string(pdb_content, DNA_MIN_LINE_LENGTH)
 }
 
 const RNA_MIN_LINE_LENGTH: usize = 66;
 pub fn make_reference_nucleotides_rna() -> Result<ReferenceNucleotides, PdbError> {
     let pdb_content = include_str!("../ds_rna_Helix.pdb");
-    read_pdb_string(&pdb_content, RNA_MIN_LINE_LENGTH)
+    read_pdb_string(pdb_content, RNA_MIN_LINE_LENGTH)
 }
 
 fn read_pdb_string(
@@ -471,7 +471,7 @@ impl PdbAtom {
         write!(&mut ret, "ATOM")?; // 1-4
         ret.push_str("  "); // 5-6
         write!(&mut ret, "{:>5}", self.serial_number)?; // 7-11
-        ret.push_str(" "); //12
+        ret.push(' '); //12
         if self.name.len() < 4 {
             // we assume that all atoms that we manipulate have a one letter symbol which is
             // conveniently the case for all atoms of nucleic acids
@@ -479,7 +479,7 @@ impl PdbAtom {
         } else {
             write!(&mut ret, "{:<4}", self.name)?; //13-16
         }
-        ret.push_str(" "); // 17
+        ret.push(' '); // 17
         write!(
             &mut ret,
             "{:>3}",
@@ -595,7 +595,7 @@ impl NucleicAcidKind {
 use std::path::Path;
 impl PdbFormatter {
     pub fn new<P: AsRef<Path>>(path: P, nu_kind: NucleicAcidKind) -> Result<Self, PdbError> {
-        let out_file = std::fs::File::create(path).map_err(|e| PdbError::IOError(e))?;
+        let out_file = std::fs::File::create(path).map_err(PdbError::IOError)?;
 
         let reference = match nu_kind {
             NucleicAcidKind::Dna => make_reference_nucleotides()?,
@@ -611,6 +611,7 @@ impl PdbFormatter {
     }
 
     /// Create a new strand. The returned value must be droped with `PdbStrand::write`.
+    #[allow(clippy::needless_lifetimes)]
     pub fn start_strand<'a>(&'a mut self, cyclic: bool) -> PdbStrand<'a> {
         PdbStrand {
             pdb_formater: ManuallyDrop::new(self),
@@ -632,7 +633,7 @@ impl PdbStrand<'_> {
             .reference
             .get_nucl(&base.to_string())
             .or_else(|| self.pdb_formater.reference.get_nucl("A"))
-            .ok_or(PdbError::MissingAtom("A".to_string()))?
+            .ok_or_else(|| PdbError::MissingAtom("A".to_string()))?
             .clone()
             .with_residue_idx(self.nucleotides.len() + 1)
             .translated_by(position)
@@ -646,7 +647,7 @@ impl PdbStrand<'_> {
 
         let mut pdb_formatter = ManuallyDrop::into_inner(self.pdb_formater);
 
-        let chain_id = ((pdb_formatter.current_strand_id % 26) as u8 + 'A' as u8) as char;
+        let chain_id = ((pdb_formatter.current_strand_id % 26) as u8 + b'A') as char;
 
         let nb_nucl = self.nucleotides.len();
         for (i, n) in self.nucleotides.into_iter().enumerate() {
@@ -670,7 +671,7 @@ impl PdbStrand<'_> {
         let to_write = nucls_strs.join("\n");
 
         use std::io::Write;
-        writeln!(&mut pdb_formatter.out_file, "{to_write}").map_err(|e| PdbError::IOError(e))?;
+        writeln!(&mut pdb_formatter.out_file, "{to_write}").map_err(PdbError::IOError)?;
 
         pdb_formatter.current_strand_id += 1;
         Ok(())
@@ -710,7 +711,11 @@ pub(super) fn pdb_export(
                     previous_position = Some(ox_nucl.position);
                     let symbol = basis_map.get_basis(&nucl, na_kind.compl_to_a());
                     let base = super::rand_base_from_symbol(symbol, na_kind.compl_to_a());
-                    pdb_strand.add_nucl(base, ox_nucl.position * 10., ox_nucl.get_basis())?;
+                    pdb_strand.add_nucl(
+                        base,
+                        ox_nucl.position * 10. / OXDNA_LEN_FACTOR,
+                        ox_nucl.get_basis(),
+                    )?;
                 }
             } else if let Domain::Insertion {
                 instanciation: Some(instanciation),

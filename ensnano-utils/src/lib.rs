@@ -75,14 +75,18 @@ impl BufferDimensions {
     }
 }
 
+pub fn hsv_color(hue: f64, saturation: f64, value: f64) -> u32 {
+    let hsv = color_space::Hsv::new(hue, saturation, value);
+    let rgb = color_space::Rgb::from(hsv);
+    (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
+}
+
 pub fn new_color(color_idx: &mut usize) -> u32 {
     let color = {
         let hue = (*color_idx as f64 * (1. + 5f64.sqrt()) / 2.).fract() * 360.;
         let saturation = (*color_idx as f64 * 7. * (1. + 5f64.sqrt() / 2.)).fract() * 0.25 + 0.75;
         let value = (*color_idx as f64 * 11. * (1. + 5f64.sqrt() / 2.)).fract() * 0.5 + 0.5;
-        let hsv = color_space::Hsv::new(hue, saturation, value);
-        let rgb = color_space::Rgb::from(hsv);
-        (0xFF << 24) | ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | (rgb.b as u32)
+        hsv_color(hue, saturation, value)
     };
     *color_idx += 1;
     color

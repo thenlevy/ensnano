@@ -373,4 +373,16 @@ pub(crate) fn poll_all<R: DerefMut<Target = Requests>>(
     if let Some(radius) = requests.new_bezier_revolution_radius.take() {
         main_state.set_bezier_revolution_radius(radius)
     }
+
+    if let Some(position) = requests.new_bezier_revolution_axis_position.take() {
+        main_state.set_revolution_axis_position(position)
+    }
+
+    if let Some(surface) = requests.new_unrooted_surface.take() {
+        main_state.set_unrooted_surface(surface);
+    }
+
+    if requests.switched_to_revolution_tab.take().is_some() {
+        main_state.create_default_bezier_plane();
+    }
 }

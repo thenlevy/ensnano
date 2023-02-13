@@ -86,7 +86,7 @@ use ensnano_design::{grid::GridId, Camera};
 use ensnano_exports::{ExportResult, ExportType};
 use ensnano_interactor::{
     application::{Application, Notification},
-    RevolutionSurfaceSystemDescriptor,
+    RevolutionSurfaceSystemDescriptor, UnrootedRevolutionSurfaceDescriptor,
 };
 use ensnano_interactor::{
     CenterOfSelection, CursorIcon, DesignOperation, DesignReader, RigidBodyConstants,
@@ -1332,7 +1332,7 @@ impl MainState {
 
     fn apply_paste(&mut self) {
         log::info!("apply paste");
-        match self.app_state.is_pasting() {
+        match self.app_state.get_pasting_status() {
             PastingStatus::Copy => self.apply_copy_operation(CopyOperation::Paste),
             PastingStatus::Duplication => self.apply_copy_operation(CopyOperation::Duplicate),
             _ => log::info!("Not pasting"),
@@ -1490,8 +1490,47 @@ impl MainState {
         self.modify_state(|s| s.set_bezier_revolution_id(id), None)
     }
 
-    fn set_bezier_revolution_radius(&mut self, radius: Option<f64>) {
+    fn set_bezier_revolution_radius(&mut self, radius: f64) {
         self.modify_state(|s| s.set_bezier_revolution_radius(radius), None)
+    }
+
+    fn set_revolution_axis_position(&mut self, position: f64) {
+        self.modify_state(|s| s.set_revolution_axis_position(position), None)
+    }
+
+    /// Create a bezier plane where the user is looking at if there are no bezier plane yet.
+    fn create_default_bezier_plane(&mut self) {
+        use ensnano_scene::DesignReader;
+        if self.app_state.get_design_reader().get_bezier_planes().len() == 0 {
+            if let Some((position, orientation)) = self.get_bezier_sheet_creation_position() {
+                self.apply_operation(DesignOperation::AddBezierPlane {
+                    desc: ensnano_design::BezierPlaneDescriptor {
+                        position,
+                        orientation,
+                    },
+                })
+            }
+        }
+    }
+
+    fn set_unrooted_surface(&mut self, surface: Option<UnrootedRevolutionSurfaceDescriptor>) {
+        self.modify_state(|s| s.set_unrooted_surface(surface), None)
+    }
+
+    fn get_grid_creation_position(&self) -> Option<(Vec3, Rotor3)> {
+        self.applications
+            .get(&ElementType::Scene)
+            .and_then(|s| s.lock().unwrap().get_position_for_new_grid())
+    }
+
+    fn get_bezier_sheet_creation_position(&self) -> Option<(Vec3, Rotor3)> {
+        self.get_grid_creation_position()
+            .map(|(position, orientation)| {
+                (
+                    position - 30. * Vec3::unit_x().rotated_by(orientation),
+                    orientation,
+                )
+            })
     }
 
     fn toggle_thick_helices(&mut self) {
@@ -1598,6 +1637,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn new_design(&mut self) {
+        self.notify_apps(Notification::ClearDesigns);
         self.main_state.new_design()
     }
 
@@ -1609,6 +1649,7 @@ impl<'a> MainStateInteface for MainStateView<'a> {
 
     fn load_design(&mut self, path: PathBuf) -> Result<(), LoadDesignError> {
         let state = AppState::import_design(path)?;
+        self.notify_apps(Notification::ClearDesigns);
         self.main_state.clear_app_state(state);
         if let Some((position, orientation)) = self
             .main_state
@@ -1709,10 +1750,11 @@ impl<'a> MainStateInteface for MainStateView<'a> {
     }
 
     fn get_grid_creation_position(&self) -> Option<(Vec3, Rotor3)> {
-        self.main_state
-            .applications
-            .get(&ElementType::Scene)
-            .and_then(|s| s.lock().unwrap().get_position_for_new_grid())
+        self.main_state.get_grid_creation_position()
+    }
+
+    fn get_bezier_sheet_creation_position(&self) -> Option<(Vec3, Rotor3)> {
+        self.main_state.get_bezier_sheet_creation_position()
     }
 
     fn finish_operation(&mut self) {

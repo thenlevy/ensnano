@@ -19,7 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 use crate::AppState;
 use ensnano_design::{BezierEndCoordinates, BezierVertexId};
-use ensnano_interactor::{RevolutionOfBezierPath, Selection};
+use ensnano_interactor::Selection;
 
 impl<R: DesignReader> Design3D<R> {
     pub fn get_bezier_elements(&self, h_id: usize) -> (Vec<RawDnaInstance>, Vec<RawDnaInstance>) {
@@ -102,7 +102,9 @@ impl<R: DesignReader> Design3D<R> {
     ) -> (Vec<Sheet2D>, Vec<RawDnaInstance>) {
         let mut sheets = Vec::new();
         let mut spheres = Vec::new();
-        let current_revolution = app_state.get_current_bezier_revolution();
+        let axis_position = app_state.get_revolution_axis_position();
+
+        let mut first = true;
         for (plane_id, desc) in self.design.get_bezier_planes().iter() {
             let corners = self.design.get_corners_of_plane(*plane_id);
             let sheet = get_sheet_instance(SheetDescriptor {
@@ -110,10 +112,11 @@ impl<R: DesignReader> Design3D<R> {
                 plane_descritor: desc,
                 plane_id: *plane_id,
                 parameters: self.design.get_parameters(),
-                current_revolution,
+                axis_position: axis_position.filter(|_| first),
             });
             spheres.extend_from_slice(corners_of_sheet(&sheet).as_slice());
             sheets.push(sheet);
+            first = false;
         }
         (sheets, spheres)
     }
@@ -198,7 +201,7 @@ struct SheetDescriptor<'a> {
     plane_id: BezierPlaneId,
     plane_descritor: &'a BezierPlaneDescriptor,
     parameters: Parameters,
-    current_revolution: &'a RevolutionOfBezierPath,
+    axis_position: Option<f64>,
 }
 
 fn get_sheet_instance(desc: SheetDescriptor<'_>) -> Sheet2D {
@@ -206,12 +209,8 @@ fn get_sheet_instance(desc: SheetDescriptor<'_>) -> Sheet2D {
     let grad_step = 48.0 * parameters.z_step;
     let delta_corners = grad_step / 5.;
     let corners = &desc.corners;
-    let rotation_radius = desc
-        .current_revolution
-        .radius
-        .map(|x| x as f32)
-        .filter(|_| desc.current_revolution.path.is_some());
-    Sheet2D {
+    let axis_position = desc.axis_position.map(|x| x as f32);
+    let mut ret = Sheet2D {
         plane_id: desc.plane_id,
         position: desc.plane_descritor.position,
         orientation: desc.plane_descritor.orientation,
@@ -222,8 +221,15 @@ fn get_sheet_instance(desc: SheetDescriptor<'_>) -> Sheet2D {
             * grad_step,
         max_y: ((3. * grad_step).max(corners[3].y + delta_corners) / grad_step).ceil() * grad_step,
         graduation_unit: 48.0 * parameters.z_step,
-        rotation_radius,
+        axis_position,
+    };
+
+    if let Some(axis_position) = axis_position {
+        ret.min_x = ret.min_x.min(axis_position - grad_step);
+        ret.max_x = ret.max_x.max(axis_position + grad_step);
     }
+
+    ret
 }
 
 /// Returns a sphere representing the corner of a bezier sheet

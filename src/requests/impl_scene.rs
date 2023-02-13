@@ -125,4 +125,8 @@ impl SceneRequests for Requests {
                 .push_back(Action::RotateGroupPivot(rotation))
         }
     }
+
+    fn set_revolution_axis_position(&mut self, position: f32) {
+        self.new_bezier_revolution_axis_position = Some(position as f64);
+    }
 }

@@ -19,6 +19,7 @@ ENSnano, a 3d graphical application for DNA nanostructures.
 use super::*;
 use crate::gui::AppState as GuiState;
 use ensnano_design::{elements::DnaElementKey, Parameters};
+use ensnano_gui::ClipboardContent;
 use ensnano_interactor::{ScaffoldInfo, SelectionConversion, SimulationState};
 
 mod curve_builders;
@@ -171,6 +172,51 @@ impl GuiState for AppState {
 
     fn is_transitory(&self) -> bool {
         !self.is_in_stable_state()
+    }
+
+    fn get_current_revoultion_radius(&self) -> Option<f64> {
+        self.0
+            .unrooted_surface
+            .descriptor
+            .as_ref()?
+            .revolution_radius
+            .to_signed_f64()
+    }
+
+    fn get_recommended_scaling_revolution_surface(
+        &self,
+        scaffold_len: usize,
+    ) -> Option<ensnano_gui::RevolutionScaling> {
+        let area_surface = self.0.unrooted_surface.area?;
+        let perimeter_surface = self
+            .0
+            .unrooted_surface
+            .descriptor
+            .as_ref()?
+            .curve
+            .perimeter();
+        let parameters = self.get_dna_parameters();
+        let area_one_nucl = parameters.z_step * Parameters::INTER_CENTER_GAP;
+        let scaling_factor = (scaffold_len as f64 * area_one_nucl as f64 / area_surface).sqrt();
+        let scaled_perimeter = scaling_factor * perimeter_surface;
+
+        // We use floor instead of round, because it works better to increase the revolution radius
+        // to gain more nucleotide rather than diminishing it.
+        let half_number_helix =
+            (scaled_perimeter / 2. / Parameters::INTER_CENTER_GAP as f64).floor() as usize;
+
+        Some(ensnano_gui::RevolutionScaling {
+            nb_helix: half_number_helix * 2,
+            scale: scaling_factor,
+        })
+    }
+
+    fn get_clipboard_content(&self) -> ClipboardContent {
+        self.0.design.get_clipboard_content()
+    }
+
+    fn get_pasting_status(&self) -> PastingStatus {
+        self.get_pasting_status()
     }
 }
 

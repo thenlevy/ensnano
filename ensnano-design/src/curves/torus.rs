@@ -20,7 +20,7 @@ use crate::{InstanciatedPiecewiseBezier, Parameters};
 
 use super::Curved;
 use std::sync::Arc;
-use ultraviolet::{DVec2, DVec3};
+use ultraviolet::{DVec2, DVec3, Isometry3, Rotor3};
 
 use ordered_float::OrderedFloat;
 use std::f64::consts::TAU;
@@ -321,8 +321,143 @@ impl CurveDescriptor2D {
         (self.point(right) - self.point(left)) / EPSILON_DERIVATIVE
     }
 
+    fn second_derivative(&self, t: f64) -> DVec2 {
+        //TODO better implementation for ellipse and bezier curve
+
+        let left = (t - EPSILON_DERIVATIVE).rem_euclid(1.);
+        let right = (t + EPSILON_DERIVATIVE).rem_euclid(1.);
+        (self.point(right) + self.point(left) - 2. * self.point(t)) / EPSILON_DERIVATIVE.powi(2)
+    }
+
     pub fn perimeter(&self) -> f64 {
         quadrature::integrate(|t| self.derivative(t).mag(), 0., 1., 1e-5).integral
+    }
+
+    pub(super) fn _3d(point2d: DVec2, surface: &PointOnSurface_) -> DVec3 {
+        // When the revolution angle is TAU, we want the section rotation to be half_turn * PI
+
+        // (x, y) := position in the revolution plane
+        // This position is shifted by `-revolution_axis_position` so that the plane can simply be
+        // rotated arround the x axis.
+        let x = -surface.revolution_axis_position
+            + surface.curve_scale_factor
+                * (point2d.x * surface.section_rotation.cos()
+                    - surface.section_rotation.sin() * point2d.y);
+        let y = surface.curve_scale_factor
+            * (point2d.x * surface.section_rotation.sin()
+                + surface.section_rotation.cos() * point2d.y);
+
+        // 3D position: obtained by making the revolution plane rotate in the xy 3D plane
+        DVec3 {
+            x: (surface.revolution_angle.cos() * x),
+            y: (surface.revolution_angle.sin() * x),
+            z: y,
+        }
+    }
+
+    pub fn get_frame_3d() -> Isometry3 {
+        let mut ret = Isometry3::identity();
+
+        // First inverse the transformation that is performed by the construction of the curve
+        ret.append_rotation(Rotor3::from_rotation_yz(-std::f32::consts::FRAC_PI_2));
+        ret
+    }
+
+    /// Return the coordinates of the point on the revolution surface obtained by revolving self
+    pub fn point_on_surface(&self, point: &PointOnSurface) -> DVec3 {
+        let point2d = self.point(point.section_parameter);
+        Self::_3d(point2d, &point.clone().into())
+    }
+
+    /// Return the normal of the revolution surface obtained by revolving self.
+    pub fn normal_of_surface(&self, point: &PointOnSurface) -> DVec3 {
+        let point2d = self.normalized_tangent(point.section_parameter);
+        Self::_3d(point2d, &point.clone().into())
+    }
+
+    /// Return the derivative of the position on surface with respect to the section paramter
+    pub fn derivative_position_on_surface_wrp_section_parameter(
+        &self,
+        point: &PointOnSurface,
+    ) -> DVec3 {
+        let point2d = self.derivative(point.section_parameter);
+        Self::_3d(point2d, &point.clone().into())
+    }
+
+    /// Return the derivative of the position on surface with respect to the section paramter
+    pub fn second_derivative_position_on_surface_wrp_section_parameter(
+        &self,
+        point: &PointOnSurface,
+    ) -> DVec3 {
+        let point2d = self.second_derivative(point.section_parameter);
+        Self::_3d(point2d, &point.clone().into())
+    }
+
+    pub fn max_x(&self) -> f64 {
+        match self {
+            Self::Ellipse {
+                semi_major_axis,
+                semi_minor_axis,
+            } => {
+                let a = f64::from(*semi_major_axis);
+                let b = f64::from(*semi_minor_axis);
+                a.abs().max(b.abs())
+            }
+            Self::TwoBalls { radius_extern, .. } => (*radius_extern).into(),
+            Self::Bezier(curve) => curve.max_x(),
+            Self::Parrabola { .. } => 0.,
+        }
+    }
+
+    pub fn min_x(&self) -> f64 {
+        match self {
+            Self::Ellipse {
+                semi_minor_axis,
+                semi_major_axis,
+            } => {
+                let a = f64::from(*semi_major_axis);
+                let b = f64::from(*semi_minor_axis);
+                -a.abs().max(b.abs())
+            }
+            Self::TwoBalls { .. } => 0.,
+            Self::Bezier(curve) => curve.min_x(),
+            Self::Parrabola { .. } => 0.,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+/// The geometric parameters needed to convert a 2D point to a point on a revolution surface.
+pub struct PointOnSurface {
+    /// Parameter along the surface of the curve, in [0, 1]
+    pub section_parameter: f64,
+    /// Angle of revomultion in [0, 2pi]
+    pub revolution_angle: f64,
+    pub revolution_axis_position: f64,
+    pub section_half_turn_per_revolution: isize,
+    pub curve_scale_factor: f64,
+}
+
+#[derive(Debug, Clone)]
+/// The geometric parameters needed internally to convert a 2D point to a point on a revolution surface.
+///
+/// They can be deduced from a `PointOnSurface`
+pub(super) struct PointOnSurface_ {
+    pub revolution_angle: f64,
+    pub revolution_axis_position: f64,
+    pub section_rotation: f64,
+    pub curve_scale_factor: f64,
+}
+
+impl From<PointOnSurface> for PointOnSurface_ {
+    fn from(p: PointOnSurface) -> Self {
+        let section_rotation = p.section_half_turn_per_revolution as f64 * p.revolution_angle / 2.;
+        Self {
+            section_rotation,
+            revolution_angle: p.revolution_angle,
+            revolution_axis_position: p.revolution_axis_position,
+            curve_scale_factor: p.curve_scale_factor,
+        }
     }
 }
 

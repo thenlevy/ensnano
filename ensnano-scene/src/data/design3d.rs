@@ -65,18 +65,6 @@ impl<R: DesignReader> Design3D<R> {
         }
     }
 
-    /*
-    /// Convert a list of ids into a list of instances
-    pub fn id_to_instances(&self, ids: Vec<u32>) -> Vec<Instance> {
-        let mut ret = Vec::new();
-        for id in ids.iter() {
-            if let Some(instance) = self.make_instance(*id) {
-                ret.push(instance)
-            }
-        }
-        ret
-    }*/
-
     /// Convert a list of ids into a list of instances
     pub fn id_to_raw_instances(&self, ids: Vec<u32>) -> Vec<RawDnaInstance> {
         let mut ret = Vec::new();
@@ -87,14 +75,6 @@ impl<R: DesignReader> Design3D<R> {
         }
         ret
     }
-
-    /*
-    /// Return the list of sphere instances to be displayed to represent the design
-    pub fn get_spheres(&self) -> Rc<Vec<Instance>> {
-        let ids = self.design.lock().unwrap().get_all_nucl_ids();
-        Rc::new(self.id_to_instances(ids))
-    }
-    */
 
     /// Return the list of raw sphere instances to be displayed to represent the design
     pub fn get_spheres_raw(&self, show_insertion_representents: bool) -> Rc<Vec<RawDnaInstance>> {
@@ -114,10 +94,11 @@ impl<R: DesignReader> Design3D<R> {
             }
         }
         if let Some(additional_structure) = self.design.get_additional_structure() {
+            let transformation = additional_structure.frame();
             for p in additional_structure.position() {
                 ret.push(
                     SphereInstance {
-                        position: p,
+                        position: transformation.transform_vec(p),
                         color: Instance::color_from_u32(SURFACE_PIVOT_SPHERE_COLOR),
                         id: u32::MAX,
                         radius: 1.,
@@ -129,7 +110,7 @@ impl<R: DesignReader> Design3D<R> {
                 for p in path {
                     ret.push(
                         SphereInstance {
-                            position: p,
+                            position: transformation.transform_vec(p),
                             color: Instance::color_from_u32(PIVOT_SPHERE_COLOR),
                             id: u32::MAX,
                             radius: 1.,
@@ -215,14 +196,6 @@ impl<R: DesignReader> Design3D<R> {
         vecs
     }
 
-    /*
-    /// Return the list of tube instances to be displayed to represent the design
-    pub fn get_tubes(&self) -> Rc<Vec<Instance>> {
-        let ids = self.design.get_all_bound_ids();
-        Rc::new(self.id_to_instances(ids))
-    }
-    */
-
     pub fn get_cones_raw(&self, show_insertion_representents: bool) -> Vec<RawDnaInstance> {
         let mut ids = self.design.get_all_visible_bound_ids();
         if !show_insertion_representents {
@@ -265,18 +238,19 @@ impl<R: DesignReader> Design3D<R> {
         }
 
         if let Some(additional_structure) = self.design.get_additional_structure() {
+            let transformation = additional_structure.frame();
             let positions = additional_structure.position();
             for (me, next) in additional_structure.right().into_iter() {
-                let pos_left = positions[me];
-                let pos_right = positions[next];
+                let pos_left = transformation.transform_vec(positions[me]);
+                let pos_right = transformation.transform_vec(positions[next]);
                 ret.push(
                     create_dna_bound(pos_left, pos_right, REGULAR_H_BOND_COLOR, u32::MAX, false)
                         .to_raw_instance(),
                 )
             }
             for (me, other) in additional_structure.next().into_iter() {
-                let pos_left = positions[me];
-                let pos_right = positions[other];
+                let pos_left = transformation.transform_vec(positions[me]);
+                let pos_right = transformation.transform_vec(positions[other]);
                 ret.push(
                     create_dna_bound(pos_left, pos_right, COLOR_GUANINE, u32::MAX, false)
                         .to_raw_instance(),

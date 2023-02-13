@@ -499,13 +499,21 @@ impl GuiRequests for Requests {
         self.new_bezier_revolution_id = Some(id);
     }
 
-    fn set_bezier_revolution_radius(&mut self, radius: Option<f64>) {
+    fn set_bezier_revolution_radius(&mut self, radius: f64) {
         self.new_bezier_revolution_radius = Some(radius);
     }
 
     fn request_screenshot_3d(&mut self) {
         self.keep_proceed
             .push_back(Action::NotifyApps(Notification::ScreenShot3D))
+    }
+
+    fn set_unrooted_surface(&mut self, surface: Option<UnrootedRevolutionSurfaceDescriptor>) {
+        self.new_unrooted_surface = Some(surface);
+    }
+
+    fn notify_revolution_tab(&mut self) {
+        self.switched_to_revolution_tab = Some(());
     }
 }
 

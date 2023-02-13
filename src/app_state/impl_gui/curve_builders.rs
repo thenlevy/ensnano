@@ -20,6 +20,7 @@ use ensnano_design::{BezierPathId, CurveDescriptor2D};
 use ensnano_gui::{
     CurveDescriptorBuilder, CurveDescriptorParameter, InstanciatedParameter, ParameterKind,
 };
+use ultraviolet::{Rotor3, Vec3};
 
 pub(super) const ELLIPSE_BUILDER: CurveDescriptorBuilder<super::AppState> =
     CurveDescriptorBuilder {
@@ -29,16 +30,17 @@ pub(super) const ELLIPSE_BUILDER: CurveDescriptorBuilder<super::AppState> =
             CurveDescriptorParameter {
                 name: "Semi major axis",
                 kind: ParameterKind::Float,
-                default_value: ensnano_gui::InstanciatedParameter::Float(2.0),
+                default_value: ensnano_gui::InstanciatedParameter::Float(20.0),
             },
             CurveDescriptorParameter {
                 name: "Semi minor axis",
                 kind: ParameterKind::Float,
-                default_value: ensnano_gui::InstanciatedParameter::Float(1.0),
+                default_value: ensnano_gui::InstanciatedParameter::Float(10.0),
             },
         ],
         build: &build_ellipse,
         bezier_path_id: &no_bezier_path_id,
+        frame: &default_frame,
     };
 
 fn build_ellipse(
@@ -67,17 +69,17 @@ pub(super) const TWO_SPHERES_BUILDER: CurveDescriptorBuilder<super::AppState> =
             CurveDescriptorParameter {
                 name: "Radius extern",
                 kind: ParameterKind::Float,
-                default_value: ensnano_gui::InstanciatedParameter::Float(2.5),
+                default_value: ensnano_gui::InstanciatedParameter::Float(25.),
             },
             CurveDescriptorParameter {
                 name: "Radius intern",
                 kind: ParameterKind::Float,
-                default_value: ensnano_gui::InstanciatedParameter::Float(1.7),
+                default_value: ensnano_gui::InstanciatedParameter::Float(17.),
             },
             CurveDescriptorParameter {
                 name: "Radius tube",
                 kind: ParameterKind::Float,
-                default_value: ensnano_gui::InstanciatedParameter::Float(0.76),
+                default_value: ensnano_gui::InstanciatedParameter::Float(7.6),
             },
             CurveDescriptorParameter {
                 name: "Smooth ceil",
@@ -87,6 +89,7 @@ pub(super) const TWO_SPHERES_BUILDER: CurveDescriptorBuilder<super::AppState> =
         ],
         build: &build_two_spheres,
         bezier_path_id: &no_bezier_path_id,
+        frame: &default_frame,
     };
 
 fn build_two_spheres(
@@ -133,6 +136,7 @@ pub(super) const BEZIER_CURVE_BUILDER: CurveDescriptorBuilder<super::AppState> =
         }],
         build: &build_bezier,
         bezier_path_id: &get_bezier_path_id,
+        frame: &get_bezier_frame,
     };
 
 fn build_bezier(
@@ -160,4 +164,24 @@ fn get_bezier_path_id(parameters: &[InstanciatedParameter]) -> Option<usize> {
         .get(0)
         .cloned()
         .and_then(InstanciatedParameter::get_uint)
+}
+
+fn get_bezier_frame(
+    parameters: &[InstanciatedParameter],
+    app: &super::AppState,
+) -> Option<(Vec3, Rotor3)> {
+    let path_id = get_bezier_path_id(parameters)?;
+    app.0
+        .design
+        .get_design_reader()
+        .get_first_bezier_plane(BezierPathId(path_id as u32))
+        .map(|plane| (plane.position, plane.orientation))
+}
+
+fn default_frame(_: &[InstanciatedParameter], app: &super::AppState) -> Option<(Vec3, Rotor3)> {
+    app.0
+        .design
+        .get_design_reader()
+        .get_default_bezier()
+        .map(|plane| (plane.position, plane.orientation))
 }
