@@ -236,12 +236,14 @@ impl SpringTopology for CloseSurfaceTopology {
                 segment_thetas.push(next_value);
                 //println!("thetas {:.2?}", segment_thetas);
                 let s = (0..=self.nb_section_per_segment)
-                    .map(|x| x as f64 / self.nb_section_per_segment as f64)
-                    .collect();
-                interpolations.push(InterpolationDescriptor::PointsValues {
-                    points: s,
-                    values: segment_thetas,
-                });
+                    .map(|x| x as f64 / self.nb_section_per_segment as f64);
+                let pv: Vec<_> = s.zip(segment_thetas.into_iter()).collect();
+                let polynomials = chebyshev_polynomials::interpolate_points(pv, 1e-4);
+                let interval = polynomials.definition_interval();
+                interpolations.push(InterpolationDescriptor::Chebyshev {
+                    coeffs: polynomials.coeffs,
+                    interval,
+                })
             }
             let rem = self.target_scaffold_length % self.target.nb_spirals();
 
