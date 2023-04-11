@@ -53,8 +53,8 @@ iced_native = "0.5.1"
 chebyshev_polynomials = { git = "https://github.com/thenlevy/chebyshev_polynomials" }
 
 
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
-jemallocator = "0.3.2"
+# [target.'cfg(not(target_env = "msvc"))'.dependencies]
+# jemallocator = "0.3.2"
 
 [features]
 log_after_renderer_setup = []

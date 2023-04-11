@@ -111,12 +111,12 @@ use winit::{
 #[macro_use]
 extern crate pretty_env_logger;
 
-#[cfg(not(target_env = "msvc"))]
-use jemallocator::Jemalloc;
+//#[cfg(not(target_env = "msvc"))]
+//use jemallocator::Jemalloc;
 
-#[cfg(not(target_env = "msvc"))]
-#[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
+// #[cfg(not(target_env = "msvc"))]
+// #[global_allocator]
+// static GLOBAL: Jemalloc = Jemalloc;
 
 /// Design handling
 //mod design;
