@@ -1,6 +1,8 @@
 ![ensnano-logo](img/ensnano_logo.png)
 <img src="img/made_with_iced_white.svg" width="300">
 
+**This is an archived repository. ENSnano's new repository can be found at https://github.com/ensnano/ensnano**
+
 # About
 
 ENSnano is a software for designing DNA nanostructures. 
